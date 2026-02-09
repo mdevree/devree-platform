@@ -10,7 +10,7 @@
     "db:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "npx prisma studio",
-    "postinstall": "npx prisma generate"
+    "postinstall": "prisma generate || true"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
