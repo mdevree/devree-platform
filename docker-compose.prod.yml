@@ -1,0 +1,17 @@
+# Productie configuratie voor Portainer
+# Gebruikt image van GHCR in plaats van lokale build
+services:
+  devree-platform:
+    image: ghcr.io/mdevree/devree-platform:latest
+    container_name: devree-platform
+    ports:
+      - "3100:3000"
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - devree-network
+
+networks:
+  devree-network:
+    driver: bridge

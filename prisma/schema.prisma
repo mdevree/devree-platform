@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  password      String
+  role          String   @default("makelaar") // manager, makelaar, binnendienst
+  active        Boolean  @default(true)
+  assignedTasks Task[]   @relation("assignee")
+  createdTasks  Task[]   @relation("creator")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Call {
+  id                String   @id @default(cuid())
+  callId            String   @unique
+  timestamp         DateTime
+  status            String   // ringing, in-progress, ended
+  reason            String?  // completed, no-answer, busy, cancelled
+  direction         String   // inbound, outbound
+  callerNumber      String
+  callerName        String?
+  destinationNumber String
+  destinationUser   String?
+  mauticContactId   Int?
+  contactName       String?
+  points            Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([timestamp])
+  @@index([callerNumber])
+  @@index([mauticContactId])
+  @@map("calls")
+}
+
+model Task {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?   @db.Text
+  status       String    @default("open") // open, bezig, afgerond
+  priority     String    @default("normaal") // laag, normaal, hoog, urgent
+  dueDate      DateTime?
+  category     String?   // binnendienst, verkoop, aankoop, taxatie, administratie
+  assignee     User      @relation("assignee", fields: [assigneeId], references: [id])
+  assigneeId   String
+  creator      User      @relation("creator", fields: [creatorId], references: [id])
+  creatorId    String
+  notionPageId String?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("tasks")
+}
