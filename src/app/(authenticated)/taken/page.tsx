@@ -11,6 +11,8 @@ import {
   XMarkIcon,
   CalendarIcon,
   FolderIcon,
+  PencilSquareIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import ProjectSelector from "@/components/projects/ProjectSelector";
 
@@ -43,6 +45,16 @@ interface Task {
 
 type ViewMode = "tabel" | "kanban";
 
+const EMPTY_TASK_FORM = {
+  title: "",
+  description: "",
+  priority: "normaal",
+  category: "",
+  dueDate: "",
+  assigneeId: "",
+  projectId: "",
+};
+
 export default function TakenPage() {
   const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -55,16 +67,15 @@ export default function TakenPage() {
 
   // Nieuw taak modal
   const [showNewTask, setShowNewTask] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: "",
-    description: "",
-    priority: "normaal",
-    category: "",
-    dueDate: "",
-    assigneeId: "",
-    projectId: "",
-  });
+  const [newTask, setNewTask] = useState({ ...EMPTY_TASK_FORM });
   const [saving, setSaving] = useState(false);
+
+  // Bewerk modal
+  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [editForm, setEditForm] = useState({ ...EMPTY_TASK_FORM });
+  const [editSaving, setEditSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -101,7 +112,6 @@ export default function TakenPage() {
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-
     try {
       const payload = {
         ...newTask,
@@ -112,24 +122,77 @@ export default function TakenPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       if (response.ok) {
         setShowNewTask(false);
-        setNewTask({
-          title: "",
-          description: "",
-          priority: "normaal",
-          category: "",
-          dueDate: "",
-          assigneeId: "",
-          projectId: "",
-        });
+        setNewTask({ ...EMPTY_TASK_FORM });
         fetchTasks();
       }
     } catch {
       console.error("Fout bij aanmaken taak");
     }
     setSaving(false);
+  }
+
+  function openEditModal(task: Task) {
+    setEditTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description || "",
+      priority: task.priority,
+      category: task.category || "",
+      dueDate: task.dueDate ? task.dueDate.substring(0, 10) : "",
+      assigneeId: task.assignee.id,
+      projectId: task.project?.id || "",
+    });
+    setShowDeleteConfirm(false);
+  }
+
+  async function handleUpdateTask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTask) return;
+    setEditSaving(true);
+    try {
+      const response = await fetch("/api/taken", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editTask.id,
+          title: editForm.title,
+          description: editForm.description || null,
+          priority: editForm.priority,
+          category: editForm.category || null,
+          dueDate: editForm.dueDate || null,
+          assigneeId: editForm.assigneeId,
+          projectId: editForm.projectId || null,
+        }),
+      });
+      if (response.ok) {
+        setEditTask(null);
+        fetchTasks();
+      }
+    } catch {
+      console.error("Fout bij bijwerken taak");
+    }
+    setEditSaving(false);
+  }
+
+  async function handleDeleteTask() {
+    if (!editTask) return;
+    setDeleting(true);
+    try {
+      const response = await fetch("/api/taken", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editTask.id }),
+      });
+      if (response.ok) {
+        setEditTask(null);
+        fetchTasks();
+      }
+    } catch {
+      console.error("Fout bij verwijderen taak");
+    }
+    setDeleting(false);
   }
 
   async function updateTaskStatus(taskId: string, newStatus: string) {
@@ -179,15 +242,147 @@ export default function TakenPage() {
     return new Date(dateStr) < new Date();
   }
 
+  // Gedeeld formulier voor zowel nieuw als bewerk modal
+  function TaskForm({
+    values,
+    onChange,
+    onSubmit,
+    saving: isSaving,
+    onCancel,
+    submitLabel,
+    extraActions,
+  }: {
+    values: typeof EMPTY_TASK_FORM;
+    onChange: (v: typeof EMPTY_TASK_FORM) => void;
+    onSubmit: (e: React.FormEvent) => void;
+    saving: boolean;
+    onCancel: () => void;
+    submitLabel: string;
+    extraActions?: React.ReactNode;
+  }) {
+    return (
+      <form onSubmit={onSubmit}>
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium text-gray-700">Titel *</label>
+          <input
+            type="text"
+            required
+            value={values.title}
+            onChange={(e) => onChange({ ...values, title: e.target.value })}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            placeholder="Wat moet er gedaan worden?"
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium text-gray-700">Omschrijving</label>
+          <textarea
+            value={values.description}
+            onChange={(e) => onChange({ ...values, description: e.target.value })}
+            rows={3}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            placeholder="Extra details..."
+          />
+        </div>
+
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Toewijzen aan *</label>
+            <select
+              required
+              value={values.assigneeId}
+              onChange={(e) => onChange({ ...values, assigneeId: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            >
+              <option value="">Selecteer...</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.role})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Prioriteit</label>
+            <select
+              value={values.priority}
+              onChange={(e) => onChange({ ...values, priority: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            >
+              <option value="laag">Laag</option>
+              <option value="normaal">Normaal</option>
+              <option value="hoog">Hoog</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Categorie</label>
+            <select
+              value={values.category}
+              onChange={(e) => onChange({ ...values, category: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            >
+              <option value="">Geen</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Deadline</label>
+            <input
+              type="date"
+              value={values.dueDate}
+              onChange={(e) => onChange({ ...values, dueDate: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium text-gray-700">Project</label>
+          <ProjectSelector
+            value={values.projectId}
+            onChange={(val) => onChange({ ...values, projectId: val })}
+            className="w-full"
+          />
+        </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <div>{extraActions}</div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Annuleren
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+            >
+              {isSaving ? "Opslaan..." : submitLabel}
+            </button>
+          </div>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <div>
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Taken</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Beheer taken en opdrachten
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Beheer taken en opdrachten</p>
         </div>
         <div className="flex items-center gap-3">
           {/* View toggle */}
@@ -195,9 +390,7 @@ export default function TakenPage() {
             <button
               onClick={() => setViewMode("kanban")}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === "kanban"
-                  ? "bg-primary text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                viewMode === "kanban" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               Kanban
@@ -205,9 +398,7 @@ export default function TakenPage() {
             <button
               onClick={() => setViewMode("tabel")}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === "tabel"
-                  ? "bg-primary text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                viewMode === "tabel" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               Tabel
@@ -216,10 +407,7 @@ export default function TakenPage() {
 
           <button
             onClick={() => {
-              setNewTask((t) => ({
-                ...t,
-                assigneeId: session?.user?.id || "",
-              }));
+              setNewTask({ ...EMPTY_TASK_FORM, assigneeId: session?.user?.id || "" });
               setShowNewTask(true);
             }}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
@@ -240,9 +428,7 @@ export default function TakenPage() {
         >
           <option value="">Alle personen</option>
           {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name}
-            </option>
+            <option key={user.id} value={user.id}>{user.name}</option>
           ))}
         </select>
 
@@ -253,9 +439,7 @@ export default function TakenPage() {
         >
           <option value="">Alle categorieën</option>
           {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-            </option>
+            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
           ))}
         </select>
 
@@ -275,9 +459,7 @@ export default function TakenPage() {
               <div key={group.key} className="rounded-xl bg-gray-100 p-4">
                 <div className="mb-3 flex items-center gap-2">
                   <group.icon className={`h-5 w-5 ${group.color}`} />
-                  <h3 className="text-sm font-semibold text-gray-700">
-                    {group.label}
-                  </h3>
+                  <h3 className="text-sm font-semibold text-gray-700">{group.label}</h3>
                   <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
                     {groupTasks.length}
                   </span>
@@ -285,30 +467,33 @@ export default function TakenPage() {
 
                 <div className="space-y-2">
                   {loading ? (
-                    <div className="py-4 text-center text-sm text-gray-400">
-                      Laden...
-                    </div>
+                    <div className="py-4 text-center text-sm text-gray-400">Laden...</div>
                   ) : groupTasks.length === 0 ? (
-                    <div className="py-4 text-center text-sm text-gray-400">
-                      Geen taken
-                    </div>
+                    <div className="py-4 text-center text-sm text-gray-400">Geen taken</div>
                   ) : (
                     groupTasks.map((task) => (
                       <div
                         key={task.id}
-                        className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
+                        className="group rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
                       >
                         <div className="mb-2 flex items-start justify-between">
-                          <h4 className="text-sm font-medium text-gray-900">
-                            {task.title}
-                          </h4>
-                          <span
-                            className={`ml-2 inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
-                              priorityColors[task.priority] || priorityColors.normaal
-                            }`}
-                          >
-                            {task.priority}
-                          </span>
+                          <h4 className="text-sm font-medium text-gray-900">{task.title}</h4>
+                          <div className="ml-2 flex shrink-0 items-center gap-1">
+                            <span
+                              className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+                                priorityColors[task.priority] || priorityColors.normaal
+                              }`}
+                            >
+                              {task.priority}
+                            </span>
+                            <button
+                              onClick={() => openEditModal(task)}
+                              className="rounded p-0.5 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
+                              title="Taak bewerken"
+                            >
+                              <PencilSquareIcon className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {task.description && (
@@ -317,7 +502,6 @@ export default function TakenPage() {
                           </p>
                         )}
 
-                        {/* Project chip */}
                         {task.project && (
                           <a
                             href={`/projecten/${task.project.id}`}
@@ -339,7 +523,6 @@ export default function TakenPage() {
                               </span>
                             )}
                           </div>
-
                           {task.dueDate && (
                             <span
                               className={`inline-flex items-center gap-1 text-[10px] ${
@@ -397,36 +580,20 @@ export default function TakenPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Taak
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Project
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Toegewezen
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Prioriteit
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Deadline
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Status
-                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Taak</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Project</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Toegewezen</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Prioriteit</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Deadline</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                <th className="px-4 py-3 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {tasks.map((task) => (
-                <tr
-                  key={task.id}
-                  className="transition-colors hover:bg-gray-50"
-                >
+                <tr key={task.id} className="transition-colors hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <div className="text-sm font-medium text-gray-900">
-                      {task.title}
-                    </div>
+                    <div className="text-sm font-medium text-gray-900">{task.title}</div>
                     {task.category && (
                       <span className="mt-0.5 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
                         {task.category}
@@ -446,27 +613,19 @@ export default function TakenPage() {
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {task.assignee.name}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{task.assignee.name}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
-                        priorityColors[task.priority]
-                      }`}
-                    >
+                    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${priorityColors[task.priority]}`}>
                       {task.priority}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm">
                     {task.dueDate ? (
-                      <span
-                        className={
-                          isOverdue(task.dueDate) && task.status !== "afgerond"
-                            ? "font-medium text-red-600"
-                            : "text-gray-600"
-                        }
-                      >
+                      <span className={
+                        isOverdue(task.dueDate) && task.status !== "afgerond"
+                          ? "font-medium text-red-600"
+                          : "text-gray-600"
+                      }>
                         {formatDate(task.dueDate)}
                       </span>
                     ) : (
@@ -476,15 +635,22 @@ export default function TakenPage() {
                   <td className="px-4 py-3">
                     <select
                       value={task.status}
-                      onChange={(e) =>
-                        updateTaskStatus(task.id, e.target.value)
-                      }
+                      onChange={(e) => updateTaskStatus(task.id, e.target.value)}
                       className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-primary focus:outline-none"
                     >
                       <option value="open">Open</option>
                       <option value="bezig">Bezig</option>
                       <option value="afgerond">Afgerond</option>
                     </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => openEditModal(task)}
+                      className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                      title="Taak bewerken"
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -498,9 +664,7 @@ export default function TakenPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Nieuwe taak
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900">Nieuwe taak</h2>
               <button
                 onClick={() => setShowNewTask(false)}
                 className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
@@ -508,144 +672,96 @@ export default function TakenPage() {
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
+            <TaskForm
+              values={newTask}
+              onChange={setNewTask}
+              onSubmit={handleCreateTask}
+              saving={saving}
+              onCancel={() => setShowNewTask(false)}
+              submitLabel="Taak aanmaken"
+            />
+          </div>
+        </div>
+      )}
 
-            <form onSubmit={handleCreateTask}>
-              <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Titel *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newTask.title}
-                  onChange={(e) =>
-                    setNewTask((t) => ({ ...t, title: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  placeholder="Wat moet er gedaan worden?"
-                />
-              </div>
+      {/* Bewerk modal */}
+      {editTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Taak bewerken</h2>
+              <button
+                onClick={() => setEditTask(null)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
 
-              <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Omschrijving
-                </label>
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) =>
-                    setNewTask((t) => ({ ...t, description: e.target.value }))
-                  }
-                  rows={3}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  placeholder="Extra details..."
-                />
-              </div>
-
-              <div className="mb-3 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Toewijzen aan *
-                  </label>
-                  <select
-                    required
-                    value={newTask.assigneeId}
-                    onChange={(e) =>
-                      setNewTask((t) => ({ ...t, assigneeId: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  >
-                    <option value="">Selecteer...</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} ({user.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Prioriteit
-                  </label>
-                  <select
-                    value={newTask.priority}
-                    onChange={(e) =>
-                      setNewTask((t) => ({ ...t, priority: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  >
-                    <option value="laag">Laag</option>
-                    <option value="normaal">Normaal</option>
-                    <option value="hoog">Hoog</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="mb-3 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Categorie
-                  </label>
-                  <select
-                    value={newTask.category}
-                    onChange={(e) =>
-                      setNewTask((t) => ({ ...t, category: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  >
-                    <option value="">Geen</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Deadline
-                  </label>
-                  <input
-                    type="date"
-                    value={newTask.dueDate}
-                    onChange={(e) =>
-                      setNewTask((t) => ({ ...t, dueDate: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Project
-                </label>
-                <ProjectSelector
-                  value={newTask.projectId}
-                  onChange={(val) =>
-                    setNewTask((t) => ({ ...t, projectId: val }))
-                  }
-                  className="w-full"
-                />
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
+            {/* Status toggle in bewerk modal */}
+            <div className="mb-4 flex gap-2">
+              {["open", "bezig", "afgerond"].map((s) => (
                 <button
+                  key={s}
                   type="button"
-                  onClick={() => setShowNewTask(false)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  onClick={async () => {
+                    await updateTaskStatus(editTask.id, s);
+                    setEditTask({ ...editTask, status: s });
+                  }}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    editTask.status === s
+                      ? s === "open"
+                        ? "bg-amber-100 text-amber-700"
+                        : s === "bezig"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-green-100 text-green-700"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
                 >
-                  Annuleren
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-                >
-                  {saving ? "Opslaan..." : "Taak aanmaken"}
-                </button>
-              </div>
-            </form>
+              ))}
+            </div>
+
+            <TaskForm
+              values={editForm}
+              onChange={setEditForm}
+              onSubmit={handleUpdateTask}
+              saving={editSaving}
+              onCancel={() => setEditTask(null)}
+              submitLabel="Wijzigingen opslaan"
+              extraActions={
+                showDeleteConfirm ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Zeker weten?</span>
+                    <button
+                      type="button"
+                      onClick={handleDeleteTask}
+                      disabled={deleting}
+                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {deleting ? "Verwijderen..." : "Ja, verwijder"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Nee
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                    Verwijderen
+                  </button>
+                )
+              }
+            />
           </div>
         </div>
       )}
