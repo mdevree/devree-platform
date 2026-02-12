@@ -22,6 +22,28 @@ model User {
   @@map("users")
 }
 
+model Project {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?  @db.Text
+  status          String   @default("lead") // lead, actief, afgerond, geannuleerd
+  address         String?
+  notionPageId    String?  @unique
+  mauticContactId Int?
+  contactName     String?
+  contactPhone    String?
+  contactEmail    String?
+  tasks           Task[]
+  calls           Call[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([notionPageId])
+  @@index([mauticContactId])
+  @@map("projects")
+}
+
 model Call {
   id                String   @id @default(cuid())
   callId            String   @unique
@@ -36,12 +58,15 @@ model Call {
   mauticContactId   Int?
   contactName       String?
   points            Int      @default(0)
+  project           Project? @relation(fields: [projectId], references: [id])
+  projectId         String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([timestamp])
   @@index([callerNumber])
   @@index([mauticContactId])
+  @@index([projectId])
   @@map("calls")
 }
 
@@ -57,6 +82,8 @@ model Task {
   assigneeId   String
   creator      User      @relation("creator", fields: [creatorId], references: [id])
   creatorId    String
+  project      Project?  @relation(fields: [projectId], references: [id])
+  projectId    String?
   notionPageId String?
   completedAt  DateTime?
   createdAt    DateTime  @default(now())
@@ -65,5 +92,6 @@ model Task {
   @@index([assigneeId])
   @@index([status])
   @@index([dueDate])
+  @@index([projectId])
   @@map("tasks")
 }

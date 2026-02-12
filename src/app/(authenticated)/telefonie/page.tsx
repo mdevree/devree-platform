@@ -5,12 +5,20 @@ import { useSearchParams } from "next/navigation";
 import {
   PhoneArrowDownLeftIcon,
   PhoneArrowUpRightIcon,
-  PhoneXMarkIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   UserPlusIcon,
   ArrowTopRightOnSquareIcon,
+  FolderIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
+import ProjectSelector from "@/components/projects/ProjectSelector";
+
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+}
 
 interface Call {
   id: string;
@@ -26,6 +34,7 @@ interface Call {
   mauticContactId: number | null;
   contactName: string | null;
   points: number;
+  project: Project | null;
 }
 
 interface Pagination {
@@ -60,6 +69,12 @@ export default function TelefoniePage() {
   });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactMessage, setContactMessage] = useState("");
+
+  // Project koppeling modal
+  const [showLinkProject, setShowLinkProject] = useState(false);
+  const [linkCallId, setLinkCallId] = useState("");
+  const [linkProjectId, setLinkProjectId] = useState("");
+  const [linkSaving, setLinkSaving] = useState(false);
 
   // Check of er een 'nieuw' parameter is (van call notification)
   useEffect(() => {
@@ -144,6 +159,35 @@ export default function TelefoniePage() {
     setContactSaving(false);
   }
 
+  async function handleLinkProject(e: React.FormEvent) {
+    e.preventDefault();
+    setLinkSaving(true);
+
+    try {
+      const response = await fetch(`/api/calls/${linkCallId}/project`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: linkProjectId || null }),
+      });
+
+      if (response.ok) {
+        setShowLinkProject(false);
+        setLinkCallId("");
+        setLinkProjectId("");
+        fetchCalls();
+      }
+    } catch {
+      console.error("Fout bij koppelen project");
+    }
+    setLinkSaving(false);
+  }
+
+  function openLinkProject(call: Call) {
+    setLinkCallId(call.id);
+    setLinkProjectId(call.project?.id || "");
+    setShowLinkProject(true);
+  }
+
   function formatTime(timestamp: string) {
     const date = new Date(timestamp);
     return date.toLocaleString("nl-NL", {
@@ -154,7 +198,7 @@ export default function TelefoniePage() {
     });
   }
 
-  function getReasonBadge(reason: string | null, direction: string) {
+  function getReasonBadge(reason: string | null) {
     if (reason === "completed" || reason === "answered") {
       return (
         <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
@@ -274,6 +318,9 @@ export default function TelefoniePage() {
                 Contact
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Project
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Status
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -284,13 +331,13 @@ export default function TelefoniePage() {
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   Laden...
                 </td>
               </tr>
             ) : calls.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   Geen gesprekken gevonden
                 </td>
               </tr>
@@ -337,8 +384,27 @@ export default function TelefoniePage() {
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-sm">
+                    {call.project ? (
+                      <a
+                        href={`/projecten/${call.project.id}`}
+                        className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                      >
+                        <FolderIcon className="h-3 w-3" />
+                        {call.project.name}
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => openLinkProject(call)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                      >
+                        <FolderIcon className="h-3 w-3" />
+                        Koppelen
+                      </button>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
-                    {getReasonBadge(call.reason, call.direction)}
+                    {getReasonBadge(call.reason)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -370,6 +436,15 @@ export default function TelefoniePage() {
                         >
                           <UserPlusIcon className="h-3 w-3" />
                           Aanmaken
+                        </button>
+                      )}
+                      {call.project && (
+                        <button
+                          onClick={() => openLinkProject(call)}
+                          className="rounded-md px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                          title="Project wijzigen"
+                        >
+                          Wijzig
                         </button>
                       )}
                     </div>
@@ -413,9 +488,20 @@ export default function TelefoniePage() {
       {showNewContact && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Nieuw contact aanmaken
-            </h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Nieuw contact aanmaken
+              </h2>
+              <button
+                onClick={() => {
+                  setShowNewContact(false);
+                  setContactMessage("");
+                }}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
             {newContactPhone && (
               <p className="mb-4 text-sm text-gray-500">
                 Telefoonnummer: <strong>{newContactPhone}</strong>
@@ -540,6 +626,56 @@ export default function TelefoniePage() {
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
                 >
                   {contactSaving ? "Opslaan..." : "Opslaan in Mautic"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Project koppelen modal */}
+      {showLinkProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Gesprek koppelen aan project
+              </h2>
+              <button
+                onClick={() => setShowLinkProject(false)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleLinkProject}>
+              <div className="mb-4">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Project
+                </label>
+                <ProjectSelector
+                  value={linkProjectId}
+                  onChange={setLinkProjectId}
+                  emptyLabel="Geen project (ontkoppelen)"
+                  className="w-full"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowLinkProject(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Annuleren
+                </button>
+                <button
+                  type="submit"
+                  disabled={linkSaving}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+                >
+                  {linkSaving ? "Opslaan..." : "Koppelen"}
                 </button>
               </div>
             </form>

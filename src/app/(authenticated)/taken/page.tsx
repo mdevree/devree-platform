@@ -10,12 +10,20 @@ import {
   ExclamationCircleIcon,
   XMarkIcon,
   CalendarIcon,
+  FolderIcon,
 } from "@heroicons/react/24/outline";
+import ProjectSelector from "@/components/projects/ProjectSelector";
 
 interface User {
   id: string;
   name: string;
   role: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  status: string;
 }
 
 interface Task {
@@ -28,6 +36,7 @@ interface Task {
   category: string | null;
   assignee: User;
   creator: { id: string; name: string };
+  project: Project | null;
   completedAt: string | null;
   createdAt: string;
 }
@@ -42,6 +51,7 @@ export default function TakenPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [filterAssignee, setFilterAssignee] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [filterProject, setFilterProject] = useState("");
 
   // Nieuw taak modal
   const [showNewTask, setShowNewTask] = useState(false);
@@ -52,6 +62,7 @@ export default function TakenPage() {
     category: "",
     dueDate: "",
     assigneeId: "",
+    projectId: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -60,6 +71,7 @@ export default function TakenPage() {
     const params = new URLSearchParams();
     if (filterAssignee) params.set("assigneeId", filterAssignee);
     if (filterCategory) params.set("category", filterCategory);
+    if (filterProject) params.set("projectId", filterProject);
 
     try {
       const response = await fetch(`/api/taken?${params}`);
@@ -69,7 +81,7 @@ export default function TakenPage() {
       console.error("Fout bij ophalen taken");
     }
     setLoading(false);
-  }, [filterAssignee, filterCategory]);
+  }, [filterAssignee, filterCategory, filterProject]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -91,10 +103,14 @@ export default function TakenPage() {
     setSaving(true);
 
     try {
+      const payload = {
+        ...newTask,
+        projectId: newTask.projectId || undefined,
+      };
       const response = await fetch("/api/taken", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTask),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -106,6 +122,7 @@ export default function TakenPage() {
           category: "",
           dueDate: "",
           assigneeId: "",
+          projectId: "",
         });
         fetchTasks();
       }
@@ -241,6 +258,12 @@ export default function TakenPage() {
             </option>
           ))}
         </select>
+
+        <ProjectSelector
+          value={filterProject}
+          onChange={setFilterProject}
+          emptyLabel="Alle projecten"
+        />
       </div>
 
       {/* Kanban View */}
@@ -292,6 +315,17 @@ export default function TakenPage() {
                           <p className="mb-2 text-xs text-gray-500 line-clamp-2">
                             {task.description}
                           </p>
+                        )}
+
+                        {/* Project chip */}
+                        {task.project && (
+                          <a
+                            href={`/projecten/${task.project.id}`}
+                            className="mb-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                          >
+                            <FolderIcon className="h-3 w-3" />
+                            {task.project.name}
+                          </a>
                         )}
 
                         <div className="flex items-center justify-between">
@@ -367,6 +401,9 @@ export default function TakenPage() {
                   Taak
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Project
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Toegewezen
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -394,6 +431,19 @@ export default function TakenPage() {
                       <span className="mt-0.5 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
                         {task.category}
                       </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {task.project ? (
+                      <a
+                        href={`/projecten/${task.project.id}`}
+                        className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                      >
+                        <FolderIcon className="h-3 w-3" />
+                        {task.project.name}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400">-</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
@@ -564,6 +614,19 @@ export default function TakenPage() {
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Project
+                </label>
+                <ProjectSelector
+                  value={newTask.projectId}
+                  onChange={(val) =>
+                    setNewTask((t) => ({ ...t, projectId: val }))
+                  }
+                  className="w-full"
+                />
               </div>
 
               <div className="mt-6 flex justify-end gap-3">

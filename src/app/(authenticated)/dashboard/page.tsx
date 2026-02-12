@@ -4,6 +4,7 @@ import {
   ClipboardDocumentListIcon,
   DocumentTextIcon,
   ArrowTopRightOnSquareIcon,
+  FolderIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
@@ -23,7 +24,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Snelkoppelingen */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/telefonie"
           className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
@@ -38,6 +39,25 @@ export default async function DashboardPage() {
               </h3>
               <p className="text-sm text-gray-500">
                 Bel overzicht en contacten
+              </p>
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          href="/projecten"
+          className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50">
+              <FolderIcon className="h-6 w-6 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 group-hover:text-primary">
+                Projecten
+              </h3>
+              <p className="text-sm text-gray-500">
+                Beheer projectdossiers
               </p>
             </div>
           </div>
@@ -69,8 +89,8 @@ export default async function DashboardPage() {
           className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
         >
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50">
-              <DocumentTextIcon className="h-6 w-6 text-amber-600" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-50">
+              <DocumentTextIcon className="h-6 w-6 text-purple-600" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">

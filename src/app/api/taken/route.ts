@@ -14,34 +14,26 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const assigneeId = searchParams.get("assigneeId");
-  const status = searchParams.get("status"); // open, bezig, afgerond
+  const status = searchParams.get("status");
   const priority = searchParams.get("priority");
   const category = searchParams.get("category");
+  const projectId = searchParams.get("projectId");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
 
-  if (assigneeId) {
-    where.assigneeId = assigneeId;
-  }
-
-  if (status) {
-    where.status = status;
-  }
-
-  if (priority) {
-    where.priority = priority;
-  }
-
-  if (category) {
-    where.category = category;
-  }
+  if (assigneeId) where.assigneeId = assigneeId;
+  if (status) where.status = status;
+  if (priority) where.priority = priority;
+  if (category) where.category = category;
+  if (projectId) where.projectId = projectId;
 
   const tasks = await prisma.task.findMany({
     where,
     include: {
       assignee: { select: { id: true, name: true, role: true } },
       creator: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, status: true } },
     },
     orderBy: [
       { status: "asc" },
@@ -89,11 +81,13 @@ export async function POST(request: NextRequest) {
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
       assigneeId: data.assigneeId,
       creatorId: session.user.id,
+      projectId: data.projectId || null,
       notionPageId: data.notionPageId || null,
     },
     include: {
       assignee: { select: { id: true, name: true, role: true } },
       creator: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, status: true } },
     },
   });
 
@@ -102,7 +96,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * PATCH /api/taken
- * Werk een taak bij (status, details)
+ * Werk een taak bij
  */
 export async function PATCH(request: NextRequest) {
   const session = await auth();
@@ -129,6 +123,7 @@ export async function PATCH(request: NextRequest) {
   if (data.dueDate !== undefined)
     updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
   if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId;
+  if (data.projectId !== undefined) updateData.projectId = data.projectId || null;
   if (data.notionPageId !== undefined) updateData.notionPageId = data.notionPageId;
 
   if (data.status !== undefined) {
@@ -146,6 +141,7 @@ export async function PATCH(request: NextRequest) {
     include: {
       assignee: { select: { id: true, name: true, role: true } },
       creator: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, status: true } },
     },
   });
 

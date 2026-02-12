@@ -15,35 +15,26 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "50");
-  const direction = searchParams.get("direction"); // inbound, outbound
-  const status = searchParams.get("status"); // ended
-  const reason = searchParams.get("reason"); // completed, no-answer, busy
-  const dateFrom = searchParams.get("from"); // YYYY-MM-DD
-  const dateTo = searchParams.get("to"); // YYYY-MM-DD
-  const search = searchParams.get("search"); // zoek op nummer of naam
+  const direction = searchParams.get("direction");
+  const reason = searchParams.get("reason");
+  const dateFrom = searchParams.get("from");
+  const dateTo = searchParams.get("to");
+  const search = searchParams.get("search");
+  const projectId = searchParams.get("projectId");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
 
-  // Alleen ended calls tonen (geen ringing/in-progress)
   where.status = "ended";
 
-  if (direction) {
-    where.direction = direction;
-  }
-
-  if (reason) {
-    where.reason = reason;
-  }
+  if (direction) where.direction = direction;
+  if (reason) where.reason = reason;
+  if (projectId) where.projectId = projectId;
 
   if (dateFrom || dateTo) {
     where.timestamp = {};
-    if (dateFrom) {
-      where.timestamp.gte = new Date(dateFrom);
-    }
-    if (dateTo) {
-      where.timestamp.lte = new Date(dateTo + "T23:59:59.999Z");
-    }
+    if (dateFrom) where.timestamp.gte = new Date(dateFrom);
+    if (dateTo) where.timestamp.lte = new Date(dateTo + "T23:59:59.999Z");
   }
 
   if (search) {
@@ -58,6 +49,9 @@ export async function GET(request: NextRequest) {
   const [calls, total] = await Promise.all([
     prisma.call.findMany({
       where,
+      include: {
+        project: { select: { id: true, name: true, status: true } },
+      },
       orderBy: { timestamp: "desc" },
       skip: (page - 1) * limit,
       take: limit,
@@ -67,11 +61,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     calls,
-    pagination: {
-      page,
-      limit,
-      total,
-      pages: Math.ceil(total / limit),
-    },
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
 }
