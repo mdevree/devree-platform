@@ -148,6 +148,8 @@ export default function TelefoniePage() {
   // AI profiel bewerken
   const [editingAiProfile, setEditingAiProfile] = useState(false);
   const [aiProfileData, setAiProfileData] = useState<AiProfileData>({});
+  // Ruwe textarea-tekst per veld (zodat half-getypte JSON niet overschreven wordt)
+  const [aiProfileRaw, setAiProfileRaw] = useState<Record<string, string>>({});
   const [aiProfileSaving, setAiProfileSaving] = useState(false);
   const [aiProfileMessage, setAiProfileMessage] = useState("");
   // Nieuw veld toevoegen aan AI profiel
@@ -457,21 +459,33 @@ export default function TelefoniePage() {
     setAiProfileSaving(true);
     setAiProfileMessage("");
 
+    // Zorg dat alle raw-velden definitief geparsed zijn voor opslaan
+    const finalData: AiProfileData = { ...aiProfileData };
+    for (const [key, rawText] of Object.entries(aiProfileRaw)) {
+      try {
+        finalData[key] = JSON.parse(rawText);
+      } catch {
+        finalData[key] = rawText; // bewaar als string als JSON ongeldig
+      }
+    }
+
     try {
       const res = await fetch("/api/mautic/contact", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: contactDetail.id,
-          fields: { ai_profiel_data: JSON.stringify(aiProfileData, null, 0) },
+          fields: { ai_profiel_data: JSON.stringify(finalData, null, 0) },
         }),
       });
       const data = await res.json();
       if (data.success) {
         setAiProfileMessage("Profiel opgeslagen");
         setEditingAiProfile(false);
+        setAiProfileData(finalData);
+        setAiProfileRaw({});
         setContactDetail((prev) =>
-          prev ? { ...prev, aiProfile: JSON.stringify(aiProfileData) } : prev
+          prev ? { ...prev, aiProfile: JSON.stringify(finalData) } : prev
         );
         setTimeout(() => setAiProfileMessage(""), 3000);
       } else {
@@ -500,6 +514,11 @@ export default function TelefoniePage() {
 
   function handleRemoveProfileField(key: string) {
     setAiProfileData((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setAiProfileRaw((prev) => {
       const next = { ...prev };
       delete next[key];
       return next;
@@ -1193,7 +1212,17 @@ export default function TelefoniePage() {
                     </p>
                     {!editingAiProfile ? (
                       <button
-                        onClick={() => setEditingAiProfile(true)}
+                        onClick={() => {
+                          // Initialiseer raw tekst vanuit huidige data
+                          const raw: Record<string, string> = {};
+                          for (const [k, v] of Object.entries(aiProfileData)) {
+                            raw[k] = typeof v === "object" && v !== null
+                              ? JSON.stringify(v, null, 2)
+                              : String(v ?? "");
+                          }
+                          setAiProfileRaw(raw);
+                          setEditingAiProfile(true);
+                        }}
                         className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
                       >
                         <PencilIcon className="h-3 w-3" />
@@ -1216,6 +1245,7 @@ export default function TelefoniePage() {
                         <button
                           onClick={() => {
                             setEditingAiProfile(false);
+                            setAiProfileRaw({});
                             // Reset naar opgeslagen waarde (kan al geparsed object zijn)
                             try {
                               const raw = contactDetail.aiProfile;
@@ -1255,10 +1285,12 @@ export default function TelefoniePage() {
                   ) : (
                     <div className="divide-y divide-gray-100">
                       {Object.entries(aiProfileData).map(([key, value]) => {
+                        const rawText = aiProfileRaw[key] ?? (
+                          typeof value === "object" && value !== null
+                            ? JSON.stringify(value, null, 2)
+                            : String(value ?? "")
+                        );
                         const isComplex = typeof value === "object" && value !== null;
-                        const editValue = isComplex
-                          ? JSON.stringify(value, null, 2)
-                          : String(value ?? "");
                         return (
                           <div key={key} className="px-4 py-2.5 text-sm">
                             <div className="flex items-start justify-between gap-2 mb-1">
@@ -1275,15 +1307,17 @@ export default function TelefoniePage() {
                             </div>
                             {editingAiProfile ? (
                               <textarea
-                                rows={isComplex ? Math.min(8, (editValue.split("\n").length + 1)) : 1}
-                                value={editValue}
+                                rows={isComplex ? Math.min(8, (rawText.split("\n").length + 1)) : 1}
+                                value={rawText}
                                 onChange={(e) => {
-                                  const raw = e.target.value;
-                                  // Probeer JSON te parsen, anders als string opslaan
+                                  const txt = e.target.value;
+                                  // Sla ruwe tekst op zodat de cursor niet springt
+                                  setAiProfileRaw((prev) => ({ ...prev, [key]: txt }));
+                                  // Parseer naar aiProfileData alleen als het valide JSON is
                                   try {
-                                    setAiProfileData((prev) => ({ ...prev, [key]: JSON.parse(raw) }));
+                                    setAiProfileData((prev) => ({ ...prev, [key]: JSON.parse(txt) }));
                                   } catch {
-                                    setAiProfileData((prev) => ({ ...prev, [key]: raw }));
+                                    // Nog niet valide JSON — laat aiProfileData ongemoeid
                                   }
                                 }}
                                 className="w-full resize-y rounded border border-gray-300 px-2 py-1 font-mono text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
