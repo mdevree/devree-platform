@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         project: { select: { id: true, name: true, status: true } },
+        _count: { select: { notes: true } },
       },
       orderBy: { timestamp: "desc" },
       skip: (page - 1) * limit,

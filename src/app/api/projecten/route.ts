@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         _count: { select: { tasks: true, calls: true } },
+        calls: { select: { id: true, _count: { select: { notes: true } } } },
       },
       orderBy: [{ updatedAt: "desc" }],
       skip: (page - 1) * limit,

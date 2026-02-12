@@ -26,6 +26,7 @@ interface Project {
     tasks: number;
     calls: number;
   };
+  calls: { id: string; _count: { notes: number } }[];
   createdAt: string;
 }
 
@@ -260,6 +261,11 @@ export default function ProjectenPage() {
                 <span className="inline-flex items-center gap-1">
                   <PhoneIcon className="h-3.5 w-3.5" />
                   {project._count.calls} gesprekken
+                  {project.calls?.some((c) => c._count.notes > 0) && (
+                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[9px] font-bold text-white" title="Gesprekken met notities">
+                      {project.calls.reduce((sum, c) => sum + c._count.notes, 0)}
+                    </span>
+                  )}
                 </span>
               </div>
             </a>

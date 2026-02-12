@@ -41,6 +41,7 @@ interface Call {
   contactName: string | null;
   points: number;
   project: Project | null;
+  _count: { notes: number };
 }
 
 interface CallNote {
@@ -285,6 +286,14 @@ export default function TelefoniePage() {
       if (data.success) {
         setNotes((prev) => [data.note, ...prev]);
         setNewNote("");
+        // Update lokale _count
+        setCalls((prev) =>
+          prev.map((c) =>
+            c.id === noteCallId
+              ? { ...c, _count: { notes: (c._count?.notes || 0) + 1 } }
+              : c
+          )
+        );
       }
     } catch {
       console.error("Fout bij opslaan notitie");
@@ -300,6 +309,14 @@ export default function TelefoniePage() {
         body: JSON.stringify({ noteId }),
       });
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      // Update lokale _count
+      setCalls((prev) =>
+        prev.map((c) =>
+          c.id === noteCallId
+            ? { ...c, _count: { notes: Math.max(0, (c._count?.notes || 0) - 1) } }
+            : c
+        )
+      );
     } catch {
       console.error("Fout bij verwijderen notitie");
     }
@@ -630,11 +647,15 @@ export default function TelefoniePage() {
                       {/* Notitie knop */}
                       <button
                         onClick={() => openNoteModal(call)}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                        title="Notitie toevoegen"
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                          call._count?.notes > 0
+                            ? "bg-green-50 text-green-700 ring-1 ring-green-300 hover:bg-green-100"
+                            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                        }`}
+                        title={call._count?.notes > 0 ? `${call._count.notes} notitie(s)` : "Notitie toevoegen"}
                       >
                         <ChatBubbleLeftEllipsisIcon className="h-3.5 w-3.5" />
-                        Notitie
+                        Notitie{call._count?.notes > 0 && <span className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-green-600 text-[9px] font-bold text-white">{call._count.notes}</span>}
                       </button>
 
                       {call.mauticContactId ? (
