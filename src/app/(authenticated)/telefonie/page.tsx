@@ -72,7 +72,22 @@ interface MauticContactFull {
 }
 
 // AI profiel is een JSON object met dynamische sleutels (bijv. "Interesse", "Fase", etc.)
-type AiProfileData = Record<string, string>;
+// Waarden kunnen primitief zijn of geneste structuren
+type AiProfileData = Record<string, unknown>;
+
+interface ContactEditData {
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone: string;
+  mobile: string;
+  company: string;
+  address1: string;
+  city: string;
+  zipcode: string;
+  country: string;
+  website: string;
+}
 
 interface Pagination {
   page: number;
@@ -138,6 +153,15 @@ export default function TelefoniePage() {
   // Nieuw veld toevoegen aan AI profiel
   const [newProfileKey, setNewProfileKey] = useState("");
   const [newProfileValue, setNewProfileValue] = useState("");
+
+  // Contact gegevens bewerken
+  const [editingContact, setEditingContact] = useState(false);
+  const [contactEditData, setContactEditData] = useState<ContactEditData>({
+    firstname: "", lastname: "", email: "", phone: "", mobile: "",
+    company: "", address1: "", city: "", zipcode: "", country: "", website: "",
+  });
+  const [contactEditSaving, setContactEditSaving] = useState(false);
+  const [contactEditMessage, setContactEditMessage] = useState("");
 
   // Check of er een 'nieuw' parameter is (van call notification)
   useEffect(() => {
@@ -329,26 +353,38 @@ export default function TelefoniePage() {
     setContactDetailLoading(true);
     setEditingAiProfile(false);
     setAiProfileMessage("");
+    setEditingContact(false);
+    setContactEditMessage("");
 
     try {
       const res = await fetch(`/api/mautic/contact?id=${mauticContactId}&full=1`);
       const data = await res.json();
       if (data.contact) {
         setContactDetail(data.contact);
-        // Parse AI profiel — zorg dat alle waarden strings zijn
+        // Initialiseer bewerkbare velden
+        setContactEditData({
+          firstname: data.contact.firstname || "",
+          lastname: data.contact.lastname || "",
+          email: data.contact.email || "",
+          phone: data.contact.phone || "",
+          mobile: data.contact.mobile || "",
+          company: data.contact.company || "",
+          address1: data.contact.address1 || "",
+          city: data.contact.city || "",
+          zipcode: data.contact.zipcode || "",
+          country: data.contact.country || "",
+          website: data.contact.website || "",
+        });
+        // Parse AI profiel — behoud originele structuur (arrays, objecten, etc.)
         try {
           let parsed = data.contact.aiProfile
-            ? JSON.parse(data.contact.aiProfile)
+            ? (typeof data.contact.aiProfile === "string"
+                ? JSON.parse(data.contact.aiProfile)
+                : data.contact.aiProfile)
             : {};
-          // Als het veld al een object is (Mautic parse), gebruik dat direct
+          // Als het veld geen object is of een array, reset
           if (typeof parsed !== "object" || Array.isArray(parsed)) parsed = {};
-          // Alle waarden naar string converteren
-          const normalized: AiProfileData = {};
-          for (const [k, v] of Object.entries(parsed)) {
-            normalized[k] =
-              typeof v === "string" ? v : JSON.stringify(v);
-          }
-          setAiProfileData(normalized);
+          setAiProfileData(parsed as AiProfileData);
         } catch {
           setAiProfileData({});
         }
@@ -357,6 +393,63 @@ export default function TelefoniePage() {
       console.error("Fout bij ophalen contact");
     }
     setContactDetailLoading(false);
+  }
+
+  async function handleSaveContactFields() {
+    if (!contactDetail) return;
+    setContactEditSaving(true);
+    setContactEditMessage("");
+
+    try {
+      const res = await fetch("/api/mautic/contact", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: contactDetail.id,
+          fields: {
+            firstname: contactEditData.firstname,
+            lastname: contactEditData.lastname,
+            email: contactEditData.email,
+            phone: contactEditData.phone,
+            mobile: contactEditData.mobile,
+            company: contactEditData.company,
+            address1: contactEditData.address1,
+            city: contactEditData.city,
+            zipcode: contactEditData.zipcode,
+            country: contactEditData.country,
+            website: contactEditData.website,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setContactEditMessage("Opgeslagen");
+        setEditingContact(false);
+        // Update lokale state
+        setContactDetail((prev) =>
+          prev ? {
+            ...prev,
+            firstname: contactEditData.firstname,
+            lastname: contactEditData.lastname,
+            email: contactEditData.email || null,
+            phone: contactEditData.phone || null,
+            mobile: contactEditData.mobile || null,
+            company: contactEditData.company || null,
+            address1: contactEditData.address1 || null,
+            city: contactEditData.city || null,
+            zipcode: contactEditData.zipcode || null,
+            country: contactEditData.country || null,
+            website: contactEditData.website || null,
+          } : prev
+        );
+        setTimeout(() => setContactEditMessage(""), 3000);
+      } else {
+        setContactEditMessage("Fout bij opslaan");
+      }
+    } catch {
+      setContactEditMessage("Netwerkfout");
+    }
+    setContactEditSaving(false);
   }
 
   async function handleSaveAiProfile() {
@@ -370,7 +463,7 @@ export default function TelefoniePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: contactDetail.id,
-          fields: { ai_profiel_data: JSON.stringify(aiProfileData) },
+          fields: { ai_profiel_data: JSON.stringify(aiProfileData, null, 0) },
         }),
       });
       const data = await res.json();
@@ -392,9 +485,14 @@ export default function TelefoniePage() {
 
   function handleAddProfileField() {
     if (!newProfileKey.trim()) return;
+    let parsedValue: unknown = newProfileValue.trim();
+    // Probeer als JSON te parsen als het begint met [ of {
+    if (parsedValue && typeof parsedValue === "string" && (parsedValue.startsWith("[") || parsedValue.startsWith("{"))) {
+      try { parsedValue = JSON.parse(parsedValue); } catch { /* laat als string */ }
+    }
     setAiProfileData((prev) => ({
       ...prev,
-      [newProfileKey.trim()]: newProfileValue.trim(),
+      [newProfileKey.trim()]: parsedValue,
     }));
     setNewProfileKey("");
     setNewProfileValue("");
@@ -406,6 +504,81 @@ export default function TelefoniePage() {
       delete next[key];
       return next;
     });
+  }
+
+  // Slimme weergave van een AI profiel waarde
+  function renderAiValue(value: unknown): React.ReactNode {
+    if (value === null || value === undefined || value === "") {
+      return <span className="italic text-gray-400">leeg</span>;
+    }
+    // Array
+    if (Array.isArray(value)) {
+      if (value.length === 0) return <span className="italic text-gray-400">leeg</span>;
+      // Check of het array van objecten is
+      if (typeof value[0] === "object") {
+        return (
+          <div className="space-y-1.5">
+            {(value as Record<string, unknown>[]).map((item, i) => (
+              <div key={i} className="rounded bg-gray-50 px-2 py-1.5 text-xs">
+                {Object.entries(item).map(([k, v]) => (
+                  <div key={k} className="flex gap-1">
+                    <span className="font-medium text-gray-500 shrink-0">{k}:</span>
+                    <span className="text-gray-800 break-all">{String(v ?? "")}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        );
+      }
+      // Array van strings/primitieven → chips
+      return (
+        <div className="flex flex-wrap gap-1">
+          {(value as unknown[]).map((v, i) => (
+            <span key={i} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{String(v)}</span>
+          ))}
+        </div>
+      );
+    }
+    // Object (niet array)
+    if (typeof value === "object") {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (entries.length === 0) return <span className="italic text-gray-400">leeg</span>;
+      return (
+        <div className="space-y-1">
+          {entries.map(([k, v]) => (
+            <div key={k} className="flex gap-1 text-xs">
+              <span className="font-medium text-gray-500 shrink-0">{k}:</span>
+              <span className="text-gray-800 break-all">
+                {v === null || v === undefined || v === "" ? (
+                  <span className="italic text-gray-400">leeg</span>
+                ) : typeof v === "object" ? (
+                  <span className="text-gray-500">{JSON.stringify(v)}</span>
+                ) : typeof v === "number" ? (
+                  <span className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold ${v > 0 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{String(v)}</span>
+                ) : (
+                  String(v)
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    // Boolean
+    if (typeof value === "boolean") {
+      return (
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${value ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+          {value ? "Ja" : "Nee"}
+        </span>
+      );
+    }
+    // Getal
+    if (typeof value === "number") {
+      return <span className="font-mono text-gray-900">{value}</span>;
+    }
+    // String
+    return <span className="text-gray-900 break-words">{String(value)}</span>;
   }
 
   function formatTime(timestamp: string) {
@@ -890,10 +1063,19 @@ export default function TelefoniePage() {
                       </p>
                     )}
                   </div>
-                  <div className="text-right">
+                  <div className="flex items-center gap-2">
                     <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
                       {contactDetail.points} pts
                     </span>
+                    <a
+                      href={`${MAUTIC_URL}/s/contacts/view/${contactDetail.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+                      title="Openen in Mautic"
+                    >
+                      <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                    </a>
                   </div>
                 </div>
 
@@ -913,80 +1095,92 @@ export default function TelefoniePage() {
 
                 {/* Contactgegevens */}
                 <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
-                  <div className="px-4 py-2.5">
+                  <div className="flex items-center justify-between px-4 py-2.5">
                     <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
                       Contactgegevens
                     </p>
-                  </div>
-                  {contactDetail.email && (
-                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
-                      <span className="text-gray-500">E-mail</span>
-                      <a
-                        href={`mailto:${contactDetail.email}`}
-                        className="col-span-2 text-primary hover:underline break-all"
+                    {!editingContact ? (
+                      <button
+                        onClick={() => setEditingContact(true)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
                       >
-                        {contactDetail.email}
-                      </a>
-                    </div>
-                  )}
-                  {contactDetail.phone && (
-                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
-                      <span className="text-gray-500">Telefoon</span>
-                      <span className="col-span-2 font-mono text-gray-900">
-                        {contactDetail.phone}
-                      </span>
-                    </div>
-                  )}
-                  {contactDetail.mobile && (
-                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
-                      <span className="text-gray-500">Mobiel</span>
-                      <span className="col-span-2 font-mono text-gray-900">
-                        {contactDetail.mobile}
-                      </span>
-                    </div>
-                  )}
-                  {contactDetail.website && (
-                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
-                      <span className="text-gray-500">Website</span>
-                      <a
-                        href={contactDetail.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="col-span-2 text-primary hover:underline break-all"
-                      >
-                        {contactDetail.website}
-                      </a>
-                    </div>
-                  )}
-                  {(contactDetail.address1 || contactDetail.city) && (
-                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
-                      <span className="text-gray-500">Adres</span>
-                      <div className="col-span-2 text-gray-900">
-                        {contactDetail.address1 && (
-                          <p>{contactDetail.address1}</p>
+                        <PencilIcon className="h-3 w-3" />
+                        Bewerken
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {contactEditMessage && (
+                          <span className={`text-xs ${contactEditMessage.includes("Fout") || contactEditMessage.includes("fout") ? "text-red-500" : "text-green-600"}`}>
+                            {contactEditMessage}
+                          </span>
                         )}
-                        {(contactDetail.zipcode || contactDetail.city) && (
-                          <p>
-                            {[contactDetail.zipcode, contactDetail.city]
-                              .filter(Boolean)
-                              .join(" ")}
-                          </p>
+                        <button
+                          onClick={() => { setEditingContact(false); setContactEditMessage(""); }}
+                          className="rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+                        >
+                          Annuleren
+                        </button>
+                        <button
+                          onClick={handleSaveContactFields}
+                          disabled={contactEditSaving}
+                          className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-50"
+                        >
+                          <CheckIcon className="h-3 w-3" />
+                          {contactEditSaving ? "..." : "Opslaan"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {([
+                    { label: "Voornaam", field: "firstname" as const, type: "text" },
+                    { label: "Achternaam", field: "lastname" as const, type: "text" },
+                    { label: "Bedrijf", field: "company" as const, type: "text" },
+                    { label: "E-mail", field: "email" as const, type: "email" },
+                    { label: "Telefoon", field: "phone" as const, type: "tel" },
+                    { label: "Mobiel", field: "mobile" as const, type: "tel" },
+                    { label: "Website", field: "website" as const, type: "url" },
+                    { label: "Adres", field: "address1" as const, type: "text" },
+                    { label: "Postcode", field: "zipcode" as const, type: "text" },
+                    { label: "Stad", field: "city" as const, type: "text" },
+                    { label: "Land", field: "country" as const, type: "text" },
+                  ] as { label: string; field: keyof ContactEditData; type: string }[]).map(({ label, field, type }) => {
+                    const displayValue = contactDetail[field === "company" ? "company" : field === "address1" ? "address1" : field] as string | null;
+                    if (!editingContact && !displayValue) return null;
+                    return (
+                      <div key={field} className="grid grid-cols-3 items-center px-4 py-2 text-sm">
+                        <span className="text-gray-500 text-xs">{label}</span>
+                        {editingContact ? (
+                          <input
+                            type={type}
+                            value={contactEditData[field]}
+                            onChange={(e) => setContactEditData((prev) => ({ ...prev, [field]: e.target.value }))}
+                            className="col-span-2 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                            placeholder={label}
+                          />
+                        ) : (
+                          <span className="col-span-2 text-gray-900 break-all">
+                            {field === "email" ? (
+                              <a href={`mailto:${displayValue}`} className="text-primary hover:underline">{displayValue}</a>
+                            ) : field === "website" ? (
+                              <a href={displayValue!} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{displayValue}</a>
+                            ) : (
+                              displayValue
+                            )}
+                          </span>
                         )}
                       </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
-                    <span className="text-gray-500">Toegevoegd</span>
-                    <span className="col-span-2 text-gray-900">
-                      {formatDate(contactDetail.dateAdded)}
-                    </span>
+                    );
+                  })}
+
+                  <div className="grid grid-cols-3 px-4 py-2 text-sm">
+                    <span className="text-gray-500 text-xs">Toegevoegd</span>
+                    <span className="col-span-2 text-gray-900">{formatDate(contactDetail.dateAdded)}</span>
                   </div>
                   {contactDetail.lastActive && (
-                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
-                      <span className="text-gray-500">Actief</span>
-                      <span className="col-span-2 text-gray-900">
-                        {formatDate(contactDetail.lastActive)}
-                      </span>
+                    <div className="grid grid-cols-3 px-4 py-2 text-sm">
+                      <span className="text-gray-500 text-xs">Laatste actie</span>
+                      <span className="col-span-2 text-gray-900">{formatDate(contactDetail.lastActive)}</span>
                     </div>
                   )}
                 </div>
@@ -1022,13 +1216,11 @@ export default function TelefoniePage() {
                         <button
                           onClick={() => {
                             setEditingAiProfile(false);
-                            // Reset naar opgeslagen waarde
+                            // Reset naar opgeslagen waarde (kan al geparsed object zijn)
                             try {
-                              setAiProfileData(
-                                contactDetail.aiProfile
-                                  ? JSON.parse(contactDetail.aiProfile)
-                                  : {}
-                              );
+                              const raw = contactDetail.aiProfile;
+                              const parsed = typeof raw === "string" ? JSON.parse(raw) : (raw || {});
+                              setAiProfileData(typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {});
                             } catch {
                               setAiProfileData({});
                             }
@@ -1049,12 +1241,9 @@ export default function TelefoniePage() {
                     )}
                   </div>
 
-                  {Object.keys(aiProfileData).length === 0 &&
-                  !editingAiProfile ? (
+                  {Object.keys(aiProfileData).length === 0 && !editingAiProfile ? (
                     <div className="px-4 py-6 text-center">
-                      <p className="text-sm text-gray-400">
-                        Geen AI profiel data beschikbaar
-                      </p>
+                      <p className="text-sm text-gray-400">Geen AI profiel data beschikbaar</p>
                       <button
                         onClick={() => setEditingAiProfile(true)}
                         className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
@@ -1065,75 +1254,68 @@ export default function TelefoniePage() {
                     </div>
                   ) : (
                     <div className="divide-y divide-gray-100">
-                      {Object.entries(aiProfileData).map(([key, value]) => (
-                        <div
-                          key={key}
-                          className="grid grid-cols-3 items-center px-4 py-2.5 text-sm"
-                        >
-                          <span className="font-medium text-gray-600">
-                            {key}
-                          </span>
-                          {editingAiProfile ? (
-                            <div className="col-span-2 flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={value}
-                                onChange={(e) =>
-                                  setAiProfileData((prev) => ({
-                                    ...prev,
-                                    [key]: e.target.value,
-                                  }))
-                                }
-                                className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
-                              />
-                              <button
-                                onClick={() => handleRemoveProfileField(key)}
-                                className="text-gray-300 hover:text-red-500"
-                                title="Verwijderen"
-                              >
-                                <TrashIcon className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="col-span-2 text-gray-900">
-                              {String(value) || (
-                                <span className="text-gray-400 italic">
-                                  leeg
-                                </span>
+                      {Object.entries(aiProfileData).map(([key, value]) => {
+                        const isComplex = typeof value === "object" && value !== null;
+                        const editValue = isComplex
+                          ? JSON.stringify(value, null, 2)
+                          : String(value ?? "");
+                        return (
+                          <div key={key} className="px-4 py-2.5 text-sm">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <span className="font-semibold text-xs text-gray-500 uppercase tracking-wide">{key}</span>
+                              {editingAiProfile && (
+                                <button
+                                  onClick={() => handleRemoveProfileField(key)}
+                                  className="shrink-0 text-gray-300 hover:text-red-500 mt-0.5"
+                                  title="Verwijderen"
+                                >
+                                  <TrashIcon className="h-3.5 w-3.5" />
+                                </button>
                               )}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                            </div>
+                            {editingAiProfile ? (
+                              <textarea
+                                rows={isComplex ? Math.min(8, (editValue.split("\n").length + 1)) : 1}
+                                value={editValue}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  // Probeer JSON te parsen, anders als string opslaan
+                                  try {
+                                    setAiProfileData((prev) => ({ ...prev, [key]: JSON.parse(raw) }));
+                                  } catch {
+                                    setAiProfileData((prev) => ({ ...prev, [key]: raw }));
+                                  }
+                                }}
+                                className="w-full resize-y rounded border border-gray-300 px-2 py-1 font-mono text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                              />
+                            ) : (
+                              <div className="text-sm">
+                                {renderAiValue(value)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
 
                       {/* Nieuw veld toevoegen */}
                       {editingAiProfile && (
-                        <div className="px-4 py-3">
-                          <p className="mb-2 text-xs font-medium text-gray-500">
-                            Veld toevoegen
-                          </p>
+                        <div className="px-4 py-3 bg-gray-50">
+                          <p className="mb-2 text-xs font-medium text-gray-500">Veld toevoegen</p>
                           <div className="flex items-center gap-2">
                             <input
                               type="text"
                               value={newProfileKey}
                               onChange={(e) => setNewProfileKey(e.target.value)}
-                              placeholder="Naam (bv. Interesse)"
+                              placeholder="Naam (bv. interesse)"
                               className="w-1/3 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
                             />
                             <input
                               type="text"
                               value={newProfileValue}
-                              onChange={(e) =>
-                                setNewProfileValue(e.target.value)
-                              }
-                              placeholder="Waarde"
+                              onChange={(e) => setNewProfileValue(e.target.value)}
+                              placeholder="Waarde of JSON"
                               className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleAddProfileField();
-                                }
-                              }}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddProfileField(); } }}
                             />
                             <button
                               type="button"
@@ -1157,7 +1339,7 @@ export default function TelefoniePage() {
                   rel="noopener noreferrer"
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
-                  Openen in Mautic
+                  Volledig profiel in Mautic
                   <ArrowTopRightOnSquareIcon className="h-4 w-4" />
                 </a>
               </div>
