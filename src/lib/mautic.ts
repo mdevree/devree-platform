@@ -293,6 +293,67 @@ export async function getContactFull(contactId: number): Promise<MauticContactFu
 }
 
 /**
+ * Haal een lijst contacten op uit Mautic met zoek/paginatie
+ * Standaard gesorteerd op meest recent actief
+ */
+export async function searchContacts(options: {
+  search?: string;
+  start?: number;
+  limit?: number;
+  orderBy?: string;
+  orderByDir?: "asc" | "desc";
+} = {}): Promise<{ contacts: MauticContact[]; total: number }> {
+  const {
+    search = "",
+    start = 0,
+    limit = 30,
+    orderBy = "last_active",
+    orderByDir = "desc",
+  } = options;
+
+  const params = new URLSearchParams({
+    start: String(start),
+    limit: String(limit),
+    orderBy,
+    orderByDir,
+    minimal: "1", // geeft alleen basisvelden terug
+  });
+
+  if (search.trim()) {
+    params.set("search", search.trim());
+  }
+
+  const response = await mauticFetch(`/api/contacts?${params}`);
+
+  if (!response.ok) {
+    console.error("Mautic contacten lijstfout:", response.status, await response.text());
+    return { contacts: [], total: 0 };
+  }
+
+  const data = await response.json();
+  const rawContacts = data.contacts || {};
+  const total = data.total ? parseInt(data.total) : 0;
+
+  const contacts: MauticContact[] = Object.values(rawContacts).map((c: unknown) => {
+    const contact = c as Record<string, unknown>;
+    const fields = (contact.fields as Record<string, Record<string, unknown>>)?.all || {};
+    return {
+      id: contact.id as number,
+      firstname: (fields.firstname as string) || "",
+      lastname: (fields.lastname as string) || "",
+      email: (fields.email as string) || null,
+      phone: (fields.phone as string) || null,
+      mobile: (fields.mobile as string) || null,
+      company: (fields.company as string) || null,
+      points: (contact.points as number) || 0,
+      lastActive: (fields.last_active as string) || null,
+    };
+  });
+
+  return { contacts, total };
+}
+
+/**
  * Werk contact velden bij in Mautic
  */
 export async function updateContact(

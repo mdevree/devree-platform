@@ -10,12 +10,14 @@ import {
   ArrowTopRightOnSquareIcon,
   Squares2X2Icon,
   FolderIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
   { name: "Telefonie", href: "/telefonie", icon: PhoneIcon },
   { name: "Projecten", href: "/projecten", icon: FolderIcon },
+  { name: "Contacten", href: "/contacten", icon: UsersIcon },
   { name: "Taken", href: "/taken", icon: ClipboardDocumentListIcon },
   { name: "Notion", href: "/notion", icon: Squares2X2Icon },
 ];
