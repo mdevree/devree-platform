@@ -318,12 +318,20 @@ export default function TelefoniePage() {
       const data = await res.json();
       if (data.contact) {
         setContactDetail(data.contact);
-        // Parse AI profiel
+        // Parse AI profiel — zorg dat alle waarden strings zijn
         try {
-          const parsed = data.contact.aiProfile
+          let parsed = data.contact.aiProfile
             ? JSON.parse(data.contact.aiProfile)
             : {};
-          setAiProfileData(parsed);
+          // Als het veld al een object is (Mautic parse), gebruik dat direct
+          if (typeof parsed !== "object" || Array.isArray(parsed)) parsed = {};
+          // Alle waarden naar string converteren
+          const normalized: AiProfileData = {};
+          for (const [k, v] of Object.entries(parsed)) {
+            normalized[k] =
+              typeof v === "string" ? v : JSON.stringify(v);
+          }
+          setAiProfileData(normalized);
         } catch {
           setAiProfileData({});
         }
@@ -1067,7 +1075,7 @@ export default function TelefoniePage() {
                             </div>
                           ) : (
                             <span className="col-span-2 text-gray-900">
-                              {value || (
+                              {String(value) || (
                                 <span className="text-gray-400 italic">
                                   leeg
                                 </span>
