@@ -45,6 +45,14 @@ interface Task {
 
 type ViewMode = "tabel" | "kanban";
 
+const CATEGORIES = [
+  "binnendienst",
+  "verkoop",
+  "aankoop",
+  "taxatie",
+  "administratie",
+];
+
 const EMPTY_TASK_FORM = {
   title: "",
   description: "",
@@ -54,6 +62,141 @@ const EMPTY_TASK_FORM = {
   assigneeId: "",
   projectId: "",
 };
+
+function TaskForm({
+  values,
+  onChange,
+  onSubmit,
+  saving: isSaving,
+  onCancel,
+  submitLabel,
+  extraActions,
+  users,
+}: {
+  values: typeof EMPTY_TASK_FORM;
+  onChange: (v: typeof EMPTY_TASK_FORM) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  saving: boolean;
+  onCancel: () => void;
+  submitLabel: string;
+  extraActions?: React.ReactNode;
+  users: User[];
+}) {
+  return (
+    <form onSubmit={onSubmit}>
+      <div className="mb-3">
+        <label className="mb-1 block text-sm font-medium text-gray-700">Titel *</label>
+        <input
+          type="text"
+          required
+          value={values.title}
+          onChange={(e) => onChange({ ...values, title: e.target.value })}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          placeholder="Wat moet er gedaan worden?"
+        />
+      </div>
+
+      <div className="mb-3">
+        <label className="mb-1 block text-sm font-medium text-gray-700">Omschrijving</label>
+        <textarea
+          value={values.description}
+          onChange={(e) => onChange({ ...values, description: e.target.value })}
+          rows={3}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          placeholder="Extra details..."
+        />
+      </div>
+
+      <div className="mb-3 grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Toewijzen aan *</label>
+          <select
+            required
+            value={values.assigneeId}
+            onChange={(e) => onChange({ ...values, assigneeId: e.target.value })}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          >
+            <option value="">Selecteer...</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} ({user.role})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Prioriteit</label>
+          <select
+            value={values.priority}
+            onChange={(e) => onChange({ ...values, priority: e.target.value })}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          >
+            <option value="laag">Laag</option>
+            <option value="normaal">Normaal</option>
+            <option value="hoog">Hoog</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="mb-3 grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Categorie</label>
+          <select
+            value={values.category}
+            onChange={(e) => onChange({ ...values, category: e.target.value })}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          >
+            <option value="">Geen</option>
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Deadline</label>
+          <input
+            type="date"
+            value={values.dueDate}
+            onChange={(e) => onChange({ ...values, dueDate: e.target.value })}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <label className="mb-1 block text-sm font-medium text-gray-700">Project</label>
+        <ProjectSelector
+          value={values.projectId}
+          onChange={(val) => onChange({ ...values, projectId: val })}
+          className="w-full"
+        />
+      </div>
+
+      <div className="mt-6 flex items-center justify-between">
+        <div>{extraActions}</div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            Annuleren
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+          >
+            {isSaving ? "Opslaan..." : submitLabel}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
 
 export default function TakenPage() {
   const { data: session } = useSession();
@@ -252,14 +395,6 @@ export default function TakenPage() {
     { key: "afgerond", label: "Afgerond", icon: CheckCircleIcon, color: "text-green-500" },
   ];
 
-  const categories = [
-    "binnendienst",
-    "verkoop",
-    "aankoop",
-    "taxatie",
-    "administratie",
-  ];
-
   function formatDate(dateStr: string | null) {
     if (!dateStr) return null;
     return new Date(dateStr).toLocaleDateString("nl-NL", {
@@ -271,140 +406,6 @@ export default function TakenPage() {
   function isOverdue(dateStr: string | null) {
     if (!dateStr) return false;
     return new Date(dateStr) < new Date();
-  }
-
-  // Gedeeld formulier voor zowel nieuw als bewerk modal
-  function TaskForm({
-    values,
-    onChange,
-    onSubmit,
-    saving: isSaving,
-    onCancel,
-    submitLabel,
-    extraActions,
-  }: {
-    values: typeof EMPTY_TASK_FORM;
-    onChange: (v: typeof EMPTY_TASK_FORM) => void;
-    onSubmit: (e: React.FormEvent) => void;
-    saving: boolean;
-    onCancel: () => void;
-    submitLabel: string;
-    extraActions?: React.ReactNode;
-  }) {
-    return (
-      <form onSubmit={onSubmit}>
-        <div className="mb-3">
-          <label className="mb-1 block text-sm font-medium text-gray-700">Titel *</label>
-          <input
-            type="text"
-            required
-            value={values.title}
-            onChange={(e) => onChange({ ...values, title: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            placeholder="Wat moet er gedaan worden?"
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="mb-1 block text-sm font-medium text-gray-700">Omschrijving</label>
-          <textarea
-            value={values.description}
-            onChange={(e) => onChange({ ...values, description: e.target.value })}
-            rows={3}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            placeholder="Extra details..."
-          />
-        </div>
-
-        <div className="mb-3 grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Toewijzen aan *</label>
-            <select
-              required
-              value={values.assigneeId}
-              onChange={(e) => onChange({ ...values, assigneeId: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">Selecteer...</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name} ({user.role})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Prioriteit</label>
-            <select
-              value={values.priority}
-              onChange={(e) => onChange({ ...values, priority: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="laag">Laag</option>
-              <option value="normaal">Normaal</option>
-              <option value="hoog">Hoog</option>
-              <option value="urgent">Urgent</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="mb-3 grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Categorie</label>
-            <select
-              value={values.category}
-              onChange={(e) => onChange({ ...values, category: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">Geen</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Deadline</label>
-            <input
-              type="date"
-              value={values.dueDate}
-              onChange={(e) => onChange({ ...values, dueDate: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="mb-3">
-          <label className="mb-1 block text-sm font-medium text-gray-700">Project</label>
-          <ProjectSelector
-            value={values.projectId}
-            onChange={(val) => onChange({ ...values, projectId: val })}
-            className="w-full"
-          />
-        </div>
-
-        <div className="mt-6 flex items-center justify-between">
-          <div>{extraActions}</div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Annuleren
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-            >
-              {isSaving ? "Opslaan..." : submitLabel}
-            </button>
-          </div>
-        </div>
-      </form>
-    );
   }
 
   return (
@@ -469,7 +470,7 @@ export default function TakenPage() {
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
         >
           <option value="">Alle categorieën</option>
-          {categories.map((cat) => (
+          {CATEGORIES.map((cat) => (
             <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
           ))}
         </select>
@@ -710,6 +711,7 @@ export default function TakenPage() {
               saving={saving}
               onCancel={() => setShowNewTask(false)}
               submitLabel="Taak aanmaken"
+              users={users}
             />
           </div>
         </div>
@@ -761,6 +763,7 @@ export default function TakenPage() {
               saving={editSaving}
               onCancel={() => setEditTask(null)}
               submitLabel="Wijzigingen opslaan"
+              users={users}
               extraActions={
                 showDeleteConfirm ? (
                   <div className="flex items-center gap-2">
