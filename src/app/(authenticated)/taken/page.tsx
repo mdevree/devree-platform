@@ -57,7 +57,8 @@ const EMPTY_TASK_FORM = {
 
 export default function TakenPage() {
   const { data: session } = useSession();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]); // kanban: open+bezig + laatste 10 afgerond
+  const [allTasks, setAllTasks] = useState<Task[]>([]); // tabel: alles
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
@@ -79,15 +80,45 @@ export default function TakenPage() {
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (filterAssignee) params.set("assigneeId", filterAssignee);
-    if (filterCategory) params.set("category", filterCategory);
-    if (filterProject) params.set("projectId", filterProject);
+
+    const baseParams = new URLSearchParams();
+    if (filterAssignee) baseParams.set("assigneeId", filterAssignee);
+    if (filterCategory) baseParams.set("category", filterCategory);
+    if (filterProject) baseParams.set("projectId", filterProject);
+
+    // Open + bezig: gesorteerd op deadline oplopend
+    const activeParams = new URLSearchParams(baseParams);
+    activeParams.set("status", "open,bezig");
+    activeParams.set("sortBy", "dueDate");
+    activeParams.set("sortOrder", "asc");
+    activeParams.set("limit", "200");
+
+    // Afgerond: laatste 10, gesorteerd op completedAt aflopend
+    const doneParams = new URLSearchParams(baseParams);
+    doneParams.set("status", "afgerond");
+    doneParams.set("sortBy", "completedAt");
+    doneParams.set("sortOrder", "desc");
+    doneParams.set("limit", "10");
+
+    // Tabel: alles, gesorteerd op status + deadline
+    const allParams = new URLSearchParams(baseParams);
+    allParams.set("sortBy", "dueDate");
+    allParams.set("sortOrder", "asc");
+    allParams.set("limit", "200");
 
     try {
-      const response = await fetch(`/api/taken?${params}`);
-      const data = await response.json();
-      setTasks(data.tasks || []);
+      const [activeRes, doneRes, allRes] = await Promise.all([
+        fetch(`/api/taken?${activeParams}`),
+        fetch(`/api/taken?${doneParams}`),
+        fetch(`/api/taken?${allParams}`),
+      ]);
+      const [activeData, doneData, allData] = await Promise.all([
+        activeRes.json(),
+        doneRes.json(),
+        allRes.json(),
+      ]);
+      setTasks([...(activeData.tasks || []), ...(doneData.tasks || [])]);
+      setAllTasks(allData.tasks || []);
     } catch {
       console.error("Fout bij ophalen taken");
     }
@@ -590,7 +621,7 @@ export default function TakenPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {tasks.map((task) => (
+              {allTasks.map((task) => (
                 <tr key={task.id} className="transition-colors hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="text-sm font-medium text-gray-900">{task.title}</div>

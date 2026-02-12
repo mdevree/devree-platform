@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Sortering
-  const allowedSortFields = ["status", "priority", "dueDate", "createdAt", "title"];
+  const allowedSortFields = ["status", "priority", "dueDate", "createdAt", "completedAt", "title"];
   const orderField = allowedSortFields.includes(sortBy) ? sortBy : "status";
   const orderBy = [
     { [orderField]: sortOrder },
