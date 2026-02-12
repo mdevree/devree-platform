@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isAuthorized } from "@/lib/apiAuth";
 
 /**
  * GET /api/users
  * Haal alle actieve gebruikers op
  */
-export async function GET() {
-  const session = await auth();
-  if (!session) {
+export async function GET(request: NextRequest) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
   }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { isAuthorized } from "@/lib/apiAuth";
 import { createContact, searchContactByPhone, getContact } from "@/lib/mautic";
 
 /**
@@ -10,8 +11,7 @@ import { createContact, searchContactByPhone, getContact } from "@/lib/mautic";
  * Haal contact details op via Mautic ID
  */
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
   }
 

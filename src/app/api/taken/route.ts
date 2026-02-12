@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { isAuthorized } from "@/lib/apiAuth";
 
 /**
  * GET /api/taken
@@ -21,8 +22,7 @@ import { auth } from "@/lib/auth";
  *   sortOrder    - asc|desc (standaard: asc)
  */
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
   }
 

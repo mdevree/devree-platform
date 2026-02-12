@@ -18,7 +18,16 @@ Next.js · TypeScript · Tailwind CSS · Prisma · MySQL · NextAuth.js · Docke
 
 ## API Overzicht
 
-Alle endpoints vereisen een actieve sessie (cookie-authenticatie via NextAuth), tenzij anders aangegeven. Webhooks gebruiken `x-webhook-secret` header verificatie.
+Alle endpoints accepteren twee authenticatiemethoden:
+
+1. **Sessie-cookie** — standaard voor gebruik vanuit de browser (NextAuth)
+2. **`x-webhook-secret` header** — voor server-to-server aanroepen (n8n, externe systemen)
+
+```
+x-webhook-secret: <N8N_WEBHOOK_SECRET>
+```
+
+Webhooks (POST naar `/webhook`) gebruiken uitsluitend de `x-webhook-secret` header.
 
 ---
 
