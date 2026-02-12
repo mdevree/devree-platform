@@ -28,9 +28,19 @@ export default function ProjectSelector({
   useEffect(() => {
     async function fetchProjects() {
       try {
-        const response = await fetch("/api/projecten?limit=100");
-        const data = await response.json();
-        setProjects(data.projects || []);
+        // Haal actief en lead apart op zodat actief altijd bovenaan staat
+        const [actiefRes, leadRes] = await Promise.all([
+          fetch("/api/projecten?status=actief&limit=100"),
+          fetch("/api/projecten?status=lead&limit=100"),
+        ]);
+        const [actiefData, leadData] = await Promise.all([
+          actiefRes.json(),
+          leadRes.json(),
+        ]);
+        setProjects([
+          ...(actiefData.projects || []),
+          ...(leadData.projects || []),
+        ]);
       } catch {
         console.error("Fout bij ophalen projecten");
       }
@@ -38,12 +48,8 @@ export default function ProjectSelector({
     fetchProjects();
   }, []);
 
-  const statusLabel: Record<string, string> = {
-    lead: "Lead",
-    actief: "Actief",
-    afgerond: "Afgerond",
-    geannuleerd: "Geannuleerd",
-  };
+  const actief = projects.filter((p) => p.status === "actief");
+  const lead = projects.filter((p) => p.status === "lead");
 
   return (
     <select
@@ -52,11 +58,24 @@ export default function ProjectSelector({
       className={`rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none ${className}`}
     >
       {includeEmpty && <option value="">{emptyLabel}</option>}
-      {projects.map((project) => (
-        <option key={project.id} value={project.id}>
-          {project.name} ({statusLabel[project.status] || project.status})
-        </option>
-      ))}
+      {actief.length > 0 && (
+        <optgroup label="Actief">
+          {actief.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {lead.length > 0 && (
+        <optgroup label="Lead">
+          {lead.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
     </select>
   );
 }
