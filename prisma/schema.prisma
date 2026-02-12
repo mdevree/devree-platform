@@ -60,6 +60,7 @@ model Call {
   points            Int      @default(0)
   project           Project? @relation(fields: [projectId], references: [id])
   projectId         String?
+  notes             CallNote[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -68,6 +69,19 @@ model Call {
   @@index([mauticContactId])
   @@index([projectId])
   @@map("calls")
+}
+
+model CallNote {
+  id        String   @id @default(cuid())
+  call      Call     @relation(fields: [callId], references: [id])
+  callId    String
+  note      String   @db.Text
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([callId])
+  @@map("call_notes")
 }
 
 model Task {

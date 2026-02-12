@@ -106,6 +106,21 @@ export interface MauticContact {
   lastActive: string | null;
 }
 
+export interface MauticContactFull extends MauticContact {
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  state: string | null;
+  zipcode: string | null;
+  country: string | null;
+  website: string | null;
+  // AI data profiel veld (JSON string opgeslagen in een custom veld)
+  aiProfile: string | null;
+  // Ruwe velden voor uitgebreide weergave
+  tags: string[];
+  dateAdded: string | null;
+}
+
 /**
  * Zoek een contact in Mautic op basis van telefoonnummer
  * Zoekt in phone EN mobile velden met alle 3 formaten (zelfde als n8n workflow)
@@ -222,6 +237,80 @@ export async function getContact(contactId: number): Promise<MauticContact | nul
 
   const data = await response.json();
   const contact = data.contact;
+  const fields = contact.fields?.all || {};
+
+  return {
+    id: contact.id,
+    firstname: fields.firstname || "",
+    lastname: fields.lastname || "",
+    email: fields.email || null,
+    phone: fields.phone || null,
+    mobile: fields.mobile || null,
+    company: fields.company || null,
+    points: contact.points || 0,
+    lastActive: fields.last_active || null,
+  };
+}
+
+/**
+ * Haal volledige contact details op inclusief adres, tags en AI profiel
+ */
+export async function getContactFull(contactId: number): Promise<MauticContactFull | null> {
+  const response = await mauticFetch(`/api/contacts/${contactId}`);
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await response.json();
+  const contact = data.contact;
+  const fields = contact.fields?.all || {};
+
+  // Tags ophalen
+  const tags: string[] = (contact.tags || []).map((t: { tag: string }) => t.tag);
+
+  return {
+    id: contact.id,
+    firstname: fields.firstname || "",
+    lastname: fields.lastname || "",
+    email: fields.email || null,
+    phone: fields.phone || null,
+    mobile: fields.mobile || null,
+    company: fields.company || null,
+    points: contact.points || 0,
+    lastActive: fields.last_active || null,
+    address1: fields.address1 || null,
+    address2: fields.address2 || null,
+    city: fields.city || null,
+    state: fields.state || null,
+    zipcode: fields.zipcode || null,
+    country: fields.country || null,
+    website: fields.website || null,
+    aiProfile: fields.ai_profiel_data || null,
+    tags,
+    dateAdded: contact.dateAdded || null,
+  };
+}
+
+/**
+ * Werk contact velden bij in Mautic
+ */
+export async function updateContact(
+  contactId: number,
+  data: Record<string, string | number | null>
+): Promise<MauticContact | null> {
+  const response = await mauticFetch(`/api/contacts/${contactId}/edit`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    console.error("Mautic update fout:", response.status, await response.text());
+    return null;
+  }
+
+  const result = await response.json();
+  const contact = result.contact;
   const fields = contact.fields?.all || {};
 
   return {

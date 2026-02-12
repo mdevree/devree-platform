@@ -11,6 +11,12 @@ import {
   ArrowTopRightOnSquareIcon,
   FolderIcon,
   XMarkIcon,
+  PencilSquareIcon,
+  ChatBubbleLeftEllipsisIcon,
+  UserCircleIcon,
+  CheckIcon,
+  PencilIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import ProjectSelector from "@/components/projects/ProjectSelector";
 
@@ -37,6 +43,36 @@ interface Call {
   project: Project | null;
 }
 
+interface CallNote {
+  id: string;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+interface MauticContactFull {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string | null;
+  phone: string | null;
+  mobile: string | null;
+  company: string | null;
+  points: number;
+  lastActive: string | null;
+  address1: string | null;
+  city: string | null;
+  zipcode: string | null;
+  country: string | null;
+  website: string | null;
+  aiProfile: string | null;
+  tags: string[];
+  dateAdded: string | null;
+}
+
+// AI profiel is een JSON object met dynamische sleutels (bijv. "Interesse", "Fase", etc.)
+type AiProfileData = Record<string, string>;
+
 interface Pagination {
   page: number;
   limit: number;
@@ -46,6 +82,9 @@ interface Pagination {
 
 type FilterDirection = "" | "inbound" | "outbound";
 type FilterReason = "" | "completed" | "no-answer" | "busy" | "cancelled";
+
+const MAUTIC_URL =
+  process.env.NEXT_PUBLIC_MAUTIC_URL || "https://connect.devreemakelaardij.nl";
 
 export default function TelefoniePage() {
   const searchParams = useSearchParams();
@@ -76,6 +115,29 @@ export default function TelefoniePage() {
   const [linkProjectId, setLinkProjectId] = useState("");
   const [linkSaving, setLinkSaving] = useState(false);
 
+  // Notitie modal
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteCallId, setNoteCallId] = useState("");
+  const [noteCallName, setNoteCallName] = useState("");
+  const [notes, setNotes] = useState<CallNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  // Contact detail panel
+  const [showContactPanel, setShowContactPanel] = useState(false);
+  const [contactDetail, setContactDetail] = useState<MauticContactFull | null>(null);
+  const [contactDetailLoading, setContactDetailLoading] = useState(false);
+
+  // AI profiel bewerken
+  const [editingAiProfile, setEditingAiProfile] = useState(false);
+  const [aiProfileData, setAiProfileData] = useState<AiProfileData>({});
+  const [aiProfileSaving, setAiProfileSaving] = useState(false);
+  const [aiProfileMessage, setAiProfileMessage] = useState("");
+  // Nieuw veld toevoegen aan AI profiel
+  const [newProfileKey, setNewProfileKey] = useState("");
+  const [newProfileValue, setNewProfileValue] = useState("");
+
   // Check of er een 'nieuw' parameter is (van call notification)
   useEffect(() => {
     const nieuwNummer = searchParams.get("nieuw");
@@ -84,9 +146,10 @@ export default function TelefoniePage() {
       setNewContactData((prev) => ({
         ...prev,
         phone: nieuwNummer,
-        mobile: nieuwNummer.startsWith("06") || nieuwNummer.startsWith("+316")
-          ? nieuwNummer
-          : "",
+        mobile:
+          nieuwNummer.startsWith("06") || nieuwNummer.startsWith("+316")
+            ? nieuwNummer
+            : "",
       }));
       setShowNewContact(true);
     }
@@ -188,6 +251,138 @@ export default function TelefoniePage() {
     setShowLinkProject(true);
   }
 
+  // --- Notities ---
+  async function openNoteModal(call: Call) {
+    setNoteCallId(call.id);
+    setNoteCallName(call.contactName || call.callerNumber || call.destinationNumber);
+    setShowNoteModal(true);
+    setNotes([]);
+    setNewNote("");
+    setNotesLoading(true);
+
+    try {
+      const res = await fetch(`/api/calls/${call.id}/notes`);
+      const data = await res.json();
+      setNotes(data.notes || []);
+    } catch {
+      console.error("Fout bij ophalen notities");
+    }
+    setNotesLoading(false);
+  }
+
+  async function handleSaveNote(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newNote.trim()) return;
+    setNoteSaving(true);
+
+    try {
+      const res = await fetch(`/api/calls/${noteCallId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: newNote.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNotes((prev) => [data.note, ...prev]);
+        setNewNote("");
+      }
+    } catch {
+      console.error("Fout bij opslaan notitie");
+    }
+    setNoteSaving(false);
+  }
+
+  async function handleDeleteNote(noteId: string) {
+    try {
+      await fetch(`/api/calls/${noteCallId}/notes`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noteId }),
+      });
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    } catch {
+      console.error("Fout bij verwijderen notitie");
+    }
+  }
+
+  // --- Contact detail ---
+  async function openContactPanel(mauticContactId: number) {
+    setShowContactPanel(true);
+    setContactDetail(null);
+    setContactDetailLoading(true);
+    setEditingAiProfile(false);
+    setAiProfileMessage("");
+
+    try {
+      const res = await fetch(`/api/mautic/contact?id=${mauticContactId}&full=1`);
+      const data = await res.json();
+      if (data.contact) {
+        setContactDetail(data.contact);
+        // Parse AI profiel
+        try {
+          const parsed = data.contact.aiProfile
+            ? JSON.parse(data.contact.aiProfile)
+            : {};
+          setAiProfileData(parsed);
+        } catch {
+          setAiProfileData({});
+        }
+      }
+    } catch {
+      console.error("Fout bij ophalen contact");
+    }
+    setContactDetailLoading(false);
+  }
+
+  async function handleSaveAiProfile() {
+    if (!contactDetail) return;
+    setAiProfileSaving(true);
+    setAiProfileMessage("");
+
+    try {
+      const res = await fetch("/api/mautic/contact", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: contactDetail.id,
+          fields: { ai_profiel_data: JSON.stringify(aiProfileData) },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiProfileMessage("Profiel opgeslagen");
+        setEditingAiProfile(false);
+        setContactDetail((prev) =>
+          prev ? { ...prev, aiProfile: JSON.stringify(aiProfileData) } : prev
+        );
+        setTimeout(() => setAiProfileMessage(""), 3000);
+      } else {
+        setAiProfileMessage("Fout bij opslaan");
+      }
+    } catch {
+      setAiProfileMessage("Netwerkfout");
+    }
+    setAiProfileSaving(false);
+  }
+
+  function handleAddProfileField() {
+    if (!newProfileKey.trim()) return;
+    setAiProfileData((prev) => ({
+      ...prev,
+      [newProfileKey.trim()]: newProfileValue.trim(),
+    }));
+    setNewProfileKey("");
+    setNewProfileValue("");
+  }
+
+  function handleRemoveProfileField(key: string) {
+    setAiProfileData((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   function formatTime(timestamp: string) {
     const date = new Date(timestamp);
     return date.toLocaleString("nl-NL", {
@@ -195,6 +390,15 @@ export default function TelefoniePage() {
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+    });
+  }
+
+  function formatDate(dateStr: string | null) {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("nl-NL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   }
 
@@ -377,9 +581,16 @@ export default function TelefoniePage() {
                   </td>
                   <td className="px-4 py-3 text-sm">
                     {call.contactName ? (
-                      <span className="font-medium text-gray-900">
+                      <button
+                        onClick={() =>
+                          call.mauticContactId &&
+                          openContactPanel(call.mauticContactId)
+                        }
+                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                      >
+                        <UserCircleIcon className="h-4 w-4" />
                         {call.contactName}
-                      </span>
+                      </button>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
@@ -407,17 +618,39 @@ export default function TelefoniePage() {
                     {getReasonBadge(call.reason)}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      {/* Notitie knop */}
+                      <button
+                        onClick={() => openNoteModal(call)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                        title="Notitie toevoegen"
+                      >
+                        <ChatBubbleLeftEllipsisIcon className="h-3.5 w-3.5" />
+                        Notitie
+                      </button>
+
                       {call.mauticContactId ? (
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_MAUTIC_URL || "https://connect.devreemakelaardij.nl"}/s/contacts/view/${call.mauticContactId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
-                        >
-                          Mautic
-                          <ArrowTopRightOnSquareIcon className="h-3 w-3" />
-                        </a>
+                        <>
+                          <button
+                            onClick={() =>
+                              openContactPanel(call.mauticContactId!)
+                            }
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                            title="Contact details"
+                          >
+                            <UserCircleIcon className="h-3.5 w-3.5" />
+                            Contact
+                          </button>
+                          <a
+                            href={`${MAUTIC_URL}/s/contacts/view/${call.mauticContactId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-100"
+                            title="Openen in Mautic"
+                          >
+                            <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                          </a>
+                        </>
                       ) : (
                         <button
                           onClick={() => {
@@ -484,7 +717,427 @@ export default function TelefoniePage() {
         </div>
       )}
 
-      {/* Nieuw Contact Modal */}
+      {/* ===== NOTITIE MODAL ===== */}
+      {showNoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <ChatBubbleLeftEllipsisIcon className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Notities — {noteCallName}
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowNoteModal(false)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Notitie invoer */}
+            <div className="px-6 py-4">
+              <form onSubmit={handleSaveNote} className="flex gap-2">
+                <textarea
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Schrijf een notitie over dit gesprek..."
+                  rows={3}
+                  className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <button
+                  type="submit"
+                  disabled={noteSaving || !newNote.trim()}
+                  className="self-end rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+                >
+                  {noteSaving ? "..." : "Opslaan"}
+                </button>
+              </form>
+            </div>
+
+            {/* Notities lijst */}
+            <div className="max-h-72 overflow-y-auto border-t border-gray-100 px-6 py-4">
+              {notesLoading ? (
+                <p className="text-center text-sm text-gray-400">Laden...</p>
+              ) : notes.length === 0 ? (
+                <p className="text-center text-sm text-gray-400">
+                  Nog geen notities voor dit gesprek
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {notes.map((n) => (
+                    <li
+                      key={n.id}
+                      className="rounded-lg bg-gray-50 px-4 py-3 text-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="flex-1 whitespace-pre-wrap text-gray-800">
+                          {n.note}
+                        </p>
+                        <button
+                          onClick={() => handleDeleteNote(n.id)}
+                          className="mt-0.5 shrink-0 text-gray-300 transition-colors hover:text-red-500"
+                          title="Verwijderen"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {n.createdBy} ·{" "}
+                        {new Date(n.createdAt).toLocaleString("nl-NL", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="flex justify-end border-t border-gray-100 px-6 py-3">
+              <button
+                onClick={() => setShowNoteModal(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Sluiten
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== CONTACT DETAIL PANEL (SIDE PANEL) ===== */}
+      {showContactPanel && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Overlay */}
+          <div
+            className="flex-1 bg-black/40"
+            onClick={() => setShowContactPanel(false)}
+          />
+          {/* Panel */}
+          <div className="w-full max-w-md overflow-y-auto bg-white shadow-2xl">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+              <div className="flex items-center gap-2">
+                <UserCircleIcon className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Contact details
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowContactPanel(false)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            {contactDetailLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <p className="text-gray-400">Laden...</p>
+              </div>
+            ) : !contactDetail ? (
+              <div className="flex items-center justify-center py-16">
+                <p className="text-gray-400">Contact niet gevonden</p>
+              </div>
+            ) : (
+              <div className="px-6 py-4 space-y-6">
+                {/* Naam & punten */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      {[contactDetail.firstname, contactDetail.lastname]
+                        .filter(Boolean)
+                        .join(" ") || "Onbekend"}
+                    </h3>
+                    {contactDetail.company && (
+                      <p className="text-sm text-gray-500">
+                        {contactDetail.company}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                      {contactDetail.points} pts
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                {contactDetail.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {contactDetail.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Contactgegevens */}
+                <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
+                  <div className="px-4 py-2.5">
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                      Contactgegevens
+                    </p>
+                  </div>
+                  {contactDetail.email && (
+                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
+                      <span className="text-gray-500">E-mail</span>
+                      <a
+                        href={`mailto:${contactDetail.email}`}
+                        className="col-span-2 text-primary hover:underline break-all"
+                      >
+                        {contactDetail.email}
+                      </a>
+                    </div>
+                  )}
+                  {contactDetail.phone && (
+                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
+                      <span className="text-gray-500">Telefoon</span>
+                      <span className="col-span-2 font-mono text-gray-900">
+                        {contactDetail.phone}
+                      </span>
+                    </div>
+                  )}
+                  {contactDetail.mobile && (
+                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
+                      <span className="text-gray-500">Mobiel</span>
+                      <span className="col-span-2 font-mono text-gray-900">
+                        {contactDetail.mobile}
+                      </span>
+                    </div>
+                  )}
+                  {contactDetail.website && (
+                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
+                      <span className="text-gray-500">Website</span>
+                      <a
+                        href={contactDetail.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="col-span-2 text-primary hover:underline break-all"
+                      >
+                        {contactDetail.website}
+                      </a>
+                    </div>
+                  )}
+                  {(contactDetail.address1 || contactDetail.city) && (
+                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
+                      <span className="text-gray-500">Adres</span>
+                      <div className="col-span-2 text-gray-900">
+                        {contactDetail.address1 && (
+                          <p>{contactDetail.address1}</p>
+                        )}
+                        {(contactDetail.zipcode || contactDetail.city) && (
+                          <p>
+                            {[contactDetail.zipcode, contactDetail.city]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
+                    <span className="text-gray-500">Toegevoegd</span>
+                    <span className="col-span-2 text-gray-900">
+                      {formatDate(contactDetail.dateAdded)}
+                    </span>
+                  </div>
+                  {contactDetail.lastActive && (
+                    <div className="grid grid-cols-3 px-4 py-2.5 text-sm">
+                      <span className="text-gray-500">Actief</span>
+                      <span className="col-span-2 text-gray-900">
+                        {formatDate(contactDetail.lastActive)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Data Profiel */}
+                <div className="rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                      AI Data Profiel
+                    </p>
+                    {!editingAiProfile ? (
+                      <button
+                        onClick={() => setEditingAiProfile(true)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
+                      >
+                        <PencilIcon className="h-3 w-3" />
+                        Bewerken
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {aiProfileMessage && (
+                          <span
+                            className={`text-xs ${
+                              aiProfileMessage.includes("Fout") ||
+                              aiProfileMessage.includes("fout")
+                                ? "text-red-500"
+                                : "text-green-600"
+                            }`}
+                          >
+                            {aiProfileMessage}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => {
+                            setEditingAiProfile(false);
+                            // Reset naar opgeslagen waarde
+                            try {
+                              setAiProfileData(
+                                contactDetail.aiProfile
+                                  ? JSON.parse(contactDetail.aiProfile)
+                                  : {}
+                              );
+                            } catch {
+                              setAiProfileData({});
+                            }
+                          }}
+                          className="rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+                        >
+                          Annuleren
+                        </button>
+                        <button
+                          onClick={handleSaveAiProfile}
+                          disabled={aiProfileSaving}
+                          className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-50"
+                        >
+                          <CheckIcon className="h-3 w-3" />
+                          {aiProfileSaving ? "..." : "Opslaan"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {Object.keys(aiProfileData).length === 0 &&
+                  !editingAiProfile ? (
+                    <div className="px-4 py-6 text-center">
+                      <p className="text-sm text-gray-400">
+                        Geen AI profiel data beschikbaar
+                      </p>
+                      <button
+                        onClick={() => setEditingAiProfile(true)}
+                        className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <PencilSquareIcon className="h-3 w-3" />
+                        Profiel invullen
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {Object.entries(aiProfileData).map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="grid grid-cols-3 items-center px-4 py-2.5 text-sm"
+                        >
+                          <span className="font-medium text-gray-600">
+                            {key}
+                          </span>
+                          {editingAiProfile ? (
+                            <div className="col-span-2 flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={value}
+                                onChange={(e) =>
+                                  setAiProfileData((prev) => ({
+                                    ...prev,
+                                    [key]: e.target.value,
+                                  }))
+                                }
+                                className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
+                              />
+                              <button
+                                onClick={() => handleRemoveProfileField(key)}
+                                className="text-gray-300 hover:text-red-500"
+                                title="Verwijderen"
+                              >
+                                <TrashIcon className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="col-span-2 text-gray-900">
+                              {value || (
+                                <span className="text-gray-400 italic">
+                                  leeg
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Nieuw veld toevoegen */}
+                      {editingAiProfile && (
+                        <div className="px-4 py-3">
+                          <p className="mb-2 text-xs font-medium text-gray-500">
+                            Veld toevoegen
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={newProfileKey}
+                              onChange={(e) => setNewProfileKey(e.target.value)}
+                              placeholder="Naam (bv. Interesse)"
+                              className="w-1/3 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={newProfileValue}
+                              onChange={(e) =>
+                                setNewProfileValue(e.target.value)
+                              }
+                              placeholder="Waarde"
+                              className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAddProfileField();
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddProfileField}
+                              disabled={!newProfileKey.trim()}
+                              className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-40"
+                            >
+                              + Toevoegen
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Mautic link */}
+                <a
+                  href={`${MAUTIC_URL}/s/contacts/view/${contactDetail.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Openen in Mautic
+                  <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== NIEUW CONTACT MODAL ===== */}
       {showNewContact && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
@@ -633,7 +1286,7 @@ export default function TelefoniePage() {
         </div>
       )}
 
-      {/* Project koppelen modal */}
+      {/* ===== PROJECT KOPPELEN MODAL ===== */}
       {showLinkProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">

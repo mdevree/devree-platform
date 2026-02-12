@@ -4,10 +4,10 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 
 ## Modules
 
-- **Telefonie** — Live call popups, call history, Mautic CRM koppeling
+- **Telefonie** — Live call popups, call history, Mautic CRM koppeling, notities per gesprek, contact detail panel met AI data profiel
 - **Taken** — Kanban + tabel, per makelaar en centraal voor binnendienst
 - **Projecten** — Woningdossiers gekoppeld aan taken, calls en Notion
-- **Mautic** — CRM contact opzoeken en aanmaken
+- **Mautic** — CRM contact opzoeken, aanmaken en bijwerken (inclusief AI profiel)
 - **Notion** — Bidirectionele sync via n8n webhooks
 
 ## Tech Stack
@@ -174,6 +174,9 @@ Upsert op basis van `notionPageId`. Vereiste velden: `notionPageId`. Overige vel
 |---------|----------|--------------|
 | `GET` | `/api/calls` | Haal afgeronde calls op met filters en paginering |
 | `PATCH` | `/api/calls/[id]/project` | Koppel of ontkoppel een call aan een project |
+| `GET` | `/api/calls/[id]/notes` | Haal notities op van een gesprek |
+| `POST` | `/api/calls/[id]/notes` | Voeg een notitie toe aan een gesprek (triggert optioneel webhook) |
+| `DELETE` | `/api/calls/[id]/notes` | Verwijder een notitie (body: `{ "noteId": "..." }`) |
 | `GET` | `/api/calls/stream` | Server-Sent Events (SSE) stream voor live call meldingen |
 | `POST` | `/api/calls/webhook` | Verwerk call events van n8n / Voys |
 
@@ -199,6 +202,31 @@ Geeft alleen calls met `status: "ended"` terug.
 ```
 
 Stuur `projectId: null` om de koppeling te verwijderen.
+
+#### `POST /api/calls/[id]/notes` — Body
+
+```json
+{ "note": "Tekst van de notitie" }
+```
+
+Na opslaan wordt optioneel een webhook aangeroepen naar `CALL_NOTE_WEBHOOK_URL` met de volgende payload:
+
+| Veld | Omschrijving |
+|------|--------------|
+| `noteId` | ID van de nieuwe notitie |
+| `callId` | Unieke call-ID van het telefoniesysteem |
+| `timestamp` | Tijdstip van het gesprek |
+| `direction` | `inbound` of `outbound` |
+| `callerNumber` | Beller telefoonnummer |
+| `callerName` | Naam van de beller (indien beschikbaar) |
+| `destinationNumber` | Bestemmingsnummer |
+| `mauticContactId` | Gekoppeld Mautic contact ID |
+| `contactName` | Naam van het Mautic contact |
+| `projectId` | Gekoppeld project ID |
+| `projectName` | Naam van het gekoppelde project |
+| `note` | De notitietekst |
+| `createdBy` | Naam van de medewerker die de notitie schreef |
+| `createdAt` | Tijdstip van aanmaken |
 
 #### `GET /api/calls/stream` — SSE
 
@@ -237,7 +265,9 @@ Verwerkt alle call statussen: `ringing`, `in-progress`, `ended`. Zoekt automatis
 |---------|----------|--------------|
 | `GET` | `/api/mautic/contact?phone=0612345678` | Zoek een contact op telefoonnummer |
 | `GET` | `/api/mautic/contact?id=123` | Haal een contact op via Mautic ID |
+| `GET` | `/api/mautic/contact?id=123&full=1` | Haal volledig contact op (adres, tags, AI profiel) |
 | `POST` | `/api/mautic/contact` | Maak een nieuw contact aan in Mautic |
+| `PATCH` | `/api/mautic/contact` | Werk contact velden bij in Mautic |
 
 #### `POST /api/mautic/contact` — Body
 
@@ -248,6 +278,36 @@ Verwerkt alle call statussen: `ringing`, `in-progress`, `ended`. Zoekt automatis
 | `mobile` | | Mobiel nummer |
 | `email` | | E-mailadres |
 | `company` | | Bedrijfsnaam |
+
+#### `PATCH /api/mautic/contact` — Body
+
+```json
+{
+  "id": 123,
+  "fields": {
+    "firstname": "Jan",
+    "ai_profiel_data": "{\"Interesse\":\"Verkoop\",\"Fase\":\"Oriëntatie\"}"
+  }
+}
+```
+
+Kan elk Mautic contactveld bijwerken, inclusief het custom veld `ai_profiel_data` (JSON string).
+
+#### AI Data Profiel
+
+Het AI data profiel wordt opgeslagen als JSON-string in het Mautic custom veld `ai_profiel_data` (type: textarea). Dit is een vrij key-value object dat via het contact detail panel in de telefonie module beheerd kan worden.
+
+Voorbeeld inhoud:
+```json
+{
+  "Interesse": "Verkoop woning",
+  "Fase": "Oriëntatie",
+  "Budget": "€ 350.000 - € 450.000",
+  "Tijdlijn": "6 maanden"
+}
+```
+
+De velden zijn dynamisch — medewerkers kunnen vrij velden toevoegen, aanpassen en verwijderen.
 
 ---
 
@@ -260,8 +320,11 @@ Verwerkt alle call statussen: `ringing`, `in-progress`, `ended`. Zoekt automatis
 | `NEXTAUTH_URL` | Publieke URL van de applicatie |
 | `N8N_WEBHOOK_SECRET` | Gedeeld geheim voor webhook authenticatie |
 | `MAUTIC_URL` | Basis-URL van de Mautic instantie |
-| `MAUTIC_USERNAME` | Mautic API gebruikersnaam |
-| `MAUTIC_PASSWORD` | Mautic API wachtwoord |
+| `MAUTIC_CLIENT_ID` | Mautic OAuth2 client ID |
+| `MAUTIC_CLIENT_SECRET` | Mautic OAuth2 client secret |
+| `NEXT_PUBLIC_MAUTIC_URL` | Publieke Mautic URL (voor frontend links naar contactpagina's) |
+| `CALL_NOTE_WEBHOOK_URL` | Optionele webhook URL die wordt aangeroepen bij het opslaan van een gespreksnotitie |
+| `DEBITEUREN_URL` | Externe link naar het debiteuren systeem |
 
 ---
 
