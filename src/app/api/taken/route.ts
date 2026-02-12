@@ -5,6 +5,20 @@ import { auth } from "@/lib/auth";
 /**
  * GET /api/taken
  * Haal taken op met filters
+ *
+ * Query parameters:
+ *   assigneeId   - filter op toegewezen gebruiker
+ *   status       - komma-gescheiden statussen: open,bezig,afgerond
+ *   priority     - filter op prioriteit: laag,normaal,hoog,urgent
+ *   category     - filter op categorie
+ *   projectId    - filter op project-ID, of "none" voor taken zonder project
+ *   search       - zoekterm op titel of beschrijving
+ *   dueDateFrom  - filter taken met deadline >= datum (ISO 8601)
+ *   dueDateTo    - filter taken met deadline <= datum (ISO 8601)
+ *   page         - paginanummer (standaard: 1)
+ *   limit        - aantal per pagina (standaard: 50, max: 200)
+ *   sortBy       - sorteerveld: status|priority|dueDate|createdAt (standaard: status)
+ *   sortOrder    - asc|desc (standaard: asc)
  */
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -14,36 +28,92 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const assigneeId = searchParams.get("assigneeId");
-  const status = searchParams.get("status");
-  const priority = searchParams.get("priority");
+  const statusParam = searchParams.get("status");
+  const priorityParam = searchParams.get("priority");
   const category = searchParams.get("category");
   const projectId = searchParams.get("projectId");
+  const search = searchParams.get("search");
+  const dueDateFrom = searchParams.get("dueDateFrom");
+  const dueDateTo = searchParams.get("dueDateTo");
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+  const sortBy = searchParams.get("sortBy") || "status";
+  const sortOrder = (searchParams.get("sortOrder") || "asc") as "asc" | "desc";
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
 
   if (assigneeId) where.assigneeId = assigneeId;
-  if (status) where.status = status;
-  if (priority) where.priority = priority;
+
+  // Meerdere statussen: ?status=open,bezig
+  if (statusParam) {
+    const statussen = statusParam.split(",").map((s) => s.trim()).filter(Boolean);
+    where.status = statussen.length === 1 ? statussen[0] : { in: statussen };
+  }
+
+  // Meerdere prioriteiten: ?priority=hoog,urgent
+  if (priorityParam) {
+    const prioriteiten = priorityParam.split(",").map((p) => p.trim()).filter(Boolean);
+    where.priority = prioriteiten.length === 1 ? prioriteiten[0] : { in: prioriteiten };
+  }
+
   if (category) where.category = category;
-  if (projectId) where.projectId = projectId;
 
-  const tasks = await prisma.task.findMany({
-    where,
-    include: {
-      assignee: { select: { id: true, name: true, role: true } },
-      creator: { select: { id: true, name: true } },
-      project: { select: { id: true, name: true, status: true } },
+  // projectId=none voor taken zonder project
+  if (projectId === "none") {
+    where.projectId = null;
+  } else if (projectId) {
+    where.projectId = projectId;
+  }
+
+  // Zoeken op titel of beschrijving
+  if (search) {
+    where.OR = [
+      { title: { contains: search } },
+      { description: { contains: search } },
+    ];
+  }
+
+  // Datum range filter op deadline
+  if (dueDateFrom || dueDateTo) {
+    where.dueDate = {};
+    if (dueDateFrom) where.dueDate.gte = new Date(dueDateFrom);
+    if (dueDateTo) where.dueDate.lte = new Date(dueDateTo + "T23:59:59.999Z");
+  }
+
+  // Sortering
+  const allowedSortFields = ["status", "priority", "dueDate", "createdAt", "title"];
+  const orderField = allowedSortFields.includes(sortBy) ? sortBy : "status";
+  const orderBy = [
+    { [orderField]: sortOrder },
+    // Altijd secondary sortering op createdAt desc
+    ...(orderField !== "createdAt" ? [{ createdAt: "desc" as const }] : []),
+  ];
+
+  const [tasks, total] = await Promise.all([
+    prisma.task.findMany({
+      where,
+      include: {
+        assignee: { select: { id: true, name: true, role: true } },
+        creator: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, status: true } },
+      },
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.task.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    tasks,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
     },
-    orderBy: [
-      { status: "asc" },
-      { priority: "desc" },
-      { dueDate: "asc" },
-      { createdAt: "desc" },
-    ],
   });
-
-  return NextResponse.json({ tasks });
 }
 
 /**
