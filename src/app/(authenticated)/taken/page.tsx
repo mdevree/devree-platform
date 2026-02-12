@@ -15,6 +15,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import ProjectSelector from "@/components/projects/ProjectSelector";
+import TaskTimer from "@/components/taken/TaskTimer";
 
 interface User {
   id: string;
@@ -569,32 +570,35 @@ export default function TakenPage() {
                           )}
                         </div>
 
-                        {/* Status knoppen */}
-                        <div className="mt-2 flex gap-1 border-t border-gray-100 pt-2">
-                          {group.key !== "open" && (
-                            <button
-                              onClick={() => updateTaskStatus(task.id, "open")}
-                              className="rounded px-2 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100"
-                            >
-                              Open
-                            </button>
-                          )}
-                          {group.key !== "bezig" && (
-                            <button
-                              onClick={() => updateTaskStatus(task.id, "bezig")}
-                              className="rounded px-2 py-0.5 text-[10px] text-blue-600 hover:bg-blue-50"
-                            >
-                              Bezig
-                            </button>
-                          )}
-                          {group.key !== "afgerond" && (
-                            <button
-                              onClick={() => updateTaskStatus(task.id, "afgerond")}
-                              className="rounded px-2 py-0.5 text-[10px] text-green-600 hover:bg-green-50"
-                            >
-                              Afgerond
-                            </button>
-                          )}
+                        {/* Status knoppen + timer */}
+                        <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2">
+                          <div className="flex gap-1">
+                            {group.key !== "open" && (
+                              <button
+                                onClick={() => updateTaskStatus(task.id, "open")}
+                                className="rounded px-2 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100"
+                              >
+                                Open
+                              </button>
+                            )}
+                            {group.key !== "bezig" && (
+                              <button
+                                onClick={() => updateTaskStatus(task.id, "bezig")}
+                                className="rounded px-2 py-0.5 text-[10px] text-blue-600 hover:bg-blue-50"
+                              >
+                                Bezig
+                              </button>
+                            )}
+                            {group.key !== "afgerond" && (
+                              <button
+                                onClick={() => updateTaskStatus(task.id, "afgerond")}
+                                className="rounded px-2 py-0.5 text-[10px] text-green-600 hover:bg-green-50"
+                              >
+                                Afgerond
+                              </button>
+                            )}
+                          </div>
+                          <TaskTimer taskId={task.id} compact />
                         </div>
                       </div>
                     ))
@@ -754,6 +758,10 @@ export default function TakenPage() {
                   {s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
               ))}
+            </div>
+
+            <div className="mb-4">
+              <TaskTimer taskId={editTask.id} />
             </div>
 
             <TaskForm

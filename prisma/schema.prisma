@@ -85,27 +85,44 @@ model CallNote {
 }
 
 model Task {
-  id           String    @id @default(cuid())
-  title        String
-  description  String?   @db.Text
-  status       String    @default("open") // open, bezig, afgerond
-  priority     String    @default("normaal") // laag, normaal, hoog, urgent
-  dueDate      DateTime?
-  category     String?   // binnendienst, verkoop, aankoop, taxatie, administratie
-  assignee     User      @relation("assignee", fields: [assigneeId], references: [id])
-  assigneeId   String
-  creator      User      @relation("creator", fields: [creatorId], references: [id])
-  creatorId    String
-  project      Project?  @relation(fields: [projectId], references: [id])
-  projectId    String?
-  notionPageId String?
-  completedAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id               String      @id @default(cuid())
+  title            String
+  description      String?     @db.Text
+  status           String      @default("open") // open, bezig, afgerond
+  priority         String      @default("normaal") // laag, normaal, hoog, urgent
+  dueDate          DateTime?
+  category         String?     // binnendienst, verkoop, aankoop, taxatie, administratie
+  assignee         User        @relation("assignee", fields: [assigneeId], references: [id])
+  assigneeId       String
+  creator          User        @relation("creator", fields: [creatorId], references: [id])
+  creatorId        String
+  project          Project?    @relation(fields: [projectId], references: [id])
+  projectId        String?
+  notionPageId     String?
+  completedAt      DateTime?
+  // Tijdregistratie
+  timerStartedAt   DateTime?   // null = timer gestopt, gevuld = timer loopt
+  totalTimeSpent   Int         @default(0) // opgetelde seconden van afgesloten sessies
+  timeEntries      TimeEntry[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@index([assigneeId])
   @@index([status])
   @@index([dueDate])
   @@index([projectId])
   @@map("tasks")
+}
+
+model TimeEntry {
+  id        String    @id @default(cuid())
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId    String
+  startedAt DateTime
+  stoppedAt DateTime?  // null = sessie nog actief
+  duration  Int       @default(0) // seconden, ingevuld bij stoppen
+  createdAt DateTime  @default(now())
+
+  @@index([taskId])
+  @@map("time_entries")
 }
