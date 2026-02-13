@@ -5,6 +5,7 @@ import {
   PlayIcon,
   PauseIcon,
   StopIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
 
 interface TaskTimerProps {
@@ -24,10 +25,17 @@ function formatDuration(seconds: number): string {
 
 export default function TaskTimer({ taskId, compact = false }: TaskTimerProps) {
   const [isRunning, setIsRunning] = useState(false);
-  const [totalTimeSpent, setTotalTimeSpent] = useState(0); // opgeslagen seconden
-  const [currentSession, setCurrentSession] = useState(0); // lopende sessie seconden
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
+  const [currentSession, setCurrentSession] = useState(0);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+
+  // Handmatig tijd toevoegen
+  const [showManual, setShowManual] = useState(false);
+  const [manualHours, setManualHours] = useState("");
+  const [manualMinutes, setManualMinutes] = useState("");
+  const [addingManual, setAddingManual] = useState(false);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -85,6 +93,33 @@ export default function TaskTimer({ taskId, compact = false }: TaskTimerProps) {
       // stil falen
     } finally {
       setActing(false);
+    }
+  }
+
+  async function handleManualAdd() {
+    const h = parseFloat(manualHours || "0");
+    const m = parseFloat(manualMinutes || "0");
+    if (isNaN(h) && isNaN(m)) return;
+    if (h <= 0 && m <= 0) return;
+
+    setAddingManual(true);
+    try {
+      const res = await fetch(`/api/taken/${taskId}/timer`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hours: h || 0, minutes: m || 0 }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTotalTimeSpent(data.totalTimeSpent);
+        setManualHours("");
+        setManualMinutes("");
+        setShowManual(false);
+      }
+    } catch {
+      // stil falen
+    } finally {
+      setAddingManual(false);
     }
   }
 
@@ -146,7 +181,7 @@ export default function TaskTimer({ taskId, compact = false }: TaskTimerProps) {
         {formatDuration(totalSeconds)}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {!isRunning ? (
           <button
             onClick={() => handleAction("start")}
@@ -176,7 +211,63 @@ export default function TaskTimer({ taskId, compact = false }: TaskTimerProps) {
             </button>
           </>
         )}
+
+        {/* Handmatig tijd toevoegen */}
+        <button
+          onClick={() => setShowManual((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          title="Handmatig tijd toevoegen"
+        >
+          <PlusIcon className="h-3.5 w-3.5" />
+          Handmatig
+        </button>
       </div>
+
+      {/* Handmatig tijd invoer */}
+      {showManual && (
+        <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
+          <p className="mb-2 text-[11px] font-medium text-blue-700">Vergeten te starten? Voeg tijd toe:</p>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                max="23"
+                placeholder="0"
+                value={manualHours}
+                onChange={(e) => setManualHours(e.target.value)}
+                className="w-14 rounded border border-gray-300 px-2 py-1 text-center text-xs focus:border-blue-400 focus:outline-none"
+              />
+              <span className="text-xs text-gray-500">uur</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                max="59"
+                placeholder="0"
+                value={manualMinutes}
+                onChange={(e) => setManualMinutes(e.target.value)}
+                className="w-14 rounded border border-gray-300 px-2 py-1 text-center text-xs focus:border-blue-400 focus:outline-none"
+              />
+              <span className="text-xs text-gray-500">min</span>
+            </div>
+            <button
+              onClick={handleManualAdd}
+              disabled={addingManual || (!manualHours && !manualMinutes)}
+              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+            >
+              {addingManual ? "…" : "Voeg toe"}
+            </button>
+            <button
+              onClick={() => { setShowManual(false); setManualHours(""); setManualMinutes(""); }}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              Annuleer
+            </button>
+          </div>
+        </div>
+      )}
 
       {totalTimeSpent > 0 && currentSession > 0 && (
         <p className="mt-2 text-[10px] text-gray-400">

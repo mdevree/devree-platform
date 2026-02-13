@@ -162,6 +162,70 @@ export async function POST(
 }
 
 /**
+ * PATCH /api/taken/[id]/timer
+ * Voeg handmatig tijd toe aan de taak (bijv. als je vergeten bent de timer te starten)
+ *
+ * Body: { hours?: number, minutes?: number }
+ * → totalTimeSpent += (hours * 3600 + minutes * 60)
+ * → er wordt ook een TimeEntry aangemaakt met stoppedAt = now en duration = opgegeven seconden
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!await isAuthorized(request)) {
+    return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const body = await request.json();
+  const hours = Number(body.hours ?? 0);
+  const minutes = Number(body.minutes ?? 0);
+  const seconds = Math.round(hours * 3600 + minutes * 60);
+
+  if (isNaN(seconds) || seconds <= 0) {
+    return NextResponse.json(
+      { error: "Geef een geldige tijd op (hours en/of minutes > 0)" },
+      { status: 400 }
+    );
+  }
+
+  const task = await prisma.task.findUnique({
+    where: { id },
+    select: { id: true, totalTimeSpent: true },
+  });
+
+  if (!task) {
+    return NextResponse.json({ error: "Taak niet gevonden" }, { status: 404 });
+  }
+
+  const newTotal = task.totalTimeSpent + seconds;
+  const now = new Date();
+  const startedAt = new Date(now.getTime() - seconds * 1000);
+
+  await prisma.$transaction([
+    prisma.task.update({
+      where: { id },
+      data: { totalTimeSpent: newTotal },
+    }),
+    prisma.timeEntry.create({
+      data: {
+        taskId: id,
+        startedAt,
+        stoppedAt: now,
+        duration: seconds,
+      },
+    }),
+  ]);
+
+  return NextResponse.json({
+    action: "added",
+    addedSeconds: seconds,
+    totalTimeSpent: newTotal,
+  });
+}
+
+/**
  * DELETE /api/taken/[id]/timer
  * Reset de timer volledig (wist alle sessies en zet totalTimeSpent op 0)
  */
