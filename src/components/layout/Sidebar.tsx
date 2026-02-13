@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   PhoneIcon,
@@ -36,14 +37,17 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-gray-200 bg-white">
       {/* Logo */}
-      <div className="flex h-16 items-center border-b border-gray-200 px-6">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white font-bold text-sm">
-            DV
-          </div>
-          <span className="text-lg font-semibold text-gray-900">
-            De Vree
-          </span>
+      <div className="flex h-16 items-center border-b border-gray-200 px-4">
+        <Link href="/dashboard" className="flex items-center">
+          <Image
+            src="https://www.devreemakelaardij.nl/wp-content/uploads/2026/01/LOGO-1.png"
+            alt="De Vree Makelaardij"
+            width={160}
+            height={48}
+            className="h-10 w-auto object-contain"
+            priority
+            unoptimized
+          />
         </Link>
       </div>
 
