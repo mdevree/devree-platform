@@ -925,7 +925,7 @@ export default function ProjectDetailPage() {
                       { label: "Land", field: "country" as const, type: "text" },
                     ] as { label: string; field: keyof typeof contactEditData; type: string }[]
                   ).map(({ label, field, type }) => {
-                    const displayValue = (contactDetail as Record<string, unknown>)[field] as string | null;
+                    const displayValue = (contactDetail as unknown as Record<string, string | null>)[field];
                     if (!editingContact && !displayValue) return null;
                     return (
                       <div key={field} className="grid grid-cols-3 items-center px-4 py-2 text-sm">
