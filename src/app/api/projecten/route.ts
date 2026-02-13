@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       include: {
         _count: { select: { tasks: true, calls: true } },
         calls: { select: { id: true, _count: { select: { notes: true } } } },
+        tasks: { select: { totalTimeSpent: true } },
       },
       orderBy: [{ updatedAt: "desc" }],
       skip: (page - 1) * limit,
@@ -48,8 +49,15 @@ export async function GET(request: NextRequest) {
     prisma.project.count({ where }),
   ]);
 
+  // Bereken totale tijd per project
+  const projectsWithTime = projects.map((p) => ({
+    ...p,
+    totalTimeSpent: p.tasks.reduce((sum, t) => sum + t.totalTimeSpent, 0),
+    tasks: undefined, // verwijder ruwe tasks array uit response
+  }));
+
   return NextResponse.json({
-    projects,
+    projects: projectsWithTime,
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
 }

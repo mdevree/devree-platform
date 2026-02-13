@@ -8,6 +8,7 @@ import {
   MapPinIcon,
   PhoneIcon,
   ClipboardDocumentListIcon,
+  ClockIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
@@ -27,7 +28,17 @@ interface Project {
     calls: number;
   };
   calls: { id: string; _count: { notes: number } }[];
+  totalTimeSpent: number; // som van alle taken in seconden
   createdAt: string;
+}
+
+function formatProjectTime(seconds: number): string {
+  if (seconds === 0) return null as unknown as string;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0 && m > 0) return `${h}u ${m}m`;
+  if (h > 0) return `${h}u`;
+  return `${m}m`;
 }
 
 interface Pagination {
@@ -267,6 +278,12 @@ export default function ProjectenPage() {
                     </span>
                   )}
                 </span>
+                {formatProjectTime(project.totalTimeSpent) && (
+                  <span className="inline-flex items-center gap-1">
+                    <ClockIcon className="h-3.5 w-3.5" />
+                    {formatProjectTime(project.totalTimeSpent)}
+                  </span>
+                )}
               </div>
             </a>
           ))}
