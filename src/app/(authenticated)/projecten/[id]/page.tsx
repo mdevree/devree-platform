@@ -21,7 +21,15 @@ import {
   PhoneArrowDownLeftIcon,
   PhoneArrowUpRightIcon,
   ArrowTopRightOnSquareIcon,
+  ChatBubbleLeftEllipsisIcon,
+  UserCircleIcon,
+  CheckIcon,
+  TrashIcon,
+  LinkSlashIcon,
 } from "@heroicons/react/24/outline";
+
+const MAUTIC_URL =
+  process.env.NEXT_PUBLIC_MAUTIC_URL || "https://connect.devreemakelaardij.nl";
 
 interface User {
   id: string;
@@ -56,6 +64,34 @@ interface Call {
   destinationUser: string | null;
   contactName: string | null;
   mauticContactId: number | null;
+  _count: { notes: number };
+}
+
+interface CallNote {
+  id: string;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+interface MauticContactFull {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string | null;
+  phone: string | null;
+  mobile: string | null;
+  company: string | null;
+  points: number;
+  lastActive: string | null;
+  address1: string | null;
+  city: string | null;
+  zipcode: string | null;
+  country: string | null;
+  website: string | null;
+  aiProfile: string | null;
+  tags: string[];
+  dateAdded: string | null;
 }
 
 interface Project {
@@ -118,49 +154,50 @@ export default function ProjectDetailPage() {
   // Edit project modal
   const [showEdit, setShowEdit] = useState(false);
   const [editData, setEditData] = useState({
-    name: "",
-    description: "",
-    status: "",
-    address: "",
-    contactName: "",
-    contactPhone: "",
-    contactEmail: "",
+    name: "", description: "", status: "", address: "",
+    contactName: "", contactPhone: "", contactEmail: "",
   });
   const [editSaving, setEditSaving] = useState(false);
 
   // Nieuwe taak modal
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState({
-    title: "",
-    description: "",
-    priority: "normaal",
-    category: "",
-    dueDate: "",
-    assigneeId: "",
+    title: "", description: "", priority: "normaal",
+    category: "", dueDate: "", assigneeId: "",
   });
   const [taskSaving, setTaskSaving] = useState(false);
 
-  const categories = [
-    "binnendienst",
-    "verkoop",
-    "aankoop",
-    "taxatie",
-    "administratie",
-  ];
+  // Notitie modal
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteCallId, setNoteCallId] = useState("");
+  const [noteCallName, setNoteCallName] = useState("");
+  const [notes, setNotes] = useState<CallNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  // Contact detail panel
+  const [showContactPanel, setShowContactPanel] = useState(false);
+  const [contactDetail, setContactDetail] = useState<MauticContactFull | null>(null);
+  const [contactDetailLoading, setContactDetailLoading] = useState(false);
+  const [editingContact, setEditingContact] = useState(false);
+  const [contactEditData, setContactEditData] = useState({
+    firstname: "", lastname: "", email: "", phone: "", mobile: "",
+    company: "", address1: "", city: "", zipcode: "", country: "", website: "",
+  });
+  const [contactEditSaving, setContactEditSaving] = useState(false);
+  const [contactEditMessage, setContactEditMessage] = useState("");
+
+  const categories = ["binnendienst", "verkoop", "aankoop", "taxatie", "administratie"];
 
   const fetchProject = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/projecten/${projectId}`);
-      if (!response.ok) {
-        router.push("/projecten");
-        return;
-      }
+      if (!response.ok) { router.push("/projecten"); return; }
       const data = await response.json();
       setProject(data.project);
-    } catch {
-      console.error("Fout bij ophalen project");
-    }
+    } catch { console.error("Fout bij ophalen project"); }
     setLoading(false);
   }, [projectId, router]);
 
@@ -169,25 +206,17 @@ export default function ProjectDetailPage() {
       const response = await fetch("/api/users");
       const data = await response.json();
       setUsers(data.users || []);
-    } catch {
-      console.error("Fout bij ophalen gebruikers");
-    }
+    } catch { console.error("Fout bij ophalen gebruikers"); }
   }, []);
 
-  useEffect(() => {
-    fetchProject();
-    fetchUsers();
-  }, [fetchProject, fetchUsers]);
+  useEffect(() => { fetchProject(); fetchUsers(); }, [fetchProject, fetchUsers]);
 
   function openEdit() {
     if (!project) return;
     setEditData({
-      name: project.name,
-      description: project.description || "",
-      status: project.status,
-      address: project.address || "",
-      contactName: project.contactName || "",
-      contactPhone: project.contactPhone || "",
+      name: project.name, description: project.description || "",
+      status: project.status, address: project.address || "",
+      contactName: project.contactName || "", contactPhone: project.contactPhone || "",
       contactEmail: project.contactEmail || "",
     });
     setShowEdit(true);
@@ -196,50 +225,32 @@ export default function ProjectDetailPage() {
   async function handleEditSave(e: React.FormEvent) {
     e.preventDefault();
     setEditSaving(true);
-
     try {
       const response = await fetch("/api/projecten", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: projectId, ...editData }),
       });
-
-      if (response.ok) {
-        setShowEdit(false);
-        fetchProject();
-      }
-    } catch {
-      console.error("Fout bij bijwerken project");
-    }
+      if (response.ok) { setShowEdit(false); fetchProject(); }
+    } catch { console.error("Fout bij bijwerken project"); }
     setEditSaving(false);
   }
 
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
     setTaskSaving(true);
-
     try {
       const response = await fetch("/api/taken", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...newTask, projectId }),
       });
-
       if (response.ok) {
         setShowNewTask(false);
-        setNewTask({
-          title: "",
-          description: "",
-          priority: "normaal",
-          category: "",
-          dueDate: "",
-          assigneeId: "",
-        });
+        setNewTask({ title: "", description: "", priority: "normaal", category: "", dueDate: "", assigneeId: "" });
         fetchProject();
       }
-    } catch {
-      console.error("Fout bij aanmaken taak");
-    }
+    } catch { console.error("Fout bij aanmaken taak"); }
     setTaskSaving(false);
   }
 
@@ -251,26 +262,163 @@ export default function ProjectDetailPage() {
         body: JSON.stringify({ id: taskId, status: newStatus }),
       });
       fetchProject();
-    } catch {
-      console.error("Fout bij bijwerken taak");
-    }
+    } catch { console.error("Fout bij bijwerken taak"); }
+  }
+
+  // --- Ontkoppel gesprek van project ---
+  async function handleUnlinkCall(callId: string) {
+    try {
+      await fetch(`/api/calls/${callId}/project`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: null }),
+      });
+      fetchProject();
+    } catch { console.error("Fout bij ontkoppelen gesprek"); }
+  }
+
+  // --- Notities ---
+  async function openNoteModal(call: Call) {
+    setNoteCallId(call.id);
+    setNoteCallName(call.contactName || call.callerNumber || call.destinationNumber);
+    setShowNoteModal(true);
+    setNotes([]);
+    setNewNote("");
+    setNotesLoading(true);
+    try {
+      const res = await fetch(`/api/calls/${call.id}/notes`);
+      const data = await res.json();
+      setNotes(data.notes || []);
+    } catch { console.error("Fout bij ophalen notities"); }
+    setNotesLoading(false);
+  }
+
+  async function handleSaveNote(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newNote.trim()) return;
+    setNoteSaving(true);
+    try {
+      const res = await fetch(`/api/calls/${noteCallId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: newNote.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNotes((prev) => [data.note, ...prev]);
+        setNewNote("");
+        setProject((prev) =>
+          prev ? {
+            ...prev,
+            calls: prev.calls.map((c) =>
+              c.id === noteCallId ? { ...c, _count: { notes: (c._count?.notes || 0) + 1 } } : c
+            ),
+          } : prev
+        );
+      }
+    } catch { console.error("Fout bij opslaan notitie"); }
+    setNoteSaving(false);
+  }
+
+  async function handleDeleteNote(noteId: string) {
+    try {
+      await fetch(`/api/calls/${noteCallId}/notes`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noteId }),
+      });
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setProject((prev) =>
+        prev ? {
+          ...prev,
+          calls: prev.calls.map((c) =>
+            c.id === noteCallId ? { ...c, _count: { notes: Math.max(0, (c._count?.notes || 0) - 1) } } : c
+          ),
+        } : prev
+      );
+    } catch { console.error("Fout bij verwijderen notitie"); }
+  }
+
+  // --- Contact detail ---
+  async function openContactPanel(mauticId: number) {
+    setShowContactPanel(true);
+    setContactDetail(null);
+    setContactDetailLoading(true);
+    setEditingContact(false);
+    setContactEditMessage("");
+    try {
+      const res = await fetch(`/api/mautic/contact?id=${mauticId}&full=1`);
+      const data = await res.json();
+      if (data.contact) {
+        setContactDetail(data.contact);
+        setContactEditData({
+          firstname: data.contact.firstname || "",
+          lastname: data.contact.lastname || "",
+          email: data.contact.email || "",
+          phone: data.contact.phone || "",
+          mobile: data.contact.mobile || "",
+          company: data.contact.company || "",
+          address1: data.contact.address1 || "",
+          city: data.contact.city || "",
+          zipcode: data.contact.zipcode || "",
+          country: data.contact.country || "",
+          website: data.contact.website || "",
+        });
+      }
+    } catch { console.error("Fout bij ophalen contact"); }
+    setContactDetailLoading(false);
+  }
+
+  async function handleSaveContactFields() {
+    if (!contactDetail) return;
+    setContactEditSaving(true);
+    setContactEditMessage("");
+    try {
+      const res = await fetch("/api/mautic/contact", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: contactDetail.id, fields: contactEditData }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setContactEditMessage("Opgeslagen");
+        setEditingContact(false);
+        setContactDetail((prev) => prev ? {
+          ...prev,
+          firstname: contactEditData.firstname,
+          lastname: contactEditData.lastname,
+          email: contactEditData.email || null,
+          phone: contactEditData.phone || null,
+          mobile: contactEditData.mobile || null,
+          company: contactEditData.company || null,
+          address1: contactEditData.address1 || null,
+          city: contactEditData.city || null,
+          zipcode: contactEditData.zipcode || null,
+          country: contactEditData.country || null,
+          website: contactEditData.website || null,
+        } : prev);
+        setTimeout(() => setContactEditMessage(""), 3000);
+      } else {
+        setContactEditMessage("Fout bij opslaan");
+      }
+    } catch { setContactEditMessage("Netwerkfout"); }
+    setContactEditSaving(false);
   }
 
   function formatDate(dateStr: string | null) {
     if (!dateStr) return null;
-    return new Date(dateStr).toLocaleDateString("nl-NL", {
-      day: "numeric",
-      month: "short",
+    return new Date(dateStr).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  }
+
+  function formatDateTime(dateStr: string) {
+    return new Date(dateStr).toLocaleString("nl-NL", {
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
     });
   }
 
-  function formatTime(timestamp: string) {
-    return new Date(timestamp).toLocaleString("nl-NL", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  function formatDateFull(dateStr: string | null) {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
 
   function isOverdue(dateStr: string | null) {
@@ -280,46 +428,22 @@ export default function ProjectDetailPage() {
 
   function getReasonBadge(reason: string | null) {
     if (reason === "completed" || reason === "answered") {
-      return (
-        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-          Beantwoord
-        </span>
-      );
+      return <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Beantwoord</span>;
     }
     if (reason === "no-answer") {
-      return (
-        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-          Geen antwoord
-        </span>
-      );
+      return <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Geen antwoord</span>;
     }
     if (reason === "busy") {
-      return (
-        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-          In gesprek
-        </span>
-      );
+      return <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">In gesprek</span>;
     }
-    return (
-      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-        {reason || "Onbekend"}
-      </span>
-    );
+    if (reason === "cancelled") {
+      return <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Geannuleerd</span>;
+    }
+    return <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{reason || "Onbekend"}</span>;
   }
 
-  if (loading) {
-    return (
-      <div className="py-12 text-center text-gray-500">Project laden...</div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="py-12 text-center text-gray-500">
-        Project niet gevonden
-      </div>
-    );
-  }
+  if (loading) return <div className="py-12 text-center text-gray-500">Project laden...</div>;
+  if (!project) return <div className="py-12 text-center text-gray-500">Project niet gevonden</div>;
 
   const openTasks = project.tasks.filter((t) => t.status !== "afgerond").length;
   const completedTasks = project.tasks.filter((t) => t.status === "afgerond").length;
@@ -344,14 +468,8 @@ export default function ProjectDetailPage() {
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold text-gray-900">
-                  {project.name}
-                </h1>
-                <span
-                  className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                    statusColors[project.status] || statusColors.lead
-                  }`}
-                >
+                <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
+                <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[project.status] || statusColors.lead}`}>
                   {statusLabels[project.status] || project.status}
                 </span>
               </div>
@@ -362,9 +480,7 @@ export default function ProjectDetailPage() {
                 </p>
               )}
               {project.description && (
-                <p className="mt-2 text-sm text-gray-600">
-                  {project.description}
-                </p>
+                <p className="mt-2 text-sm text-gray-600">{project.description}</p>
               )}
             </div>
           </div>
@@ -398,8 +514,7 @@ export default function ProjectDetailPage() {
             </span>
           )}
           <span className="ml-auto text-xs text-gray-400">
-            {openTasks} open, {completedTasks} afgerond · {project.calls.length}{" "}
-            gesprekken
+            {openTasks} open, {completedTasks} afgerond · {project.calls.length} gesprekken
           </span>
         </div>
       </div>
@@ -409,9 +524,7 @@ export default function ProjectDetailPage() {
         <button
           onClick={() => setActiveTab("taken")}
           className={`inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
-            activeTab === "taken"
-              ? "border-primary text-primary"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+            activeTab === "taken" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >
           <ClipboardDocumentListIcon className="h-4 w-4" />
@@ -420,9 +533,7 @@ export default function ProjectDetailPage() {
         <button
           onClick={() => setActiveTab("telefonie")}
           className={`inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
-            activeTab === "telefonie"
-              ? "border-primary text-primary"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+            activeTab === "telefonie" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >
           <PhoneIcon className="h-4 w-4" />
@@ -430,16 +541,13 @@ export default function ProjectDetailPage() {
         </button>
       </div>
 
-      {/* Taken tab */}
+      {/* ===== TAKEN TAB ===== */}
       {activeTab === "taken" && (
         <div>
           <div className="mb-4 flex justify-end">
             <button
               onClick={() => {
-                setNewTask((t) => ({
-                  ...t,
-                  assigneeId: session?.user?.id || "",
-                }));
+                setNewTask((t) => ({ ...t, assigneeId: session?.user?.id || "" }));
                 setShowNewTask(true);
               }}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
@@ -449,19 +557,14 @@ export default function ProjectDetailPage() {
             </button>
           </div>
 
-          {/* Kanban */}
           <div className="grid grid-cols-3 gap-4">
             {statusGroups.map((group) => {
-              const groupTasks = project.tasks.filter(
-                (t) => t.status === group.key
-              );
+              const groupTasks = project.tasks.filter((t) => t.status === group.key);
               return (
                 <div key={group.key} className="rounded-xl bg-gray-100 p-4">
                   <div className="mb-3 flex items-center gap-2">
                     <group.icon className={`h-5 w-5 ${group.color}`} />
-                    <h3 className="text-sm font-semibold text-gray-700">
-                      {group.label}
-                    </h3>
+                    <h3 className="text-sm font-semibold text-gray-700">{group.label}</h3>
                     <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
                       {groupTasks.length}
                     </span>
@@ -469,56 +572,30 @@ export default function ProjectDetailPage() {
 
                   <div className="space-y-2">
                     {groupTasks.length === 0 ? (
-                      <div className="py-4 text-center text-sm text-gray-400">
-                        Geen taken
-                      </div>
+                      <div className="py-4 text-center text-sm text-gray-400">Geen taken</div>
                     ) : (
                       groupTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
-                        >
+                        <div key={task.id} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
                           <div className="mb-2 flex items-start justify-between">
-                            <h4 className="text-sm font-medium text-gray-900">
-                              {task.title}
-                            </h4>
-                            <span
-                              className={`ml-2 inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
-                                priorityColors[task.priority] ||
-                                priorityColors.normaal
-                              }`}
-                            >
+                            <h4 className="text-sm font-medium text-gray-900">{task.title}</h4>
+                            <span className={`ml-2 inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${priorityColors[task.priority] || priorityColors.normaal}`}>
                               {task.priority}
                             </span>
                           </div>
 
                           {task.description && (
-                            <p className="mb-2 text-xs text-gray-500 line-clamp-2">
-                              {task.description}
-                            </p>
+                            <p className="mb-2 text-xs text-gray-500 line-clamp-2">{task.description}</p>
                           )}
 
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">
-                                {task.assignee.name.split(" ")[0]}
-                              </span>
+                              <span className="text-xs text-gray-400">{task.assignee.name.split(" ")[0]}</span>
                               {task.category && (
-                                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
-                                  {task.category}
-                                </span>
+                                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{task.category}</span>
                               )}
                             </div>
-
                             {task.dueDate && (
-                              <span
-                                className={`inline-flex items-center gap-1 text-[10px] ${
-                                  isOverdue(task.dueDate) &&
-                                  task.status !== "afgerond"
-                                    ? "font-medium text-red-600"
-                                    : "text-gray-400"
-                                }`}
-                              >
+                              <span className={`inline-flex items-center gap-1 text-[10px] ${isOverdue(task.dueDate) && task.status !== "afgerond" ? "font-medium text-red-600" : "text-gray-400"}`}>
                                 <CalendarIcon className="h-3 w-3" />
                                 {formatDate(task.dueDate)}
                               </span>
@@ -527,34 +604,13 @@ export default function ProjectDetailPage() {
 
                           <div className="mt-2 flex gap-1 border-t border-gray-100 pt-2">
                             {group.key !== "open" && (
-                              <button
-                                onClick={() =>
-                                  updateTaskStatus(task.id, "open")
-                                }
-                                className="rounded px-2 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100"
-                              >
-                                Open
-                              </button>
+                              <button onClick={() => updateTaskStatus(task.id, "open")} className="rounded px-2 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100">Open</button>
                             )}
                             {group.key !== "bezig" && (
-                              <button
-                                onClick={() =>
-                                  updateTaskStatus(task.id, "bezig")
-                                }
-                                className="rounded px-2 py-0.5 text-[10px] text-blue-600 hover:bg-blue-50"
-                              >
-                                Bezig
-                              </button>
+                              <button onClick={() => updateTaskStatus(task.id, "bezig")} className="rounded px-2 py-0.5 text-[10px] text-blue-600 hover:bg-blue-50">Bezig</button>
                             )}
                             {group.key !== "afgerond" && (
-                              <button
-                                onClick={() =>
-                                  updateTaskStatus(task.id, "afgerond")
-                                }
-                                className="rounded px-2 py-0.5 text-[10px] text-green-600 hover:bg-green-50"
-                              >
-                                Afgerond
-                              </button>
+                              <button onClick={() => updateTaskStatus(task.id, "afgerond")} className="rounded px-2 py-0.5 text-[10px] text-green-600 hover:bg-green-50">Afgerond</button>
                             )}
                           </div>
                         </div>
@@ -568,50 +624,30 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* Telefonie tab */}
+      {/* ===== TELEFONIE TAB ===== */}
       {activeTab === "telefonie" && (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Tijd
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Richting
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Nummer
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Contact
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Acties
-                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Tijd</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Richting</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Nummer</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Acties</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {project.calls.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    Geen gekoppelde gesprekken
-                  </td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">Geen gekoppelde gesprekken</td>
                 </tr>
               ) : (
                 project.calls.map((call) => (
-                  <tr
-                    key={call.id}
-                    className="transition-colors hover:bg-gray-50"
-                  >
+                  <tr key={call.id} className="transition-colors hover:bg-gray-50">
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                      {formatTime(call.timestamp)}
+                      {formatDateTime(call.timestamp)}
                     </td>
                     <td className="px-4 py-3">
                       {call.direction === "inbound" ? (
@@ -628,35 +664,79 @@ export default function ProjectDetailPage() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span className="font-mono text-gray-900">
-                        {call.direction === "inbound"
-                          ? call.callerNumber
-                          : call.destinationNumber}
+                        {call.direction === "inbound" ? call.callerNumber : call.destinationNumber}
                       </span>
+                      {call.callerName && (
+                        <span className="ml-2 text-gray-500">({call.callerName})</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {call.contactName ? (
-                        <span className="font-medium text-gray-900">
+                        <button
+                          onClick={() => call.mauticContactId && openContactPanel(call.mauticContactId)}
+                          className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                        >
+                          <UserCircleIcon className="h-4 w-4" />
                           {call.contactName}
-                        </span>
+                        </button>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
+                    <td className="px-4 py-3">{getReasonBadge(call.reason)}</td>
                     <td className="px-4 py-3">
-                      {getReasonBadge(call.reason)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {call.mauticContactId && (
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_MAUTIC_URL || "https://connect.devreemakelaardij.nl"}/s/contacts/view/${call.mauticContactId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                      <div className="flex items-center gap-1">
+                        {/* Notitie knop */}
+                        <button
+                          onClick={() => openNoteModal(call)}
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                            call._count?.notes > 0
+                              ? "bg-green-50 text-green-700 ring-1 ring-green-300 hover:bg-green-100"
+                              : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                          }`}
+                          title={call._count?.notes > 0 ? `${call._count.notes} notitie(s)` : "Notitie toevoegen"}
                         >
-                          Mautic
-                          <ArrowTopRightOnSquareIcon className="h-3 w-3" />
-                        </a>
-                      )}
+                          <ChatBubbleLeftEllipsisIcon className="h-3.5 w-3.5" />
+                          Notitie
+                          {call._count?.notes > 0 && (
+                            <span className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-green-600 text-[9px] font-bold text-white">
+                              {call._count.notes}
+                            </span>
+                          )}
+                        </button>
+
+                        {/* Contact detail */}
+                        {call.mauticContactId && (
+                          <>
+                            <button
+                              onClick={() => openContactPanel(call.mauticContactId!)}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                              title="Contact details"
+                            >
+                              <UserCircleIcon className="h-3.5 w-3.5" />
+                              Contact
+                            </button>
+                            <a
+                              href={`${MAUTIC_URL}/s/contacts/view/${call.mauticContactId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-100"
+                              title="Openen in Mautic"
+                            >
+                              <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                            </a>
+                          </>
+                        )}
+
+                        {/* Ontkoppelen van project */}
+                        <button
+                          onClick={() => handleUnlinkCall(call.id)}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                          title="Ontkoppelen van project"
+                        >
+                          <LinkSlashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -666,67 +746,265 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* Edit project modal */}
+      {/* ===== NOTITIE MODAL ===== */}
+      {showNoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <ChatBubbleLeftEllipsisIcon className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-gray-900">Notities — {noteCallName}</h2>
+              </div>
+              <button onClick={() => setShowNoteModal(false)} className="rounded-full p-1 text-gray-400 hover:bg-gray-100">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <form onSubmit={handleSaveNote} className="flex gap-2">
+                <textarea
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Schrijf een notitie over dit gesprek..."
+                  rows={3}
+                  className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <button
+                  type="submit"
+                  disabled={noteSaving || !newNote.trim()}
+                  className="self-end rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+                >
+                  {noteSaving ? "..." : "Opslaan"}
+                </button>
+              </form>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto border-t border-gray-100 px-6 py-4">
+              {notesLoading ? (
+                <p className="text-center text-sm text-gray-400">Laden...</p>
+              ) : notes.length === 0 ? (
+                <p className="text-center text-sm text-gray-400">Nog geen notities voor dit gesprek</p>
+              ) : (
+                <ul className="space-y-3">
+                  {notes.map((n) => (
+                    <li key={n.id} className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="flex-1 whitespace-pre-wrap text-gray-800">{n.note}</p>
+                        <button
+                          onClick={() => handleDeleteNote(n.id)}
+                          className="mt-0.5 shrink-0 text-gray-300 transition-colors hover:text-red-500"
+                          title="Verwijderen"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {n.createdBy} · {new Date(n.createdAt).toLocaleString("nl-NL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="flex justify-end border-t border-gray-100 px-6 py-3">
+              <button onClick={() => setShowNoteModal(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+                Sluiten
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== CONTACT DETAIL PANEL ===== */}
+      {showContactPanel && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/40" onClick={() => setShowContactPanel(false)} />
+          <div className="w-full max-w-md overflow-y-auto bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+              <div className="flex items-center gap-2">
+                <UserCircleIcon className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-gray-900">Contact details</h2>
+              </div>
+              <button onClick={() => setShowContactPanel(false)} className="rounded-full p-1 text-gray-400 hover:bg-gray-100">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            {contactDetailLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <p className="text-gray-400">Laden...</p>
+              </div>
+            ) : !contactDetail ? (
+              <div className="flex items-center justify-center py-16">
+                <p className="text-gray-400">Contact niet gevonden</p>
+              </div>
+            ) : (
+              <div className="space-y-6 px-6 py-4">
+                {/* Naam & punten */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      {[contactDetail.firstname, contactDetail.lastname].filter(Boolean).join(" ") || "Onbekend"}
+                    </h3>
+                    {contactDetail.company && (
+                      <p className="text-sm text-gray-500">{contactDetail.company}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                      {contactDetail.points} pts
+                    </span>
+                    <a
+                      href={`${MAUTIC_URL}/s/contacts/view/${contactDetail.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+                      title="Openen in Mautic"
+                    >
+                      <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                {contactDetail.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {contactDetail.tags.map((tag) => (
+                      <span key={tag} className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{tag}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Contactgegevens */}
+                <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Contactgegevens</p>
+                    {!editingContact ? (
+                      <button
+                        onClick={() => setEditingContact(true)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
+                      >
+                        <PencilIcon className="h-3 w-3" />
+                        Bewerken
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {contactEditMessage && (
+                          <span className={`text-xs ${contactEditMessage.includes("Fout") ? "text-red-500" : "text-green-600"}`}>
+                            {contactEditMessage}
+                          </span>
+                        )}
+                        <button onClick={() => { setEditingContact(false); setContactEditMessage(""); }} className="rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">
+                          Annuleren
+                        </button>
+                        <button
+                          onClick={handleSaveContactFields}
+                          disabled={contactEditSaving}
+                          className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-50"
+                        >
+                          <CheckIcon className="h-3 w-3" />
+                          {contactEditSaving ? "..." : "Opslaan"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {(
+                    [
+                      { label: "Voornaam", field: "firstname" as const, type: "text" },
+                      { label: "Achternaam", field: "lastname" as const, type: "text" },
+                      { label: "Bedrijf", field: "company" as const, type: "text" },
+                      { label: "E-mail", field: "email" as const, type: "email" },
+                      { label: "Telefoon", field: "phone" as const, type: "tel" },
+                      { label: "Mobiel", field: "mobile" as const, type: "tel" },
+                      { label: "Website", field: "website" as const, type: "url" },
+                      { label: "Adres", field: "address1" as const, type: "text" },
+                      { label: "Postcode", field: "zipcode" as const, type: "text" },
+                      { label: "Stad", field: "city" as const, type: "text" },
+                      { label: "Land", field: "country" as const, type: "text" },
+                    ] as { label: string; field: keyof typeof contactEditData; type: string }[]
+                  ).map(({ label, field, type }) => {
+                    const displayValue = (contactDetail as Record<string, unknown>)[field] as string | null;
+                    if (!editingContact && !displayValue) return null;
+                    return (
+                      <div key={field} className="grid grid-cols-3 items-center px-4 py-2 text-sm">
+                        <span className="text-xs text-gray-500">{label}</span>
+                        {editingContact ? (
+                          <input
+                            type={type}
+                            value={contactEditData[field]}
+                            onChange={(e) => setContactEditData((prev) => ({ ...prev, [field]: e.target.value }))}
+                            className="col-span-2 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
+                            placeholder={label}
+                          />
+                        ) : (
+                          <span className="col-span-2 break-all text-gray-900">
+                            {field === "email" ? (
+                              <a href={`mailto:${displayValue}`} className="text-primary hover:underline">{displayValue}</a>
+                            ) : field === "website" ? (
+                              <a href={displayValue!} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{displayValue}</a>
+                            ) : displayValue}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <div className="grid grid-cols-3 px-4 py-2 text-sm">
+                    <span className="text-xs text-gray-500">Toegevoegd</span>
+                    <span className="col-span-2 text-gray-900">{formatDateFull(contactDetail.dateAdded)}</span>
+                  </div>
+                  {contactDetail.lastActive && (
+                    <div className="grid grid-cols-3 px-4 py-2 text-sm">
+                      <span className="text-xs text-gray-500">Laatste actie</span>
+                      <span className="col-span-2 text-gray-900">{formatDateFull(contactDetail.lastActive)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <a
+                  href={`${MAUTIC_URL}/s/contacts/view/${contactDetail.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Volledig profiel in Mautic
+                  <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== EDIT PROJECT MODAL ===== */}
       {showEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Project bewerken
-              </h2>
-              <button
-                onClick={() => setShowEdit(false)}
-                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
-              >
+              <h2 className="text-lg font-semibold text-gray-900">Project bewerken</h2>
+              <button onClick={() => setShowEdit(false)} className="rounded-full p-1 text-gray-400 hover:bg-gray-100">
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleEditSave}>
               <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Projectnaam *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editData.name}
-                  onChange={(e) =>
-                    setEditData((d) => ({ ...d, name: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Projectnaam *</label>
+                <input type="text" required value={editData.name} onChange={(e) => setEditData((d) => ({ ...d, name: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
               </div>
-
               <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Omschrijving
-                </label>
-                <textarea
-                  value={editData.description}
-                  onChange={(e) =>
-                    setEditData((d) => ({
-                      ...d,
-                      description: e.target.value,
-                    }))
-                  }
-                  rows={2}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Omschrijving</label>
+                <textarea value={editData.description} onChange={(e) => setEditData((d) => ({ ...d, description: e.target.value }))} rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
               </div>
-
               <div className="mb-3 grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Status
-                  </label>
-                  <select
-                    value={editData.status}
-                    onChange={(e) =>
-                      setEditData((d) => ({ ...d, status: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  >
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                  <select value={editData.status} onChange={(e) => setEditData((d) => ({ ...d, status: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
                     <option value="lead">Lead</option>
                     <option value="actief">Actief</option>
                     <option value="afgerond">Afgerond</option>
@@ -734,89 +1012,36 @@ export default function ProjectDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Adres
-                  </label>
-                  <input
-                    type="text"
-                    value={editData.address}
-                    onChange={(e) =>
-                      setEditData((d) => ({ ...d, address: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Adres</label>
+                  <input type="text" value={editData.address} onChange={(e) => setEditData((d) => ({ ...d, address: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                 </div>
               </div>
-
               <div className="mb-3">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
-                  Contactgegevens
-                </p>
+                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Contactgegevens</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Naam
-                    </label>
-                    <input
-                      type="text"
-                      value={editData.contactName}
-                      onChange={(e) =>
-                        setEditData((d) => ({
-                          ...d,
-                          contactName: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                    />
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Naam</label>
+                    <input type="text" value={editData.contactName} onChange={(e) => setEditData((d) => ({ ...d, contactName: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Telefoon
-                    </label>
-                    <input
-                      type="tel"
-                      value={editData.contactPhone}
-                      onChange={(e) =>
-                        setEditData((d) => ({
-                          ...d,
-                          contactPhone: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                    />
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Telefoon</label>
+                    <input type="tel" value={editData.contactPhone} onChange={(e) => setEditData((d) => ({ ...d, contactPhone: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      E-mail
-                    </label>
-                    <input
-                      type="email"
-                      value={editData.contactEmail}
-                      onChange={(e) =>
-                        setEditData((d) => ({
-                          ...d,
-                          contactEmail: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                    />
+                    <label className="mb-1 block text-sm font-medium text-gray-700">E-mail</label>
+                    <input type="email" value={editData.contactEmail} onChange={(e) => setEditData((d) => ({ ...d, contactEmail: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                   </div>
                 </div>
               </div>
-
               <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEdit(false)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                >
+                <button type="button" onClick={() => setShowEdit(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
                   Annuleren
                 </button>
-                <button
-                  type="submit"
-                  disabled={editSaving}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-                >
+                <button type="submit" disabled={editSaving} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50">
                   {editSaving ? "Opslaan..." : "Opslaan"}
                 </button>
               </div>
@@ -825,88 +1050,44 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* Nieuwe taak modal */}
+      {/* ===== NIEUWE TAAK MODAL ===== */}
       {showNewTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Nieuwe taak voor {project.name}
-              </h2>
-              <button
-                onClick={() => setShowNewTask(false)}
-                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
-              >
+              <h2 className="text-lg font-semibold text-gray-900">Nieuwe taak voor {project.name}</h2>
+              <button onClick={() => setShowNewTask(false)} className="rounded-full p-1 text-gray-400 hover:bg-gray-100">
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleCreateTask}>
               <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Titel *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newTask.title}
-                  onChange={(e) =>
-                    setNewTask((t) => ({ ...t, title: e.target.value }))
-                  }
+                <label className="mb-1 block text-sm font-medium text-gray-700">Titel *</label>
+                <input type="text" required value={newTask.title} onChange={(e) => setNewTask((t) => ({ ...t, title: e.target.value }))}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  placeholder="Wat moet er gedaan worden?"
-                />
+                  placeholder="Wat moet er gedaan worden?" />
               </div>
-
               <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Omschrijving
-                </label>
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) =>
-                    setNewTask((t) => ({ ...t, description: e.target.value }))
-                  }
-                  rows={2}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Omschrijving</label>
+                <textarea value={newTask.description} onChange={(e) => setNewTask((t) => ({ ...t, description: e.target.value }))} rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
               </div>
-
               <div className="mb-3 grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Toewijzen aan *
-                  </label>
-                  <select
-                    required
-                    value={newTask.assigneeId}
-                    onChange={(e) =>
-                      setNewTask((t) => ({
-                        ...t,
-                        assigneeId: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  >
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Toewijzen aan *</label>
+                  <select required value={newTask.assigneeId} onChange={(e) => setNewTask((t) => ({ ...t, assigneeId: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
                     <option value="">Selecteer...</option>
                     {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} ({user.role})
-                      </option>
+                      <option key={user.id} value={user.id}>{user.name} ({user.role})</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Prioriteit
-                  </label>
-                  <select
-                    value={newTask.priority}
-                    onChange={(e) =>
-                      setNewTask((t) => ({ ...t, priority: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  >
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Prioriteit</label>
+                  <select value={newTask.priority} onChange={(e) => setNewTask((t) => ({ ...t, priority: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
                     <option value="laag">Laag</option>
                     <option value="normaal">Normaal</option>
                     <option value="hoog">Hoog</option>
@@ -914,55 +1095,28 @@ export default function ProjectDetailPage() {
                   </select>
                 </div>
               </div>
-
               <div className="mb-3 grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Categorie
-                  </label>
-                  <select
-                    value={newTask.category}
-                    onChange={(e) =>
-                      setNewTask((t) => ({ ...t, category: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  >
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Categorie</label>
+                  <select value={newTask.category} onChange={(e) => setNewTask((t) => ({ ...t, category: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
                     <option value="">Geen</option>
                     {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                      </option>
+                      <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Deadline
-                  </label>
-                  <input
-                    type="date"
-                    value={newTask.dueDate}
-                    onChange={(e) =>
-                      setNewTask((t) => ({ ...t, dueDate: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  />
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Deadline</label>
+                  <input type="date" value={newTask.dueDate} onChange={(e) => setNewTask((t) => ({ ...t, dueDate: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                 </div>
               </div>
-
               <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowNewTask(false)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                >
+                <button type="button" onClick={() => setShowNewTask(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
                   Annuleren
                 </button>
-                <button
-                  type="submit"
-                  disabled={taskSaving}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-                >
+                <button type="submit" disabled={taskSaving} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50">
                   {taskSaving ? "Opslaan..." : "Taak aanmaken"}
                 </button>
               </div>

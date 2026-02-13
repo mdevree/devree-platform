@@ -28,6 +28,9 @@ export async function GET(
         orderBy: [{ status: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
       },
       calls: {
+        include: {
+          _count: { select: { notes: true } },
+        },
         orderBy: { timestamp: "desc" },
         take: 50,
       },
