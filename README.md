@@ -5,9 +5,10 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 ## Modules
 
 - **Telefonie** — Live call popups, call history, Mautic CRM koppeling, notities per gesprek, contact detail panel met AI data profiel
-- **Taken** — Kanban + tabel, per makelaar en centraal voor binnendienst
-- **Projecten** — Woningdossiers gekoppeld aan taken, calls en Notion
-- **Mautic** — CRM contact opzoeken, aanmaken en bijwerken (inclusief AI profiel)
+- **Taken** — Kanban + tabeloverzicht, per makelaar en centraal voor binnendienst, met tijdregistratie per taak
+- **Projecten** — Woningdossiers gekoppeld aan taken, gesprekken en Notion. Overzicht toont totale geregistreerde tijd per project
+- **Tijdregistratie** — Timer per taak (start/pauze/stop) + handmatig tijd toevoegen, logboek van sessies, beschikbaar via API
+- **Mautic** — CRM contact opzoeken, aanmaken en bijwerken (inclusief AI data profiel)
 - **Notion** — Bidirectionele sync via n8n webhooks
 
 ## Tech Stack
@@ -61,7 +62,7 @@ Webhooks (POST naar `/webhook`) gebruiken uitsluitend de `x-webhook-secret` head
 | `search` | `string` | Zoekterm — doorzoekt titel en beschrijving |
 | `dueDateFrom` | `ISO 8601` | Taken met deadline op of na deze datum |
 | `dueDateTo` | `ISO 8601` | Taken met deadline op of voor deze datum |
-| `sortBy` | `string` | Sorteerveld: `status` \| `priority` \| `dueDate` \| `createdAt` \| `title` (standaard: `status`) |
+| `sortBy` | `string` | Sorteerveld: `status` \| `priority` \| `dueDate` \| `createdAt` \| `completedAt` \| `title` (standaard: `status`) |
 | `sortOrder` | `string` | `asc` of `desc` (standaard: `asc`) |
 | `page` | `number` | Paginanummer (standaard: `1`) |
 | `limit` | `number` | Aantal resultaten per pagina (standaard: `50`, max: `200`) |
@@ -73,6 +74,8 @@ Webhooks (POST naar `/webhook`) gebruiken uitsluitend de `x-webhook-secret` head
   "pagination": { "page": 1, "limit": 50, "total": 120, "pages": 3 }
 }
 ```
+
+Elke taak bevat ook `totalTimeSpent` (seconden) en `timerStartedAt` (null als timer niet loopt).
 
 #### `POST /api/taken` — Body
 
@@ -112,6 +115,72 @@ Header: `x-webhook-secret`
 
 ---
 
+### Tijdregistratie `/api/taken/[id]/timer`
+
+Per taak kan tijd worden bijgehouden via een timer of handmatige invoer. Elke sessie wordt opgeslagen als `TimeEntry`.
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/taken/[id]/timer` | Haal de huidige timerstatus op |
+| `POST` | `/api/taken/[id]/timer` | Start, pauzeer of stop de timer |
+| `PATCH` | `/api/taken/[id]/timer` | Voeg handmatig tijd toe |
+| `DELETE` | `/api/taken/[id]/timer` | Reset alle tijdregistratie voor deze taak |
+
+#### `GET /api/taken/[id]/timer` — Response
+
+```json
+{
+  "isRunning": true,
+  "timerStartedAt": "2025-01-15T09:00:00.000Z",
+  "totalTimeSpent": 3600,
+  "currentSessionSeconds": 420,
+  "totalSeconds": 4020,
+  "entries": [
+    {
+      "id": "...",
+      "startedAt": "2025-01-15T08:00:00.000Z",
+      "stoppedAt": "2025-01-15T09:00:00.000Z",
+      "duration": 3600
+    }
+  ]
+}
+```
+
+#### `POST /api/taken/[id]/timer` — Body
+
+```json
+{ "action": "start" }
+```
+
+| Actie | Omschrijving |
+|-------|--------------|
+| `start` | Start een nieuwe sessie (fout als timer al loopt) |
+| `pause` | Sluit de lopende sessie af en sla de duur op |
+| `stop` | Zelfde als pause, bedoeld als definitief stoppen |
+
+#### `PATCH /api/taken/[id]/timer` — Handmatig tijd toevoegen
+
+Gebruik dit als je vergeten bent de timer te starten. Er wordt een `TimeEntry` aangemaakt met de berekende start/stop tijden.
+
+```json
+{ "hours": 1, "minutes": 30 }
+```
+
+**Response:**
+```json
+{
+  "action": "added",
+  "addedSeconds": 5400,
+  "totalTimeSpent": 9000
+}
+```
+
+#### `DELETE /api/taken/[id]/timer`
+
+Reset `totalTimeSpent` naar `0`, verwijdert alle `TimeEntry` records en stopt een eventueel lopende timer.
+
+---
+
 ### Projecten `/api/projecten`
 
 | Methode | Endpoint | Omschrijving |
@@ -127,7 +196,7 @@ Header: `x-webhook-secret`
 
 | Parameter | Type | Omschrijving |
 |-----------|------|--------------|
-| `status` | `string` | Filter op projectstatus (bijv. `lead`, `actief`, `verkocht`) |
+| `status` | `string` | Filter op projectstatus: `lead`, `actief`, `afgerond`, `geannuleerd` |
 | `search` | `string` | Zoekterm — doorzoekt naam, adres, contactnaam en e-mail |
 | `page` | `number` | Paginanummer (standaard: `1`) |
 | `limit` | `number` | Aantal resultaten per pagina (standaard: `50`) |
@@ -140,11 +209,16 @@ Header: `x-webhook-secret`
 }
 ```
 
-Elk project bevat `_count.tasks` en `_count.calls`.
+Elk project bevat:
+- `_count.tasks` en `_count.calls` — aantal gekoppelde taken en gesprekken
+- `calls` — lijst met calls inclusief `_count.notes` per gesprek
+- `totalTimeSpent` — som van alle `totalTimeSpent` van gekoppelde taken (in seconden)
 
 #### `GET /api/projecten/[id]`
 
-Geeft één project terug inclusief alle gekoppelde taken (met toegewezen gebruiker) en de laatste 50 calls.
+Geeft één project terug inclusief:
+- alle gekoppelde taken (met toegewezen gebruiker en maker)
+- de laatste 50 calls inclusief `_count.notes` per gesprek
 
 #### `POST /api/projecten` — Body
 
@@ -185,7 +259,7 @@ Upsert op basis van `notionPageId`. Vereiste velden: `notionPageId`. Overige vel
 | Parameter | Type | Omschrijving |
 |-----------|------|--------------|
 | `direction` | `string` | `inbound` of `outbound` |
-| `reason` | `string` | Reden van beëindiging (bijv. `completed`, `missed`) |
+| `reason` | `string` | Reden van beëindiging (bijv. `completed`, `no-answer`, `busy`, `cancelled`) |
 | `projectId` | `string` | Filter op gekoppeld project |
 | `search` | `string` | Zoekterm — doorzoekt nummer, naam, contactnaam en bestemmingsnummer |
 | `from` | `ISO 8601` | Calls vanaf deze datum |
@@ -311,6 +385,47 @@ De velden zijn dynamisch — medewerkers kunnen vrij velden toevoegen, aanpassen
 
 ---
 
+## Database schema (relevante modellen)
+
+### Task
+
+| Veld | Type | Omschrijving |
+|------|------|--------------|
+| `totalTimeSpent` | `Int` | Totale geregistreerde tijd in seconden (afgesloten sessies) |
+| `timerStartedAt` | `DateTime?` | Start van de lopende timersessie, `null` als gestopt |
+| `completedAt` | `DateTime?` | Tijdstip van afronden (automatisch ingesteld) |
+
+### TimeEntry
+
+Elke timersessie per taak wordt opgeslagen als een aparte `TimeEntry`.
+
+| Veld | Type | Omschrijving |
+|------|------|--------------|
+| `taskId` | `String` | Verwijzing naar de taak |
+| `startedAt` | `DateTime` | Start van de sessie |
+| `stoppedAt` | `DateTime?` | Einde van de sessie (`null` als nog lopend) |
+| `duration` | `Int` | Duur in seconden (0 als nog lopend) |
+
+**SQL voor handmatige migratie:**
+```sql
+ALTER TABLE tasks ADD COLUMN timerStartedAt DATETIME NULL;
+ALTER TABLE tasks ADD COLUMN totalTimeSpent INT NOT NULL DEFAULT 0;
+
+CREATE TABLE time_entries (
+  id VARCHAR(191) NOT NULL,
+  taskId VARCHAR(191) NOT NULL,
+  startedAt DATETIME(3) NOT NULL,
+  stoppedAt DATETIME(3) NULL,
+  duration INT NOT NULL DEFAULT 0,
+  createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  INDEX time_entries_taskId_idx (taskId),
+  CONSTRAINT time_entries_taskId_fkey FOREIGN KEY (taskId) REFERENCES tasks(id) ON DELETE CASCADE
+);
+```
+
+---
+
 ## Omgevingsvariabelen
 
 | Variabele | Omschrijving |
@@ -318,13 +433,13 @@ De velden zijn dynamisch — medewerkers kunnen vrij velden toevoegen, aanpassen
 | `DATABASE_URL` | MySQL connectiestring voor Prisma |
 | `NEXTAUTH_SECRET` | Secret voor NextAuth.js sessieversleuteling |
 | `NEXTAUTH_URL` | Publieke URL van de applicatie |
-| `N8N_WEBHOOK_SECRET` | Gedeeld geheim voor webhook authenticatie |
+| `N8N_WEBHOOK_SECRET` | Gedeeld geheim voor webhook authenticatie (`x-webhook-secret` header) |
 | `MAUTIC_URL` | Basis-URL van de Mautic instantie |
 | `MAUTIC_CLIENT_ID` | Mautic OAuth2 client ID |
 | `MAUTIC_CLIENT_SECRET` | Mautic OAuth2 client secret |
 | `NEXT_PUBLIC_MAUTIC_URL` | Publieke Mautic URL (voor frontend links naar contactpagina's) |
 | `CALL_NOTE_WEBHOOK_URL` | Optionele webhook URL die wordt aangeroepen bij het opslaan van een gespreksnotitie |
-| `DEBITEUREN_URL` | Externe link naar het debiteuren systeem |
+| `NEXT_PUBLIC_DEBITEUREN_URL` | Externe link naar het debiteuren/facturatie systeem (zichtbaar in sidebar) |
 
 ---
 
@@ -340,3 +455,5 @@ npm run dev
 ## Deployment
 
 Automatisch via GitHub Actions → GHCR → Portainer. Push naar `main` triggert een build en deploy.
+
+> **Let op:** database migraties worden handmatig uitgevoerd via SQL. De container draait geen automatische `prisma db push` bij opstarten.
