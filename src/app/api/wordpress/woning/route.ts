@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const url = new URL(`${WP_BASE_URL}/woning`);
-    url.searchParams.set("acf[realworks_id]", realworksId);
+    url.searchParams.set("realworks_id", realworksId);
     url.searchParams.set("per_page", "1");
     url.searchParams.set("_embed", "wp:featuredmedia");
 
