@@ -103,20 +103,35 @@ interface WoningData {
   title: string;
   featuredImage: string | null;
   acf: {
-    woning_status?: string;
-    koopsom?: string | number;
-    huurprijs?: string | number;
-    woonoppervlakte?: string | number;
-    perceeloppervlakte?: string | number;
-    kamers?: string | number;
-    slaapkamers?: string | number;
-    bouwjaar?: string | number;
-    soort_woning?: string;
-    energielabel?: string;
-    adres?: string;
+    status?: string;           // "Beschikbaar", "Verkocht o.v.", "Verkocht", "Verhuurd", "Onder bod"
+    koopsom?: number;
+    koopprijs_label?: string;
+    huurprijs?: number;
+    koopconditie?: string;
+    aanvaarding?: string;
+    woonoppervlakte?: number;
+    kadastrale_oppervlakte?: number;
+    inhoud?: number;
+    aantal_kamers?: number;
+    bouwjaar?: string;
+    bouwvorm?: string;
+    energieklasse?: string;
+    straat?: string;
+    huisnummer?: string;
     postcode?: string;
     plaats?: string;
+    wijk?: string;
     realworks_id?: string;
+    intro_tekst_ai?: string;
+    floorplanner_fml?: string;
+    tour_360_url?: string;
+    woning_video_url?: string;
+    isolatievormen?: string;
+    verwarming?: string;
+    voorzieningen?: string;
+    ligging?: string;
+    coordinaten_x?: string;
+    coordinaten_y?: string;
     [key: string]: unknown;
   };
 }
@@ -280,11 +295,11 @@ export default function ProjectDetailPage() {
       const res = await fetch("/api/wordpress/woning", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wpPostId: woning.id, acf: { woning_status: newStatus } }),
+        body: JSON.stringify({ wpPostId: woning.id, acf: { status: newStatus } }),
       });
       const data = await res.json();
       if (data.success) {
-        setWoning((prev) => prev ? { ...prev, acf: { ...prev.acf, woning_status: newStatus } } : prev);
+        setWoning((prev) => prev ? { ...prev, acf: { ...prev.acf, status: newStatus } } : prev);
         setWoningStatusMessage("Status bijgewerkt op website");
         setTimeout(() => setWoningStatusMessage(""), 3000);
       } else {
@@ -908,10 +923,12 @@ export default function ProjectDetailPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-base font-semibold text-gray-900">{woning.title}</h3>
-                      {woning.acf.adres && (
+                      {(woning.acf.straat || woning.acf.plaats) && (
                         <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
                           <MapPinIcon className="h-4 w-4 shrink-0" />
-                          {woning.acf.adres}{woning.acf.postcode ? `, ${woning.acf.postcode}` : ""}{woning.acf.plaats ? ` ${woning.acf.plaats}` : ""}
+                          {[woning.acf.straat, woning.acf.huisnummer].filter(Boolean).join(" ")}
+                          {woning.acf.postcode ? `, ${woning.acf.postcode}` : ""}
+                          {woning.acf.plaats ? ` ${woning.acf.plaats}` : ""}
                         </p>
                       )}
                     </div>
@@ -928,28 +945,28 @@ export default function ProjectDetailPage() {
 
                   {/* Kenmerken grid */}
                   <div className="mt-4 grid grid-cols-3 gap-3">
-                    {woning.acf.woonoppervlakte && (
+                    {!!woning.acf.woonoppervlakte && (
                       <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
                         <p className="text-xs text-gray-500">Woonoppervlakte</p>
                         <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.woonoppervlakte} m²</p>
                       </div>
                     )}
-                    {woning.acf.perceeloppervlakte && (
+                    {!!woning.acf.kadastrale_oppervlakte && (
                       <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
                         <p className="text-xs text-gray-500">Perceel</p>
-                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.perceeloppervlakte} m²</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.kadastrale_oppervlakte} m²</p>
                       </div>
                     )}
-                    {woning.acf.kamers && (
+                    {!!woning.acf.inhoud && (
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-500">Inhoud</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.inhoud} m³</p>
+                      </div>
+                    )}
+                    {!!woning.acf.aantal_kamers && (
                       <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
                         <p className="text-xs text-gray-500">Kamers</p>
-                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.kamers}</p>
-                      </div>
-                    )}
-                    {woning.acf.slaapkamers && (
-                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
-                        <p className="text-xs text-gray-500">Slaapkamers</p>
-                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.slaapkamers}</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.aantal_kamers}</p>
                       </div>
                     )}
                     {woning.acf.bouwjaar && (
@@ -958,14 +975,72 @@ export default function ProjectDetailPage() {
                         <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.bouwjaar}</p>
                       </div>
                     )}
-                    {woning.acf.energielabel && (
+                    {woning.acf.energieklasse && (
                       <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
                         <p className="text-xs text-gray-500">Energielabel</p>
-                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.energielabel}</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.energieklasse}</p>
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* Extra details */}
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Details</p>
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    {woning.acf.bouwvorm && (
+                      <><dt className="text-gray-500">Bouwvorm</dt><dd className="font-medium text-gray-900">{woning.acf.bouwvorm}</dd></>
+                    )}
+                    {woning.acf.koopconditie && (
+                      <><dt className="text-gray-500">Conditie</dt><dd className="font-medium text-gray-900">{woning.acf.koopconditie}</dd></>
+                    )}
+                    {woning.acf.aanvaarding && (
+                      <><dt className="text-gray-500">Aanvaarding</dt><dd className="font-medium text-gray-900">{woning.acf.aanvaarding}</dd></>
+                    )}
+                    {woning.acf.verwarming && (
+                      <><dt className="text-gray-500">Verwarming</dt><dd className="font-medium text-gray-900">{woning.acf.verwarming}</dd></>
+                    )}
+                    {woning.acf.ligging && (
+                      <><dt className="text-gray-500">Ligging</dt><dd className="font-medium text-gray-900">{woning.acf.ligging}</dd></>
+                    )}
+                    {woning.acf.isolatievormen && (
+                      <><dt className="text-gray-500">Isolatie</dt><dd className="font-medium text-gray-900">{woning.acf.isolatievormen}</dd></>
+                    )}
+                    {woning.acf.voorzieningen && (
+                      <><dt className="text-gray-500">Voorzieningen</dt><dd className="font-medium text-gray-900">{woning.acf.voorzieningen}</dd></>
+                    )}
+                    {woning.acf.wijk && (
+                      <><dt className="text-gray-500">Wijk</dt><dd className="font-medium text-gray-900">{woning.acf.wijk}</dd></>
+                    )}
+                  </dl>
+                </div>
+
+                {/* Extra links */}
+                {(woning.acf.floorplanner_fml || woning.acf.tour_360_url || woning.acf.woning_video_url) && (
+                  <div className="flex flex-wrap gap-2">
+                    {woning.acf.floorplanner_fml && (
+                      <a href={woning.acf.floorplanner_fml} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                        Plattegrond
+                      </a>
+                    )}
+                    {woning.acf.tour_360_url && (
+                      <a href={woning.acf.tour_360_url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                        360° tour
+                      </a>
+                    )}
+                    {woning.acf.woning_video_url && (
+                      <a href={woning.acf.woning_video_url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                        Video
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Rechter kolom: status + prijs */}
@@ -975,7 +1050,7 @@ export default function ProjectDetailPage() {
                   <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Status op website</p>
                   <div className="space-y-1.5">
                     {["Beschikbaar", "Onder bod", "Verkocht o.v.", "Verkocht", "Verhuurd"].map((status) => {
-                      const isActive = woning.acf.woning_status === status;
+                      const isActive = woning.acf.status === status;
                       return (
                         <button
                           key={status}
@@ -1012,14 +1087,16 @@ export default function ProjectDetailPage() {
                 {(woning.acf.koopsom || woning.acf.huurprijs) && (
                   <div className="rounded-xl border border-gray-200 bg-white p-4">
                     <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Prijs</p>
-                    {woning.acf.koopsom && (
+                    {woning.acf.koopprijs_label ? (
+                      <p className="text-base font-bold text-gray-900">{woning.acf.koopprijs_label}</p>
+                    ) : woning.acf.koopsom ? (
                       <p className="text-lg font-bold text-gray-900">
-                        € {Number(woning.acf.koopsom).toLocaleString("nl-NL")}
+                        € {woning.acf.koopsom.toLocaleString("nl-NL")}
                       </p>
-                    )}
+                    ) : null}
                     {woning.acf.huurprijs && (
                       <p className="text-sm text-gray-600">
-                        Huur: € {Number(woning.acf.huurprijs).toLocaleString("nl-NL")} /mnd
+                        Huur: € {woning.acf.huurprijs.toLocaleString("nl-NL")} /mnd
                       </p>
                     )}
                   </div>
@@ -1029,12 +1106,6 @@ export default function ProjectDetailPage() {
                 <div className="rounded-xl border border-gray-200 bg-white p-4">
                   <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Informatie</p>
                   <dl className="space-y-1.5 text-sm">
-                    {woning.acf.soort_woning && (
-                      <div className="flex justify-between">
-                        <dt className="text-gray-500">Type</dt>
-                        <dd className="font-medium text-gray-900">{woning.acf.soort_woning}</dd>
-                      </div>
-                    )}
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Realworks ID</dt>
                       <dd className="font-mono text-xs text-gray-700">{woning.acf.realworks_id || project.realworksId}</dd>
@@ -1043,6 +1114,21 @@ export default function ProjectDetailPage() {
                       <dt className="text-gray-500">WordPress ID</dt>
                       <dd className="font-mono text-xs text-gray-700">{woning.id}</dd>
                     </div>
+                    {woning.acf.coordinaten_x && woning.acf.coordinaten_y && (
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500">Coördinaten</dt>
+                        <dd className="font-mono text-xs text-gray-700">
+                          <a
+                            href={`https://maps.google.com/?q=${woning.acf.coordinaten_y},${woning.acf.coordinaten_x}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            Bekijk op kaart
+                          </a>
+                        </dd>
+                      </div>
+                    )}
                   </dl>
                 </div>
               </div>

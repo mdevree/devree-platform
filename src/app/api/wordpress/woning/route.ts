@@ -10,25 +10,47 @@ function wpAuthHeader(): string {
   return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
 }
 
+// ACF velden zoals ze daadwerkelijk terugkomen van de WordPress API
 export interface WoningACF {
-  woning_status?: string; // Beschikbaar, Verkocht o.v., Verkocht, Verhuurd, Onder bod
-  koopsom?: string | number;
-  huurprijs?: string | number;
-  woonoppervlakte?: string | number;
-  perceeloppervlakte?: string | number;
-  kamers?: string | number;
-  slaapkamers?: string | number;
-  bouwjaar?: string | number;
-  soort_woning?: string;
-  energielabel?: string;
-  adres?: string;
+  realworks_id?: string;
+  status?: string;           // "Beschikbaar", "Verkocht o.v.", "Verkocht", "Verhuurd", "Onder bod"
+  koopsom?: number;
+  koopprijs_label?: string;
+  huurprijs?: number;
+  koopconditie?: string;
+  aanvaarding?: string;
+  woonoppervlakte?: number;
+  kadastrale_oppervlakte?: number;
+  inhoud?: number;
+  aantal_kamers?: number;
+  bouwjaar?: string;
+  bouwvorm?: string;
+  woonhuissoort?: string;
+  woonhuistype?: string;
+  energieklasse?: string;
+  energielabel_datum?: string;
   postcode?: string;
   plaats?: string;
-  realworks_id?: string;
-  intro_tekst?: string;
+  provincie?: string;
+  gemeente?: string;
+  wijk?: string;
+  straat?: string;
+  huisnummer?: string;
+  coordinaten_x?: string;
+  coordinaten_y?: string;
+  aanbiedingstekst?: string;
   intro_tekst_ai?: string;
-  woning_beschrijving?: string;
   woning_beschrijving_ai?: string;
+  buiten_beschrijving_ai?: string;
+  indeling_beschrijving_ai?: string;
+  locatie_beschrijving_ai?: string;
+  floorplanner_fml?: string;
+  tour_360_url?: string;
+  woning_video_url?: string;
+  isolatievormen?: string;
+  verwarming?: string;
+  voorzieningen?: string;
+  ligging?: string;
   [key: string]: unknown;
 }
 
@@ -37,7 +59,11 @@ export interface WoningPost {
   slug: string;
   link: string;
   title: { rendered: string };
+  realworks_id?: string;     // ook op root niveau
   acf: WoningACF;
+  yoast_head_json?: {
+    og_image?: Array<{ url: string; width?: number; height?: number }>;
+  };
   _embedded?: {
     "wp:featuredmedia"?: Array<{
       source_url: string;
@@ -52,7 +78,7 @@ export interface WoningPost {
 }
 
 /**
- * GET /api/wordpress/woning?realworksId=12345
+ * GET /api/wordpress/woning?realworksId=SE11776
  * Haalt woning op van WordPress op basis van Realworks ID
  */
 export async function GET(request: NextRequest) {
@@ -64,10 +90,7 @@ export async function GET(request: NextRequest) {
   const realworksId = searchParams.get("realworksId");
 
   if (!realworksId) {
-    return NextResponse.json(
-      { error: "realworksId is verplicht" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "realworksId is verplicht" }, { status: 400 });
   }
 
   try {
@@ -98,12 +121,13 @@ export async function GET(request: NextRequest) {
     }
 
     const woning = woningen[0];
+
+    // Featured image: probeer _embedded, dan og_image als fallback
     const featuredImage =
-      woning._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.large
-        ?.source_url ||
-      woning._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes
-        ?.medium_large?.source_url ||
+      woning._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.large?.source_url ||
+      woning._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.medium_large?.source_url ||
       woning._embedded?.["wp:featuredmedia"]?.[0]?.source_url ||
+      woning.yoast_head_json?.og_image?.[0]?.url ||
       null;
 
     return NextResponse.json({
@@ -116,10 +140,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("WordPress woning fetch fout:", error);
-    return NextResponse.json(
-      { error: "Kan WordPress niet bereiken" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Kan WordPress niet bereiken" }, { status: 500 });
   }
 }
 
@@ -139,17 +160,14 @@ export async function PATCH(request: NextRequest) {
   const { wpPostId, acf } = body as { wpPostId: number; acf: Partial<WoningACF> };
 
   if (!wpPostId || !acf || typeof acf !== "object") {
-    return NextResponse.json(
-      { error: "wpPostId en acf zijn verplicht" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "wpPostId en acf zijn verplicht" }, { status: 400 });
   }
 
   try {
     const auth = wpAuthHeader();
 
     const res = await fetch(`${WP_BASE_URL}/woning/${wpPostId}`, {
-      method: "POST", // WordPress REST API gebruikt POST voor updates (niet PATCH)
+      method: "POST", // WordPress REST API gebruikt POST voor updates
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -182,9 +200,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
     console.error("WordPress woning update fout:", error);
-    return NextResponse.json(
-      { error: "Kan WordPress niet bereiken" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Kan WordPress niet bereiken" }, { status: 500 });
   }
 }
