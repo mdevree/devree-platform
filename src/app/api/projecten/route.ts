@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       address: data.address || null,
       notionPageId: data.notionPageId || null,
       mauticContactId: data.mauticContactId || null,
+      realworksId: data.realworksId || null,
       contactName: data.contactName || null,
       contactPhone: data.contactPhone || null,
       contactEmail: data.contactEmail || null,
@@ -129,6 +130,7 @@ export async function PATCH(request: NextRequest) {
   if (data.address !== undefined) updateData.address = data.address;
   if (data.notionPageId !== undefined) updateData.notionPageId = data.notionPageId;
   if (data.mauticContactId !== undefined) updateData.mauticContactId = data.mauticContactId;
+  if (data.realworksId !== undefined) updateData.realworksId = data.realworksId;
   if (data.contactName !== undefined) updateData.contactName = data.contactName;
   if (data.contactPhone !== undefined) updateData.contactPhone = data.contactPhone;
   if (data.contactEmail !== undefined) updateData.contactEmail = data.contactEmail;

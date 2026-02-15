@@ -30,6 +30,7 @@ model Project {
   address         String?
   notionPageId    String?  @unique
   mauticContactId Int?
+  realworksId     String?  // Koppeling met woning op WordPress via Realworks ID
   contactName     String?
   contactPhone    String?
   contactEmail    String?
@@ -41,6 +42,7 @@ model Project {
   @@index([status])
   @@index([notionPageId])
   @@index([mauticContactId])
+  @@index([realworksId])
   @@map("projects")
 }
 

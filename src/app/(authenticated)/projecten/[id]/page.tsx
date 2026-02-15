@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   PencilIcon,
   FolderIcon,
+  HomeModernIcon,
   MapPinIcon,
   PhoneIcon,
   EnvelopeIcon,
@@ -26,6 +27,7 @@ import {
   CheckIcon,
   TrashIcon,
   LinkSlashIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 
 const MAUTIC_URL =
@@ -94,6 +96,31 @@ interface MauticContactFull {
   dateAdded: string | null;
 }
 
+interface WoningData {
+  id: number;
+  slug: string;
+  link: string;
+  title: string;
+  featuredImage: string | null;
+  acf: {
+    woning_status?: string;
+    koopsom?: string | number;
+    huurprijs?: string | number;
+    woonoppervlakte?: string | number;
+    perceeloppervlakte?: string | number;
+    kamers?: string | number;
+    slaapkamers?: string | number;
+    bouwjaar?: string | number;
+    soort_woning?: string;
+    energielabel?: string;
+    adres?: string;
+    postcode?: string;
+    plaats?: string;
+    realworks_id?: string;
+    [key: string]: unknown;
+  };
+}
+
 interface Project {
   id: string;
   name: string;
@@ -105,13 +132,14 @@ interface Project {
   contactEmail: string | null;
   notionPageId: string | null;
   mauticContactId: number | null;
+  realworksId: string | null;
   tasks: Task[];
   calls: Call[];
   createdAt: string;
   updatedAt: string;
 }
 
-type ActiveTab = "taken" | "telefonie";
+type ActiveTab = "taken" | "telefonie" | "woning";
 
 const statusColors: Record<string, string> = {
   lead: "bg-purple-100 text-purple-700 border-purple-200",
@@ -151,11 +179,19 @@ export default function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("taken");
   const [users, setUsers] = useState<User[]>([]);
 
+  // Woning
+  const [woning, setWoning] = useState<WoningData | null>(null);
+  const [woningLoading, setWoningLoading] = useState(false);
+  const [woningError, setWoningError] = useState<string | null>(null);
+  const [woningStatusSaving, setWoningStatusSaving] = useState(false);
+  const [woningStatusMessage, setWoningStatusMessage] = useState("");
+
   // Edit project modal
   const [showEdit, setShowEdit] = useState(false);
   const [editData, setEditData] = useState({
     name: "", description: "", status: "", address: "",
     contactName: "", contactPhone: "", contactEmail: "",
+    realworksId: "",
   });
   const [editSaving, setEditSaving] = useState(false);
 
@@ -209,7 +245,56 @@ export default function ProjectDetailPage() {
     } catch { console.error("Fout bij ophalen gebruikers"); }
   }, []);
 
+  const fetchWoning = useCallback(async (realworksId: string) => {
+    setWoningLoading(true);
+    setWoningError(null);
+    setWoning(null);
+    try {
+      const res = await fetch(`/api/wordpress/woning?realworksId=${encodeURIComponent(realworksId)}`);
+      const data = await res.json();
+      if (res.ok) {
+        setWoning(data);
+      } else {
+        setWoningError(data.error || "Woning niet gevonden");
+      }
+    } catch {
+      setWoningError("Kan WordPress niet bereiken");
+    }
+    setWoningLoading(false);
+  }, []);
+
   useEffect(() => { fetchProject(); fetchUsers(); }, [fetchProject, fetchUsers]);
+
+  // Laad woning zodra de woning-tab actief wordt
+  useEffect(() => {
+    if (activeTab === "woning" && project?.realworksId && !woning && !woningLoading) {
+      fetchWoning(project.realworksId);
+    }
+  }, [activeTab, project?.realworksId, woning, woningLoading, fetchWoning]);
+
+  async function handleWoningStatusChange(newStatus: string) {
+    if (!woning) return;
+    setWoningStatusSaving(true);
+    setWoningStatusMessage("");
+    try {
+      const res = await fetch("/api/wordpress/woning", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wpPostId: woning.id, acf: { woning_status: newStatus } }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWoning((prev) => prev ? { ...prev, acf: { ...prev.acf, woning_status: newStatus } } : prev);
+        setWoningStatusMessage("Status bijgewerkt op website");
+        setTimeout(() => setWoningStatusMessage(""), 3000);
+      } else {
+        setWoningStatusMessage(data.error || "Fout bij opslaan");
+      }
+    } catch {
+      setWoningStatusMessage("Netwerkfout");
+    }
+    setWoningStatusSaving(false);
+  }
 
   function openEdit() {
     if (!project) return;
@@ -218,6 +303,7 @@ export default function ProjectDetailPage() {
       status: project.status, address: project.address || "",
       contactName: project.contactName || "", contactPhone: project.contactPhone || "",
       contactEmail: project.contactEmail || "",
+      realworksId: project.realworksId || "",
     });
     setShowEdit(true);
   }
@@ -229,9 +315,19 @@ export default function ProjectDetailPage() {
       const response = await fetch("/api/projecten", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: projectId, ...editData }),
+        body: JSON.stringify({
+          id: projectId,
+          ...editData,
+          realworksId: editData.realworksId || null,
+        }),
       });
-      if (response.ok) { setShowEdit(false); fetchProject(); }
+      if (response.ok) {
+        setShowEdit(false);
+        // Reset woning cache zodat die opnieuw geladen wordt
+        setWoning(null);
+        setWoningError(null);
+        fetchProject();
+      }
     } catch { console.error("Fout bij bijwerken project"); }
     setEditSaving(false);
   }
@@ -539,6 +635,20 @@ export default function ProjectDetailPage() {
           <PhoneIcon className="h-4 w-4" />
           Telefonie ({project.calls.length})
         </button>
+        <button
+          onClick={() => setActiveTab("woning")}
+          className={`inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
+            activeTab === "woning" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <HomeModernIcon className="h-4 w-4" />
+          Woning
+          {project.realworksId && (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+              {project.realworksId}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* ===== TAKEN TAB ===== */}
@@ -743,6 +853,201 @@ export default function ProjectDetailPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ===== WONING TAB ===== */}
+      {activeTab === "woning" && (
+        <div>
+          {/* Geen Realworks ID ingesteld */}
+          {!project.realworksId ? (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
+              <HomeModernIcon className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+              <p className="text-sm font-medium text-gray-600">Geen woning gekoppeld</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Voeg een Realworks ID toe via{" "}
+                <button onClick={openEdit} className="text-primary underline hover:no-underline">
+                  Project bewerken
+                </button>{" "}
+                om de woning van de website te koppelen.
+              </p>
+            </div>
+          ) : woningLoading ? (
+            <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-16">
+              <p className="text-gray-400">Woning laden...</p>
+            </div>
+          ) : woningError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+              <p className="text-sm font-medium text-red-700">{woningError}</p>
+              <p className="mt-1 text-xs text-red-500">Realworks ID: {project.realworksId}</p>
+              <button
+                onClick={() => fetchWoning(project.realworksId!)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+              >
+                <ArrowPathIcon className="h-3.5 w-3.5" />
+                Opnieuw proberen
+              </button>
+            </div>
+          ) : woning ? (
+            <div className="grid grid-cols-3 gap-4">
+              {/* Foto + basis info */}
+              <div className="col-span-2 space-y-4">
+                {/* Foto */}
+                {woning.featuredImage && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={woning.featuredImage}
+                    alt={woning.title}
+                    className="w-full rounded-xl object-cover shadow-sm"
+                    style={{ maxHeight: 280 }}
+                  />
+                )}
+
+                {/* Titel + link */}
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">{woning.title}</h3>
+                      {woning.acf.adres && (
+                        <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
+                          <MapPinIcon className="h-4 w-4 shrink-0" />
+                          {woning.acf.adres}{woning.acf.postcode ? `, ${woning.acf.postcode}` : ""}{woning.acf.plaats ? ` ${woning.acf.plaats}` : ""}
+                        </p>
+                      )}
+                    </div>
+                    <a
+                      href={woning.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                      Bekijk op website
+                    </a>
+                  </div>
+
+                  {/* Kenmerken grid */}
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    {woning.acf.woonoppervlakte && (
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-500">Woonoppervlakte</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.woonoppervlakte} m²</p>
+                      </div>
+                    )}
+                    {woning.acf.perceeloppervlakte && (
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-500">Perceel</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.perceeloppervlakte} m²</p>
+                      </div>
+                    )}
+                    {woning.acf.kamers && (
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-500">Kamers</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.kamers}</p>
+                      </div>
+                    )}
+                    {woning.acf.slaapkamers && (
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-500">Slaapkamers</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.slaapkamers}</p>
+                      </div>
+                    )}
+                    {woning.acf.bouwjaar && (
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-500">Bouwjaar</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.bouwjaar}</p>
+                      </div>
+                    )}
+                    {woning.acf.energielabel && (
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-500">Energielabel</p>
+                        <p className="mt-0.5 text-sm font-semibold text-gray-900">{woning.acf.energielabel}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Rechter kolom: status + prijs */}
+              <div className="space-y-4">
+                {/* Status wijzigen */}
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Status op website</p>
+                  <div className="space-y-1.5">
+                    {["Beschikbaar", "Onder bod", "Verkocht o.v.", "Verkocht", "Verhuurd"].map((status) => {
+                      const isActive = woning.acf.woning_status === status;
+                      return (
+                        <button
+                          key={status}
+                          onClick={() => !isActive && handleWoningStatusChange(status)}
+                          disabled={woningStatusSaving}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                            isActive
+                              ? "bg-primary text-white"
+                              : "border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          }`}
+                        >
+                          {status}
+                          {isActive && <CheckIcon className="h-4 w-4" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {woningStatusMessage && (
+                    <p className={`mt-2 text-xs ${woningStatusMessage.includes("Fout") || woningStatusMessage.includes("fout") ? "text-red-600" : "text-green-600"}`}>
+                      {woningStatusMessage}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => fetchWoning(project.realworksId!)}
+                    disabled={woningLoading}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
+                  >
+                    <ArrowPathIcon className="h-3.5 w-3.5" />
+                    Vernieuwen
+                  </button>
+                </div>
+
+                {/* Prijs */}
+                {(woning.acf.koopsom || woning.acf.huurprijs) && (
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Prijs</p>
+                    {woning.acf.koopsom && (
+                      <p className="text-lg font-bold text-gray-900">
+                        € {Number(woning.acf.koopsom).toLocaleString("nl-NL")}
+                      </p>
+                    )}
+                    {woning.acf.huurprijs && (
+                      <p className="text-sm text-gray-600">
+                        Huur: € {Number(woning.acf.huurprijs).toLocaleString("nl-NL")} /mnd
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Meta */}
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Informatie</p>
+                  <dl className="space-y-1.5 text-sm">
+                    {woning.acf.soort_woning && (
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500">Type</dt>
+                        <dd className="font-medium text-gray-900">{woning.acf.soort_woning}</dd>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Realworks ID</dt>
+                      <dd className="font-mono text-xs text-gray-700">{woning.acf.realworks_id || project.realworksId}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">WordPress ID</dt>
+                      <dd className="font-mono text-xs text-gray-700">{woning.id}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -1016,6 +1321,17 @@ export default function ProjectDetailPage() {
                   <input type="text" value={editData.address} onChange={(e) => setEditData((d) => ({ ...d, address: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                 </div>
+              </div>
+              <div className="mb-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Realworks ID</label>
+                <input
+                  type="text"
+                  value={editData.realworksId}
+                  onChange={(e) => setEditData((d) => ({ ...d, realworksId: e.target.value }))}
+                  placeholder="bijv. 123456"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-400">Koppelt dit project aan de woning op de website via het Realworks ID</p>
               </div>
               <div className="mb-3">
                 <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Contactgegevens</p>
