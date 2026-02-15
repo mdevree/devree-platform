@@ -1049,7 +1049,7 @@ export default function ProjectDetailPage() {
                 <div className="rounded-xl border border-gray-200 bg-white p-4">
                   <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Status op website</p>
                   <div className="space-y-1.5">
-                    {["Beschikbaar", "Onder bod", "Verkocht o.v.", "Verkocht", "Verhuurd"].map((status) => {
+                    {["Beschikbaar", "Onder bod", "Verkocht onder voorbehoud", "Verkocht"].map((status) => {
                       const isActive = woning.acf.status === status;
                       return (
                         <button
