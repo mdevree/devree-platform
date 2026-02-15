@@ -5,6 +5,7 @@ import {
   PlusIcon,
   MagnifyingGlassIcon,
   FolderIcon,
+  HomeModernIcon,
   MapPinIcon,
   PhoneIcon,
   ClipboardDocumentListIcon,
@@ -23,6 +24,7 @@ interface Project {
   contactEmail: string | null;
   notionPageId: string | null;
   mauticContactId: number | null;
+  realworksId: string | null;
   _count: {
     tasks: number;
     calls: number;
@@ -78,6 +80,9 @@ export default function ProjectenPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
 
+  // Cache van woning-foto's per realworksId
+  const [woningFotos, setWoningFotos] = useState<Record<string, string | null>>({});
+
   // Nieuw project modal
   const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -102,8 +107,31 @@ export default function ProjectenPage() {
     try {
       const response = await fetch(`/api/projecten?${params}`);
       const data = await response.json();
-      setProjects(data.projects || []);
+      const loaded: Project[] = data.projects || [];
+      setProjects(loaded);
       setPagination(data.pagination || null);
+
+      // Haal foto's op voor projecten met realworksId die nog niet gecached zijn
+      const metRealworks = loaded.filter((p) => p.realworksId);
+      metRealworks.forEach(async (p) => {
+        const id = p.realworksId!;
+        setWoningFotos((prev) => {
+          if (id in prev) return prev; // al gecached
+          // Start fetch, zet alvast null zodat we niet dubbel fetchen
+          fetch(`/api/wordpress/woning?realworksId=${encodeURIComponent(id)}`)
+            .then((r) => r.ok ? r.json() : null)
+            .then((woning) => {
+              setWoningFotos((cache) => ({
+                ...cache,
+                [id]: woning?.featuredImage ?? null,
+              }));
+            })
+            .catch(() => {
+              setWoningFotos((cache) => ({ ...cache, [id]: null }));
+            });
+          return { ...prev, [id]: null };
+        });
+      });
     } catch {
       console.error("Fout bij ophalen projecten");
     }
@@ -214,13 +242,31 @@ export default function ProjectenPage() {
             <a
               key={project.id}
               href={`/projecten/${project.id}`}
-              className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+              className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
             >
-              <div className="mb-3 flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
-                    <FolderIcon className="h-5 w-5 text-amber-600" />
+              {/* Foto of placeholder */}
+              {project.realworksId && woningFotos[project.realworksId] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={woningFotos[project.realworksId]!}
+                  alt={project.name}
+                  className="h-36 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                />
+              ) : (
+                <div className={`flex h-14 items-center gap-3 px-5 pt-5`}>
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${project.realworksId ? "bg-amber-50" : "bg-gray-50"}`}>
+                    {project.realworksId ? (
+                      <HomeModernIcon className="h-5 w-5 text-amber-500" />
+                    ) : (
+                      <FolderIcon className="h-5 w-5 text-gray-400" />
+                    )}
                   </div>
+                </div>
+              )}
+
+              <div className="p-5">
+                {/* Naam + status */}
+                <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
                     <h3 className="font-semibold text-gray-900 group-hover:text-primary">
                       {project.name}
@@ -232,58 +278,64 @@ export default function ProjectenPage() {
                       </p>
                     )}
                   </div>
-                </div>
-                <span
-                  className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                    statusColors[project.status] || statusColors.lead
-                  }`}
-                >
-                  {statusLabels[project.status] || project.status}
-                </span>
-              </div>
-
-              {project.description && (
-                <p className="mb-3 text-sm text-gray-500 line-clamp-2">
-                  {project.description}
-                </p>
-              )}
-
-              {/* Contact info */}
-              {project.contactName && (
-                <div className="mb-3 text-xs text-gray-500">
-                  <span className="font-medium text-gray-700">
-                    {project.contactName}
+                  <span
+                    className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                      statusColors[project.status] || statusColors.lead
+                    }`}
+                  >
+                    {statusLabels[project.status] || project.status}
                   </span>
-                  {project.contactPhone && (
-                    <span className="ml-2">
-                      <PhoneIcon className="inline h-3 w-3" />{" "}
-                      {project.contactPhone}
-                    </span>
-                  )}
                 </div>
-              )}
 
-              {/* Statistieken */}
-              <div className="flex items-center gap-4 border-t border-gray-100 pt-3 text-xs text-gray-400">
-                <span className="inline-flex items-center gap-1">
-                  <ClipboardDocumentListIcon className="h-3.5 w-3.5" />
-                  {project._count.tasks} taken
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <PhoneIcon className="h-3.5 w-3.5" />
-                  {project._count.calls} gesprekken
-                  {project.calls?.some((c) => c._count.notes > 0) && (
-                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[9px] font-bold text-white" title="Gesprekken met notities">
-                      {project.calls.reduce((sum, c) => sum + c._count.notes, 0)}
-                    </span>
-                  )}
-                </span>
-                {formatProjectTime(project.totalTimeSpent) && (
-                  <span className="inline-flex items-center gap-1">
-                    <ClockIcon className="h-3.5 w-3.5" />
-                    {formatProjectTime(project.totalTimeSpent)}
-                  </span>
+                {project.description && (
+                  <p className="mb-3 text-sm text-gray-500 line-clamp-2">
+                    {project.description}
+                  </p>
                 )}
+
+                {/* Contact info */}
+                {project.contactName && (
+                  <div className="mb-3 text-xs text-gray-500">
+                    <span className="font-medium text-gray-700">
+                      {project.contactName}
+                    </span>
+                    {project.contactPhone && (
+                      <span className="ml-2">
+                        <PhoneIcon className="inline h-3 w-3" />{" "}
+                        {project.contactPhone}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Statistieken */}
+                <div className="flex items-center gap-4 border-t border-gray-100 pt-3 text-xs text-gray-400">
+                  <span className="inline-flex items-center gap-1">
+                    <ClipboardDocumentListIcon className="h-3.5 w-3.5" />
+                    {project._count.tasks} taken
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <PhoneIcon className="h-3.5 w-3.5" />
+                    {project._count.calls} gesprekken
+                    {project.calls?.some((c) => c._count.notes > 0) && (
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[9px] font-bold text-white" title="Gesprekken met notities">
+                        {project.calls.reduce((sum, c) => sum + c._count.notes, 0)}
+                      </span>
+                    )}
+                  </span>
+                  {formatProjectTime(project.totalTimeSpent) && (
+                    <span className="inline-flex items-center gap-1">
+                      <ClockIcon className="h-3.5 w-3.5" />
+                      {formatProjectTime(project.totalTimeSpent)}
+                    </span>
+                  )}
+                  {project.realworksId && (
+                    <span className="ml-auto inline-flex items-center gap-1 text-amber-600">
+                      <HomeModernIcon className="h-3.5 w-3.5" />
+                      Woning
+                    </span>
+                  )}
+                </div>
               </div>
             </a>
           ))}
