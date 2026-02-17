@@ -124,6 +124,8 @@ export default function TelefoniePage() {
   });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactMessage, setContactMessage] = useState("");
+  // Bijhouden welk gesprek de "Aanmaken" knop heeft geopend
+  const [sourceCallId, setSourceCallId] = useState<string | null>(null);
 
   // Project koppeling modal
   const [showLinkProject, setShowLinkProject] = useState(false);
@@ -178,6 +180,7 @@ export default function TelefoniePage() {
             ? nieuwNummer
             : "",
       }));
+      setSourceCallId(null); // Geen specifiek gesprek bij URL-parameter flow
       setShowNewContact(true);
     }
   }, [searchParams]);
@@ -227,10 +230,36 @@ export default function TelefoniePage() {
       const result = await response.json();
 
       if (result.success) {
-        setContactMessage("Contact aangemaakt in Mautic!");
+        const createdContact = result.contact;
+        const fullName = [newContactData.firstname, newContactData.lastname].filter(Boolean).join(" ");
+
+        // Koppel het nieuwe contact aan het gesprek als de modal vanuit een gesprek is geopend
+        if (sourceCallId && createdContact?.id) {
+          await fetch(`/api/calls/${sourceCallId}/contact`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mauticContactId: createdContact.id,
+              contactName: fullName,
+            }),
+          });
+          // Update de call in de lokale lijst
+          setCalls((prev) =>
+            prev.map((c) =>
+              c.id === sourceCallId
+                ? { ...c, mauticContactId: createdContact.id, contactName: fullName }
+                : c
+            )
+          );
+          setContactMessage("Contact aangemaakt en gekoppeld aan gesprek!");
+        } else {
+          setContactMessage("Contact aangemaakt in Mautic!");
+        }
+
         setTimeout(() => {
           setShowNewContact(false);
           setContactMessage("");
+          setSourceCallId(null);
           setNewContactData({
             firstname: "",
             lastname: "",
@@ -884,6 +913,7 @@ export default function TelefoniePage() {
                               ...prev,
                               phone: number,
                             }));
+                            setSourceCallId(call.id);
                             setShowNewContact(true);
                           }}
                           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-amber-600 transition-colors hover:bg-amber-50"
@@ -1394,6 +1424,7 @@ export default function TelefoniePage() {
                 onClick={() => {
                   setShowNewContact(false);
                   setContactMessage("");
+                  setSourceCallId(null);
                 }}
                 className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
               >
@@ -1403,6 +1434,11 @@ export default function TelefoniePage() {
             {newContactPhone && (
               <p className="mb-4 text-sm text-gray-500">
                 Telefoonnummer: <strong>{newContactPhone}</strong>
+              </p>
+            )}
+            {sourceCallId && (
+              <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                Dit contact wordt na aanmaken automatisch gekoppeld aan het gesprek.
               </p>
             )}
 
@@ -1513,6 +1549,7 @@ export default function TelefoniePage() {
                   onClick={() => {
                     setShowNewContact(false);
                     setContactMessage("");
+                    setSourceCallId(null);
                   }}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
