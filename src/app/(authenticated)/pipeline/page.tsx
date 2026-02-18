@@ -99,7 +99,7 @@ function PointsBadge({ points }: { points: number }) {
   );
 }
 
-function ContactCard({ contact, onOpenPanel }: { contact: PipelineContact; onOpenPanel: (id: number) => void }) {
+function ContactCard({ contact, onOpenPanel }: { contact: PipelineContact; onOpenPanel: (contact: PipelineContact) => void }) {
   const warm = isWarm(contact);
   const topInteresses = getTopInteresses(contact);
   const name = `${contact.firstname} ${contact.lastname}`.trim() || `Contact #${contact.id}`;
@@ -114,7 +114,7 @@ function ContactCard({ contact, onOpenPanel }: { contact: PipelineContact; onOpe
           </div>
           <div className="min-w-0">
             <button
-              onClick={() => onOpenPanel(contact.id)}
+              onClick={() => onOpenPanel(contact)}
               className="block truncate text-sm font-medium text-gray-900 hover:text-primary hover:underline text-left"
             >
               {name}
