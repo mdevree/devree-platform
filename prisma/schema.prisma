@@ -23,27 +23,44 @@ model User {
 }
 
 model Project {
-  id              String   @id @default(cuid())
+  id              String           @id @default(cuid())
   name            String
-  description     String?  @db.Text
-  status          String   @default("lead") // lead, actief, afgerond, geannuleerd
+  description     String?          @db.Text
+  status          String           @default("lead") // lead, actief, afgerond, geannuleerd
   address         String?
-  notionPageId    String?  @unique
-  mauticContactId Int?
-  realworksId     String?  // Koppeling met woning op WordPress via Realworks ID
-  contactName     String?
-  contactPhone    String?
-  contactEmail    String?
+  notionPageId    String?          @unique
+  mauticContactId Int?             // Fallback voor backward-compat (legacy)
+  realworksId     String?          // Koppeling met woning op WordPress via Realworks ID
+  contactName     String?          // Fallback contactnaam (legacy)
+  contactPhone    String?          // Fallback telefoonnummer (legacy)
+  contactEmail    String?          // Fallback emailadres (legacy)
+  contacts        ProjectContact[]
   tasks           Task[]
   calls           Call[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([status])
   @@index([notionPageId])
   @@index([mauticContactId])
   @@index([realworksId])
   @@map("projects")
+}
+
+model ProjectContact {
+  id              String   @id @default(cuid())
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId       String
+  mauticContactId Int
+  role            String   @default("opdrachtgever") // opdrachtgever, partner, gemachtigde, overig
+  label           String?
+  addedAt         DateTime @default(now())
+  addedBy         String?
+
+  @@unique([projectId, mauticContactId])
+  @@index([projectId])
+  @@index([mauticContactId])
+  @@map("project_contacts")
 }
 
 model Call {
@@ -127,4 +144,22 @@ model TimeEntry {
 
   @@index([taskId])
   @@map("time_entries")
+}
+
+model MauticEvent {
+  id              String   @id @default(cuid())
+  mauticContactId Int
+  eventType       String   // "email.click", "email.open", "page.hit", "form.submit"
+  emailName       String?
+  emailId         Int?
+  clickedUrl      String?  @db.Text
+  ipAddress       String?
+  occurredAt      DateTime
+  rawPayload      Json?
+  createdAt       DateTime @default(now())
+
+  @@index([mauticContactId])
+  @@index([eventType])
+  @@index([occurredAt])
+  @@map("mautic_events")
 }

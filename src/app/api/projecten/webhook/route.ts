@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const mauticContactId = data.mauticContactId ? parseInt(data.mauticContactId) : null;
+
     const projectData = {
       name: data.name || "Naamloos project",
       description: data.description || null,
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest) {
       contactName: data.contactName || null,
       contactPhone: data.contactPhone || null,
       contactEmail: data.contactEmail || null,
-      mauticContactId: data.mauticContactId ? parseInt(data.mauticContactId) : null,
+      mauticContactId,
     };
 
     const project = await prisma.project.upsert({
@@ -46,6 +48,24 @@ export async function POST(request: NextRequest) {
         notionPageId: data.notionPageId,
       },
     });
+
+    // Als er een mauticContactId meegegeven is, ook upserten in project_contacts
+    if (mauticContactId) {
+      await prisma.projectContact.upsert({
+        where: {
+          projectId_mauticContactId: {
+            projectId: project.id,
+            mauticContactId,
+          },
+        },
+        update: {},
+        create: {
+          projectId: project.id,
+          mauticContactId,
+          role: "opdrachtgever",
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

@@ -136,6 +136,18 @@ interface WoningData {
   };
 }
 
+interface ProjectContact {
+  id: string;
+  mauticContactId: number;
+  role: string;
+  label: string | null;
+  addedAt: string;
+  // Verrijkt na ophalen uit Mautic
+  name?: string;
+  points?: number;
+  lastActive?: string | null;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -148,6 +160,7 @@ interface Project {
   notionPageId: string | null;
   mauticContactId: number | null;
   realworksId: string | null;
+  contacts: ProjectContact[];
   tasks: Task[];
   calls: Call[];
   createdAt: string;
@@ -155,6 +168,82 @@ interface Project {
 }
 
 type ActiveTab = "taken" | "telefonie" | "woning";
+
+interface MauticEvent {
+  id: string;
+  mauticContactId: number;
+  eventType: string;
+  emailName: string | null;
+  clickedUrl: string | null;
+  occurredAt: string;
+}
+
+function EmailActivitySection({ contactId }: { contactId: number }) {
+  const [events, setEvents] = useState<MauticEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/mautic/events?contactId=${contactId}&limit=10`)
+      .then((r) => r.json())
+      .then((data) => setEvents(data.events || []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [contactId]);
+
+  const hasRecentClick = events.some((e) => {
+    if (e.eventType !== "email.click") return false;
+    const daysSince = (Date.now() - new Date(e.occurredAt).getTime()) / (1000 * 60 * 60 * 24);
+    return daysSince < 14;
+  });
+
+  if (loading) {
+    return (
+      <div className="mb-4">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Email activiteit</p>
+        <p className="text-xs text-gray-400">Laden...</p>
+      </div>
+    );
+  }
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mb-4">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Email activiteit</p>
+      {hasRecentClick && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+          </span>
+          Actief in de afgelopen 2 weken
+        </div>
+      )}
+      <div className="space-y-1">
+        {events.map((event) => {
+          const daysSince = Math.floor((Date.now() - new Date(event.occurredAt).getTime()) / (1000 * 60 * 60 * 24));
+          const timeLabel = daysSince === 0 ? "Vandaag" : daysSince === 1 ? "Gisteren" : `${daysSince} dagen geleden`;
+          const isClick = event.eventType === "email.click";
+          return (
+            <div key={event.id} className="flex items-start gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-gray-50">
+              <span className={`mt-0.5 flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium ${isClick ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                {isClick ? "Click" : "Open"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-gray-700">{event.emailName || "Email"}</p>
+                {event.clickedUrl && (
+                  <p className="truncate text-gray-400">{event.clickedUrl}</p>
+                )}
+              </div>
+              <span className="flex-shrink-0 text-gray-400">{timeLabel}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const statusColors: Record<string, string> = {
   lead: "bg-purple-100 text-purple-700 border-purple-200",
@@ -238,6 +327,16 @@ export default function ProjectDetailPage() {
   });
   const [contactEditSaving, setContactEditSaving] = useState(false);
   const [contactEditMessage, setContactEditMessage] = useState("");
+
+  // Contact koppelen aan project
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactSearchResults, setContactSearchResults] = useState<Array<{ id: number; firstname: string; lastname: string; email: string | null; phone: string | null; points: number }>>([]);
+  const [contactSearchLoading, setContactSearchLoading] = useState(false);
+  const [contactLinkSaving, setContactLinkSaving] = useState(false);
+
+  // Verrijkte contact namen (geladen na project fetch)
+  const [enrichedContacts, setEnrichedContacts] = useState<Record<number, { name: string; points: number; lastActive: string | null }>>({});
 
   const categories = ["binnendienst", "verkoop", "aankoop", "taxatie", "administratie"];
 
@@ -516,6 +615,72 @@ export default function ProjectDetailPage() {
     setContactEditSaving(false);
   }
 
+  // --- Contact zoeken voor koppelen ---
+  async function handleContactSearch(query: string) {
+    setContactSearch(query);
+    if (query.trim().length < 2) { setContactSearchResults([]); return; }
+    setContactSearchLoading(true);
+    try {
+      const res = await fetch(`/api/mautic/contacts?search=${encodeURIComponent(query)}&limit=8`);
+      const data = await res.json();
+      setContactSearchResults(data.contacts || []);
+    } catch { setContactSearchResults([]); }
+    setContactSearchLoading(false);
+  }
+
+  async function handleLinkContact(mauticContactId: number, role: string = "opdrachtgever") {
+    setContactLinkSaving(true);
+    try {
+      const res = await fetch(`/api/projecten/${projectId}/contacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mauticContactId, role }),
+      });
+      if (res.ok) {
+        setShowAddContact(false);
+        setContactSearch("");
+        setContactSearchResults([]);
+        fetchProject();
+      }
+    } catch { console.error("Fout bij koppelen contact"); }
+    setContactLinkSaving(false);
+  }
+
+  async function handleUnlinkContact(mauticContactId: number) {
+    try {
+      await fetch(`/api/projecten/${projectId}/contacts`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mauticContactId }),
+      });
+      fetchProject();
+    } catch { console.error("Fout bij ontkoppelen contact"); }
+  }
+
+  // Verrijk contact namen na project laden
+  useEffect(() => {
+    if (!project?.contacts?.length) return;
+    const toFetch = project.contacts.filter((c) => !enrichedContacts[c.mauticContactId]);
+    if (!toFetch.length) return;
+    toFetch.forEach(async (c) => {
+      try {
+        const res = await fetch(`/api/mautic/contact?id=${c.mauticContactId}`);
+        const data = await res.json();
+        if (data.contact) {
+          setEnrichedContacts((prev) => ({
+            ...prev,
+            [c.mauticContactId]: {
+              name: `${data.contact.firstname} ${data.contact.lastname}`.trim() || `Contact #${c.mauticContactId}`,
+              points: data.contact.points || 0,
+              lastActive: data.contact.lastActive || null,
+            },
+          }));
+        }
+      } catch { /* stil falen */ }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.contacts]);
+
   function formatDate(dateStr: string | null) {
     if (!dateStr) return null;
     return new Date(dateStr).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
@@ -604,30 +769,147 @@ export default function ProjectDetailPage() {
           </button>
         </div>
 
-        {/* Contact + stats */}
-        <div className="mt-4 flex flex-wrap items-center gap-6 border-t border-gray-100 pt-4">
-          {project.contactName && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
-              <UserIcon className="h-4 w-4 text-gray-400" />
-              {project.contactName}
-            </span>
+        {/* Contacten sectie */}
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Contacten</p>
+            <button
+              onClick={() => setShowAddContact(true)}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              Toevoegen
+            </button>
+          </div>
+
+          {/* Gekoppelde Mautic contacten */}
+          {project.contacts && project.contacts.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {project.contacts.map((c) => {
+                const info = enrichedContacts[c.mauticContactId];
+                const name = info?.name || `Contact #${c.mauticContactId}`;
+                const points = info?.points ?? 0;
+                const initials = name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+                const pointsColor = points >= 50 ? "bg-green-100 text-green-700" : points >= 20 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600";
+                return (
+                  <div key={c.id} className="group flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm transition-shadow hover:shadow">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {initials}
+                    </div>
+                    <div>
+                      <button
+                        onClick={() => openContactPanel(c.mauticContactId)}
+                        className="text-sm font-medium text-gray-900 hover:text-primary hover:underline"
+                      >
+                        {info ? name : <span className="animate-pulse text-gray-400">Laden...</span>}
+                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs capitalize text-gray-400">{c.role}</span>
+                        {info && (
+                          <span className={`inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium ${pointsColor}`}>
+                            {points} pts
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="ml-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <a
+                        href={`${MAUTIC_URL}/s/contacts/view/${c.mauticContactId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                        title="Open in Mautic"
+                      >
+                        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                      </a>
+                      <button
+                        onClick={() => handleUnlinkContact(c.mauticContactId)}
+                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        title="Ontkoppelen"
+                      >
+                        <LinkSlashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Fallback: toon legacy contactvelden als er geen gekoppelde contacten zijn */
+            <div className="flex flex-wrap items-center gap-6">
+              {project.contactName && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
+                  <UserIcon className="h-4 w-4 text-gray-400" />
+                  {project.contactName}
+                </span>
+              )}
+              {project.contactPhone && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
+                  <PhoneIcon className="h-4 w-4 text-gray-400" />
+                  {project.contactPhone}
+                </span>
+              )}
+              {project.contactEmail && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
+                  <EnvelopeIcon className="h-4 w-4 text-gray-400" />
+                  {project.contactEmail}
+                </span>
+              )}
+              {!project.contactName && !project.contactPhone && !project.contactEmail && (
+                <p className="text-sm text-gray-400">Nog geen contacten gekoppeld</p>
+              )}
+            </div>
           )}
-          {project.contactPhone && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
-              <PhoneIcon className="h-4 w-4 text-gray-400" />
-              {project.contactPhone}
-            </span>
-          )}
-          {project.contactEmail && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
-              <EnvelopeIcon className="h-4 w-4 text-gray-400" />
-              {project.contactEmail}
-            </span>
-          )}
-          <span className="ml-auto text-xs text-gray-400">
+
+          {/* Stats */}
+          <div className="mt-3 text-xs text-gray-400">
             {openTasks} open, {completedTasks} afgerond · {project.calls.length} gesprekken
-          </span>
+          </div>
         </div>
+
+        {/* Contact toevoegen dropdown */}
+        {showAddContact && (
+          <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-700">Contact zoeken & koppelen</p>
+              <button onClick={() => { setShowAddContact(false); setContactSearch(""); setContactSearchResults([]); }}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-200">
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <input
+              type="text"
+              value={contactSearch}
+              onChange={(e) => handleContactSearch(e.target.value)}
+              placeholder="Zoek op naam, email of telefoon..."
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+              autoFocus
+            />
+            {contactSearchLoading && <p className="mt-2 text-xs text-gray-400">Zoeken...</p>}
+            {contactSearchResults.length > 0 && (
+              <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white shadow-sm">
+                {contactSearchResults.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between px-3 py-2 hover:bg-gray-50">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{c.firstname} {c.lastname}</p>
+                      <p className="text-xs text-gray-400">{c.email || c.phone || ""}</p>
+                    </div>
+                    <button
+                      onClick={() => handleLinkContact(c.id)}
+                      disabled={contactLinkSaving || project.contacts.some((pc) => pc.mauticContactId === c.id)}
+                      className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+                    >
+                      {project.contacts.some((pc) => pc.mauticContactId === c.id) ? "Gekoppeld" : "Koppelen"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {contactSearch.length >= 2 && !contactSearchLoading && contactSearchResults.length === 0 && (
+              <p className="mt-2 text-xs text-gray-400">Geen contacten gevonden</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -1353,6 +1635,9 @@ export default function ProjectDetailPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Email activiteit */}
+                <EmailActivitySection contactId={contactDetail.id} />
 
                 <a
                   href={`${MAUTIC_URL}/s/contacts/view/${contactDetail.id}`}

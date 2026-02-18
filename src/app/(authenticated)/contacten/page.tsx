@@ -64,6 +64,82 @@ interface Pagination {
   pages: number;
 }
 
+interface MauticEvent {
+  id: string;
+  mauticContactId: number;
+  eventType: string;
+  emailName: string | null;
+  clickedUrl: string | null;
+  occurredAt: string;
+}
+
+function EmailActivitySection({ contactId }: { contactId: number }) {
+  const [events, setEvents] = useState<MauticEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/mautic/events?contactId=${contactId}&limit=10`)
+      .then((r) => r.json())
+      .then((data) => setEvents(data.events || []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [contactId]);
+
+  const hasRecentClick = events.some((e) => {
+    if (e.eventType !== "email.click") return false;
+    const daysSince = (Date.now() - new Date(e.occurredAt).getTime()) / (1000 * 60 * 60 * 24);
+    return daysSince < 14;
+  });
+
+  if (loading) {
+    return (
+      <div className="mb-4">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Email activiteit</p>
+        <p className="text-xs text-gray-400">Laden...</p>
+      </div>
+    );
+  }
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mb-4">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Email activiteit</p>
+      {hasRecentClick && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+          </span>
+          Actief in de afgelopen 2 weken
+        </div>
+      )}
+      <div className="space-y-1">
+        {events.map((event) => {
+          const daysSince = Math.floor((Date.now() - new Date(event.occurredAt).getTime()) / (1000 * 60 * 60 * 24));
+          const timeLabel = daysSince === 0 ? "Vandaag" : daysSince === 1 ? "Gisteren" : `${daysSince} dagen geleden`;
+          const isClick = event.eventType === "email.click";
+          return (
+            <div key={event.id} className="flex items-start gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-gray-50">
+              <span className={`mt-0.5 flex-shrink-0 rounded-full px-1.5 py-0.5 font-medium ${isClick ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                {isClick ? "Click" : "Open"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-gray-700">{event.emailName || "Email"}</p>
+                {event.clickedUrl && (
+                  <p className="truncate text-gray-400">{event.clickedUrl}</p>
+                )}
+              </div>
+              <span className="flex-shrink-0 text-gray-400">{timeLabel}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ContactenPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
@@ -849,6 +925,9 @@ export default function ContactenPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Email activiteit */}
+                <EmailActivitySection contactId={panelContact.id} />
 
                 {/* Mautic link */}
                 <a

@@ -121,6 +121,30 @@ export interface MauticContactFull extends MauticContact {
   dateAdded: string | null;
 }
 
+export interface MauticContactPipeline extends MauticContact {
+  // Verkoopproces velden
+  verkoopgesprekStatus: string | null;   // verkoopgesprek_status
+  timingGesprek: string | null;          // timing_gesprek
+  segmentPrioriteit: string | null;      // segment_prioriteit
+  verkoopreden: string | null;           // verkoop_reden
+  verkooopTiming: string | null;         // verkoop_timing
+  intentieVerkoop: string | null;        // intentie_verkoop
+  emailFollowupVerstuurd: boolean;       // email_followup_verstuurd
+  volgendeAfspraakStatus: string | null; // volgende_afspraak_status
+  datumVerkoopgesprek: string | null;    // datum_verkoopgesprek
+  // Interesse scores (0-100)
+  interesses: {
+    financiering: number | null;
+    duurzaamheid: number | null;
+    verbouwing: number | null;
+    investeren: number | null;
+    starters: number | null;
+  };
+  bezichtigingInteresse: number | null;  // bezichtiging_interesse
+  // Berekend warm-score veld
+  warmScore: number;
+}
+
 /**
  * Zoek een contact in Mautic op basis van telefoonnummer
  * Zoekt in phone EN mobile velden met alle 3 formaten (zelfde als n8n workflow)
@@ -348,6 +372,134 @@ export async function searchContacts(options: {
       points: (contact.points as number) || 0,
       lastActive: (fields.last_active as string) || null,
     };
+  });
+
+  return { contacts, total };
+}
+
+/**
+ * Berekent een warm-score op basis van points en recente activiteit
+ */
+function calcWarmScore(points: number, lastActive: string | null): number {
+  if (!lastActive) return Math.min(100, points);
+  const daysSinceActive = (Date.now() - new Date(lastActive).getTime()) / (1000 * 60 * 60 * 24);
+  const activityBonus = daysSinceActive < 7 ? 30 : daysSinceActive < 30 ? 10 : 0;
+  return Math.min(100, points + activityBonus);
+}
+
+/**
+ * Map ruwe Mautic contact fields naar MauticContactPipeline
+ */
+function mapToPipeline(contact: Record<string, unknown>, contactId: number): MauticContactPipeline {
+  const fields = (contact.fields as Record<string, Record<string, unknown>>)?.all || {};
+  const points = (contact.points as number) || 0;
+  const lastActive = (fields.last_active as string) || null;
+
+  return {
+    id: contactId,
+    firstname: (fields.firstname as string) || "",
+    lastname: (fields.lastname as string) || "",
+    email: (fields.email as string) || null,
+    phone: (fields.phone as string) || null,
+    mobile: (fields.mobile as string) || null,
+    company: (fields.company as string) || null,
+    points,
+    lastActive,
+    verkoopgesprekStatus: (fields.verkoopgesprek_status as string) || null,
+    timingGesprek: (fields.timing_gesprek as string) || null,
+    segmentPrioriteit: (fields.segment_prioriteit as string) || null,
+    verkoopreden: (fields.verkoop_reden as string) || null,
+    verkooopTiming: (fields.verkoop_timing as string) || null,
+    intentieVerkoop: (fields.intentie_verkoop as string) || null,
+    emailFollowupVerstuurd: fields.email_followup_verstuurd === "1" || fields.email_followup_verstuurd === true,
+    volgendeAfspraakStatus: (fields.volgende_afspraak_status as string) || null,
+    datumVerkoopgesprek: (fields.datum_verkoopgesprek as string) || null,
+    interesses: {
+      financiering: fields.interesse_financiering !== undefined ? Number(fields.interesse_financiering) : null,
+      duurzaamheid: fields.interesse_duurzaamheid !== undefined ? Number(fields.interesse_duurzaamheid) : null,
+      verbouwing: fields.interesse_verbouwing !== undefined ? Number(fields.interesse_verbouwing) : null,
+      investeren: fields.interesse_investeren !== undefined ? Number(fields.interesse_investeren) : null,
+      starters: fields.interesse_starters !== undefined ? Number(fields.interesse_starters) : null,
+    },
+    bezichtigingInteresse: fields.bezichtiging_interesse !== undefined ? Number(fields.bezichtiging_interesse) : null,
+    warmScore: calcWarmScore(points, lastActive),
+  };
+}
+
+/**
+ * Haal pipeline data op voor één contact
+ */
+export async function getContactPipeline(contactId: number): Promise<MauticContactPipeline | null> {
+  const response = await mauticFetch(`/api/contacts/${contactId}`);
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  const contact = data.contact as Record<string, unknown>;
+  return mapToPipeline(contact, contact.id as number);
+}
+
+/**
+ * Haal pipeline-contacten op uit Mautic met optionele filters
+ */
+export async function searchContactsWithPipeline(options: {
+  search?: string;
+  stage?: string;      // verkoopgesprek_status waarde
+  segment?: string;    // segment_prioriteit waarde (a_sweetspot, b_volledig, etc.)
+  start?: number;
+  limit?: number;
+  orderBy?: string;
+  orderByDir?: "asc" | "desc";
+} = {}): Promise<{ contacts: MauticContactPipeline[]; total: number }> {
+  const {
+    search = "",
+    stage,
+    segment,
+    start = 0,
+    limit = 100,
+    orderBy = "last_active",
+    orderByDir = "desc",
+  } = options;
+
+  const params = new URLSearchParams({
+    start: String(start),
+    limit: String(limit),
+    orderBy,
+    orderByDir,
+    // Geen minimal=1 zodat we alle custom fields terugkrijgen
+  });
+
+  // Bouw where-filters voor Mautic Doctrine query
+  const whereParts: string[] = [];
+  let whereIdx = 0;
+
+  if (stage) {
+    whereParts.push(`where[${whereIdx}][col]=verkoopgesprek_status&where[${whereIdx}][expr]=eq&where[${whereIdx}][val]=${encodeURIComponent(stage)}`);
+    whereIdx++;
+  }
+
+  if (segment) {
+    whereParts.push(`where[${whereIdx}][col]=segment_prioriteit&where[${whereIdx}][expr]=eq&where[${whereIdx}][val]=${encodeURIComponent(segment)}`);
+    whereIdx++;
+  }
+
+  if (search.trim()) {
+    params.set("search", search.trim());
+  }
+
+  const queryString = `${params.toString()}${whereParts.length ? "&" + whereParts.join("&") : ""}`;
+  const response = await mauticFetch(`/api/contacts?${queryString}`);
+
+  if (!response.ok) {
+    console.error("Mautic pipeline zoekfout:", response.status, await response.text());
+    return { contacts: [], total: 0 };
+  }
+
+  const data = await response.json();
+  const rawContacts = data.contacts || {};
+  const total = data.total ? parseInt(data.total) : 0;
+
+  const contacts: MauticContactPipeline[] = Object.entries(rawContacts).map(([id, c]) => {
+    return mapToPipeline(c as Record<string, unknown>, parseInt(id));
   });
 
   return { contacts, total };

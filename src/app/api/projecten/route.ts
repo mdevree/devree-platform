@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         _count: { select: { tasks: true, calls: true } },
         calls: { select: { id: true, _count: { select: { notes: true } } } },
         tasks: { select: { totalTimeSpent: true } },
+        contacts: { select: { id: true, mauticContactId: true, role: true } },
       },
       orderBy: [{ updatedAt: "desc" }],
       skip: (page - 1) * limit,
@@ -140,8 +141,27 @@ export async function PATCH(request: NextRequest) {
     data: updateData,
     include: {
       _count: { select: { tasks: true, calls: true } },
+      contacts: true,
     },
   });
+
+  // Backward-compat: als mauticContactId meegegeven, ook upserten in project_contacts
+  if (data.mauticContactId) {
+    await prisma.projectContact.upsert({
+      where: {
+        projectId_mauticContactId: {
+          projectId: data.id,
+          mauticContactId: data.mauticContactId,
+        },
+      },
+      update: {},
+      create: {
+        projectId: data.id,
+        mauticContactId: data.mauticContactId,
+        role: "opdrachtgever",
+      },
+    });
+  }
 
   return NextResponse.json({ success: true, project });
 }

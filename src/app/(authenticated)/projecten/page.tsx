@@ -25,6 +25,7 @@ interface Project {
   notionPageId: string | null;
   mauticContactId: number | null;
   realworksId: string | null;
+  contacts?: { id: string; mauticContactId: number; role: string }[];
   _count: {
     tasks: number;
     calls: number;
@@ -294,7 +295,16 @@ export default function ProjectenPage() {
                 )}
 
                 {/* Contact info */}
-                {project.contactName && (
+                {project.contacts && project.contacts.length > 0 ? (
+                  <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-500">
+                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {project.contacts.length}
+                    </span>
+                    <span className="font-medium text-gray-700">
+                      {project.contacts.length === 1 ? "contact" : "contacten"}
+                    </span>
+                  </div>
+                ) : project.contactName ? (
                   <div className="mb-3 text-xs text-gray-500">
                     <span className="font-medium text-gray-700">
                       {project.contactName}
@@ -306,7 +316,7 @@ export default function ProjectenPage() {
                       </span>
                     )}
                   </div>
-                )}
+                ) : null}
 
                 {/* Statistieken */}
                 <div className="flex items-center gap-4 border-t border-gray-100 pt-3 text-xs text-gray-400">

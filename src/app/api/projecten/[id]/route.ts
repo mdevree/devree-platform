@@ -20,6 +20,9 @@ export async function GET(
   const project = await prisma.project.findUnique({
     where: { id },
     include: {
+      contacts: {
+        orderBy: { addedAt: "asc" },
+      },
       tasks: {
         include: {
           assignee: { select: { id: true, name: true, role: true } },
