@@ -335,6 +335,28 @@ export default function ProjectDetailPage() {
   const [contactSearchLoading, setContactSearchLoading] = useState(false);
   const [contactLinkSaving, setContactLinkSaving] = useState(false);
 
+  // Samenvoegen (merge) modal
+  const [showMerge, setShowMerge] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeSearchResults, setMergeSearchResults] = useState<Array<{
+    id: string; name: string; status: string; address: string | null;
+    _count: { tasks: number; calls: number };
+  }>>([]);
+  const [mergeSearchLoading, setMergeSearchLoading] = useState(false);
+  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
+  const [mergePreview, setMergePreview] = useState<{
+    source: { id: string; name: string; status: string };
+    target: { id: string; name: string; status: string };
+    tasksToTransfer: number;
+    callsToTransfer: number;
+    contactsToTransfer: number;
+    contactsAlreadyLinked: number;
+    metadataFieldsToFill: string[];
+  } | null>(null);
+  const [mergePreviewLoading, setMergePreviewLoading] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState("");
+
   // Verrijkte contact namen (geladen na project fetch)
   const [enrichedContacts, setEnrichedContacts] = useState<Record<number, { name: string; points: number; lastActive: string | null }>>({});
 
@@ -657,6 +679,73 @@ export default function ProjectDetailPage() {
     } catch { console.error("Fout bij ontkoppelen contact"); }
   }
 
+  // --- Samenvoegen ---
+  async function handleMergeSearch(query: string) {
+    setMergeSearch(query);
+    if (query.trim().length < 2) {
+      setMergeSearchResults([]);
+      return;
+    }
+    setMergeSearchLoading(true);
+    try {
+      const res = await fetch(
+        `/api/projecten?search=${encodeURIComponent(query)}&limit=8`
+      );
+      const data = await res.json();
+      setMergeSearchResults(
+        (data.projects || []).filter(
+          (p: { id: string }) => p.id !== projectId
+        )
+      );
+    } catch {
+      setMergeSearchResults([]);
+    }
+    setMergeSearchLoading(false);
+  }
+
+  async function handleMergeSelect(targetId: string) {
+    setMergeTargetId(targetId);
+    setMergePreview(null);
+    setMergePreviewLoading(true);
+    setMergeError("");
+    try {
+      const res = await fetch(
+        `/api/projecten/merge?sourceId=${projectId}&targetId=${targetId}`
+      );
+      const data = await res.json();
+      if (data.preview) {
+        setMergePreview(data.preview);
+      } else {
+        setMergeError(data.error || "Kan preview niet laden");
+      }
+    } catch {
+      setMergeError("Netwerkfout");
+    }
+    setMergePreviewLoading(false);
+  }
+
+  async function handleMergeConfirm() {
+    if (!mergeTargetId) return;
+    setMerging(true);
+    setMergeError("");
+    try {
+      const res = await fetch("/api/projecten/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceId: projectId, targetId: mergeTargetId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        router.push(`/projecten/${mergeTargetId}`);
+      } else {
+        setMergeError(data.error || "Fout bij samenvoegen");
+      }
+    } catch {
+      setMergeError("Netwerkfout");
+    }
+    setMerging(false);
+  }
+
   // Verrijk contact namen na project laden
   useEffect(() => {
     if (!project?.contacts?.length) return;
@@ -760,13 +849,29 @@ export default function ProjectDetailPage() {
               )}
             </div>
           </div>
-          <button
-            onClick={openEdit}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            <PencilIcon className="h-4 w-4" />
-            Bewerken
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setShowMerge(true);
+                setMergeSearch("");
+                setMergeSearchResults([]);
+                setMergeTargetId(null);
+                setMergePreview(null);
+                setMergeError("");
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              Samenvoegen
+            </button>
+            <button
+              onClick={openEdit}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <PencilIcon className="h-4 w-4" />
+              Bewerken
+            </button>
+          </div>
         </div>
 
         {/* Contacten sectie */}
@@ -1808,6 +1913,193 @@ export default function ProjectDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Samenvoegen modal */}
+      {showMerge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Project samenvoegen
+              </h2>
+              <button
+                onClick={() => setShowMerge(false)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+              <p className="font-medium">
+                Dit project ({project.name}) wordt samengevoegd met een ander
+                project.
+              </p>
+              <p className="mt-1">
+                Alle taken, gesprekken en contacten worden verplaatst naar het
+                doelproject. Dit project wordt daarna verwijderd.
+              </p>
+            </div>
+
+            {/* Stap 1: Zoek doelproject */}
+            {!mergePreview && !mergePreviewLoading && (
+              <>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Zoek het doelproject
+                </label>
+                <input
+                  type="text"
+                  value={mergeSearch}
+                  onChange={(e) => handleMergeSearch(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  placeholder="Zoek op naam of adres..."
+                  autoFocus
+                />
+
+                {mergeSearchLoading && (
+                  <p className="mt-2 text-xs text-gray-400">Zoeken...</p>
+                )}
+
+                {mergeSearchResults.length > 0 && (
+                  <div className="mt-2 max-h-60 space-y-1 overflow-y-auto">
+                    {mergeSearchResults.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleMergeSelect(p.id)}
+                        className="w-full rounded-lg border border-gray-200 p-3 text-left transition-colors hover:border-primary/30 hover:bg-primary/5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-900">
+                            {p.name}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                              statusColors[p.status] || statusColors.lead
+                            }`}
+                          >
+                            {statusLabels[p.status] || p.status}
+                          </span>
+                        </div>
+                        {p.address && (
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            {p.address}
+                          </p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-400">
+                          {p._count.tasks} taken, {p._count.calls} gesprekken
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Loading preview */}
+            {mergePreviewLoading && (
+              <p className="mt-4 text-center text-sm text-gray-400">
+                Preview laden...
+              </p>
+            )}
+
+            {/* Stap 2: Preview */}
+            {mergePreview && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="flex-1 rounded-lg bg-red-50 p-3 text-center">
+                    <p className="text-xs text-gray-500">Wordt verwijderd</p>
+                    <p className="font-semibold text-red-700">
+                      {mergePreview.source.name}
+                    </p>
+                  </div>
+                  <span className="text-gray-400">&rarr;</span>
+                  <div className="flex-1 rounded-lg bg-green-50 p-3 text-center">
+                    <p className="text-xs text-gray-500">Blijft behouden</p>
+                    <p className="font-semibold text-green-700">
+                      {mergePreview.target.name}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 p-3 text-sm">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
+                    Wat wordt overgeheveld
+                  </p>
+                  <ul className="space-y-1 text-gray-700">
+                    <li className="flex justify-between">
+                      <span>Taken</span>
+                      <span className="font-medium">
+                        {mergePreview.tasksToTransfer}
+                      </span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Gesprekken</span>
+                      <span className="font-medium">
+                        {mergePreview.callsToTransfer}
+                      </span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Contacten</span>
+                      <span className="font-medium">
+                        {mergePreview.contactsToTransfer}
+                        {mergePreview.contactsAlreadyLinked > 0 && (
+                          <span className="ml-1 text-xs text-gray-400">
+                            ({mergePreview.contactsAlreadyLinked} al gekoppeld)
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                    {mergePreview.metadataFieldsToFill.length > 0 && (
+                      <li className="flex justify-between">
+                        <span>Metadata velden</span>
+                        <span className="text-xs font-medium">
+                          {mergePreview.metadataFieldsToFill.join(", ")}
+                        </span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {mergeError && (
+              <p className="mt-2 text-sm text-red-600">{mergeError}</p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              {mergePreview ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMergePreview(null);
+                      setMergeTargetId(null);
+                    }}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    Terug
+                  </button>
+                  <button
+                    onClick={handleMergeConfirm}
+                    disabled={merging}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {merging ? "Samenvoegen..." : "Definitief samenvoegen"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowMerge(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Annuleren
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

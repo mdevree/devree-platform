@@ -78,7 +78,7 @@ export default function ProjectenPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("actief");
   const [page, setPage] = useState(1);
 
   // Cache van woning-foto's per realworksId
