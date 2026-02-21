@@ -13,6 +13,7 @@ import {
   FolderIcon,
   UsersIcon,
   ChartBarIcon,
+  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -90,8 +91,23 @@ export default function Sidebar() {
           );
         })}
 
-        {/* Externe links */}
+        {/* Instellingen */}
         <div className="mt-6 border-t border-gray-200 pt-4">
+          <Link
+            href="/instellingen"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              pathname.startsWith("/instellingen")
+                ? "bg-primary/10 text-primary"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            }`}
+          >
+            <Cog6ToothIcon className="h-5 w-5 flex-shrink-0" />
+            Instellingen
+          </Link>
+        </div>
+
+        {/* Externe links */}
+        <div className="mt-4 border-t border-gray-200 pt-4">
           <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-gray-400">
             Extern
           </p>

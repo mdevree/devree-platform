@@ -28,7 +28,18 @@ import {
   TrashIcon,
   LinkSlashIcon,
   ArrowPathIcon,
+  DocumentTextIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
+import {
+  PROJECT_TYPE_LABELS,
+  PROJECT_TYPE_COLORS,
+  STATUS_FLOW,
+  STATUS_LABELS,
+  STATUS_COLORS,
+  VERKOOPMETHODE_LABELS,
+  VERKOOPSTART_LABELS,
+} from "@/lib/projectTypes";
 
 const MAUTIC_URL =
   process.env.NEXT_PUBLIC_MAUTIC_URL || "https://connect.devreemakelaardij.nl";
@@ -152,8 +163,34 @@ interface Project {
   id: string;
   name: string;
   description: string | null;
-  status: string;
+  type: string;
+  status: string; // legacy
+  projectStatus: string | null; // nieuw
+  verkoopstart: string | null;
+  startdatum: string | null;
+  startReden: string | null;
   address: string | null;
+  // Woning
+  woningAdres: string | null;
+  woningPostcode: string | null;
+  woningPlaats: string | null;
+  kadGemeente: string | null;
+  kadSectie: string | null;
+  kadNummer: string | null;
+  woningOppervlakte: string | null;
+  // Commercieel
+  vraagprijs: number | null;
+  courtagePercentage: string | null;
+  verkoopmethode: string | null;
+  bijzondereAfspraken: string | null;
+  // Kosten
+  kostenPubliciteit: number | null;
+  kostenEnergielabel: number | null;
+  kostenJuridisch: number | null;
+  kostenBouwkundig: number | null;
+  kostenIntrekking: number | null;
+  kostenBedenktijd: number | null;
+  // Overig
   contactName: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
@@ -167,7 +204,7 @@ interface Project {
   updatedAt: string;
 }
 
-type ActiveTab = "taken" | "telefonie" | "woning";
+type ActiveTab = "taken" | "telefonie" | "woning" | "dossier";
 
 interface MauticEvent {
   id: string;
@@ -245,19 +282,64 @@ function EmailActivitySection({ contactId }: { contactId: number }) {
   );
 }
 
-const statusColors: Record<string, string> = {
-  lead: "bg-purple-100 text-purple-700 border-purple-200",
-  actief: "bg-green-100 text-green-700 border-green-200",
-  afgerond: "bg-gray-100 text-gray-600 border-gray-200",
-  geannuleerd: "bg-red-100 text-red-700 border-red-200",
-};
+function getProjectStatusLabel(project: Project): string {
+  if (project.projectStatus && STATUS_LABELS[project.projectStatus]) {
+    return STATUS_LABELS[project.projectStatus];
+  }
+  const legacyMap: Record<string, string> = {
+    lead: "Lead", actief: "Actief", afgerond: "Afgerond", geannuleerd: "Geannuleerd",
+  };
+  return legacyMap[project.status] || project.status;
+}
 
-const statusLabels: Record<string, string> = {
-  lead: "Lead",
-  actief: "Actief",
-  afgerond: "Afgerond",
-  geannuleerd: "Geannuleerd",
-};
+function getProjectStatusColor(project: Project): string {
+  if (project.projectStatus && STATUS_COLORS[project.projectStatus]) {
+    return `${STATUS_COLORS[project.projectStatus]} border border-transparent`;
+  }
+  const legacyMap: Record<string, string> = {
+    lead: "bg-gray-100 text-gray-600 border-gray-200",
+    actief: "bg-green-100 text-green-700 border-green-200",
+    afgerond: "bg-gray-100 text-gray-600 border-gray-200",
+    geannuleerd: "bg-red-100 text-red-600 border-red-200",
+  };
+  return legacyMap[project.status] || "bg-gray-100 text-gray-600 border-gray-200";
+}
+
+function StatusProgressBar({ project }: { project: Project }) {
+  const flow = STATUS_FLOW[project.type || "VERKOOP"] || STATUS_FLOW.VERKOOP;
+  const currentStatus = project.projectStatus;
+  if (!currentStatus) return null;
+  const currentIndex = flow.indexOf(currentStatus);
+  if (currentIndex === -1) return null;
+
+  return (
+    <div className="mt-3 border-t border-gray-100 pt-3">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1">
+        {flow.map((step, i) => {
+          const isDone = i < currentIndex;
+          const isCurrent = i === currentIndex;
+          return (
+            <div key={step} className="flex shrink-0 items-center gap-1">
+              <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap ${
+                isCurrent
+                  ? `${STATUS_COLORS[step] || "bg-primary/10 text-primary"} ring-1 ring-current`
+                  : isDone
+                  ? "bg-green-50 text-green-600"
+                  : "bg-gray-50 text-gray-400"
+              }`}>
+                {isDone && <CheckIcon className="h-2.5 w-2.5" />}
+                {STATUS_LABELS[step] || step}
+              </div>
+              {i < flow.length - 1 && (
+                <div className={`h-0.5 w-3 rounded ${isDone ? "bg-green-300" : "bg-gray-200"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const priorityColors: Record<string, string> = {
   urgent: "bg-red-100 text-red-700 border-red-200",
@@ -296,8 +378,18 @@ export default function ProjectDetailPage() {
     name: "", description: "", status: "", address: "",
     contactName: "", contactPhone: "", contactEmail: "",
     realworksId: "",
+    // Nieuw
+    type: "VERKOOP", projectStatus: "LEAD",
+    verkoopstart: "", startdatum: "", startReden: "",
+    woningAdres: "", woningPostcode: "", woningPlaats: "",
+    kadGemeente: "", kadSectie: "", kadNummer: "", woningOppervlakte: "",
+    vraagprijs: "", courtagePercentage: "", verkoopmethode: "", bijzondereAfspraken: "",
+    kostenPubliciteit: "", kostenEnergielabel: "", kostenJuridisch: "",
+    kostenBouwkundig: "", kostenIntrekking: "", kostenBedenktijd: "",
   });
   const [editSaving, setEditSaving] = useState(false);
+  const [showEditWoning, setShowEditWoning] = useState(false);
+  const [showEditCommercieel, setShowEditCommercieel] = useState(false);
 
   // Nieuwe taak modal
   const [showNewTask, setShowNewTask] = useState(false);
@@ -440,6 +532,29 @@ export default function ProjectDetailPage() {
       contactName: project.contactName || "", contactPhone: project.contactPhone || "",
       contactEmail: project.contactEmail || "",
       realworksId: project.realworksId || "",
+      // Nieuw
+      type: project.type || "VERKOOP",
+      projectStatus: project.projectStatus || "LEAD",
+      verkoopstart: project.verkoopstart || "",
+      startdatum: project.startdatum ? project.startdatum.split("T")[0] : "",
+      startReden: project.startReden || "",
+      woningAdres: project.woningAdres || "",
+      woningPostcode: project.woningPostcode || "",
+      woningPlaats: project.woningPlaats || "",
+      kadGemeente: project.kadGemeente || "",
+      kadSectie: project.kadSectie || "",
+      kadNummer: project.kadNummer || "",
+      woningOppervlakte: project.woningOppervlakte || "",
+      vraagprijs: project.vraagprijs != null ? String(project.vraagprijs) : "",
+      courtagePercentage: project.courtagePercentage || "",
+      verkoopmethode: project.verkoopmethode || "",
+      bijzondereAfspraken: project.bijzondereAfspraken || "",
+      kostenPubliciteit: project.kostenPubliciteit != null ? String(project.kostenPubliciteit) : "",
+      kostenEnergielabel: project.kostenEnergielabel != null ? String(project.kostenEnergielabel) : "",
+      kostenJuridisch: project.kostenJuridisch != null ? String(project.kostenJuridisch) : "",
+      kostenBouwkundig: project.kostenBouwkundig != null ? String(project.kostenBouwkundig) : "",
+      kostenIntrekking: project.kostenIntrekking != null ? String(project.kostenIntrekking) : "",
+      kostenBedenktijd: project.kostenBedenktijd != null ? String(project.kostenBedenktijd) : "",
     });
     setShowEdit(true);
   }
@@ -448,6 +563,7 @@ export default function ProjectDetailPage() {
     e.preventDefault();
     setEditSaving(true);
     try {
+      const intOrNull = (v: string) => v ? parseInt(v) : null;
       const response = await fetch("/api/projecten", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -455,11 +571,21 @@ export default function ProjectDetailPage() {
           id: projectId,
           ...editData,
           realworksId: editData.realworksId || null,
+          verkoopstart: editData.verkoopstart || null,
+          startdatum: editData.startdatum || null,
+          startReden: editData.startReden || null,
+          vraagprijs: intOrNull(editData.vraagprijs),
+          kostenPubliciteit: intOrNull(editData.kostenPubliciteit),
+          kostenEnergielabel: intOrNull(editData.kostenEnergielabel),
+          kostenJuridisch: intOrNull(editData.kostenJuridisch),
+          kostenBouwkundig: intOrNull(editData.kostenBouwkundig),
+          kostenIntrekking: intOrNull(editData.kostenIntrekking),
+          kostenBedenktijd: intOrNull(editData.kostenBedenktijd),
+          verkoopmethode: editData.verkoopmethode || null,
         }),
       });
       if (response.ok) {
         setShowEdit(false);
-        // Reset woning cache zodat die opnieuw geladen wordt
         setWoning(null);
         setWoningError(null);
         fetchProject();
@@ -828,20 +954,33 @@ export default function ProjectDetailPage() {
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50">
-              <FolderIcon className="h-6 w-6 text-amber-600" />
+            <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${
+              project.type === "AANKOOP" ? "bg-green-50" :
+              project.type === "TAXATIE" ? "bg-purple-50" :
+              "bg-blue-50"
+            }`}>
+              <FolderIcon className={`h-6 w-6 ${
+                project.type === "AANKOOP" ? "text-green-600" :
+                project.type === "TAXATIE" ? "text-purple-600" :
+                "text-blue-600"
+              }`} />
             </div>
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
-                <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[project.status] || statusColors.lead}`}>
-                  {statusLabels[project.status] || project.status}
+                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${PROJECT_TYPE_COLORS[project.type || "VERKOOP"] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                  {PROJECT_TYPE_LABELS[project.type || "VERKOOP"] || project.type}
+                </span>
+                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${getProjectStatusColor(project)}`}>
+                  {getProjectStatusLabel(project)}
                 </span>
               </div>
-              {project.address && (
+              {(project.woningAdres || project.address) && (
                 <p className="mt-1 flex items-center gap-1 text-sm text-gray-500">
                   <MapPinIcon className="h-4 w-4" />
-                  {project.address}
+                  {project.woningAdres || project.address}
+                  {project.woningPostcode && ` · ${project.woningPostcode}`}
+                  {project.woningPlaats && ` ${project.woningPlaats}`}
                 </p>
               )}
               {project.description && (
@@ -972,6 +1111,9 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
+        {/* Statusvoortgangsbalk */}
+        <StatusProgressBar project={project} />
+
         {/* Contact toevoegen dropdown */}
         {showAddContact && (
           <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -1050,6 +1192,15 @@ export default function ProjectDetailPage() {
               {project.realworksId}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => setActiveTab("dossier")}
+          className={`inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
+            activeTab === "dossier" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <DocumentTextIcon className="h-4 w-4" />
+          Dossier
         </button>
       </div>
 
@@ -1524,6 +1675,183 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
+      {/* ===== DOSSIER TAB ===== */}
+      {activeTab === "dossier" && (
+        <div className="space-y-4">
+          {/* Opdracht */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Opdracht</p>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-xs text-gray-500">Type</dt>
+                <dd className="mt-0.5 font-medium text-gray-900">
+                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${PROJECT_TYPE_COLORS[project.type || "VERKOOP"] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                    {PROJECT_TYPE_LABELS[project.type || "VERKOOP"] || project.type}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-gray-500">Status</dt>
+                <dd className="mt-0.5 font-medium text-gray-900">
+                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${getProjectStatusColor(project)}`}>
+                    {getProjectStatusLabel(project)}
+                  </span>
+                </dd>
+              </div>
+              {project.verkoopstart && (
+                <div>
+                  <dt className="text-xs text-gray-500">Verkoopstart</dt>
+                  <dd className="mt-0.5 font-medium text-gray-900">{VERKOOPSTART_LABELS[project.verkoopstart] || project.verkoopstart}</dd>
+                </div>
+              )}
+              {project.startdatum && (
+                <div>
+                  <dt className="text-xs text-gray-500">Startdatum</dt>
+                  <dd className="mt-0.5 font-medium text-gray-900">{formatDateFull(project.startdatum)}</dd>
+                </div>
+              )}
+              {project.startReden && (
+                <div className="col-span-2">
+                  <dt className="text-xs text-gray-500">Reden uitgesteld / slapend</dt>
+                  <dd className="mt-0.5 text-gray-900">{project.startReden}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+
+          {/* Woning */}
+          {(project.woningAdres || project.kadGemeente || project.woningOppervlakte) && (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Woning</p>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+                {project.woningAdres && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Adres</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.woningAdres}</dd>
+                  </div>
+                )}
+                {project.woningPostcode && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Postcode</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.woningPostcode}</dd>
+                  </div>
+                )}
+                {project.woningPlaats && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Plaats</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.woningPlaats}</dd>
+                  </div>
+                )}
+                {project.kadGemeente && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Kadastrale gemeente</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.kadGemeente}</dd>
+                  </div>
+                )}
+                {project.kadSectie && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Sectie</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.kadSectie}</dd>
+                  </div>
+                )}
+                {project.kadNummer && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Perceelnummer</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.kadNummer}</dd>
+                  </div>
+                )}
+                {project.woningOppervlakte && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Oppervlakte</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.woningOppervlakte}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+
+          {/* Commercieel */}
+          {(project.vraagprijs || project.courtagePercentage || project.verkoopmethode || project.bijzondereAfspraken) && (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Commercieel</p>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+                {project.vraagprijs != null && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Vraagprijs</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">€ {project.vraagprijs.toLocaleString("nl-NL")}</dd>
+                  </div>
+                )}
+                {project.courtagePercentage && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Courtage</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.courtagePercentage}%</dd>
+                  </div>
+                )}
+                {project.verkoopmethode && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Verkoopmethode</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{VERKOOPMETHODE_LABELS[project.verkoopmethode] || project.verkoopmethode}</dd>
+                  </div>
+                )}
+                {project.bijzondereAfspraken && (
+                  <div className="col-span-2 sm:col-span-3">
+                    <dt className="text-xs text-gray-500">Bijzondere afspraken</dt>
+                    <dd className="mt-0.5 whitespace-pre-wrap text-gray-900">{project.bijzondereAfspraken}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+
+          {/* Kosten */}
+          {(project.kostenPubliciteit || project.kostenEnergielabel || project.kostenJuridisch || project.kostenBouwkundig || project.kostenIntrekking || project.kostenBedenktijd) && (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Kosten</p>
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-gray-100">
+                  {[
+                    { label: "Publiciteit", value: project.kostenPubliciteit },
+                    { label: "Energielabel", value: project.kostenEnergielabel },
+                    { label: "Juridisch", value: project.kostenJuridisch },
+                    { label: "Bouwkundig", value: project.kostenBouwkundig },
+                    { label: "Intrekking", value: project.kostenIntrekking },
+                    { label: "Bedenktijd", value: project.kostenBedenktijd },
+                  ].filter((r) => r.value != null).map((row) => (
+                    <tr key={row.label}>
+                      <td className="py-2 text-gray-500">{row.label}</td>
+                      <td className="py-2 text-right font-medium text-gray-900">€ {row.value!.toLocaleString("nl-NL")}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 border-gray-200">
+                    <td className="py-2 font-semibold text-gray-700">Totaal</td>
+                    <td className="py-2 text-right font-semibold text-gray-900">
+                      € {[project.kostenPubliciteit, project.kostenEnergielabel, project.kostenJuridisch, project.kostenBouwkundig, project.kostenIntrekking, project.kostenBedenktijd]
+                          .filter((v): v is number => v != null)
+                          .reduce((a, b) => a + b, 0)
+                          .toLocaleString("nl-NL")}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Geen dossierdata */}
+          {!project.woningAdres && !project.kadGemeente && !project.vraagprijs && !project.courtagePercentage && !project.kostenPubliciteit && (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
+              <DocumentTextIcon className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+              <p className="text-sm font-medium text-gray-600">Nog geen dossiergegevens</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Voeg woning- en commerciële gegevens toe via{" "}
+                <button onClick={openEdit} className="text-primary underline hover:no-underline">
+                  Project bewerken
+                </button>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ===== NOTITIE MODAL ===== */}
       {showNoteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -1761,56 +2089,231 @@ export default function ProjectDetailPage() {
 
       {/* ===== EDIT PROJECT MODAL ===== */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
               <h2 className="text-lg font-semibold text-gray-900">Project bewerken</h2>
               <button onClick={() => setShowEdit(false)} className="rounded-full p-1 text-gray-400 hover:bg-gray-100">
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleEditSave}>
-              <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Projectnaam *</label>
-                <input type="text" required value={editData.name} onChange={(e) => setEditData((d) => ({ ...d, name: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
-              </div>
-              <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Omschrijving</label>
-                <textarea value={editData.description} onChange={(e) => setEditData((d) => ({ ...d, description: e.target.value }))} rows={2}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
-              </div>
-              <div className="mb-3 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
-                  <select value={editData.status} onChange={(e) => setEditData((d) => ({ ...d, status: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
-                    <option value="lead">Lead</option>
-                    <option value="actief">Actief</option>
-                    <option value="afgerond">Afgerond</option>
-                    <option value="geannuleerd">Geannuleerd</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Adres</label>
-                  <input type="text" value={editData.address} onChange={(e) => setEditData((d) => ({ ...d, address: e.target.value }))}
+            <form onSubmit={handleEditSave} className="px-6 py-5 space-y-5">
+              {/* Basis */}
+              <div>
+                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Basis</p>
+                <div className="mb-3">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Projectnaam *</label>
+                  <input type="text" required value={editData.name} onChange={(e) => setEditData((d) => ({ ...d, name: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                 </div>
+                <div className="mb-3">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Omschrijving</label>
+                  <textarea value={editData.description} onChange={(e) => setEditData((d) => ({ ...d, description: e.target.value }))} rows={2}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                </div>
+                <div className="mb-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
+                    <div className="flex gap-2">
+                      {(["VERKOOP", "AANKOOP", "TAXATIE"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setEditData((d) => ({ ...d, type: t }))}
+                          className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                            editData.type === t
+                              ? PROJECT_TYPE_COLORS[t] + " ring-2 ring-offset-1 ring-primary/30"
+                              : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          {PROJECT_TYPE_LABELS[t]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                    <select value={editData.projectStatus} onChange={(e) => setEditData((d) => ({ ...d, projectStatus: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
+                      {(STATUS_FLOW[editData.type] || STATUS_FLOW.VERKOOP).map((s) => (
+                        <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {editData.type === "VERKOOP" && (
+                  <div className="mb-3">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Verkoopstart</label>
+                    <div className="flex gap-2">
+                      {(["DIRECT", "UITGESTELD", "SLAPEND"] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setEditData((d) => ({ ...d, verkoopstart: v }))}
+                          className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            editData.verkoopstart === v
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          {VERKOOPSTART_LABELS[v]}
+                        </button>
+                      ))}
+                    </div>
+                    {(editData.verkoopstart === "UITGESTELD" || editData.verkoopstart === "SLAPEND") && (
+                      <div className="mt-2 grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-600">Beoogde startdatum</label>
+                          <input type="date" value={editData.startdatum} onChange={(e) => setEditData((d) => ({ ...d, startdatum: e.target.value }))}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-600">Reden</label>
+                          <input type="text" value={editData.startReden} onChange={(e) => setEditData((d) => ({ ...d, startReden: e.target.value }))}
+                            placeholder="Bijv. verbouwing lopend"
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="mb-3">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Realworks ID</label>
+                  <input type="text" value={editData.realworksId} onChange={(e) => setEditData((d) => ({ ...d, realworksId: e.target.value }))}
+                    placeholder="bijv. 123456"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none" />
+                  <p className="mt-1 text-xs text-gray-400">Koppelt dit project aan de woning op de website via het Realworks ID</p>
+                </div>
               </div>
-              <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Realworks ID</label>
-                <input
-                  type="text"
-                  value={editData.realworksId}
-                  onChange={(e) => setEditData((d) => ({ ...d, realworksId: e.target.value }))}
-                  placeholder="bijv. 123456"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none"
-                />
-                <p className="mt-1 text-xs text-gray-400">Koppelt dit project aan de woning op de website via het Realworks ID</p>
+
+              {/* Woning */}
+              <div className="border-t border-gray-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditWoning((v) => !v)}
+                  className="flex w-full items-center justify-between text-xs font-medium uppercase tracking-wider text-gray-400 hover:text-gray-600"
+                >
+                  <span>Woninggegevens</span>
+                  <ChevronDownIcon className={`h-4 w-4 transition-transform ${showEditWoning ? "rotate-180" : ""}`} />
+                </button>
+                {showEditWoning && (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2">
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Adres</label>
+                        <input type="text" value={editData.woningAdres} onChange={(e) => setEditData((d) => ({ ...d, woningAdres: e.target.value }))}
+                          placeholder="Straat + huisnummer"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Postcode</label>
+                        <input type="text" value={editData.woningPostcode} onChange={(e) => setEditData((d) => ({ ...d, woningPostcode: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Plaats</label>
+                        <input type="text" value={editData.woningPlaats} onChange={(e) => setEditData((d) => ({ ...d, woningPlaats: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Oppervlakte</label>
+                        <input type="text" value={editData.woningOppervlakte} onChange={(e) => setEditData((d) => ({ ...d, woningOppervlakte: e.target.value }))}
+                          placeholder="bijv. 120 m²"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Kad. gemeente</label>
+                        <input type="text" value={editData.kadGemeente} onChange={(e) => setEditData((d) => ({ ...d, kadGemeente: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Sectie</label>
+                        <input type="text" value={editData.kadSectie} onChange={(e) => setEditData((d) => ({ ...d, kadSectie: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Perceelnr.</label>
+                        <input type="text" value={editData.kadNummer} onChange={(e) => setEditData((d) => ({ ...d, kadNummer: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="mb-3">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Contactgegevens</p>
+
+              {/* Commercieel & Kosten */}
+              <div className="border-t border-gray-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditCommercieel((v) => !v)}
+                  className="flex w-full items-center justify-between text-xs font-medium uppercase tracking-wider text-gray-400 hover:text-gray-600"
+                >
+                  <span>Commercieel & Kosten</span>
+                  <ChevronDownIcon className={`h-4 w-4 transition-transform ${showEditCommercieel ? "rotate-180" : ""}`} />
+                </button>
+                {showEditCommercieel && (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Vraagprijs (€)</label>
+                        <input type="number" value={editData.vraagprijs} onChange={(e) => setEditData((d) => ({ ...d, vraagprijs: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Courtage (%)</label>
+                        <input type="text" value={editData.courtagePercentage} onChange={(e) => setEditData((d) => ({ ...d, courtagePercentage: e.target.value }))}
+                          placeholder="bijv. 1.2"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                    </div>
+                    {editData.type === "VERKOOP" && (
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Verkoopmethode</label>
+                        <select value={editData.verkoopmethode} onChange={(e) => setEditData((d) => ({ ...d, verkoopmethode: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
+                          <option value="">Geen keuze</option>
+                          {Object.entries(VERKOOPMETHODE_LABELS).map(([k, v]) => (
+                            <option key={k} value={k}>{v}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Bijzondere afspraken</label>
+                      <textarea value={editData.bijzondereAfspraken} onChange={(e) => setEditData((d) => ({ ...d, bijzondereAfspraken: e.target.value }))} rows={2}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                    </div>
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-gray-500">Kosten (€)</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: "Publiciteit", key: "kostenPubliciteit" as const },
+                          { label: "Energielabel", key: "kostenEnergielabel" as const },
+                          { label: "Juridisch", key: "kostenJuridisch" as const },
+                          { label: "Bouwkundig", key: "kostenBouwkundig" as const },
+                          { label: "Intrekking", key: "kostenIntrekking" as const },
+                          { label: "Bedenktijd", key: "kostenBedenktijd" as const },
+                        ].map(({ label, key }) => (
+                          <div key={key}>
+                            <label className="mb-1 block text-xs font-medium text-gray-600">{label}</label>
+                            <input type="number" value={editData[key]} onChange={(e) => setEditData((d) => ({ ...d, [key]: e.target.value }))}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Contactgegevens */}
+              <div className="border-t border-gray-100 pt-4">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Contactgegevens (legacy)</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Naam</label>
@@ -1829,7 +2332,8 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
               </div>
-              <div className="mt-6 flex justify-end gap-3">
+
+              <div className="sticky bottom-0 flex justify-end gap-3 border-t border-gray-100 bg-white pt-4">
                 <button type="button" onClick={() => setShowEdit(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
                   Annuleren
                 </button>
@@ -1977,10 +2481,10 @@ export default function ProjectDetailPage() {
                           </span>
                           <span
                             className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                              statusColors[p.status] || statusColors.lead
+                              STATUS_COLORS[p.status] || "bg-gray-100 text-gray-600 border-gray-200"
                             }`}
                           >
-                            {statusLabels[p.status] || p.status}
+                            {STATUS_LABELS[p.status] || p.status}
                           </span>
                         </div>
                         {p.address && (

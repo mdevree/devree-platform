@@ -7,6 +7,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum ProjectType {
+  VERKOOP
+  AANKOOP
+  TAXATIE
+}
+
+enum ProjectStatus {
+  LEAD
+  GESPREK_GEPLAND
+  OFFERTE_VERSTUURD
+  OTD_VERSTUURD
+  OTD_ONDERTEKEND
+  IN_VOORBEREIDING
+  LIVE_FUNDA
+  ONDER_BOD
+  KOOPAKTE
+  GEPASSEERD
+  AFGEROND
+  GEANNULEERD
+  IN_UITVOERING
+  RAPPORT_CONCEPT
+}
+
+enum Verkoopstart {
+  DIRECT
+  UITGESTELD
+  SLAPEND
+}
+
+enum Verkoopmethode {
+  INSCHRIJVING_MET_BIEDTERMIJN
+  GESLOTEN_INSCHRIJVING_MET_BIEDTERMIJN
+  OPEN_VEILING_MET_BIEDTERMIJN
+  BIEDEN_ZONDER_BIEDTERMIJN
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -26,7 +66,18 @@ model Project {
   id              String           @id @default(cuid())
   name            String
   description     String?          @db.Text
-  status          String           @default("lead") // lead, actief, afgerond, geannuleerd
+
+  // Type en status
+  type            ProjectType      @default(VERKOOP)
+  projectStatus   ProjectStatus?   // tijdelijk nullable voor migratie; wordt na data-migratie gevuld
+  status          String           @default("lead") // legacy — blijft staan totdat migratie compleet is
+
+  // Verkoopstart (alleen relevant bij type=VERKOOP)
+  verkoopstart    Verkoopstart?
+  startdatum      DateTime?
+  startReden      String?
+
+  // Legacy velden (bewaren voor backward-compat)
   address         String?
   notionPageId    String?          @unique
   mauticContactId Int?             // Fallback voor backward-compat (legacy)
@@ -34,6 +85,31 @@ model Project {
   contactName     String?          // Fallback contactnaam (legacy)
   contactPhone    String?          // Fallback telefoonnummer (legacy)
   contactEmail    String?          // Fallback emailadres (legacy)
+
+  // Woning velden
+  woningAdres       String?
+  woningPostcode    String?
+  woningPlaats      String?
+  kadGemeente       String?
+  kadSectie         String?
+  kadNummer         String?
+  woningOppervlakte String?
+
+  // Commercieel
+  vraagprijs          Int?
+  courtagePercentage  String?
+  verkoopmethode      Verkoopmethode?
+  bijzondereAfspraken String?          @db.Text
+
+  // Kosten
+  kostenPubliciteit   Int?
+  kostenEnergielabel  Int?
+  kostenJuridisch     Int?
+  kostenBouwkundig    Int?
+  kostenIntrekking    Int?
+  kostenBedenktijd    Int?
+
+  // Relaties
   contacts        ProjectContact[]
   tasks           Task[]
   calls           Call[]
@@ -41,6 +117,8 @@ model Project {
   updatedAt       DateTime         @updatedAt
 
   @@index([status])
+  @@index([projectStatus])
+  @@index([type])
   @@index([notionPageId])
   @@index([mauticContactId])
   @@index([realworksId])
@@ -162,4 +240,13 @@ model MauticEvent {
   @@index([eventType])
   @@index([occurredAt])
   @@map("mautic_events")
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique  // bijv. "defaults_VERKOOP"
+  value     Json               // flexibele JSON waarde
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
 }
