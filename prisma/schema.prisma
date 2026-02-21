@@ -96,7 +96,7 @@ model Project {
 
   // Commercieel
   vraagprijs          Int?
-  courtagePercentage  String?
+  courtagePercentage  Float?
   verkoopmethode      Verkoopmethode?
   bijzondereAfspraken String?          @db.Text
 

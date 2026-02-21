@@ -89,7 +89,7 @@ export async function PATCH(
   if (data.kadNummer !== undefined) updateData.kadNummer = data.kadNummer;
   if (data.woningOppervlakte !== undefined) updateData.woningOppervlakte = data.woningOppervlakte;
   if (data.vraagprijs !== undefined) updateData.vraagprijs = data.vraagprijs !== "" && data.vraagprijs != null ? parseInt(data.vraagprijs) : null;
-  if (data.courtagePercentage !== undefined) updateData.courtagePercentage = data.courtagePercentage !== "" ? data.courtagePercentage : null;
+  if (data.courtagePercentage !== undefined) updateData.courtagePercentage = data.courtagePercentage !== "" && data.courtagePercentage != null ? parseFloat(data.courtagePercentage) : null;
   if (data.verkoopmethode !== undefined) updateData.verkoopmethode = data.verkoopmethode || null;
   if (data.bijzondereAfspraken !== undefined) updateData.bijzondereAfspraken = data.bijzondereAfspraken;
   if (data.kostenPubliciteit !== undefined) updateData.kostenPubliciteit = data.kostenPubliciteit !== "" && data.kostenPubliciteit != null ? parseInt(data.kostenPubliciteit) : null;
