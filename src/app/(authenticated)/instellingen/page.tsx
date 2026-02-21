@@ -245,8 +245,8 @@ export default function InstellingenPage() {
                   <td className="py-2 font-mono text-xs text-gray-600">{f.field}</td>
                   <td className="py-2 text-gray-700">{f.label}</td>
                   <td className="py-2 text-gray-500">
-                    {"options" in f ? (
-                      <span className="italic">{f.options.join(", ")}</span>
+                    {"options" in f && Array.isArray(f.options) ? (
+                      <span className="italic">{(f.options as string[]).join(", ")}</span>
                     ) : (
                       f.type
                     )}
