@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   // Verrijk contacten met lokale project-koppeling
   if (result.contacts && result.contacts.length > 0) {
-    const mauticIds = result.contacts.map((c: { id: number }) => c.id);
+    const mauticIds = result.contacts.map((c) => c.id);
 
     const linkedContacts = await prisma.projectContact.findMany({
       where: { mauticContactId: { in: mauticIds } },
@@ -75,10 +75,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    result.contacts = result.contacts.map((c: { id: number }) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    result.contacts = result.contacts.map((c: any) => ({
       ...c,
       linkedProject: projectByContact[c.id] || null,
-    }));
+    })) as typeof result.contacts;
   }
 
   return NextResponse.json(result);
