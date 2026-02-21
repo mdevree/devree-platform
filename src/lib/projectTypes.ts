@@ -122,8 +122,20 @@ export const VERKOOPSTART_LABELS: Record<string, string> = {
   SLAPEND: "Slapende opdracht",
 };
 
-// Pipeline kolommen per type (voor de Aankoop/Taxatie tabs)
-// Direct als string arrays — labels komen uit STATUS_LABELS
+// Pipeline kolommen per type — labels komen uit STATUS_LABELS
+export const PIPELINE_STAGES_VERKOOP: string[] = [
+  "LEAD",
+  "GESPREK_GEPLAND",
+  "OFFERTE_VERSTUURD",
+  "OTD_VERSTUURD",
+  "OTD_ONDERTEKEND",
+  "ACTIEF",
+  "LIVE_FUNDA",
+  "ONDER_BOD",
+  "KOOPAKTE",
+  "GEPASSEERD",
+];
+
 export const PIPELINE_STAGES_AANKOOP: string[] = [
   "LEAD",
   "GESPREK_GEPLAND",
