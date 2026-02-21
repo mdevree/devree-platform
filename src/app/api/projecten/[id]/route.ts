@@ -88,16 +88,16 @@ export async function PATCH(
   if (data.kadSectie !== undefined) updateData.kadSectie = data.kadSectie;
   if (data.kadNummer !== undefined) updateData.kadNummer = data.kadNummer;
   if (data.woningOppervlakte !== undefined) updateData.woningOppervlakte = data.woningOppervlakte;
-  if (data.vraagprijs !== undefined) updateData.vraagprijs = data.vraagprijs ? parseInt(data.vraagprijs) : null;
-  if (data.courtagePercentage !== undefined) updateData.courtagePercentage = data.courtagePercentage;
+  if (data.vraagprijs !== undefined) updateData.vraagprijs = data.vraagprijs !== "" && data.vraagprijs != null ? parseInt(data.vraagprijs) : null;
+  if (data.courtagePercentage !== undefined) updateData.courtagePercentage = data.courtagePercentage !== "" ? data.courtagePercentage : null;
   if (data.verkoopmethode !== undefined) updateData.verkoopmethode = data.verkoopmethode || null;
   if (data.bijzondereAfspraken !== undefined) updateData.bijzondereAfspraken = data.bijzondereAfspraken;
-  if (data.kostenPubliciteit !== undefined) updateData.kostenPubliciteit = data.kostenPubliciteit ?? null;
-  if (data.kostenEnergielabel !== undefined) updateData.kostenEnergielabel = data.kostenEnergielabel ?? null;
-  if (data.kostenJuridisch !== undefined) updateData.kostenJuridisch = data.kostenJuridisch ?? null;
-  if (data.kostenBouwkundig !== undefined) updateData.kostenBouwkundig = data.kostenBouwkundig ?? null;
-  if (data.kostenIntrekking !== undefined) updateData.kostenIntrekking = data.kostenIntrekking ?? null;
-  if (data.kostenBedenktijd !== undefined) updateData.kostenBedenktijd = data.kostenBedenktijd ?? null;
+  if (data.kostenPubliciteit !== undefined) updateData.kostenPubliciteit = data.kostenPubliciteit !== "" && data.kostenPubliciteit != null ? parseInt(data.kostenPubliciteit) : null;
+  if (data.kostenEnergielabel !== undefined) updateData.kostenEnergielabel = data.kostenEnergielabel !== "" && data.kostenEnergielabel != null ? parseInt(data.kostenEnergielabel) : null;
+  if (data.kostenJuridisch !== undefined) updateData.kostenJuridisch = data.kostenJuridisch !== "" && data.kostenJuridisch != null ? parseInt(data.kostenJuridisch) : null;
+  if (data.kostenBouwkundig !== undefined) updateData.kostenBouwkundig = data.kostenBouwkundig !== "" && data.kostenBouwkundig != null ? parseInt(data.kostenBouwkundig) : null;
+  if (data.kostenIntrekking !== undefined) updateData.kostenIntrekking = data.kostenIntrekking !== "" && data.kostenIntrekking != null ? parseInt(data.kostenIntrekking) : null;
+  if (data.kostenBedenktijd !== undefined) updateData.kostenBedenktijd = data.kostenBedenktijd !== "" && data.kostenBedenktijd != null ? parseInt(data.kostenBedenktijd) : null;
 
   const project = await prisma.project.update({
     where: { id },
