@@ -20,6 +20,7 @@ import {
   PIPELINE_STAGES_VERKOOP,
   PIPELINE_STAGES_AANKOOP,
   PIPELINE_STAGES_TAXATIE,
+  getStatusLabel,
 } from "@/lib/projectTypes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -81,7 +82,7 @@ function ProjectCard({
       </button>
       <div className="mt-2 flex items-center justify-between">
         <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${statusColor}`}>
-          {STATUS_LABELS[project.projectStatus || ""] || project.projectStatus}
+          {getStatusLabel(project.projectStatus || "", project.type)}
         </span>
         <span className="text-[10px] text-gray-400">
           {new Date(project.updatedAt).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}
@@ -281,7 +282,7 @@ export default function PipelinePage() {
                 <div key={stage} className={`w-52 flex-shrink-0 rounded-xl border p-3 ${bgClass}`}>
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-gray-700 truncate">
-                      {STATUS_LABELS[stage] || stage}
+                      {getStatusLabel(stage, activeType)}
                     </h3>
                     <span className="ml-1 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white text-xs font-medium text-gray-600 shadow-sm">
                       {stageProjects.length}
@@ -399,7 +400,7 @@ export default function PipelinePage() {
                             : "border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                         }`}
                       >
-                        {STATUS_LABELS[stage] || stage}
+                        {getStatusLabel(stage, activeType)}
                         {isActive && (
                           <span className="ml-2 h-2 w-2 rounded-full bg-white/70" />
                         )}

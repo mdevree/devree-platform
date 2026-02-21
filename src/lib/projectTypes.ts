@@ -56,7 +56,7 @@ export const STATUS_LABELS: Record<string, string> = {
   GESPREK_GEPLAND: "Gesprek gepland",
   OFFERTE_VERSTUURD: "Offerte verstuurd",
   OTD_VERSTUURD: "OTD verstuurd",
-  OTD_ONDERTEKEND: "Pre-verkoop",
+  OTD_ONDERTEKEND: "Opdracht getekend",
   ACTIEF: "Actief",
   LIVE_FUNDA: "Live op Funda",
   ONDER_BOD: "Onder bod",
@@ -127,6 +127,27 @@ export const PIPELINE_STAGES_VERKOOP: string[] = [
   "KOOPAKTE",
   "GEPASSEERD",
 ];
+
+// Per-type label overrides voor statussen die per type anders heten
+export const STATUS_LABELS_BY_TYPE: Record<string, Record<string, string>> = {
+  VERKOOP: {
+    OTD_ONDERTEKEND: "Pre-verkoop",
+  },
+  AANKOOP: {
+    OTD_ONDERTEKEND: "Opdracht getekend",
+  },
+  TAXATIE: {
+    OTD_ONDERTEKEND: "Opdracht getekend",
+  },
+};
+
+// Helper: geeft het juiste label terug voor een status binnen een projecttype
+export function getStatusLabel(status: string, type?: string): string {
+  if (type && STATUS_LABELS_BY_TYPE[type]?.[status]) {
+    return STATUS_LABELS_BY_TYPE[type][status];
+  }
+  return STATUS_LABELS[status] || status;
+}
 
 export const PIPELINE_STAGES_AANKOOP: string[] = [
   "LEAD",
