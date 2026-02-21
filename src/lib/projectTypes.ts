@@ -27,7 +27,7 @@ export const STATUS_FLOW: Record<string, string[]> = {
     "OFFERTE_VERSTUURD",
     "OTD_VERSTUURD",
     "OTD_ONDERTEKEND",
-    "IN_VOORBEREIDING",
+    "ACTIEF",
     "LIVE_FUNDA",
     "ONDER_BOD",
     "KOOPAKTE",
@@ -39,7 +39,7 @@ export const STATUS_FLOW: Record<string, string[]> = {
     "GESPREK_GEPLAND",
     "OTD_VERSTUURD",
     "OTD_ONDERTEKEND",
-    "IN_VOORBEREIDING",
+    "ACTIEF",
     "KOOPAKTE",
     "GEPASSEERD",
     "AFGEROND",
@@ -48,7 +48,7 @@ export const STATUS_FLOW: Record<string, string[]> = {
     "LEAD",
     "OTD_VERSTUURD",
     "OTD_ONDERTEKEND",
-    "IN_UITVOERING",
+    "ACTIEF",
     "RAPPORT_CONCEPT",
     "AFGEROND",
   ],
@@ -60,14 +60,13 @@ export const STATUS_LABELS: Record<string, string> = {
   OFFERTE_VERSTUURD: "Offerte verstuurd",
   OTD_VERSTUURD: "OTD verstuurd",
   OTD_ONDERTEKEND: "OTD ondertekend",
-  IN_VOORBEREIDING: "In voorbereiding",
+  ACTIEF: "Actief",
   LIVE_FUNDA: "Live op Funda",
   ONDER_BOD: "Onder bod",
   KOOPAKTE: "Koopakte",
   GEPASSEERD: "Gepasseerd",
   AFGEROND: "Afgerond",
   GEANNULEERD: "Geannuleerd",
-  IN_UITVOERING: "In uitvoering",
   RAPPORT_CONCEPT: "Rapport concept",
 };
 
@@ -77,14 +76,13 @@ export const STATUS_COLORS: Record<string, string> = {
   OFFERTE_VERSTUURD: "bg-orange-100 text-orange-700",
   OTD_VERSTUURD: "bg-blue-100 text-blue-700",
   OTD_ONDERTEKEND: "bg-blue-200 text-blue-800",
-  IN_VOORBEREIDING: "bg-indigo-100 text-indigo-700",
+  ACTIEF: "bg-indigo-100 text-indigo-700",
   LIVE_FUNDA: "bg-violet-100 text-violet-700",
   ONDER_BOD: "bg-amber-100 text-amber-700",
   KOOPAKTE: "bg-lime-100 text-lime-700",
   GEPASSEERD: "bg-green-200 text-green-800",
   AFGEROND: "bg-green-100 text-green-700",
   GEANNULEERD: "bg-red-100 text-red-600",
-  IN_UITVOERING: "bg-cyan-100 text-cyan-700",
   RAPPORT_CONCEPT: "bg-teal-100 text-teal-700",
 };
 
@@ -100,12 +98,11 @@ export const ACTIVE_STATUSES = [
   "OFFERTE_VERSTUURD",
   "OTD_VERSTUURD",
   "OTD_ONDERTEKEND",
-  "IN_VOORBEREIDING",
+  "ACTIEF",
   "LIVE_FUNDA",
   "ONDER_BOD",
   "KOOPAKTE",
   "GEPASSEERD",
-  "IN_UITVOERING",
   "RAPPORT_CONCEPT",
 ];
 
@@ -126,21 +123,22 @@ export const VERKOOPSTART_LABELS: Record<string, string> = {
 };
 
 // Pipeline kolommen per type (voor de Aankoop/Taxatie tabs)
-export const PIPELINE_STAGES_AANKOOP = [
-  { key: "LEAD", label: "Lead" },
-  { key: "GESPREK_GEPLAND", label: "Gesprek gepland" },
-  { key: "OTD_VERSTUURD", label: "OTD verstuurd" },
-  { key: "OTD_ONDERTEKEND", label: "OTD ondertekend" },
-  { key: "IN_VOORBEREIDING", label: "In voorbereiding" },
-  { key: "KOOPAKTE", label: "Koopakte" },
-  { key: "GEPASSEERD", label: "Gepasseerd" },
+// Direct als string arrays — labels komen uit STATUS_LABELS
+export const PIPELINE_STAGES_AANKOOP: string[] = [
+  "LEAD",
+  "GESPREK_GEPLAND",
+  "OTD_VERSTUURD",
+  "OTD_ONDERTEKEND",
+  "ACTIEF",
+  "KOOPAKTE",
+  "GEPASSEERD",
 ];
 
-export const PIPELINE_STAGES_TAXATIE = [
-  { key: "LEAD", label: "Lead" },
-  { key: "OTD_VERSTUURD", label: "OTD verstuurd" },
-  { key: "OTD_ONDERTEKEND", label: "OTD ondertekend" },
-  { key: "IN_UITVOERING", label: "In uitvoering" },
-  { key: "RAPPORT_CONCEPT", label: "Rapport concept" },
-  { key: "AFGEROND", label: "Afgerond" },
+export const PIPELINE_STAGES_TAXATIE: string[] = [
+  "LEAD",
+  "OTD_VERSTUURD",
+  "OTD_ONDERTEKEND",
+  "ACTIEF",
+  "RAPPORT_CONCEPT",
+  "AFGEROND",
 ];
