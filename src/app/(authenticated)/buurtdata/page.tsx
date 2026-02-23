@@ -418,9 +418,11 @@ function BuurtdataReport({ data }: { data: BuurtdataResult }) {
                   <strong className={lfColors.text}>
                     {lf.afwijking_tov_nl > 0.5
                       ? "Ruim boven gemiddeld"
-                      : lf.afwijking_tov_nl < -0.5
-                      ? "Onder gemiddeld"
-                      : "Iets beter dan gemiddeld"}
+                      : lf.afwijking_tov_nl > 0
+                      ? "Iets beter dan gemiddeld"
+                      : lf.afwijking_tov_nl > -0.5
+                      ? "Iets onder gemiddeld"
+                      : "Onder gemiddeld"}
                   </strong>
                 </p>
               )}
