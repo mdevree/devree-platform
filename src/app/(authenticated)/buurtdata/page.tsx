@@ -49,7 +49,15 @@ interface BuurtdataResult {
     wijk_naam: string;
     gemeente_naam: string;
   };
-  energielabel: string | null;
+  energielabel: {
+    klasse: string;
+    registratiedatum: string | null;
+    geldig_tot: string | null;
+    gebouwtype: string | null;
+    gebouwsubtype: string | null;
+    bouwjaar_ep: number | null;
+    bag_verblijfsobject_id: string | null;
+  } | null;
   buurtdata: {
     buurt_code: string;
     bevolking: {
@@ -354,7 +362,21 @@ function BuurtdataReport({ data }: { data: BuurtdataResult }) {
               label: "Gebruiksdoelen",
               value: data.verblijfsobject.gebruiksdoelen?.join(", ") || "—",
             },
-            { label: "Energielabel", value: data.energielabel ?? "Niet beschikbaar" },
+            {
+              label: "Energielabel",
+              value: data.energielabel ? data.energielabel.klasse : "Niet beschikbaar",
+            },
+            ...(data.energielabel?.gebouwtype
+              ? [{ label: "Gebouwtype", value: data.energielabel.gebouwtype }]
+              : []),
+            ...(data.energielabel?.geldig_tot
+              ? [
+                  {
+                    label: "Label geldig tot",
+                    value: new Date(data.energielabel.geldig_tot).toLocaleDateString("nl-NL"),
+                  },
+                ]
+              : []),
             ...(data.pand.pand_bouwjaar
               ? [{ label: "Pand bouwjaar", value: data.pand.pand_bouwjaar }]
               : []),
@@ -862,7 +884,7 @@ export default function BuurtdataPage() {
   return (
     <div>
       {/* ── Form – verborgen bij afdrukken ── */}
-      <div className="mb-8 print:hidden">
+      <div className="print-hidden-form mb-8 print:hidden">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Buurtdata</h1>

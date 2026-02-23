@@ -30,3 +30,41 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }
+
+/* ── Print styles ──────────────────────────────────────────────────────────── */
+@media print {
+  /* Verberg navigatie en header */
+  aside,
+  header,
+  nav {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Verwijder de sidebar-marge van de content wrapper */
+  .ml-64 {
+    margin-left: 0 !important;
+  }
+
+  /* Verberg form-elementen en knoppen op de buurtdata pagina */
+  .print-hidden-form {
+    display: none !important;
+  }
+
+  /* Zorg voor een witte achtergrond en zwarte tekst */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Geen schaduwen bij afdrukken */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Pagina-instellingen */
+  @page {
+    margin: 1.5cm;
+    size: A4 portrait;
+  }
+}
