@@ -426,6 +426,11 @@ export default function ProjectDetailPage() {
   const [contactSearchResults, setContactSearchResults] = useState<Array<{ id: number; firstname: string; lastname: string; email: string | null; phone: string | null; points: number }>>([]);
   const [contactSearchLoading, setContactSearchLoading] = useState(false);
   const [contactLinkSaving, setContactLinkSaving] = useState(false);
+  // Inline nieuw contact aanmaken vanuit koppelpanel
+  const [showInlineNewContact, setShowInlineNewContact] = useState(false);
+  const [inlineNewContact, setInlineNewContact] = useState({ firstname: "", lastname: "", email: "", phone: "", mobile: "", company: "" });
+  const [inlineNewContactSaving, setInlineNewContactSaving] = useState(false);
+  const [inlineNewContactError, setInlineNewContactError] = useState("");
 
   // Samenvoegen (merge) modal
   const [showMerge, setShowMerge] = useState(false);
@@ -794,6 +799,35 @@ export default function ProjectDetailPage() {
     setContactLinkSaving(false);
   }
 
+  async function handleInlineCreateAndLink(e: React.FormEvent) {
+    e.preventDefault();
+    setInlineNewContactSaving(true);
+    setInlineNewContactError("");
+    try {
+      // Stap 1: maak contact aan in Mautic
+      const createRes = await fetch("/api/mautic/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(inlineNewContact),
+      });
+      const createData = await createRes.json();
+      const newId = createData.id || createData.contact?.id;
+      if (!newId) {
+        setInlineNewContactError(createData.error || "Fout bij aanmaken contact");
+        setInlineNewContactSaving(false);
+        return;
+      }
+      // Stap 2: koppel contact aan project
+      await handleLinkContact(newId);
+      setShowInlineNewContact(false);
+      setShowAddContact(false);
+      setInlineNewContact({ firstname: "", lastname: "", email: "", phone: "", mobile: "", company: "" });
+    } catch {
+      setInlineNewContactError("Netwerkfout");
+    }
+    setInlineNewContactSaving(false);
+  }
+
   async function handleUnlinkContact(mauticContactId: number) {
     try {
       await fetch(`/api/projecten/${projectId}/contacts`, {
@@ -1152,8 +1186,46 @@ export default function ProjectDetailPage() {
                 ))}
               </ul>
             )}
-            {contactSearch.length >= 2 && !contactSearchLoading && contactSearchResults.length === 0 && (
-              <p className="mt-2 text-xs text-gray-400">Geen contacten gevonden</p>
+            {contactSearch.length >= 2 && !contactSearchLoading && contactSearchResults.length === 0 && !showInlineNewContact && (
+              <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+                <p className="text-xs text-gray-400">Geen contacten gevonden</p>
+                <button
+                  type="button"
+                  onClick={() => setShowInlineNewContact(true)}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  + Nieuw contact aanmaken
+                </button>
+              </div>
+            )}
+            {showInlineNewContact && (
+              <form onSubmit={handleInlineCreateAndLink} className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-primary">Nieuw contact aanmaken & koppelen</p>
+                  <button type="button" onClick={() => setShowInlineNewContact(false)} className="text-gray-400 hover:text-gray-600">
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input required type="text" placeholder="Voornaam *" value={inlineNewContact.firstname}
+                    onChange={(e) => setInlineNewContact((d) => ({ ...d, firstname: e.target.value }))}
+                    className="rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-primary focus:outline-none" />
+                  <input required type="text" placeholder="Achternaam *" value={inlineNewContact.lastname}
+                    onChange={(e) => setInlineNewContact((d) => ({ ...d, lastname: e.target.value }))}
+                    className="rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-primary focus:outline-none" />
+                  <input type="email" placeholder="E-mail" value={inlineNewContact.email}
+                    onChange={(e) => setInlineNewContact((d) => ({ ...d, email: e.target.value }))}
+                    className="rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-primary focus:outline-none" />
+                  <input type="tel" placeholder="Telefoon" value={inlineNewContact.phone}
+                    onChange={(e) => setInlineNewContact((d) => ({ ...d, phone: e.target.value }))}
+                    className="rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-primary focus:outline-none" />
+                </div>
+                {inlineNewContactError && <p className="text-xs text-red-600">{inlineNewContactError}</p>}
+                <button type="submit" disabled={inlineNewContactSaving}
+                  className="w-full rounded-md bg-primary py-1.5 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-50">
+                  {inlineNewContactSaving ? "Aanmaken..." : "Aanmaken & koppelen"}
+                </button>
+              </form>
             )}
           </div>
         )}
@@ -1777,7 +1849,9 @@ export default function ProjectDetailPage() {
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
                 {project.vraagprijs != null && (
                   <div>
-                    <dt className="text-xs text-gray-500">Vraagprijs</dt>
+                    <dt className="text-xs text-gray-500">
+                      {project.type === "AANKOOP" ? "Aankoopbudget" : project.type === "TAXATIE" ? "Taxatiewaarde" : "Vraagprijs"}
+                    </dt>
                     <dd className="mt-0.5 font-medium text-gray-900">€ {project.vraagprijs.toLocaleString("nl-NL")}</dd>
                   </div>
                 )}
@@ -2260,7 +2334,9 @@ export default function ProjectDetailPage() {
                   <div className="mt-3 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">Vraagprijs (€)</label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          {editData.type === "AANKOOP" ? "Aankoopbudget (€)" : editData.type === "TAXATIE" ? "Taxatiewaarde (€)" : "Vraagprijs (€)"}
+                        </label>
                         <input type="number" value={editData.vraagprijs} onChange={(e) => setEditData((d) => ({ ...d, vraagprijs: e.target.value }))}
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                       </div>

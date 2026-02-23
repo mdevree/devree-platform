@@ -150,6 +150,8 @@ export default function ProjectenPage() {
     woningPostcode: "",
     woningPlaats: "",
     courtagePercentage: "",
+    vraagprijs: "",
+    bijzondereAfspraken: "",
     verkoopmethode: "",
     kostenPubliciteit: "",
     kostenEnergielabel: "",
@@ -246,6 +248,8 @@ export default function ProjectenPage() {
       woningPostcode: "",
       woningPlaats: "",
       courtagePercentage: "",
+      vraagprijs: "",
+      bijzondereAfspraken: "",
       verkoopmethode: "",
       kostenPubliciteit: "",
       kostenEnergielabel: "",
@@ -264,6 +268,7 @@ export default function ProjectenPage() {
       const payload = {
         ...newProject,
         status: "lead", // legacy
+        vraagprijs: newProject.vraagprijs ? parseFloat(newProject.vraagprijs) : null,
         kostenPubliciteit: newProject.kostenPubliciteit ? parseInt(newProject.kostenPubliciteit) : null,
         kostenEnergielabel: newProject.kostenEnergielabel ? parseInt(newProject.kostenEnergielabel) : null,
         kostenIntrekking: newProject.kostenIntrekking ? parseInt(newProject.kostenIntrekking) : null,
@@ -777,6 +782,18 @@ export default function ProjectenPage() {
                   <div className="mb-3 rounded-lg border border-gray-100 p-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
+                          {newProject.type === "AANKOOP" ? "Aankoopbudget (€)" : newProject.type === "TAXATIE" ? "Taxatiewaarde (€)" : "Vraagprijs (€)"}
+                        </label>
+                        <input
+                          type="number"
+                          value={newProject.vraagprijs}
+                          onChange={(e) => setNewProject((p) => ({ ...p, vraagprijs: e.target.value }))}
+                          placeholder="Bijv. 350000"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
                         <label className="mb-1 block text-xs font-medium text-gray-600">Courtage %</label>
                         <input
                           type="text"
@@ -845,6 +862,16 @@ export default function ProjectenPage() {
                           </div>
                         </>
                       )}
+                      <div className="col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Bijzondere afspraken</label>
+                        <textarea
+                          value={newProject.bijzondereAfspraken}
+                          onChange={(e) => setNewProject((p) => ({ ...p, bijzondereAfspraken: e.target.value }))}
+                          rows={2}
+                          placeholder="Optionele aantekeningen..."
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

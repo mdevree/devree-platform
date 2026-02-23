@@ -13,6 +13,7 @@ import {
   TrashIcon,
   PencilSquareIcon,
   XMarkIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
 
 const MAUTIC_URL =
@@ -163,6 +164,14 @@ export default function ContactenPage() {
   const [contactEditSaving, setContactEditSaving] = useState(false);
   const [contactEditMessage, setContactEditMessage] = useState("");
 
+  // Nieuw contact aanmaken
+  const [showNewContact, setShowNewContact] = useState(false);
+  const [newContactData, setNewContactData] = useState({
+    firstname: "", lastname: "", email: "", phone: "", mobile: "", company: "",
+  });
+  const [newContactSaving, setNewContactSaving] = useState(false);
+  const [newContactError, setNewContactError] = useState("");
+
   // AI profiel bewerken
   const [editingAiProfile, setEditingAiProfile] = useState(false);
   const [aiProfileData, setAiProfileData] = useState<AiProfileData>({});
@@ -245,6 +254,30 @@ export default function ContactenPage() {
       console.error("Fout bij ophalen contact detail");
     }
     setPanelLoading(false);
+  }
+
+  async function handleCreateContact(e: React.FormEvent) {
+    e.preventDefault();
+    setNewContactSaving(true);
+    setNewContactError("");
+    try {
+      const res = await fetch("/api/mautic/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newContactData),
+      });
+      const data = await res.json();
+      if (data.id || data.contact) {
+        setShowNewContact(false);
+        setNewContactData({ firstname: "", lastname: "", email: "", phone: "", mobile: "", company: "" });
+        fetchContacts();
+      } else {
+        setNewContactError(data.error || "Fout bij aanmaken contact");
+      }
+    } catch {
+      setNewContactError("Netwerkfout");
+    }
+    setNewContactSaving(false);
   }
 
   async function handleSaveContactFields() {
@@ -482,11 +515,20 @@ export default function ContactenPage() {
               Mautic CRM — meest recent actieve contacten
             </p>
           </div>
-          {pagination && (
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">
-              {pagination.total.toLocaleString("nl-NL")} contacten
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {pagination && (
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">
+                {pagination.total.toLocaleString("nl-NL")} contacten
+              </span>
+            )}
+            <button
+              onClick={() => { setShowNewContact(true); setNewContactError(""); }}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Nieuw contact
+            </button>
+          </div>
         </div>
 
         {/* Zoekbalk */}
@@ -941,6 +983,110 @@ export default function ContactenPage() {
                 </a>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== NIEUW CONTACT MODAL ===== */}
+      {showNewContact && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900">Nieuw contact aanmaken</h2>
+              <button
+                onClick={() => setShowNewContact(false)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateContact} className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Voornaam *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newContactData.firstname}
+                    onChange={(e) => setNewContactData((d) => ({ ...d, firstname: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    placeholder="Jan"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Achternaam *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newContactData.lastname}
+                    onChange={(e) => setNewContactData((d) => ({ ...d, lastname: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    placeholder="de Vries"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">E-mail</label>
+                <input
+                  type="email"
+                  value={newContactData.email}
+                  onChange={(e) => setNewContactData((d) => ({ ...d, email: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  placeholder="jan@example.nl"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Telefoon</label>
+                  <input
+                    type="tel"
+                    value={newContactData.phone}
+                    onChange={(e) => setNewContactData((d) => ({ ...d, phone: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    placeholder="010-1234567"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Mobiel</label>
+                  <input
+                    type="tel"
+                    value={newContactData.mobile}
+                    onChange={(e) => setNewContactData((d) => ({ ...d, mobile: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    placeholder="06-12345678"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Bedrijf</label>
+                <input
+                  type="text"
+                  value={newContactData.company}
+                  onChange={(e) => setNewContactData((d) => ({ ...d, company: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  placeholder="Optioneel"
+                />
+              </div>
+              {newContactError && (
+                <p className="text-sm text-red-600">{newContactError}</p>
+              )}
+              <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNewContact(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Annuleren
+                </button>
+                <button
+                  type="submit"
+                  disabled={newContactSaving}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+                >
+                  {newContactSaving ? "Aanmaken..." : "Contact aanmaken"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
