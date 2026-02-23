@@ -262,6 +262,7 @@ function AirQualityRow({
   euNorm,
   dataLabel,
   qualityLabel,
+  nlGemiddeld,
 }: {
   label: string;
   value: number | null;
@@ -270,6 +271,7 @@ function AirQualityRow({
   euNorm: number;
   dataLabel: string;
   qualityLabel: string | null;
+  nlGemiddeld?: number;
 }) {
   const colorClass = luchtkwaliteitColor(value, whoNorm);
   const belowWho = value !== null && value <= whoNorm;
@@ -285,6 +287,9 @@ function AirQualityRow({
           {fmt(value)} <span className="text-xs font-normal">{unit}</span>
         </p>
         {qualityLabel && <p className="text-[11px] text-gray-500">{qualityLabel}</p>}
+        {nlGemiddeld !== undefined && (
+          <p className="text-[10px] text-gray-400">NL gem. ~{nlGemiddeld} {unit}</p>
+        )}
       </div>
       <div className="col-span-3 text-center">
         <p className="text-[10px] text-gray-400">WHO norm</p>
@@ -364,7 +369,7 @@ function BuurtdataReport({ data }: { data: BuurtdataResult }) {
             },
             {
               label: "Energielabel",
-              value: data.energielabel ? data.energielabel.klasse : "Niet beschikbaar",
+              value: data.energielabel ? data.energielabel.klasse : "Niet geregistreerd",
             },
             ...(data.energielabel?.gebouwtype
               ? [{ label: "Gebouwtype", value: data.energielabel.gebouwtype }]
@@ -409,14 +414,13 @@ function BuurtdataReport({ data }: { data: BuurtdataResult }) {
               </p>
               {lf.afwijking_tov_nl !== null && (
                 <p className="mt-1 text-sm text-gray-500">
-                  Afwijking t.o.v. Nederland:{" "}
-                  <strong
-                    className={
-                      lf.afwijking_tov_nl > 0 ? "text-green-600" : "text-red-600"
-                    }
-                  >
-                    {lf.afwijking_tov_nl > 0 ? "+" : ""}
-                    {lf.afwijking_tov_nl.toFixed(2)}
+                  t.o.v. Nederland:{" "}
+                  <strong className={lfColors.text}>
+                    {lf.afwijking_tov_nl > 0.5
+                      ? "Ruim boven gemiddeld"
+                      : lf.afwijking_tov_nl < -0.5
+                      ? "Onder gemiddeld"
+                      : "Iets beter dan gemiddeld"}
                   </strong>
                 </p>
               )}
@@ -757,7 +761,7 @@ function BuurtdataReport({ data }: { data: BuurtdataResult }) {
                   {row.lden_db !== null ? `${row.lden_db} dB` : "—"}
                 </span>
                 <span className="text-sm text-gray-500">
-                  {row.label ?? (row.lden_db === null ? "Geen data" : "")}
+                  {row.label ?? (row.lden_db === null ? "Buiten geluidscontour" : "")}
                 </span>
                 <span className="ml-auto text-[10px] italic text-gray-400">{row.data}</span>
               </div>
@@ -778,6 +782,7 @@ function BuurtdataReport({ data }: { data: BuurtdataResult }) {
               whoNorm={lk.normen.who_2021.no2}
               euNorm={lk.normen.eu_2024.no2}
               qualityLabel={lk.no2.label}
+              nlGemiddeld={15}
             />
             <AirQualityRow
               label="Fijnstof (PM2,5)"
@@ -787,6 +792,7 @@ function BuurtdataReport({ data }: { data: BuurtdataResult }) {
               whoNorm={lk.normen.who_2021.pm25}
               euNorm={lk.normen.eu_2024.pm25}
               qualityLabel={lk.pm25.label}
+              nlGemiddeld={8}
             />
             <AirQualityRow
               label="Fijnstof (PM10)"
