@@ -7,6 +7,7 @@ import {
   FolderIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import Greeting from "@/components/Greeting";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -15,9 +16,7 @@ export default async function DashboardPage() {
     <div>
       {/* Welkom */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Goedemorgen, {session?.user?.name?.split(" ")[0]}
-        </h1>
+        <Greeting name={session?.user?.name?.split(" ")[0]} />
         <p className="mt-1 text-gray-500">
           Welkom bij het kantoor platform van De Vree Makelaardij.
         </p>

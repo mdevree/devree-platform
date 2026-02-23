@@ -18,7 +18,7 @@ export default async function AuthenticatedLayout({
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="ml-64 flex flex-1 flex-col">
+      <div className="ml-64 flex flex-1 flex-col print:ml-0">
         <Header />
         <main className="flex-1 p-6">{children}</main>
       </div>

@@ -14,6 +14,7 @@ import {
   UsersIcon,
   ChartBarIcon,
   Cog6ToothIcon,
+  MapPinIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -24,6 +25,7 @@ const navigation = [
   { name: "Pipeline", href: "/pipeline", icon: ChartBarIcon },
   { name: "Taken", href: "/taken", icon: ClipboardDocumentListIcon },
   { name: "Notion", href: "/notion", icon: Squares2X2Icon },
+  { name: "Buurtdata", href: "/buurtdata", icon: MapPinIcon },
 ];
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -51,7 +53,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-gray-200 bg-white">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-gray-200 bg-white print:hidden">
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-gray-200 px-4">
         <Link href="/dashboard" className="flex items-center">

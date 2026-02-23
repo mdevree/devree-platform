@@ -10,7 +10,7 @@ export default function Header() {
   const { data: session } = useSession();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6 print:hidden">
       <div />
 
       {/* Gebruiker info */}
