@@ -4,11 +4,15 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 
 ## Modules
 
+- **Dashboard** — Tijdsgebonden begroeting, overzicht van openstaande taken en recente activiteit
 - **Telefonie** — Live call popups, call history, Mautic CRM koppeling, notities per gesprek, contact detail panel met AI data profiel
 - **Taken** — Kanban + tabeloverzicht, per makelaar en centraal voor binnendienst, met tijdregistratie per taak
-- **Projecten** — Woningdossiers gekoppeld aan taken, gesprekken en Notion. Overzicht toont totale geregistreerde tijd per project
+- **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info en kosten. Projecten kunnen worden samengevoegd
+- **Contacten** — Mautic CRM overzicht met zoekfunctie, contactdetails bewerken, AI data profiel en email activiteit. Nieuw contact aanmaken direct vanuit de pagina
+- **Pipeline** — Kanban-board op basis van `verkoopgesprek_status` uit Mautic, met interesse-scores en AI profielen
+- **Buurtdata** — Opzoeken van wijkdata op basis van postcode + huisnummer via n8n. Genereert een printbaar rapport met: BAG-gegevens, leefbaarheidsscore, bevolkingssamenstelling, huishoudens, woningmarkt, inkomen, bereikbaarheid, klimaat, geluidsbelasting en luchtkwaliteit
 - **Tijdregistratie** — Timer per taak (start/pauze/stop) + handmatig tijd toevoegen, logboek van sessies, beschikbaar via API
-- **Mautic** — CRM contact opzoeken, aanmaken en bijwerken (inclusief AI data profiel)
+- **Mautic** — CRM contacten opzoeken, aanmaken en bijwerken (inclusief AI data profiel en email activiteit)
 - **Notion** — Bidirectionele sync via n8n webhooks
 
 ## Tech Stack
@@ -189,14 +193,19 @@ Reset `totalTimeSpent` naar `0`, verwijdert alle `TimeEntry` records en stopt ee
 | `POST` | `/api/projecten` | Maak een nieuw project aan |
 | `PATCH` | `/api/projecten` | Werk een bestaand project bij |
 | `DELETE` | `/api/projecten` | Verwijder een project (ontkoppelt taken en calls eerst) |
-| `GET` | `/api/projecten/[id]` | Haal één project op inclusief alle taken en calls |
+| `GET` | `/api/projecten/[id]` | Haal één project op inclusief alle taken, calls en contacten |
+| `POST` | `/api/projecten/[id]/contacts` | Koppel een Mautic contact aan een project |
+| `DELETE` | `/api/projecten/[id]/contacts` | Ontkoppel een Mautic contact van een project |
+| `GET` | `/api/projecten/merge` | Preview van het samenvoegen van twee projecten |
+| `POST` | `/api/projecten/merge` | Voeg twee projecten samen (taken, calls en contacten verplaatst naar doelproject) |
 | `POST` | `/api/projecten/webhook` | Verwerk projecten van n8n / Notion sync (upsert op `notionPageId`) |
 
 #### `GET /api/projecten` — Query parameters
 
 | Parameter | Type | Omschrijving |
 |-----------|------|--------------|
-| `status` | `string` | Filter op projectstatus: `lead`, `actief`, `afgerond`, `geannuleerd` |
+| `type` | `string` | Filter op projecttype: `VERKOOP` \| `AANKOOP` \| `TAXATIE` |
+| `statusGroup` | `string` | Filter op statusgroep: `lead` \| `active` \| `terminal` |
 | `search` | `string` | Zoekterm — doorzoekt naam, adres, contactnaam en e-mail |
 | `page` | `number` | Paginanummer (standaard: `1`) |
 | `limit` | `number` | Aantal resultaten per pagina (standaard: `50`) |
@@ -212,27 +221,55 @@ Reset `totalTimeSpent` naar `0`, verwijdert alle `TimeEntry` records en stopt ee
 Elk project bevat:
 - `_count.tasks` en `_count.calls` — aantal gekoppelde taken en gesprekken
 - `calls` — lijst met calls inclusief `_count.notes` per gesprek
+- `contacts` — gekoppelde Mautic contacten (via `ProjectContact`)
 - `totalTimeSpent` — som van alle `totalTimeSpent` van gekoppelde taken (in seconden)
-
-#### `GET /api/projecten/[id]`
-
-Geeft één project terug inclusief:
-- alle gekoppelde taken (met toegewezen gebruiker en maker)
-- de laatste 50 calls inclusief `_count.notes` per gesprek
 
 #### `POST /api/projecten` — Body
 
 | Veld | Vereist | Omschrijving |
 |------|---------|--------------|
 | `name` | ✅ | Projectnaam |
+| `type` | | `VERKOOP` \| `AANKOOP` \| `TAXATIE` (standaard: `VERKOOP`) |
+| `projectStatus` | | Projectstatus conform `STATUS_FLOW` (standaard: `LEAD`) |
 | `description` | | Omschrijving |
-| `status` | | Projectstatus (standaard: `lead`) |
-| `address` | | Adres van het object |
-| `contactName` | | Naam contactpersoon |
-| `contactPhone` | | Telefoonnummer contactpersoon |
-| `contactEmail` | | E-mail contactpersoon |
+| `verkoopstart` | | `DIRECT` \| `UITGESTELD` \| `SLAPEND` (alleen bij VERKOOP) |
+| `startdatum` | | Beoogde startdatum (bij UITGESTELD) |
+| `startReden` | | Reden voor uitstel / slapend |
+| `woningAdres` | | Adres van het object |
+| `woningPostcode` | | Postcode van het object |
+| `woningPlaats` | | Woonplaats van het object |
+| `woningOppervlakte` | | Oppervlakte (vrij tekstveld, bijv. `"120 m²"`) |
+| `kadGemeente` / `kadSectie` / `kadNummer` | | Kadastrale gegevens |
+| `vraagprijs` | | Vraagprijs (VERKOOP) / Aankoopbudget (AANKOOP) / Taxatiewaarde (TAXATIE) in € |
+| `courtagePercentage` | | Courtage percentage (bijv. `"1.2"`) |
+| `verkoopmethode` | | Verkoopmethode (alleen VERKOOP) |
+| `bijzondereAfspraken` | | Vrije tekst voor bijzondere afspraken |
+| `kostenPubliciteit` / `kostenEnergielabel` / `kostenJuridisch` / `kostenBouwkundig` / `kostenIntrekking` / `kostenBedenktijd` | | Kostenposten in € (integers, alleen VERKOOP) |
+| `contactName` / `contactPhone` / `contactEmail` | | Legacy contactvelden |
 | `notionPageId` | | Notion pagina ID voor sync |
-| `mauticContactId` | | Mautic contact ID |
+| `realworksId` | | Koppelt het project aan de woning op de website via Realworks ID |
+
+#### `POST /api/projecten/[id]/contacts` — Body
+
+```json
+{ "mauticContactId": 123, "role": "opdrachtgever" }
+```
+
+Upsert — als het contact al gekoppeld is, wordt alleen de `role` bijgewerkt.
+
+#### `DELETE /api/projecten/[id]/contacts` — Body
+
+```json
+{ "mauticContactId": 123 }
+```
+
+#### `POST /api/projecten/merge` — Body
+
+```json
+{ "sourceId": "project-id-1", "targetId": "project-id-2" }
+```
+
+Alle taken, calls en contacten van `sourceId` worden verplaatst naar `targetId`. `sourceId` wordt daarna verwijderd.
 
 #### `POST /api/projecten/webhook` — Notion/n8n sync
 
@@ -342,6 +379,11 @@ Verwerkt alle call statussen: `ringing`, `in-progress`, `ended`. Zoekt automatis
 | `GET` | `/api/mautic/contact?id=123&full=1` | Haal volledig contact op (adres, tags, AI profiel) |
 | `POST` | `/api/mautic/contact` | Maak een nieuw contact aan in Mautic |
 | `PATCH` | `/api/mautic/contact` | Werk contact velden bij in Mautic |
+| `GET` | `/api/mautic/contacts` | Haal contacten op met zoekterm en paginering |
+| `GET` | `/api/mautic/contacts/pipeline` | Haal pipeline-contacten op (gefilterd op `verkoopgesprek_status`) |
+| `GET` | `/api/mautic/events` | Haal email events op per contact (clicks en opens) |
+| `GET` | `/api/mautic/events/summary` | Samenvatting van email activiteit per contact |
+| `POST` | `/api/mautic/events/webhook` | Verwerk inkomende Mautic email events (click/open) |
 
 #### `POST /api/mautic/contact` — Body
 
@@ -367,9 +409,30 @@ Verwerkt alle call statussen: `ringing`, `in-progress`, `ended`. Zoekt automatis
 
 Kan elk Mautic contactveld bijwerken, inclusief het custom veld `ai_profiel_data` (JSON string).
 
+#### `GET /api/mautic/contacts` — Query parameters
+
+| Parameter | Type | Omschrijving |
+|-----------|------|--------------|
+| `search` | `string` | Zoekterm (naam, e-mail, telefoon) |
+| `page` | `number` | Paginanummer (standaard: `1`) |
+| `limit` | `number` | Aantal resultaten per pagina (standaard: `30`) |
+
+#### `GET /api/mautic/events` — Query parameters
+
+| Parameter | Type | Omschrijving |
+|-----------|------|--------------|
+| `contactId` | `number` | ✅ Mautic contact ID |
+| `limit` | `number` | Aantal events (standaard: `20`) |
+
+#### `POST /api/mautic/events/webhook` — Body
+
+Header: `x-webhook-secret`
+
+Verwacht een Mautic webhook payload met `email.click` of `email.open` events. Events worden opgeslagen in de lokale `MauticEvent` tabel.
+
 #### AI Data Profiel
 
-Het AI data profiel wordt opgeslagen als JSON-string in het Mautic custom veld `ai_profiel_data` (type: textarea). Dit is een vrij key-value object dat via het contact detail panel in de telefonie module beheerd kan worden.
+Het AI data profiel wordt opgeslagen als JSON-string in het Mautic custom veld `ai_profiel_data` (type: textarea). Dit is een vrij key-value object dat via het contact detail panel in de telefonie en contacten module beheerd kan worden.
 
 Voorbeeld inhoud:
 ```json
@@ -382,6 +445,27 @@ Voorbeeld inhoud:
 ```
 
 De velden zijn dynamisch — medewerkers kunnen vrij velden toevoegen, aanpassen en verwijderen.
+
+---
+
+### Buurtdata `/api/buurtdata`
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `POST` | `/api/buurtdata` | Proxy naar n8n webhook — haalt wijkdata op via postcode + huisnummer |
+
+#### `POST /api/buurtdata` — Body
+
+| Veld | Vereist | Omschrijving |
+|------|---------|--------------|
+| `postcode` | ✅ | Postcode (wordt genormaliseerd: spaties verwijderd, hoofdletters) |
+| `huisnummer` | ✅ | Huisnummer (integer) |
+| `huisletter` | | Optionele huisletter |
+| `huisnummer_toevoeging` | | Optionele toevoeging |
+
+De response bevat een uitgebreid JSON-object met onder andere: BAG-gegevens (oppervlakte, bouwjaar, gebruiksdoel), leefbaarheidscore, bevolkingsopbouw, woningmarktdata, inkomen, bereikbaarheid, klimaatdata, geluidsbelasting en luchtkwaliteit. Timeout: 30 seconden.
+
+De buurtdata pagina (`/buurtdata`) toont deze data als een printbaar rapport geschikt om met klanten te delen.
 
 ---
 
@@ -406,7 +490,35 @@ Elke timersessie per taak wordt opgeslagen als een aparte `TimeEntry`.
 | `stoppedAt` | `DateTime?` | Einde van de sessie (`null` als nog lopend) |
 | `duration` | `Int` | Duur in seconden (0 als nog lopend) |
 
-**SQL voor handmatige migratie:**
+### ProjectContact
+
+Koppelt meerdere Mautic contacten aan een project. Vervangt de legacy `contactName` / `contactPhone` / `contactEmail` velden.
+
+| Veld | Type | Omschrijving |
+|------|------|--------------|
+| `projectId` | `String` | Verwijzing naar het project |
+| `mauticContactId` | `Int` | Mautic contact ID |
+| `role` | `String` | Rol van het contact, bijv. `opdrachtgever`, `partner` |
+| `label` | `String?` | Optioneel vrij label |
+| `addedBy` | `String?` | E-mail van de medewerker die het contact heeft gekoppeld |
+
+Unieke constraint op `(projectId, mauticContactId)`.
+
+### MauticEvent
+
+Lokale opslag van Mautic email activiteit (clicks en opens) voor weergave in contactpanels.
+
+| Veld | Type | Omschrijving |
+|------|------|--------------|
+| `mauticContactId` | `Int` | Mautic contact ID |
+| `eventType` | `String` | `email.click` of `email.open` |
+| `emailName` | `String?` | Naam van de e-mailcampagne |
+| `clickedUrl` | `String?` | Aangeklikte URL (bij `email.click`) |
+| `occurredAt` | `DateTime` | Tijdstip van het event |
+
+---
+
+**SQL voor handmatige migraties (tijdregistratie):**
 ```sql
 ALTER TABLE tasks ADD COLUMN timerStartedAt DATETIME NULL;
 ALTER TABLE tasks ADD COLUMN totalTimeSpent INT NOT NULL DEFAULT 0;
@@ -456,4 +568,4 @@ npm run dev
 
 Automatisch via GitHub Actions → GHCR → Portainer. Push naar `main` triggert een build en deploy.
 
-> **Let op:** database migraties worden handmatig uitgevoerd via SQL. De container draait geen automatische `prisma db push` bij opstarten.
+> **Let op:** database migraties worden handmatig uitgevoerd via SQL of `npx prisma db push`. De container draait geen automatische migraties bij opstarten.
