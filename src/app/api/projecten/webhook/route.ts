@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * POST /api/projecten/webhook
- * Ontvang project data van n8n (Notion sync)
- * Upsert op basis van notionPageId
+ * Ontvang project data van n8n
+ * - Met notionPageId: upsert op basis van notionPageId
+ * - Zonder notionPageId: maak nieuw project aan (bijv. vanuit NWWI taxatie flow)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -20,34 +21,68 @@ export async function POST(request: NextRequest) {
     const payload = await request.json();
     const data = payload.body || payload;
 
-    if (!data.notionPageId) {
+    if (!data.name && !data.notionPageId) {
       return NextResponse.json(
-        { error: "notionPageId is verplicht" },
+        { error: "name of notionPageId is verplicht" },
         { status: 400 }
       );
     }
 
     const mauticContactId = data.mauticContactId ? parseInt(data.mauticContactId) : null;
 
-    const projectData = {
+    // Hypotheekadviseur koppelen via ID of naam
+    let hypotheekAdviseurId: string | null = null;
+    if (data.hypotheekAdviseurId) {
+      hypotheekAdviseurId = data.hypotheekAdviseurId;
+    } else if (data.hypotheekAdviseurNaam) {
+      const adviseur = await prisma.hypotheekAdviseur.findFirst({
+        where: { naam: data.hypotheekAdviseurNaam, actief: true },
+      });
+      if (adviseur) {
+        hypotheekAdviseurId = adviseur.id;
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const projectData: any = {
       name: data.name || "Naamloos project",
       description: data.description || null,
+      type: data.type || "VERKOOP",
+      projectStatus: data.projectStatus || "LEAD",
       status: data.status || "lead",
       address: data.address || null,
       contactName: data.contactName || null,
       contactPhone: data.contactPhone || null,
       contactEmail: data.contactEmail || null,
       mauticContactId,
+      // Woning velden
+      woningAdres: data.woningAdres || null,
+      woningPostcode: data.woningPostcode || null,
+      woningPlaats: data.woningPlaats || null,
     };
 
-    const project = await prisma.project.upsert({
-      where: { notionPageId: data.notionPageId },
-      update: projectData,
-      create: {
-        ...projectData,
-        notionPageId: data.notionPageId,
-      },
-    });
+    if (hypotheekAdviseurId) {
+      projectData.hypotheekAdviseurId = hypotheekAdviseurId;
+    }
+
+    let project;
+
+    if (data.notionPageId) {
+      // Upsert op basis van notionPageId (bestaande Notion sync flow)
+      project = await prisma.project.upsert({
+        where: { notionPageId: data.notionPageId },
+        update: projectData,
+        create: {
+          ...projectData,
+          notionPageId: data.notionPageId,
+        },
+      });
+    } else {
+      // Nieuw project aanmaken (bijv. vanuit n8n NWWI taxatie flow)
+      project = await prisma.project.create({
+        data: projectData,
+      });
+    }
 
     // Als er een mauticContactId meegegeven is, ook upserten in project_contacts
     if (mauticContactId) {
@@ -69,7 +104,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      project: { id: project.id, name: project.name, status: project.status },
+      project: {
+        id: project.id,
+        name: project.name,
+        type: project.type,
+        projectStatus: project.projectStatus,
+        status: project.status,
+        hypotheekAdviseurId: project.hypotheekAdviseurId,
+      },
       action: project.createdAt.getTime() === project.updatedAt.getTime() ? "created" : "updated",
     });
   } catch (error) {
