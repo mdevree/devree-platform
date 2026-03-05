@@ -30,16 +30,40 @@ export async function POST(request: NextRequest) {
 
     const mauticContactId = data.mauticContactId ? parseInt(data.mauticContactId) : null;
 
-    // Hypotheekadviseur koppelen via ID of naam
+    // Hypotheekadviseur koppelen via ID, bedrijfsnaam of naam
+    // Zoekt eerst op bedrijfsnaam, dan op naam. Maakt automatisch aan als niet gevonden.
     let hypotheekAdviseurId: string | null = null;
     if (data.hypotheekAdviseurId) {
       hypotheekAdviseurId = data.hypotheekAdviseurId;
-    } else if (data.hypotheekAdviseurNaam) {
-      const adviseur = await prisma.hypotheekAdviseur.findFirst({
-        where: { naam: data.hypotheekAdviseurNaam, actief: true },
-      });
+    } else if (data.hypotheekAdviseurBedrijf || data.hypotheekAdviseurNaam) {
+      // Zoek op bedrijfsnaam (meest uniek)
+      let adviseur = null;
+      if (data.hypotheekAdviseurBedrijf) {
+        adviseur = await prisma.hypotheekAdviseur.findFirst({
+          where: { bedrijf: data.hypotheekAdviseurBedrijf, actief: true },
+        });
+      }
+      // Fallback: zoek op naam
+      if (!adviseur && data.hypotheekAdviseurNaam) {
+        adviseur = await prisma.hypotheekAdviseur.findFirst({
+          where: { naam: data.hypotheekAdviseurNaam, actief: true },
+        });
+      }
+
       if (adviseur) {
         hypotheekAdviseurId = adviseur.id;
+      } else {
+        // Automatisch aanmaken als niet gevonden
+        const nieuw = await prisma.hypotheekAdviseur.create({
+          data: {
+            naam: data.hypotheekAdviseurNaam || data.hypotheekAdviseurBedrijf,
+            bedrijf: data.hypotheekAdviseurBedrijf || null,
+            email: data.hypotheekAdviseurEmail || null,
+            telefoon: data.hypotheekAdviseurTelefoon || null,
+            actief: true,
+          },
+        });
+        hypotheekAdviseurId = nieuw.id;
       }
     }
 
