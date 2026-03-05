@@ -221,6 +221,7 @@ export default function TakenPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -368,6 +369,22 @@ export default function TakenPage() {
       console.error("Fout bij verwijderen taak");
     }
     setDeleting(false);
+  }
+
+  async function handleDirectDelete(taskId: string) {
+    try {
+      const response = await fetch("/api/taken", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: taskId }),
+      });
+      if (response.ok) {
+        setDeleteConfirmId(null);
+        fetchTasks();
+      }
+    } catch {
+      console.error("Fout bij verwijderen taak");
+    }
   }
 
   async function updateTaskStatus(taskId: string, newStatus: string) {
@@ -526,6 +543,32 @@ export default function TakenPage() {
                             >
                               <PencilSquareIcon className="h-3.5 w-3.5" />
                             </button>
+                            {deleteConfirmId === task.id ? (
+                              <>
+                                <button
+                                  onClick={() => handleDirectDelete(task.id)}
+                                  className="rounded p-0.5 text-red-500 transition-colors hover:bg-red-100"
+                                  title="Bevestig verwijderen"
+                                >
+                                  <TrashIcon className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirmId(null)}
+                                  className="rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100"
+                                  title="Annuleer"
+                                >
+                                  <XMarkIcon className="h-3.5 w-3.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => setDeleteConfirmId(task.id)}
+                                className="rounded p-0.5 text-gray-300 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                                title="Taak verwijderen"
+                              >
+                                <TrashIcon className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -680,13 +723,41 @@ export default function TakenPage() {
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => openEditModal(task)}
-                      className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                      title="Taak bewerken"
-                    >
-                      <PencilSquareIcon className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditModal(task)}
+                        className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                        title="Taak bewerken"
+                      >
+                        <PencilSquareIcon className="h-4 w-4" />
+                      </button>
+                      {deleteConfirmId === task.id ? (
+                        <>
+                          <button
+                            onClick={() => handleDirectDelete(task.id)}
+                            className="rounded p-1 text-red-500 transition-colors hover:bg-red-100"
+                            title="Bevestig verwijderen"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100"
+                            title="Annuleer"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirmId(task.id)}
+                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                          title="Taak verwijderen"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
