@@ -15,6 +15,8 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   MapPinIcon,
+  UserGroupIcon,
+  BuildingOfficeIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -26,6 +28,8 @@ const navigation = [
   { name: "Taken", href: "/taken", icon: ClipboardDocumentListIcon },
   { name: "Notion", href: "/notion", icon: Squares2X2Icon },
   { name: "Buurtdata", href: "/buurtdata", icon: MapPinIcon },
+  { name: "Kijkers", href: "/leads", icon: UserGroupIcon },
+  { name: "Samenwerkingen", href: "/samenwerkingen", icon: BuildingOfficeIcon },
 ];
 
 function WhatsAppIcon({ className }: { className?: string }) {

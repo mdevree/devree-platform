@@ -44,6 +44,13 @@ enum Verkoopmethode {
   BIEDEN_ZONDER_BIEDTERMIJN
 }
 
+enum LeadStatus {
+  KIJKER
+  ZOEKER
+  CONVERTED
+  INACTIEF
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -109,11 +116,14 @@ model Project {
   kostenBedenktijd    Int?
 
   // Relaties
-  contacts        ProjectContact[]
-  tasks           Task[]
-  calls           Call[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  contacts            ProjectContact[]
+  tasks               Task[]
+  calls               Call[]
+  leadProjecten       LeadProject[]
+  hypotheekAdviseur   HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
+  hypotheekAdviseurId String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   @@index([status])
   @@index([projectStatus])
@@ -121,6 +131,7 @@ model Project {
   @@index([notionPageId])
   @@index([mauticContactId])
   @@index([realworksId])
+  @@index([hypotheekAdviseurId])
   @@map("projects")
 }
 
@@ -248,4 +259,55 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+model HypotheekAdviseur {
+  id        String    @id @default(cuid())
+  naam      String
+  bedrijf   String?
+  email     String?
+  telefoon  String?
+  notities  String?   @db.Text
+  actief    Boolean   @default(true)
+  leads     Lead[]
+  projecten Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("hypotheek_adviseurs")
+}
+
+model Lead {
+  id                     String             @id @default(cuid())
+  mauticContactId        String?
+  naam                   String
+  email                  String?
+  telefoon               String?
+  status                 LeadStatus         @default(KIJKER)
+  notities               String?            @db.Text
+  hypotheekAdviseur      HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
+  hypotheekAdviseurId    String?
+  hypotheekAdviseurDatum DateTime?
+  projecten              LeadProject[]
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([status])
+  @@index([hypotheekAdviseurId])
+  @@index([mauticContactId])
+  @@map("leads")
+}
+
+model LeadProject {
+  id        String   @id @default(cuid())
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId    String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  addedAt   DateTime @default(now())
+
+  @@unique([leadId, projectId])
+  @@index([leadId])
+  @@index([projectId])
+  @@map("lead_projects")
 }

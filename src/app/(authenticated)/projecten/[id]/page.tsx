@@ -197,6 +197,9 @@ interface Project {
   notionPageId: string | null;
   mauticContactId: number | null;
   realworksId: string | null;
+  // Hypotheekadviseur (alleen relevant bij TAXATIE)
+  hypotheekAdviseurId: string | null;
+  hypotheekAdviseur: { id: string; naam: string; bedrijf: string | null } | null;
   contacts: ProjectContact[];
   tasks: Task[];
   calls: Call[];
@@ -454,6 +457,10 @@ export default function ProjectDetailPage() {
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState("");
 
+  // Hypotheekadviseurs (voor TAXATIE koppeling)
+  const [adviseurs, setAdviseurs] = useState<{ id: string; naam: string; bedrijf: string | null }[]>([]);
+  const [adviseurSaving, setAdviseurSaving] = useState(false);
+
   // Verrijkte contact namen (geladen na project fetch)
   const [enrichedContacts, setEnrichedContacts] = useState<Record<number, { name: string; points: number; lastActive: string | null }>>({});
 
@@ -497,6 +504,32 @@ export default function ProjectDetailPage() {
   }, []);
 
   useEffect(() => { fetchProject(); fetchUsers(); }, [fetchProject, fetchUsers]);
+
+  // Laad hypotheekadviseurs zodra project TAXATIE is
+  useEffect(() => {
+    if (project?.type === "TAXATIE" && adviseurs.length === 0) {
+      fetch("/api/hypotheekadviseurs?actief=true")
+        .then((r) => r.json())
+        .then((d) => setAdviseurs(d.adviseurs || []));
+    }
+  }, [project?.type, adviseurs.length]);
+
+  async function handleAdviseurChange(adviseurId: string) {
+    if (!project) return;
+    setAdviseurSaving(true);
+    try {
+      const res = await fetch(`/api/projecten/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hypotheekAdviseurId: adviseurId || null }),
+      });
+      if (res.ok) {
+        await fetchProject();
+      }
+    } finally {
+      setAdviseurSaving(false);
+    }
+  }
 
   // Laad woning zodra de woning-tab actief wordt
   useEffect(() => {
@@ -1907,6 +1940,55 @@ export default function ProjectDetailPage() {
                   </tr>
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Hypotheekadviseur — alleen bij TAXATIE */}
+          {project.type === "TAXATIE" && (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900">Hypotheekadviseur</h3>
+              {project.hypotheekAdviseur ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{project.hypotheekAdviseur.naam}</p>
+                    {project.hypotheekAdviseur.bedrijf && (
+                      <p className="text-xs text-gray-500">{project.hypotheekAdviseur.bedrijf}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleAdviseurChange("")}
+                    disabled={adviseurSaving}
+                    className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                  >
+                    Ontkoppelen
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <select
+                      onChange={(e) => { if (e.target.value) handleAdviseurChange(e.target.value); }}
+                      disabled={adviseurSaving}
+                      defaultValue=""
+                      className="w-full appearance-none rounded-lg border border-gray-300 px-3 py-2 pr-8 text-sm focus:border-primary focus:outline-none disabled:opacity-50"
+                    >
+                      <option value="" disabled>— Selecteer hypotheekadviseur —</option>
+                      {adviseurs.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.naam}{a.bedrijf ? ` (${a.bedrijf})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDownIcon className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  </div>
+                  {adviseurs.length === 0 && (
+                    <p className="text-xs text-gray-400">
+                      Voeg eerst adviseurs toe via{" "}
+                      <a href="/samenwerkingen" className="text-primary hover:underline">Samenwerkingen</a>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

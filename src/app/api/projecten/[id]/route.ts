@@ -20,6 +20,7 @@ export async function GET(
   const project = await prisma.project.findUnique({
     where: { id },
     include: {
+      hypotheekAdviseur: { select: { id: true, naam: true, bedrijf: true } },
       contacts: {
         orderBy: { addedAt: "asc" },
       },
@@ -98,6 +99,7 @@ export async function PATCH(
   if (data.kostenBouwkundig !== undefined) updateData.kostenBouwkundig = data.kostenBouwkundig !== "" && data.kostenBouwkundig != null ? parseInt(data.kostenBouwkundig) : null;
   if (data.kostenIntrekking !== undefined) updateData.kostenIntrekking = data.kostenIntrekking !== "" && data.kostenIntrekking != null ? parseInt(data.kostenIntrekking) : null;
   if (data.kostenBedenktijd !== undefined) updateData.kostenBedenktijd = data.kostenBedenktijd !== "" && data.kostenBedenktijd != null ? parseInt(data.kostenBedenktijd) : null;
+  if (data.hypotheekAdviseurId !== undefined) updateData.hypotheekAdviseurId = data.hypotheekAdviseurId || null;
 
   const project = await prisma.project.update({
     where: { id },
