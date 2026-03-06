@@ -19,9 +19,9 @@ export async function GET(
   const adviseur = await prisma.hypotheekAdviseur.findUnique({
     where: { id },
     include: {
-      _count: { select: { leads: true, projecten: true } },
+      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
       leads: {
-        select: { id: true, naam: true, status: true, createdAt: true },
+        select: { id: true, naam: true, status: true, hypotheekAfgesloten: true, createdAt: true },
         orderBy: { createdAt: "desc" },
         take: 10,
       },
@@ -29,6 +29,11 @@ export async function GET(
         select: { id: true, name: true, type: true, projectStatus: true, createdAt: true },
         where: { type: "TAXATIE" },
         orderBy: { createdAt: "desc" },
+        take: 10,
+      },
+      vveGesprekken: {
+        select: { id: true, datum: true, naam: true, omschrijving: true, createdAt: true },
+        orderBy: { datum: "desc" },
         take: 10,
       },
     },
@@ -69,7 +74,7 @@ export async function PATCH(
     where: { id },
     data: updateData,
     include: {
-      _count: { select: { leads: true, projecten: true } },
+      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
     },
   });
 
@@ -93,7 +98,7 @@ export async function DELETE(
   const adviseur = await prisma.hypotheekAdviseur.findUnique({
     where: { id },
     include: {
-      _count: { select: { leads: true, projecten: true } },
+      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
     },
   });
 

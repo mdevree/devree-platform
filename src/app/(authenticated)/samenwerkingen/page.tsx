@@ -11,7 +11,11 @@ import {
   UserGroupIcon,
   ClipboardDocumentCheckIcon,
   PencilIcon,
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
+
+/* ── Types ─────────────────────────────────────────────────── */
 
 interface HypotheekAdviseur {
   id: string;
@@ -25,12 +29,45 @@ interface HypotheekAdviseur {
   _count: {
     leads: number;
     projecten: number;
+    vveGesprekken: number;
   };
 }
 
+interface AdviseurLead {
+  id: string;
+  naam: string;
+  status: string;
+  hypotheekAfgesloten: boolean;
+  createdAt: string;
+}
+
+interface AdviseurProject {
+  id: string;
+  name: string;
+  type: string;
+  projectStatus: string | null;
+  createdAt: string;
+}
+
+interface VveGesprek {
+  id: string;
+  datum: string;
+  naam: string;
+  omschrijving: string | null;
+  createdAt: string;
+}
+
 interface AdviseurDetail extends HypotheekAdviseur {
-  leads: { id: string; naam: string; status: string; createdAt: string }[];
-  projecten: { id: string; name: string; type: string; projectStatus: string | null; createdAt: string }[];
+  leads: AdviseurLead[];
+  projecten: AdviseurProject[];
+  vveGesprekken: VveGesprek[];
+}
+
+interface AdviseurStats {
+  leads: { total: number; converted: number; hypotheekAfgesloten: number };
+  taxaties: { total: number; afgerond: number };
+  vveGesprekken: { total: number };
+  periodeLabel: string;
 }
 
 const LEAD_STATUS_LABELS: Record<string, string> = {
@@ -39,6 +76,24 @@ const LEAD_STATUS_LABELS: Record<string, string> = {
   CONVERTED: "Converted",
   INACTIEF: "Inactief",
 };
+
+const LEAD_STATUS_COLORS: Record<string, string> = {
+  KIJKER: "bg-blue-100 text-blue-700",
+  ZOEKER: "bg-amber-100 text-amber-700",
+  CONVERTED: "bg-green-100 text-green-700",
+  INACTIEF: "bg-gray-100 text-gray-500",
+};
+
+const PROJECT_STATUS_COLORS: Record<string, string> = {
+  AFGEROND: "bg-green-100 text-green-700",
+  ACTIEF: "bg-blue-100 text-blue-700",
+  GEANNULEERD: "bg-red-100 text-red-700",
+};
+
+type TabKey = "overzicht" | "kijkers" | "taxaties" | "vve";
+type Periode = "maand" | "kwartaal" | "jaar" | "alles";
+
+/* ── Component ─────────────────────────────────────────────── */
 
 export default function SamenwerkingenPage() {
   const [adviseurs, setAdviseurs] = useState<HypotheekAdviseur[]>([]);
@@ -71,6 +126,20 @@ export default function SamenwerkingenPage() {
     notities: "",
   });
 
+  // Tabs + stats
+  const [activeTab, setActiveTab] = useState<TabKey>("overzicht");
+  const [stats, setStats] = useState<AdviseurStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [periode, setPeriode] = useState<Periode>("alles");
+
+  // VVE gesprekken
+  const [showVveForm, setShowVveForm] = useState(false);
+  const [vveForm, setVveForm] = useState({ naam: "", datum: "", omschrijving: "" });
+  const [savingVve, setSavingVve] = useState(false);
+  const [vveGesprekken, setVveGesprekken] = useState<VveGesprek[]>([]);
+
+  /* ── Data fetching ───────────────────────────────────────── */
+
   const fetchAdviseurs = useCallback(async () => {
     setLoading(true);
     try {
@@ -88,8 +157,26 @@ export default function SamenwerkingenPage() {
     fetchAdviseurs();
   }, [fetchAdviseurs]);
 
+  const fetchStats = useCallback(async (adviseurId: string, p: Periode) => {
+    setLoadingStats(true);
+    try {
+      const res = await fetch(`/api/hypotheekadviseurs/${adviseurId}/stats?periode=${p}`);
+      const data = await res.json();
+      setStats(data);
+    } finally {
+      setLoadingStats(false);
+    }
+  }, []);
+
+  const fetchVveGesprekken = useCallback(async (adviseurId: string) => {
+    const res = await fetch(`/api/hypotheekadviseurs/${adviseurId}/vve-gesprekken`);
+    const data = await res.json();
+    setVveGesprekken(data.gesprekken || []);
+  }, []);
+
   const fetchDetail = async (id: string) => {
     setLoadingDetail(true);
+    setActiveTab("overzicht");
     try {
       const res = await fetch(`/api/hypotheekadviseurs/${id}`);
       const data = await res.json();
@@ -101,10 +188,22 @@ export default function SamenwerkingenPage() {
         telefoon: data.adviseur.telefoon || "",
         notities: data.adviseur.notities || "",
       });
+      // Fetch stats + vve in parallel
+      fetchStats(id, periode);
+      fetchVveGesprekken(id);
     } finally {
       setLoadingDetail(false);
     }
   };
+
+  // Re-fetch stats when periode changes
+  useEffect(() => {
+    if (selected) {
+      fetchStats(selected.id, periode);
+    }
+  }, [periode, selected, fetchStats]);
+
+  /* ── Handlers ────────────────────────────────────────────── */
 
   const handleCreate = async () => {
     if (!newForm.naam.trim()) return;
@@ -171,6 +270,41 @@ export default function SamenwerkingenPage() {
     }
   };
 
+  const handleToggleHypotheekAfgesloten = async (leadId: string, current: boolean) => {
+    const res = await fetch(`/api/leads/${leadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hypotheekAfgesloten: !current }),
+    });
+    if (res.ok && selected) {
+      // Refresh detail + stats
+      fetchDetail(selected.id);
+    }
+  };
+
+  const handleCreateVve = async () => {
+    if (!selected || !vveForm.naam.trim() || !vveForm.datum) return;
+    setSavingVve(true);
+    try {
+      const res = await fetch(`/api/hypotheekadviseurs/${selected.id}/vve-gesprekken`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(vveForm),
+      });
+      if (res.ok) {
+        setShowVveForm(false);
+        setVveForm({ naam: "", datum: "", omschrijving: "" });
+        fetchVveGesprekken(selected.id);
+        fetchStats(selected.id, periode);
+        fetchAdviseurs(); // update card count
+      }
+    } finally {
+      setSavingVve(false);
+    }
+  };
+
+  /* ── Filter ──────────────────────────────────────────────── */
+
   const filtered = adviseurs.filter((a) => {
     const q = search.toLowerCase();
     return (
@@ -179,6 +313,22 @@ export default function SamenwerkingenPage() {
       (a.email?.toLowerCase().includes(q) ?? false)
     );
   });
+
+  /* ── Helpers ─────────────────────────────────────────────── */
+
+  const conversionPct =
+    stats && stats.leads.total > 0
+      ? Math.round((stats.leads.hypotheekAfgesloten / stats.leads.total) * 100)
+      : 0;
+
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: "overzicht", label: "Overzicht" },
+    { key: "kijkers", label: "Kijkers" },
+    { key: "taxaties", label: "Taxaties" },
+    { key: "vve", label: "VVE Gesprekken" },
+  ];
+
+  /* ── Render ──────────────────────────────────────────────── */
 
   return (
     <div className="p-6">
@@ -282,20 +432,24 @@ export default function SamenwerkingenPage() {
                   <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
                   {a._count.projecten} taxatie{a._count.projecten !== 1 ? "s" : ""}
                 </span>
+                <span className="flex items-center gap-1">
+                  <ChatBubbleLeftRightIcon className="h-3.5 w-3.5" />
+                  {a._count.vveGesprekken} VVE
+                </span>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Sidepanel */}
+      {/* ── Sidepanel ────────────────────────────────────────── */}
       {selected && (
         <div className="fixed inset-0 z-50 flex">
           <div
             className="flex-1 bg-black/30"
             onClick={() => { setSelected(null); setEditing(false); }}
           />
-          <div className="w-full max-w-md overflow-y-auto bg-white shadow-xl">
+          <div className="w-full max-w-lg overflow-y-auto bg-white shadow-xl">
             {loadingDetail ? (
               <div className="flex h-full items-center justify-center text-gray-400">
                 Laden...
@@ -303,32 +457,71 @@ export default function SamenwerkingenPage() {
             ) : (
               <>
                 {/* Header sidepanel */}
-                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
-                  <div>
-                    <h2 className="font-semibold text-gray-900">{selected.naam}</h2>
-                    {selected.bedrijf && (
-                      <p className="text-sm text-gray-500">{selected.bedrijf}</p>
-                    )}
+                <div className="sticky top-0 z-10 border-b border-gray-200 bg-white">
+                  <div className="flex items-center justify-between px-6 py-4">
+                    <div>
+                      <h2 className="font-semibold text-gray-900">{selected.naam}</h2>
+                      {selected.bedrijf && (
+                        <p className="text-sm text-gray-500">{selected.bedrijf}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditing(!editing)}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        title="Bewerken"
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => { setSelected(null); setEditing(false); }}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setEditing(!editing)}
-                      className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                      title="Bewerken"
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => { setSelected(null); setEditing(false); }}
-                      className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                    >
-                      <XMarkIcon className="h-5 w-5" />
-                    </button>
+
+                  {/* Contactgegevens (altijd zichtbaar) */}
+                  <div className="px-6 pb-3">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+                      {selected.email && (
+                        <a href={`mailto:${selected.email}`} className="flex items-center gap-1.5 hover:text-primary">
+                          <EnvelopeIcon className="h-3.5 w-3.5 text-gray-400" />
+                          {selected.email}
+                        </a>
+                      )}
+                      {selected.telefoon && (
+                        <a href={`tel:${selected.telefoon}`} className="flex items-center gap-1.5 hover:text-primary">
+                          <PhoneIcon className="h-3.5 w-3.5 text-gray-400" />
+                          {selected.telefoon}
+                        </a>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Tab bar */}
+                  {!editing && (
+                    <div className="flex border-t border-gray-100 px-6">
+                      {tabs.map((t) => (
+                        <button
+                          key={t.key}
+                          onClick={() => setActiveTab(t.key)}
+                          className={`border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
+                            activeTab === t.key
+                              ? "border-primary text-primary"
+                              : "border-transparent text-gray-500 hover:text-gray-700"
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-6 space-y-6">
-                  {/* Bewerken */}
+                  {/* ── Bewerken ─────────────────────────────── */}
                   {editing ? (
                     <div className="space-y-3">
                       <h3 className="text-sm font-semibold text-gray-900">Gegevens bewerken</h3>
@@ -375,112 +568,257 @@ export default function SamenwerkingenPage() {
                     </div>
                   ) : (
                     <>
-                      {/* Contactgegevens */}
-                      <div>
-                        <h3 className="mb-2 text-sm font-semibold text-gray-900">Contactgegevens</h3>
-                        <div className="space-y-2 text-sm text-gray-600">
-                          {selected.email && (
-                            <div className="flex items-center gap-2">
-                              <EnvelopeIcon className="h-4 w-4 text-gray-400" />
-                              <a href={`mailto:${selected.email}`} className="hover:text-primary">
-                                {selected.email}
-                              </a>
+                      {/* ── TAB: Overzicht ────────────────────── */}
+                      {activeTab === "overzicht" && (
+                        <div className="space-y-5">
+                          {/* Periode selector */}
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-gray-900">Statistieken</h3>
+                            <select
+                              value={periode}
+                              onChange={(e) => setPeriode(e.target.value as Periode)}
+                              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
+                            >
+                              <option value="maand">Deze maand</option>
+                              <option value="kwartaal">Dit kwartaal</option>
+                              <option value="jaar">Dit jaar</option>
+                              <option value="alles">Alles</option>
+                            </select>
+                          </div>
+
+                          {/* Stats kaarten */}
+                          {loadingStats ? (
+                            <div className="text-center py-4 text-gray-400 text-sm">Laden...</div>
+                          ) : stats ? (
+                            <>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-lg bg-blue-50 p-3 text-center">
+                                  <p className="text-2xl font-bold text-blue-700">{stats.leads.total}</p>
+                                  <p className="text-xs text-blue-600">Doorverwezen kijkers</p>
+                                </div>
+                                <div className="rounded-lg bg-green-50 p-3 text-center">
+                                  <p className="text-2xl font-bold text-green-700">{stats.leads.hypotheekAfgesloten}</p>
+                                  <p className="text-xs text-green-600">Hypotheek afgesloten</p>
+                                </div>
+                                <div className="rounded-lg bg-purple-50 p-3 text-center">
+                                  <p className="text-2xl font-bold text-purple-700">{stats.taxaties.total}</p>
+                                  <p className="text-xs text-purple-600">Taxaties</p>
+                                </div>
+                                <div className="rounded-lg bg-amber-50 p-3 text-center">
+                                  <p className="text-2xl font-bold text-amber-700">{stats.vveGesprekken.total}</p>
+                                  <p className="text-xs text-amber-600">VVE gesprekken</p>
+                                </div>
+                              </div>
+
+                              {/* Conversie bar */}
+                              {stats.leads.total > 0 && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-medium text-gray-700">Conversiepercentage</span>
+                                    <span className="text-xs font-bold text-gray-900">{conversionPct}%</span>
+                                  </div>
+                                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-200">
+                                    <div
+                                      className="h-full rounded-full bg-green-500 transition-all duration-500"
+                                      style={{ width: `${conversionPct}%` }}
+                                    />
+                                  </div>
+                                  <p className="mt-1 text-xs text-gray-500">
+                                    {stats.leads.hypotheekAfgesloten} van {stats.leads.total} kijkers heeft hypotheek afgesloten
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          ) : null}
+
+                          {/* Notities */}
+                          {selected.notities && (
+                            <div>
+                              <h3 className="mb-2 text-sm font-semibold text-gray-900">Notities</h3>
+                              <p className="text-sm text-gray-600 whitespace-pre-wrap">{selected.notities}</p>
                             </div>
                           )}
-                          {selected.telefoon && (
-                            <div className="flex items-center gap-2">
-                              <PhoneIcon className="h-4 w-4 text-gray-400" />
-                              <a href={`tel:${selected.telefoon}`} className="hover:text-primary">
-                                {selected.telefoon}
-                              </a>
+
+                          {/* Acties */}
+                          <div className="border-t border-gray-200 pt-4">
+                            {selected.actief ? (
+                              <button
+                                onClick={handleDeactiveer}
+                                className="w-full rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                              >
+                                Deactiveer partner
+                              </button>
+                            ) : (
+                              <button
+                                onClick={handleActiveer}
+                                className="w-full rounded-lg border border-green-200 px-3 py-2 text-sm text-green-600 hover:bg-green-50"
+                              >
+                                Activeer partner
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── TAB: Kijkers ──────────────────────── */}
+                      {activeTab === "kijkers" && (
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            Doorverwezen kijkers ({selected._count.leads})
+                          </h3>
+                          {selected.leads && selected.leads.length > 0 ? (
+                            <div className="space-y-2">
+                              {selected.leads.map((l) => (
+                                <div key={l.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span className="text-sm font-medium text-gray-800 truncate">{l.naam}</span>
+                                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${LEAD_STATUS_COLORS[l.status] || "bg-gray-100 text-gray-500"}`}>
+                                      {LEAD_STATUS_LABELS[l.status] || l.status}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleToggleHypotheekAfgesloten(l.id, l.hypotheekAfgesloten)}
+                                    className={`shrink-0 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                                      l.hypotheekAfgesloten
+                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                    }`}
+                                    title={l.hypotheekAfgesloten ? "Hypotheek afgesloten" : "Hypotheek niet afgesloten — klik om te wijzigen"}
+                                  >
+                                    <CheckCircleIcon className="h-3.5 w-3.5" />
+                                    {l.hypotheekAfgesloten ? "Afgesloten" : "Niet afgesloten"}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-400">Geen kijkers doorverwezen.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── TAB: Taxaties ─────────────────────── */}
+                      {activeTab === "taxaties" && (
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            Taxatieopdrachten ({selected._count.projecten})
+                          </h3>
+                          {selected.projecten && selected.projecten.length > 0 ? (
+                            <div className="space-y-2">
+                              {selected.projecten.map((p) => (
+                                <a
+                                  key={p.id}
+                                  href={`/projecten/${p.id}`}
+                                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 hover:bg-gray-100 transition-colors"
+                                >
+                                  <span className="text-sm font-medium text-gray-800">{p.name}</span>
+                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PROJECT_STATUS_COLORS[p.projectStatus || ""] || "bg-gray-100 text-gray-500"}`}>
+                                    {p.projectStatus || "Onbekend"}
+                                  </span>
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-400">Geen taxatieopdrachten.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── TAB: VVE Gesprekken ───────────────── */}
+                      {activeTab === "vve" && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-gray-900">
+                              VVE Gesprekken ({vveGesprekken.length})
+                            </h3>
+                            <button
+                              onClick={() => setShowVveForm(!showVveForm)}
+                              className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600"
+                            >
+                              <PlusIcon className="h-3.5 w-3.5" />
+                              Nieuw gesprek
+                            </button>
+                          </div>
+
+                          {/* Inline form */}
+                          {showVveForm && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Naam / onderwerp *</label>
+                                <input
+                                  type="text"
+                                  value={vveForm.naam}
+                                  onChange={(e) => setVveForm({ ...vveForm, naam: e.target.value })}
+                                  placeholder="Bijv. VVE Parklaan 5"
+                                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                                  autoFocus
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Datum *</label>
+                                <input
+                                  type="date"
+                                  value={vveForm.datum}
+                                  onChange={(e) => setVveForm({ ...vveForm, datum: e.target.value })}
+                                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Omschrijving</label>
+                                <textarea
+                                  value={vveForm.omschrijving}
+                                  onChange={(e) => setVveForm({ ...vveForm, omschrijving: e.target.value })}
+                                  rows={2}
+                                  placeholder="Korte samenvatting van het gesprek..."
+                                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleCreateVve}
+                                  disabled={savingVve || !vveForm.naam.trim() || !vveForm.datum}
+                                  className="flex-1 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                                >
+                                  {savingVve ? "Opslaan..." : "Opslaan"}
+                                </button>
+                                <button
+                                  onClick={() => { setShowVveForm(false); setVveForm({ naam: "", datum: "", omschrijving: "" }); }}
+                                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                                >
+                                  Annuleren
+                                </button>
+                              </div>
                             </div>
                           )}
-                          {!selected.email && !selected.telefoon && (
-                            <p className="text-gray-400 text-xs">Geen contactgegevens</p>
+
+                          {/* Gesprekken lijst */}
+                          {vveGesprekken.length > 0 ? (
+                            <div className="space-y-2">
+                              {vveGesprekken.map((g) => (
+                                <div key={g.id} className="rounded-lg bg-amber-50 border border-amber-100 px-4 py-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-gray-800">{g.naam}</span>
+                                    <span className="text-xs text-amber-600">
+                                      {new Date(g.datum).toLocaleDateString("nl-NL", {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
+                                    </span>
+                                  </div>
+                                  {g.omschrijving && (
+                                    <p className="mt-1 text-xs text-gray-600 whitespace-pre-wrap">{g.omschrijving}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-400">Nog geen VVE gesprekken vastgelegd.</p>
                           )}
-                        </div>
-                      </div>
-
-                      {/* Statistieken */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-lg bg-blue-50 p-3 text-center">
-                          <p className="text-2xl font-bold text-blue-700">{selected._count.leads}</p>
-                          <p className="text-xs text-blue-600">Doorverwezen kijkers</p>
-                        </div>
-                        <div className="rounded-lg bg-purple-50 p-3 text-center">
-                          <p className="text-2xl font-bold text-purple-700">{selected._count.projecten}</p>
-                          <p className="text-xs text-purple-600">Taxatieopdrachten</p>
-                        </div>
-                      </div>
-
-                      {/* Notities */}
-                      {selected.notities && (
-                        <div>
-                          <h3 className="mb-2 text-sm font-semibold text-gray-900">Notities</h3>
-                          <p className="text-sm text-gray-600 whitespace-pre-wrap">{selected.notities}</p>
                         </div>
                       )}
                     </>
                   )}
-
-                  {/* Recente kijkers */}
-                  {selected.leads && selected.leads.length > 0 && (
-                    <div>
-                      <h3 className="mb-2 text-sm font-semibold text-gray-900">
-                        Recente kijkers ({selected._count.leads})
-                      </h3>
-                      <div className="space-y-2">
-                        {selected.leads.map((l) => (
-                          <div key={l.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-                            <span className="text-sm text-gray-800">{l.naam}</span>
-                            <span className="text-xs text-gray-500">
-                              {LEAD_STATUS_LABELS[l.status] || l.status}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recente taxaties */}
-                  {selected.projecten && selected.projecten.length > 0 && (
-                    <div>
-                      <h3 className="mb-2 text-sm font-semibold text-gray-900">
-                        Recente taxaties ({selected._count.projecten})
-                      </h3>
-                      <div className="space-y-2">
-                        {selected.projecten.map((p) => (
-                          <a
-                            key={p.id}
-                            href={`/projecten/${p.id}`}
-                            className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 hover:bg-gray-100"
-                          >
-                            <span className="text-sm text-gray-800">{p.name}</span>
-                            <span className="text-xs text-gray-500">{p.projectStatus}</span>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Acties */}
-                  <div className="border-t border-gray-200 pt-4">
-                    {selected.actief ? (
-                      <button
-                        onClick={handleDeactiveer}
-                        className="w-full rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        Deactiveer partner
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleActiveer}
-                        className="w-full rounded-lg border border-green-200 px-3 py-2 text-sm text-green-600 hover:bg-green-50"
-                      >
-                        Activeer partner
-                      </button>
-                    )}
-                  </div>
                 </div>
               </>
             )}
@@ -488,7 +826,7 @@ export default function SamenwerkingenPage() {
         </div>
       )}
 
-      {/* Modal: Nieuwe partner */}
+      {/* ── Modal: Nieuwe partner ────────────────────────────── */}
       {showNew && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">

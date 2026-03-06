@@ -459,6 +459,7 @@ export default function ProjectDetailPage() {
 
   // Hypotheekadviseurs (voor TAXATIE koppeling)
   const [adviseurs, setAdviseurs] = useState<{ id: string; naam: string; bedrijf: string | null }[]>([]);
+  const [adviseursFetched, setAdviseursFetched] = useState(false);
   const [adviseurSaving, setAdviseurSaving] = useState(false);
 
   // Verrijkte contact namen (geladen na project fetch)
@@ -505,14 +506,15 @@ export default function ProjectDetailPage() {
 
   useEffect(() => { fetchProject(); fetchUsers(); }, [fetchProject, fetchUsers]);
 
-  // Laad hypotheekadviseurs zodra project TAXATIE is
+  // Laad hypotheekadviseurs zodra project TAXATIE is of een adviseur heeft
   useEffect(() => {
-    if (project?.type === "TAXATIE" && adviseurs.length === 0) {
+    if ((project?.type === "TAXATIE" || project?.hypotheekAdviseur) && !adviseursFetched) {
+      setAdviseursFetched(true);
       fetch("/api/hypotheekadviseurs?actief=true")
         .then((r) => r.json())
         .then((d) => setAdviseurs(d.adviseurs || []));
     }
-  }, [project?.type, adviseurs.length]);
+  }, [project?.type, project?.hypotheekAdviseur, adviseursFetched]);
 
   async function handleAdviseurChange(adviseurId: string) {
     if (!project) return;
@@ -1943,8 +1945,8 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
-          {/* Hypotheekadviseur — alleen bij TAXATIE */}
-          {project.type === "TAXATIE" && (
+          {/* Hypotheekadviseur — bij TAXATIE of als er al een adviseur gekoppeld is */}
+          {(project.type === "TAXATIE" || project.hypotheekAdviseur) && (
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <h3 className="mb-3 text-sm font-semibold text-gray-900">Hypotheekadviseur</h3>
               {project.hypotheekAdviseur ? (

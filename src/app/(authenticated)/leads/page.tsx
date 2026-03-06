@@ -12,6 +12,7 @@ import {
   ArrowTopRightOnSquareIcon,
   LinkIcon,
   ChevronDownIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 
 interface HypotheekAdviseur {
@@ -45,6 +46,7 @@ interface Lead {
   hypotheekAdviseur: HypotheekAdviseur | null;
   hypotheekAdviseurId: string | null;
   hypotheekAdviseurDatum: string | null;
+  hypotheekAfgesloten: boolean;
   createdAt: string;
   _count?: { projecten: number };
 }
@@ -335,6 +337,18 @@ export default function LeadsPage() {
     if (res.ok) {
       setSelected(null);
       fetchLeads();
+    }
+  };
+
+  const handleToggleHypotheekAfgesloten = async () => {
+    if (!selected) return;
+    const res = await fetch(`/api/leads/${selected.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hypotheekAfgesloten: !selected.hypotheekAfgesloten }),
+    });
+    if (res.ok) {
+      setSelected((s) => s ? { ...s, hypotheekAfgesloten: !s.hypotheekAfgesloten } : s);
     }
   };
 
@@ -663,26 +677,40 @@ export default function LeadsPage() {
                   <div>
                     <h3 className="mb-2 text-sm font-semibold text-gray-900">Hypotheekadviseur</h3>
                     {selected.hypotheekAdviseur && !showAdviseurSection ? (
-                      <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
-                        <div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <BuildingOfficeIcon className="h-4 w-4 text-amber-600" />
-                            <span className="font-medium text-gray-800">{selected.hypotheekAdviseur.naam}</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
+                          <div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <BuildingOfficeIcon className="h-4 w-4 text-amber-600" />
+                              <span className="font-medium text-gray-800">{selected.hypotheekAdviseur.naam}</span>
+                            </div>
+                            {selected.hypotheekAdviseur.bedrijf && (
+                              <p className="ml-6 text-xs text-gray-500">{selected.hypotheekAdviseur.bedrijf}</p>
+                            )}
+                            {selected.hypotheekAdviseurDatum && (
+                              <p className="ml-6 text-xs text-gray-400">
+                                Doorverwezen op {new Date(selected.hypotheekAdviseurDatum).toLocaleDateString("nl-NL")}
+                              </p>
+                            )}
                           </div>
-                          {selected.hypotheekAdviseur.bedrijf && (
-                            <p className="ml-6 text-xs text-gray-500">{selected.hypotheekAdviseur.bedrijf}</p>
-                          )}
-                          {selected.hypotheekAdviseurDatum && (
-                            <p className="ml-6 text-xs text-gray-400">
-                              Doorverwezen op {new Date(selected.hypotheekAdviseurDatum).toLocaleDateString("nl-NL")}
-                            </p>
-                          )}
+                          <button
+                            onClick={() => setShowAdviseurSection(true)}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Wijzigen
+                          </button>
                         </div>
+                        {/* Hypotheek afgesloten toggle */}
                         <button
-                          onClick={() => setShowAdviseurSection(true)}
-                          className="text-xs text-primary hover:underline"
+                          onClick={handleToggleHypotheekAfgesloten}
+                          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                            selected.hypotheekAfgesloten
+                              ? "bg-green-50 text-green-700 hover:bg-green-100"
+                              : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                          }`}
                         >
-                          Wijzigen
+                          <CheckCircleIcon className="h-4 w-4" />
+                          {selected.hypotheekAfgesloten ? "Hypotheek afgesloten" : "Hypotheek niet afgesloten"}
                         </button>
                       </div>
                     ) : showAdviseurSection ? (

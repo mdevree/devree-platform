@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const adviseurs = await prisma.hypotheekAdviseur.findMany({
     where,
     include: {
-      _count: { select: { leads: true, projecten: true } },
+      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
     },
     orderBy: { naam: "asc" },
   });
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       notities: data.notities || null,
     },
     include: {
-      _count: { select: { leads: true, projecten: true } },
+      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
     },
   });
 
