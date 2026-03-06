@@ -269,10 +269,11 @@ model HypotheekAdviseur {
   telefoon  String?
   notities  String?   @db.Text
   actief    Boolean   @default(true)
-  leads     Lead[]
-  projecten Project[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  leads         Lead[]
+  projecten     Project[]
+  vveGesprekken VveGesprek[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@map("hypotheek_adviseurs")
 }
@@ -288,6 +289,7 @@ model Lead {
   hypotheekAdviseur      HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
   hypotheekAdviseurId    String?
   hypotheekAdviseurDatum DateTime?
+  hypotheekAfgesloten    Boolean            @default(false)
   projecten              LeadProject[]
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
@@ -310,4 +312,18 @@ model LeadProject {
   @@index([leadId])
   @@index([projectId])
   @@map("lead_projects")
+}
+
+model VveGesprek {
+  id                  String            @id @default(cuid())
+  datum               DateTime
+  naam                String
+  omschrijving        String?           @db.Text
+  hypotheekAdviseur   HypotheekAdviseur @relation(fields: [hypotheekAdviseurId], references: [id])
+  hypotheekAdviseurId String
+  createdAt           DateTime          @default(now())
+
+  @@index([hypotheekAdviseurId])
+  @@index([datum])
+  @@map("vve_gesprekken")
 }

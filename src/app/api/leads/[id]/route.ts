@@ -71,6 +71,7 @@ export async function PATCH(
   if (data.hypotheekAdviseurDatum !== undefined) {
     updateData.hypotheekAdviseurDatum = data.hypotheekAdviseurDatum ? new Date(data.hypotheekAdviseurDatum) : null;
   }
+  if (data.hypotheekAfgesloten !== undefined) updateData.hypotheekAfgesloten = data.hypotheekAfgesloten;
 
   // hypotheekAdviseurId via connect/disconnect
   if (data.hypotheekAdviseurId !== undefined) {
