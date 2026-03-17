@@ -35,7 +35,9 @@ export default function ResultatenTabel({ records }: Props) {
             <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium text-gray-500">
               <th className="px-4 py-2">Adres</th>
               <th className="px-4 py-2">Plaats</th>
-              <th className="px-4 py-2 text-right">Prijs</th>
+              <th className="px-4 py-2 text-right">Vraagprijs</th>
+              <th className="px-4 py-2 text-right">Transactieprijs</th>
+              <th className="px-4 py-2 text-right">Verschil</th>
               <th className="px-4 py-2 text-right">m²</th>
               <th className="px-4 py-2 text-right">€/m²</th>
               <th className="px-4 py-2">Type</th>
@@ -57,6 +59,29 @@ export default function ResultatenTabel({ records }: Props) {
                 <td className="px-4 py-2 text-gray-600">{r.plaats}</td>
                 <td className="whitespace-nowrap px-4 py-2 text-right text-gray-900">
                   €{r.prijs.toLocaleString("nl-NL")}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-right text-gray-600">
+                  {r.trans_prijs && r.trans_prijs > 0
+                    ? `€${r.trans_prijs.toLocaleString("nl-NL")}`
+                    : "–"}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-right">
+                  {r.trans_prijs && r.trans_prijs > 0 ? (
+                    <span
+                      className={`font-medium ${
+                        r.trans_prijs > r.prijs
+                          ? "text-red-600"
+                          : r.trans_prijs < r.prijs
+                            ? "text-green-600"
+                            : "text-gray-500"
+                      }`}
+                    >
+                      {r.trans_prijs >= r.prijs ? "+" : ""}
+                      {(((r.trans_prijs - r.prijs) / r.prijs) * 100).toFixed(1)}%
+                    </span>
+                  ) : (
+                    "–"
+                  )}
                 </td>
                 <td className="px-4 py-2 text-right text-gray-600">
                   {r.m2 ?? "–"}
@@ -90,7 +115,7 @@ export default function ResultatenTabel({ records }: Props) {
                 <td className="px-4 py-2">
                   {r.postcode && (
                     <Link
-                      href={`/buurtdata?postcode=${encodeURIComponent(r.postcode)}`}
+                      href={`/buurtdata?postcode=${encodeURIComponent(r.postcode.replace(/\s+/g, "").slice(0, 6))}${r.huisnummer ? `&huisnummer=${encodeURIComponent(r.huisnummer)}` : ""}`}
                       target="_blank"
                       className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
                       title="Buurtdata bekijken"

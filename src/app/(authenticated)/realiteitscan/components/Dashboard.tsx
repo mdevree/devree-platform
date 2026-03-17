@@ -12,6 +12,7 @@ import PrijsklasseChart from "./PrijsklasseChart";
 import SoortChart from "./SoortChart";
 import LabelChart from "./LabelChart";
 import ConcessiesBlok from "./ConcessiesBlok";
+import PrijsInzicht from "./PrijsInzicht";
 import ResultatenTabel from "./ResultatenTabel";
 
 interface Props {
@@ -106,6 +107,21 @@ export default function Dashboard({ records, fileName, onReset }: Props) {
     return Math.round(
       gefilterd.reduce((s, r) => s + r.prijs, 0) / gefilterd.length
     );
+  }, [gefilterd]);
+
+  const gemTransactie = useMemo(() => {
+    const metTrans = gefilterd.filter((r) => r.trans_prijs && r.trans_prijs > 0);
+    if (metTrans.length === 0) return null;
+    return Math.round(
+      metTrans.reduce((s, r) => s + r.trans_prijs!, 0) / metTrans.length
+    );
+  }, [gefilterd]);
+
+  const gemVerschilPerc = useMemo(() => {
+    const metTrans = gefilterd.filter((r) => r.trans_prijs && r.trans_prijs > 0);
+    if (metTrans.length === 0) return null;
+    const percs = metTrans.map((r) => ((r.trans_prijs! - r.prijs) / r.prijs) * 100);
+    return percs.reduce((s, p) => s + p, 0) / percs.length;
   }, [gefilterd]);
 
   return (
@@ -311,7 +327,7 @@ export default function Dashboard({ records, fileName, onReset }: Props) {
       </div>
 
       {/* Metrics */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           label="Matches"
           value={gefilterd.length.toString()}
@@ -332,6 +348,27 @@ export default function Dashboard({ records, fileName, onReset }: Props) {
           label="Gem. vraagprijs"
           value={gemPrijs ? `€${gemPrijs.toLocaleString("nl-NL")}` : "–"}
         />
+        <MetricCard
+          label="Gem. transactieprijs"
+          value={gemTransactie ? `€${gemTransactie.toLocaleString("nl-NL")}` : "–"}
+          sub={gemTransactie ? `${gefilterd.filter((r) => r.trans_prijs && r.trans_prijs > 0).length} transacties` : "geen data"}
+        />
+        <MetricCard
+          label="Gem. over/onderbod"
+          value={
+            gemVerschilPerc !== null
+              ? `${gemVerschilPerc >= 0 ? "+" : ""}${gemVerschilPerc.toFixed(1)}%`
+              : "–"
+          }
+          sub={
+            gemVerschilPerc !== null
+              ? gemVerschilPerc >= 0
+                ? "boven vraagprijs"
+                : "onder vraagprijs"
+              : undefined
+          }
+          highlight={gemVerschilPerc !== null ? (gemVerschilPerc >= 0 ? "red" : "green") : undefined}
+        />
       </div>
 
       {/* Concessies */}
@@ -342,6 +379,9 @@ export default function Dashboard({ records, fileName, onReset }: Props) {
         soort={soort}
         stad={stad}
       />
+
+      {/* Prijsinzicht */}
+      <PrijsInzicht records={gefilterd} />
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -361,19 +401,27 @@ function MetricCard({
   value,
   sub,
   icon,
+  highlight,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon?: React.ReactNode;
+  highlight?: "red" | "green";
 }) {
+  const highlightClass = highlight === "red"
+    ? "text-red-600"
+    : highlight === "green"
+      ? "text-green-600"
+      : "text-gray-900";
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-gray-500">{label}</p>
         {icon}
       </div>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
+      <p className={`mt-1 text-2xl font-bold ${highlightClass}`}>{value}</p>
       {sub && <p className="mt-0.5 text-xs text-gray-400">{sub}</p>}
     </div>
   );

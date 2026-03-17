@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 
 export interface WoningRecord {
   adres: string;
+  huisnummer: string;
   postcode: string;
   plaats: string;
   prijs: number;
@@ -58,7 +59,8 @@ export async function parseXLS(formData: FormData): Promise<WoningRecord[]> {
   return dataRows
     .filter((row) => row[8] && Number(row[8]) > 0)
     .map((row) => ({
-      adres: `${row[0] || ""} ${row[1] ? Math.round(Number(row[1])) : ""}`.trim(),
+      adres: `${row[0] || ""} ${row[1] ? Math.round(Number(row[1])) : ""}${row[2] ? ` ${row[2]}` : ""}`.trim(),
+      huisnummer: row[1] ? String(Math.round(Number(row[1]))) : "",
       postcode: String(row[3] || ""),
       plaats: String(row[4] || ""),
       prijs: Number(row[8]),
