@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   PrinterIcon,
   MagnifyingGlassIcon,
@@ -841,8 +842,9 @@ function BuurtdataReport({ data }: { data: BuurtdataResult }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function BuurtdataPage() {
-  const [postcode, setPostcode] = useState("");
-  const [huisnummer, setHuisnummer] = useState("");
+  const searchParams = useSearchParams();
+  const [postcode, setPostcode] = useState(searchParams.get("postcode") || "");
+  const [huisnummer, setHuisnummer] = useState(searchParams.get("huisnummer") || "");
   const [huisletter, setHuisletter] = useState("");
   const [toevoeging, setToevoeging] = useState("");
   const [loading, setLoading] = useState(false);

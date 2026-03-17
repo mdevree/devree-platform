@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { MapPinIcon } from "@heroicons/react/24/outline";
 import type { WoningRecord } from "../actions";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -40,6 +42,7 @@ export default function ResultatenTabel({ records }: Props) {
               <th className="px-4 py-2">Label</th>
               <th className="px-4 py-2">Kamers</th>
               <th className="px-4 py-2">Status</th>
+              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -83,6 +86,19 @@ export default function ResultatenTabel({ records }: Props) {
                   >
                     {r.status || "Onbekend"}
                   </span>
+                </td>
+                <td className="px-4 py-2">
+                  {r.postcode && (
+                    <Link
+                      href={`/buurtdata?postcode=${encodeURIComponent(r.postcode)}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                      title="Buurtdata bekijken"
+                    >
+                      <MapPinIcon className="h-3.5 w-3.5" />
+                      Buurt
+                    </Link>
+                  )}
                 </td>
               </tr>
             ))}

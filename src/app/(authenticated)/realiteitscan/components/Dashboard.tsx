@@ -35,9 +35,25 @@ export default function Dashboard({ records, fileName, onReset }: Props) {
   const [labelFilter, setLabelFilter] = useState<"all" | "ABC" | "DEF" | "A">(
     "all"
   );
+  const [minKamers, setMinKamers] = useState<number>(0);
+  const [minM2, setMinM2] = useState<number>(0);
+  const [minPerceel, setMinPerceel] = useState<number>(0);
 
   const plaatsen = useMemo(
     () => [...new Set(records.map((r) => r.plaats))].sort(),
+    [records]
+  );
+
+  const maxKamers = useMemo(
+    () => Math.max(...records.filter((r) => r.kamers).map((r) => r.kamers!), 0),
+    [records]
+  );
+  const maxM2 = useMemo(
+    () => Math.max(...records.filter((r) => r.m2).map((r) => r.m2!), 0),
+    [records]
+  );
+  const maxPerceel = useMemo(
+    () => Math.max(...records.filter((r) => r.perceel).map((r) => r.perceel!), 0),
     [records]
   );
 
@@ -67,9 +83,12 @@ export default function Dashboard({ records, fileName, onReset }: Props) {
       )
         return false;
       if (labelFilter === "A" && !r.label.startsWith("A")) return false;
+      if (minKamers > 0 && (!r.kamers || r.kamers < minKamers)) return false;
+      if (minM2 > 0 && (!r.m2 || r.m2 < minM2)) return false;
+      if (minPerceel > 0 && (!r.perceel || r.perceel < minPerceel)) return false;
       return true;
     });
-  }, [records, budget, soort, stad, status, labelFilter]);
+  }, [records, budget, soort, stad, status, labelFilter, minKamers, minM2, minPerceel]);
 
   const woonhuizen = gefilterd.filter((r) => r.soort_og === "Woonhuis").length;
   const appartementen = gefilterd.filter(
@@ -186,6 +205,78 @@ export default function Dashboard({ records, fileName, onReset }: Props) {
               <option value="actief">Actief (beschikbaar + onder bod)</option>
               <option value="Verkocht">Verkocht</option>
             </select>
+          </div>
+        </div>
+
+        {/* Extra filters: kamers, m², perceel */}
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          {/* Min. kamers */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Min. kamers
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={maxKamers}
+              step={1}
+              value={minKamers}
+              onChange={(e) => setMinKamers(Number(e.target.value))}
+              className="w-full accent-primary"
+            />
+            <div className="mt-1 flex justify-between text-xs text-gray-500">
+              <span>Alle</span>
+              <span className="font-semibold text-primary">
+                {minKamers === 0 ? "Geen minimum" : `${minKamers}+ kamers`}
+              </span>
+              <span>{maxKamers}</span>
+            </div>
+          </div>
+
+          {/* Min. woonoppervlakte */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Min. woonoppervlakte
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={Math.ceil(maxM2 / 10) * 10}
+              step={10}
+              value={minM2}
+              onChange={(e) => setMinM2(Number(e.target.value))}
+              className="w-full accent-primary"
+            />
+            <div className="mt-1 flex justify-between text-xs text-gray-500">
+              <span>Alle</span>
+              <span className="font-semibold text-primary">
+                {minM2 === 0 ? "Geen minimum" : `${minM2}+ m²`}
+              </span>
+              <span>{Math.ceil(maxM2 / 10) * 10} m²</span>
+            </div>
+          </div>
+
+          {/* Min. perceeloppervlakte */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Min. perceeloppervlakte
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={Math.ceil(maxPerceel / 25) * 25}
+              step={25}
+              value={minPerceel}
+              onChange={(e) => setMinPerceel(Number(e.target.value))}
+              className="w-full accent-primary"
+            />
+            <div className="mt-1 flex justify-between text-xs text-gray-500">
+              <span>Alle</span>
+              <span className="font-semibold text-primary">
+                {minPerceel === 0 ? "Geen minimum" : `${minPerceel}+ m²`}
+              </span>
+              <span>{Math.ceil(maxPerceel / 25) * 25} m²</span>
+            </div>
           </div>
         </div>
 
