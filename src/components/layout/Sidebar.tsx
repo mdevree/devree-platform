@@ -17,6 +17,7 @@ import {
   MapPinIcon,
   UserGroupIcon,
   BuildingOfficeIcon,
+  MagnifyingGlassCircleIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -30,6 +31,7 @@ const navigation = [
   { name: "Buurtdata", href: "/buurtdata", icon: MapPinIcon },
   { name: "Kijkers", href: "/leads", icon: UserGroupIcon },
   { name: "Samenwerkingen", href: "/samenwerkingen", icon: BuildingOfficeIcon },
+  { name: "Realiteitscan", href: "/realiteitscan", icon: MagnifyingGlassCircleIcon },
 ];
 
 function WhatsAppIcon({ className }: { className?: string }) {
