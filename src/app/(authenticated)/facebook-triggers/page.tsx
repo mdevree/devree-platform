@@ -78,7 +78,7 @@ export default function FacebookTriggersPage() {
 
   const filtered = triggers.filter(t =>
     t.keyword.includes(search.toLowerCase()) ||
-    t.postId.includes(search) ||
+    (t.postId ?? "").includes(search) ||
     t.project?.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -163,7 +163,7 @@ export default function FacebookTriggersPage() {
 
   function openEdit(t: FacebookTrigger) {
     setEditForm({
-      postId: t.postId,
+      postId: t.postId ?? "",
       keyword: t.keyword,
       dmTekst: t.dmTekst,
       projectId: t.projectId ?? "",
