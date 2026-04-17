@@ -1,0 +1,253 @@
+{
+  "name": "Facebook Comment → DM Trigger (Devree)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "facebook-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0000-0000-000000000001",
+      "name": "FB Verificatie (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 180],
+      "notes": "Facebook stuurt éénmalig een GET-verzoek om de webhook-URL te verifiëren. Zet in de Facebook App dezelfde URL als voor FB Events (POST). n8n routeert GET vs POST automatisch."
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a1b2c3d4-0002-0000-0000-000000000002",
+      "name": "Stuur hub.challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [480, 180]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "facebook-webhook",
+        "responseMode": "onReceived",
+        "options": {
+          "responseData": "noData",
+          "responseCode": 200
+        }
+      },
+      "id": "a1b2c3d4-0003-0000-0000-000000000003",
+      "name": "FB Events (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "notes": "Ontvangt alle Facebook page-events (reacties, likes, etc.). Dezelfde URL als de GET-verificatie hierboven."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verwerk inkomende Facebook comment-events.\n// Geeft één item per nieuwe reactie terug; alles anders wordt gefilterd.\n\nconst body = $input.first().json.body;\n\nif (!body?.entry?.length) return [];\n\nconst items = [];\nfor (const entry of body.entry) {\n  for (const change of (entry.changes ?? [])) {\n    const v = change.value;\n    // Alleen nieuwe reacties (geen bewerkingen, verwijderingen of likes)\n    if (v?.item !== 'comment' || v?.verb !== 'add') continue;\n\n    items.push({ json: {\n      postId:        v.post_id,\n      commentId:     v.comment_id,\n      commenterId:   v.from?.id   ?? '',\n      commenterNaam: v.from?.name ?? '',\n      tekst:         (v.message  ?? '').trim(),\n    }});\n  }\n}\nreturn items;"
+      },
+      "id": "a1b2c3d4-0004-0000-0000-000000000004",
+      "name": "Extraheer Reactie",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.DEVREE_PLATFORM_URL }}/api/facebook-triggers",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "post_id",
+              "value": "={{ $json.postId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0005-0000-0000-000000000005",
+      "name": "Haal DM-trigger op",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 400],
+      "notes": "Vraagt het devree-platform om de actieve trigger voor dit post-ID.\n200 → { keyword, dmTekst }\n404 → { error: '...' }  (geen actieve trigger)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-keyword-exists",
+              "leftValue": "={{ $json.keyword }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0006-0000-0000-000000000006",
+      "name": "Trigger gevonden?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 400],
+      "notes": "TRUE  → platform stuurde keyword + dmTekst terug (post heeft een actieve trigger)\nFALSE → 404, geen trigger voor dit post-ID"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Controleer of de reactietekst het keyword bevat (case-insensitief).\n// Return [] = executie stopt hier (geen DM versturen).\n\nconst keyword      = $json.keyword;\nconst dmTekst      = $json.dmTekst;\nconst comment      = $('Extraheer Reactie').item.json;\n\nif (!comment.tekst.toLowerCase().includes(keyword.toLowerCase())) {\n  return [];\n}\n\nreturn [{ json: {\n  commenterId:   comment.commenterId,\n  commenterNaam: comment.commenterNaam,\n  tekst:         comment.tekst,\n  keyword,\n  dmTekst,\n}}];"
+      },
+      "id": "a1b2c3d4-0007-0000-0000-000000000007",
+      "name": "Controleer keyword",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "notes": "Vergelijkt de reactietekst met het keyword. Stopt de executie als er geen match is."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/me/messages",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $env.FACEBOOK_PAGE_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ recipient: { id: $json.commenterId }, message: { text: $json.dmTekst }, messaging_type: 'RESPONSE' }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0008-0000-0000-000000000008",
+      "name": "Verstuur Facebook DM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 300],
+      "notes": "Stuurt een DM via de Facebook Messenger API.\nVereist: FACEBOOK_PAGE_ACCESS_TOKEN (lange-termijn page access token).\nLet op: de gebruiker moet eerder contact hebben opgenomen met de pagina (24u-venster), of gebruik messaging_type: MESSAGE_TAG."
+    }
+  ],
+  "connections": {
+    "FB Verificatie (GET)": {
+      "main": [
+        [
+          {
+            "node": "Stuur hub.challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FB Events (POST)": {
+      "main": [
+        [
+          {
+            "node": "Extraheer Reactie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraheer Reactie": {
+      "main": [
+        [
+          {
+            "node": "Haal DM-trigger op",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Haal DM-trigger op": {
+      "main": [
+        [
+          {
+            "node": "Trigger gevonden?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger gevonden?": {
+      "main": [
+        [
+          {
+            "node": "Controleer keyword",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Controleer keyword": {
+      "main": [
+        [
+          {
+            "node": "Verstuur Facebook DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "devree-facebook-dm-trigger-v1",
+  "meta": {
+    "instanceId": "",
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}
