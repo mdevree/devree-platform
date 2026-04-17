@@ -24,7 +24,7 @@ interface Project {
 
 interface FacebookTrigger {
   id: string;
-  postId: string;
+  postId: string | null;
   keyword: string;
   dmTekst: string;
   actief: boolean;
@@ -73,7 +73,7 @@ export default function FacebookTriggersPage() {
   useEffect(() => {
     fetch("/api/projecten?limit=200")
       .then(r => r.json())
-      .then(data => setProjects(data.projecten ?? []));
+      .then(data => setProjects(data.projects ?? []));
   }, []);
 
   const filtered = triggers.filter(t =>
@@ -84,8 +84,8 @@ export default function FacebookTriggersPage() {
 
   /* ── Create ── */
   async function handleCreate() {
-    if (!newForm.postId || !newForm.keyword || !newForm.dmTekst) {
-      setError("Vul postId, keyword en DM-tekst in.");
+    if (!newForm.keyword || !newForm.dmTekst) {
+      setError("Vul keyword en DM-tekst in.");
       return;
     }
     setSaving(true);
@@ -248,7 +248,12 @@ export default function FacebookTriggersPage() {
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">Inactief</span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 font-mono truncate">Post: {t.postId}</p>
+                <p className="text-xs font-mono truncate">
+                  {t.postId
+                    ? <span className="text-gray-500">Post: {t.postId}</span>
+                    : <span className="text-amber-500">⚠ Post ID nog niet ingevuld</span>
+                  }
+                </p>
                 {t.project && (
                   <p className="mt-1 flex items-center gap-1 text-xs text-gray-600">
                     <FolderIcon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -371,7 +376,10 @@ export default function FacebookTriggersPage() {
 
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Facebook Post ID</p>
-                    <p className="mt-1 font-mono text-sm text-gray-700 break-all">{selected.postId}</p>
+                    {selected.postId
+                      ? <p className="mt-1 font-mono text-sm text-gray-700 break-all">{selected.postId}</p>
+                      : <p className="mt-1 text-sm text-amber-600">Nog niet ingevuld — voeg toe nadat de post live staat.</p>
+                    }
                   </div>
 
                   <div>
@@ -450,7 +458,7 @@ export default function FacebookTriggersPage() {
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
-                  Facebook Post ID <span className="text-red-500">*</span>
+                  Facebook Post ID <span className="text-gray-400">(optioneel — invullen nadat de post live staat)</span>
                 </label>
                 <input
                   placeholder="bijv. 123456789012345_987654321098765"

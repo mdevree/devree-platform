@@ -333,7 +333,7 @@ model FacebookTrigger {
   id        String   @id @default(cuid())
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   projectId String?
-  postId    String
+  postId    String?
   keyword   String
   dmTekst   String   @db.Text
   actief    Boolean  @default(true)
