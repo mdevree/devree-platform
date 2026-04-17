@@ -120,6 +120,7 @@ model Project {
   tasks               Task[]
   calls               Call[]
   leadProjecten       LeadProject[]
+  facebookTriggers    FacebookTrigger[]
   hypotheekAdviseur   HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
   hypotheekAdviseurId String?
   createdAt           DateTime           @default(now())
@@ -326,4 +327,20 @@ model VveGesprek {
   @@index([hypotheekAdviseurId])
   @@index([datum])
   @@map("vve_gesprekken")
+}
+
+model FacebookTrigger {
+  id        String   @id @default(cuid())
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId String?
+  postId    String
+  keyword   String
+  dmTekst   String   @db.Text
+  actief    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId])
+  @@index([projectId])
+  @@map("facebook_triggers")
 }
