@@ -37,7 +37,7 @@ export async function PATCH(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: any = {};
-  if (data.postId !== undefined) updateData.postId = data.postId.trim();
+  if (data.postId !== undefined) updateData.postId = data.postId?.trim() || null;
   if (data.keyword !== undefined) updateData.keyword = data.keyword.trim().toLowerCase();
   if (data.dmTekst !== undefined) updateData.dmTekst = data.dmTekst;
   if (data.actief !== undefined) updateData.actief = data.actief;

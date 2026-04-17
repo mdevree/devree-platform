@@ -67,16 +67,16 @@ export async function POST(request: NextRequest) {
 
   const data = await request.json();
 
-  if (!data.postId || !data.keyword || !data.dmTekst) {
+  if (!data.keyword || !data.dmTekst) {
     return NextResponse.json(
-      { error: "postId, keyword en dmTekst zijn verplicht" },
+      { error: "keyword en dmTekst zijn verplicht" },
       { status: 400 }
     );
   }
 
   const trigger = await prisma.facebookTrigger.create({
     data: {
-      postId: data.postId.trim(),
+      postId: data.postId?.trim() || null,
       keyword: data.keyword.trim().toLowerCase(),
       dmTekst: data.dmTekst,
       projectId: data.projectId || null,
