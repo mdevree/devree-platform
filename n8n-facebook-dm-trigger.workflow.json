@@ -12,8 +12,38 @@
       "name": "FB Verificatie (GET)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 180],
-      "notes": "Facebook stuurt éénmalig een GET-verzoek om de webhook-URL te verifiëren. Zet in de Facebook App dezelfde URL als voor FB Events (POST). n8n routeert GET vs POST automatisch."
+      "position": [240, 200],
+      "notes": "Facebook stuurt éénmalig een GET-verzoek om de webhook-URL te verifiëren.\nURL in Facebook App: https://jouw-n8n.com/webhook/facebook-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-verify-token",
+              "leftValue": "={{ $json.query['hub.verify_token'] }}",
+              "rightValue": "={{ $env.FACEBOOK_VERIFY_TOKEN }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0009-0000-0000-000000000009",
+      "name": "Verify Token correct?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 200],
+      "notes": "Vergelijkt hub.verify_token met FACEBOOK_VERIFY_TOKEN (n8n omgevingsvariabele).\nTRUE  → stuur hub.challenge terug\nFALSE → weiger met 403"
     },
     {
       "parameters": {
@@ -27,7 +57,22 @@
       "name": "Stuur hub.challenge",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [480, 180]
+      "position": [720, 120]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Forbidden",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "a1b2c3d4-0010-0000-0000-000000000010",
+      "name": "Weiger (403)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 280],
+      "notes": "Verkeerde verify token → 403 terug naar Facebook."
     },
     {
       "parameters": {
@@ -43,7 +88,7 @@
       "name": "FB Events (POST)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 400],
+      "position": [240, 480],
       "notes": "Ontvangt alle Facebook page-events (reacties, likes, etc.). Dezelfde URL als de GET-verificatie hierboven."
     },
     {
@@ -54,7 +99,7 @@
       "name": "Extraheer Reactie",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 400]
+      "position": [480, 480]
     },
     {
       "parameters": {
@@ -90,7 +135,7 @@
       "name": "Haal DM-trigger op",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 400],
+      "position": [720, 480],
       "notes": "Vraagt het devree-platform om de actieve trigger voor dit post-ID.\n200 → { keyword, dmTekst }\n404 → { error: '...' }  (geen actieve trigger)"
     },
     {
@@ -121,8 +166,8 @@
       "name": "Trigger gevonden?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [960, 400],
-      "notes": "TRUE  → platform stuurde keyword + dmTekst terug (post heeft een actieve trigger)\nFALSE → 404, geen trigger voor dit post-ID"
+      "position": [960, 480],
+      "notes": "TRUE  → platform stuurde keyword + dmTekst terug\nFALSE → 404, geen trigger voor dit post-ID"
     },
     {
       "parameters": {
@@ -132,7 +177,7 @@
       "name": "Controleer keyword",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, 300],
+      "position": [1200, 380],
       "notes": "Vergelijkt de reactietekst met het keyword. Stopt de executie als er geen match is."
     },
     {
@@ -167,8 +212,8 @@
       "name": "Verstuur Facebook DM",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1440, 300],
-      "notes": "Stuurt een DM via de Facebook Messenger API.\nVereist: FACEBOOK_PAGE_ACCESS_TOKEN (lange-termijn page access token).\nLet op: de gebruiker moet eerder contact hebben opgenomen met de pagina (24u-venster), of gebruik messaging_type: MESSAGE_TAG."
+      "position": [1440, 380],
+      "notes": "Stuurt een DM via de Facebook Messenger API.\nVereist: FACEBOOK_PAGE_ACCESS_TOKEN (lange-termijn page access token)."
     }
   ],
   "connections": {
@@ -176,7 +221,25 @@
       "main": [
         [
           {
+            "node": "Verify Token correct?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Token correct?": {
+      "main": [
+        [
+          {
             "node": "Stuur hub.challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Weiger (403)",
             "type": "main",
             "index": 0
           }
