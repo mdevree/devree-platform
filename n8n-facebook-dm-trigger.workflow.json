@@ -27,7 +27,7 @@
             {
               "id": "cond-verify-token",
               "leftValue": "={{ $json.query['hub.verify_token'] }}",
-              "rightValue": "={{ $env.FACEBOOK_VERIFY_TOKEN }}",
+              "rightValue": "={{ $vars.FACEBOOK_VERIFY_TOKEN }}",
               "operator": {
                 "type": "string",
                 "operation": "equals"
@@ -104,7 +104,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.DEVREE_PLATFORM_URL }}/api/facebook-triggers",
+        "url": "={{ $vars.DEVREE_PLATFORM_URL }}/api/facebook-triggers",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -119,7 +119,7 @@
           "parameters": [
             {
               "name": "x-webhook-secret",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "={{ $vars.N8N_WEBHOOK_SECRET }}"
             }
           ]
         },
@@ -189,7 +189,7 @@
           "parameters": [
             {
               "name": "access_token",
-              "value": "={{ $env.FACEBOOK_PAGE_ACCESS_TOKEN }}"
+              "value": "={{ $vars.FACEBOOK_PAGE_ACCESS_TOKEN }}"
             }
           ]
         },
