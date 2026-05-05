@@ -9,7 +9,6 @@ import {
   HomeIcon,
   DocumentTextIcon,
   ArrowTopRightOnSquareIcon,
-  Squares2X2Icon,
   FolderIcon,
   UsersIcon,
   ChartBarIcon,
@@ -28,7 +27,6 @@ const navigation = [
   { name: "Contacten", href: "/contacten", icon: UsersIcon },
   { name: "Pipeline", href: "/pipeline", icon: ChartBarIcon },
   { name: "Taken", href: "/taken", icon: ClipboardDocumentListIcon },
-  { name: "Notion", href: "/notion", icon: Squares2X2Icon },
   { name: "Buurtdata", href: "/buurtdata", icon: MapPinIcon },
   { name: "Kijkers", href: "/leads", icon: UserGroupIcon },
   { name: "Samenwerkingen", href: "/samenwerkingen", icon: BuildingOfficeIcon },
@@ -61,7 +59,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-gray-200 bg-white print:hidden">
+    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-gray-200 bg-white print:hidden">
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-gray-200 px-4">
         <Link href="/dashboard" className="flex items-center">
@@ -78,7 +76,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigatie */}
-      <nav className="flex flex-col gap-1 p-4">
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4">
         <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-gray-400">
           Menu
         </p>
