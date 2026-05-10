@@ -1,0 +1,860 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"emailId\": \"12345\",\n  \"from\": \"jan.jansen@example.com\",\n  \"to\": \"info@devreemakelaardij.nl\",\n  \"subject\": \"Vraag over verkoop woning Spijkenisse\",\n  \"receivedDate\": \"2026-01-06T19:30:00+01:00\",\n  \"bodyText\": \"Beste,\\n\\nIk wil graag mijn woning aan de Hoofdstraat 12 in Spijkenisse verkopen. Het is een tussenwoning van 120m2 met 3 slaapkamers. We wonen hier sinds 2015 en willen graag weten wat een realistische vraagprijs is. Kunnen jullie langskomen voor een waardebepaling?\\n\\nMet vriendelijke groet,\\nJan Jansen\\n06-12345678\"\n}"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-1632, 320],
+      "id": "737df8ba-c11f-4754-b8d4-8678c7b8980a",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determine contact email based on direction\n// FIX: normalize to lowercase to ensure consistent Mautic matching\nconst from = ($json.from || '').toLowerCase();\nconst to   = ($json.to   || '').toLowerCase();\n\nconst isIncoming   = !from.includes('@devreemakelaardij.nl');\nconst contactEmail = isIncoming ? from : to;\nconst direction    = isIncoming ? 'inkomend' : 'uitgaand';\n\nreturn [{\n  json: {\n    ...($json),\n    from,\n    to,\n    contactEmail,\n    direction,\n    isIncoming\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1456, 320],
+      "id": "cbd59845-625c-449e-9417-5a1f7a7ee471",
+      "name": "ContactEmail en incoming bepalen"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "getAll",
+        "limit": 1,
+        "options": {
+          "search": "=email:{{ $json.contactEmail }}"
+        }
+      },
+      "type": "n8n-nodes-base.mautic",
+      "typeVersion": 1,
+      "position": [-1312, 80],
+      "id": "2241f12d-e532-4c12-9fae-8e4a2119a75e",
+      "name": "Get many contacts",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "fc6dc316-01cd-415f-9702-81458f492cae",
+          "mode": "list",
+          "cachedResultName": "AI Data Taxonomy",
+          "cachedResultUrl": "https://www.notion.so/fc6dc31601cd415f970281458f492cae"
+        },
+        "returnAll": true,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Actief|checkbox",
+              "condition": "equals",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [-1312, 500],
+      "id": "50297755-256f-4858-9da7-943ec0572d77",
+      "name": "Get many database pages",
+      "retryOnFail": true,
+      "credentials": {
+        "notionApi": {
+          "id": "C4x1jyPX4boX03Se",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIX: Notion query already filters Actief=true, redundant filter removed\nconst taxonomy = $input.all()\n  .map(item => ({\n    jsonPath: item.json.property_json_path || \"\",\n    dataType: item.json.property_data_type || \"\",\n    hint:     item.json.property_ollama_prompt_hint || \"\"\n  }))\n  .filter(f => f.jsonPath); // skip items without a path\n\n// Bouw prompt hints\nconst promptSections = taxonomy\n  .map(f => `- ${f.jsonPath} (${f.dataType}): ${f.hint}`)\n  .join('\\n');\n\n// Bouw dynamisch JSON schema op basis van jsonPath\nfunction buildSchema(fields) {\n  const schema = {};\n  fields.forEach(field => {\n    const parts = field.jsonPath.split('.');\n    let current = schema;\n    for (let i = 0; i < parts.length; i++) {\n      const part   = parts[i];\n      const isLast = i === parts.length - 1;\n      if (isLast) {\n        switch (field.dataType) {\n          case 'Score 0-100': current[part] = 0;     break;\n          case 'Array':       current[part] = [];    break;\n          case 'Object':      current[part] = {};    break;\n          case 'Boolean':     current[part] = false; break;\n          case 'Text':        current[part] = \"\";    break;\n          default:            current[part] = null;\n        }\n      } else {\n        if (!current[part]) current[part] = {};\n        current = current[part];\n      }\n    }\n  });\n  return schema;\n}\n\nconst jsonSchema    = buildSchema(taxonomy);\nconst systemPrompt  = `Je bent een data-extractie expert voor een makelaarskantoor.\nAnalyseer deze email en extract ALLEEN informatie waar je >70% zeker van bent.\nLaat velden leeg/null als je niet zeker bent.\n\nTe detecteren velden:\n${promptSections}\n\nOutput ALLEEN valid JSON volgens exact dit schema (vul alleen in wat je detecteert):\n${JSON.stringify(jsonSchema, null, 2)}`;\n\nreturn [{ json: { systemPrompt, jsonSchema } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1100, 500],
+      "id": "6f7253d8-6407-436f-8ba3-e12a8d9d8f61",
+      "name": "Systeemprompt na notion database"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input is een array met lead objects\nreturn $input.all().map(item => {\n  const lead = item.json;\n\n  if (!lead || !lead.id) {\n    return {\n      json: {\n        contactId: null,\n        contactExists: false,\n        shouldCreateContact: true\n      }\n    };\n  }\n\n  return {\n    json: {\n      contactId:           Number(lead.id),\n      contactExists:       true,\n      shouldCreateContact: false,\n\n      // FIX: normalize email to lowercase for consistent matching\n      mautic_email:         (lead.fields?.all?.email || '').toLowerCase() || null,\n      mautic_firstname:     lead.fields?.all?.firstname  || null,\n      mautic_lastname:      lead.fields?.all?.lastname   || null,\n      mautic_mobile:        lead.fields?.all?.mobile     || null,\n      mautic_title:         lead.fields?.all?.title      || null,\n\n      mautic_address1:      lead.fields?.all?.address1   || null,\n      mautic_address2:      lead.fields?.all?.address2   || null,\n      mautic_city:          lead.fields?.all?.city       || null,\n      mautic_zipcode:       lead.fields?.all?.zipcode    || null,\n\n      mautic_realworks_code: lead.fields?.all?.realworks_code || null,\n      ai_profiel_data:       lead.fields?.all?.ai_profiel_data || null,\n\n      points:       lead.points   || 0,\n      dateAdded:    lead.dateAdded    || null,\n      dateModified: lead.dateModified || null,\n      lastActive:   lead.lastActive   || null\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1136, 80],
+      "id": "5ec0707d-f884-4eeb-bb2a-455d6cbd2fec",
+      "name": "Mautic output opschonen"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1cabd477-46ab-4d69-a5ee-666f67b24810",
+                    "leftValue": "={{ $json.contactExists }}",
+                    "rightValue": "0",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b2f15063-ae82-4a02-ac2b-c9cd7b916da6",
+                    "leftValue": "={{ $json.contactExists }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-960, 80],
+      "id": "1814e79e-c3ae-4f48-b7b2-230009e82231",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "email": "={{ $('ContactEmail en incoming bepalen').item.json.contactEmail }}",
+        "firstName": "=",
+        "lastName": "={{ $('ContactEmail en incoming bepalen').item.json.contactEmail.split('@')[0] }}",
+        "additionalFields": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mautic",
+      "typeVersion": 1,
+      "position": [-800, 192],
+      "id": "2d9395a3-6f71-44aa-a9d0-384721d2f13a",
+      "name": "Create a contact1",
+      "retryOnFail": true,
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const mauticResponse = $input.first().json;\n\nconst newContactId =\n  mauticResponse.id ||\n  mauticResponse.contact?.id ||\n  null;\n\nconst originalEmail = $('ContactEmail en incoming bepalen').item.json.contactEmail;\n\nconst points =\n  mauticResponse.fields?.core?.points?.normalizedValue ||\n  mauticResponse.points ||\n  0;\n\nreturn [{\n  json: {\n    contactId:             newContactId,\n    // FIX: email already lowercase from ContactEmail node\n    mautic_email:          originalEmail,\n    mautic_firstname:      null,\n    mautic_lastname:       originalEmail.split('@')[0],\n    mautic_mobile:         null,\n    mautic_realworks_code: null,\n    ai_profiel_data:       null,\n    points,\n    contactExists:         false\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-624, 192],
+      "id": "21b73352-e9f2-4a4c-886c-a551ff091762",
+      "name": "Transform nieuwe contact"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "mautic_email",
+              "field2": "contactEmail"
+            }
+          ]
+        },
+        "joinMode": "enrichInput2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [-336, 304],
+      "id": "f2f9a14e-678f-4b11-bfcd-131ed2d32b10",
+      "name": "Merge",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const date = new Date(item.json.receivedDate).toLocaleString('nl-NL', {\n    day:    '2-digit',\n    month:  '2-digit',\n    year:   'numeric',\n    hour:   '2-digit',\n    minute: '2-digit'\n  });\n\n  // FIX: removed manual quote-escaping — n8n serializes JSON body automatically\n  const cleanBody = (item.json.bodyText || '')\n    .replace(/\\\\r\\\\n/g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n\n  const noteText =\n`📧 Email ${item.json.direction === 'inkomend' ? 'ontvangen' : 'verzonden'} - ${date}\n\nVan: ${item.json.from}\nAan: ${item.json.to}\nOnderwerp: ${item.json.subject}\n\n${cleanBody}`;\n\n  return {\n    json: {\n      lead: item.json.contactId,\n      text: noteText,\n      type: \"email\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-64, 96],
+      "id": "08918d97-6403-4514-b361-a45680a41666",
+      "name": "Prepare note email"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://connect.devreemakelaardij.nl/api/notes/new",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mauticOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [128, 96],
+      "id": "206c1691-3161-4588-8e47-c869eb4de74a",
+      "name": "Send note",
+      "retryOnFail": true,
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [-112, 400],
+      "id": "ad0b3d95-f937-4291-a7dd-ba40f55a7a6f",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "amount": 0.1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-128, 560],
+      "id": "d299945f-492b-4269-a333-ae0351b564ec",
+      "name": "Wait",
+      "webhookId": "903ce03c-9892-43fe-aa6c-b1b5c5d9e841"
+    },
+    {
+      "parameters": {
+        "url": "https://kantoor.devreemakelaardij.nl/api/taken?status=open,bezig",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "vKnHQNz2nUpDpNsJu1AD6g"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [80, 480],
+      "id": "cbb8204f-4e5c-4fc7-8c8a-6da9381590ca",
+      "name": "Haal taken op",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://kantoor.devreemakelaardij.nl/api/projecten?status=actief",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "vKnHQNz2nUpDpNsJu1AD6g"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [80, 672],
+      "id": "863d8d93-f671-4746-a3a9-f74b09657532",
+      "name": "Haal projecten op",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [304, 560],
+      "id": "9a2dce74-d7fa-43f7-b0c6-fd51b84e89ff",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\nconst takenRes = items.find(x => Array.isArray(x.tasks))    || {};\nconst projRes  = items.find(x => Array.isArray(x.projects)) || {};\n\nconst tasks    = Array.isArray(takenRes.tasks)    ? takenRes.tasks    : [];\nconst projects = Array.isArray(projRes.projects)  ? projRes.projects  : [];\n\nconst projectsCompact = projects.map(p => ({\n  id:         p.id,\n  name:       p.name,\n  status:     p.status,\n  tasksCount: p._count?.tasks ?? null,\n  callsCount: p._count?.calls ?? null,\n}));\n\nconst projectById = Object.fromEntries(projectsCompact.map(p => [p.id, p]));\n\nconst tasksCompact = tasks.map(t => ({\n  id:          t.id,\n  title:       t.title,\n  status:      t.status,\n  priority:    t.priority    ?? null,\n  dueDate:     t.dueDate     ?? null,\n  category:    t.category    ?? null,\n  assigneeId:  t.assigneeId  ?? null,\n  projectId:   t.projectId   ?? null,\n  projectName: t.projectId ? (projectById[t.projectId]?.name ?? null) : null,\n}));\n\nreturn [\n  {\n    json: {\n      ai_context: {\n        open_tasks: tasksCompact,\n        projects:   projectsCompact,\n        rules: {\n          project_linking: \"Kies alleen een projectId uit projects[] als de titel/omschrijving daar sterk op matcht. Anders laat projectId leeg.\",\n          updates: \"Bij afronden: gebruik task_ops met op:'update', id:'...', status:'afgerond'.\"\n        }\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [464, 560],
+      "id": "af4f4812-aba9-4f49-ae5c-c6e0a4b9f1d2",
+      "name": "Overzicht maken van taken en projecten"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [576, 384],
+      "id": "9bc4fb8d-a639-4aa6-b9a2-13617ffcc41d",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const all = $input.all().map(i => i.json);\n\n// Merge3 (combineAll) levert 1 item met alle velden samen:\n// - systemPrompt + jsonSchema (van Notion pad)\n// - email/contact velden (van Merge enrichInput2 pad)\n// - ai_context (van taken/projecten pad)\n\n// Vind het item met de meeste bruikbare velden\nconst main =\n  all.find(x => typeof x.systemPrompt === 'string' && x.subject && x.bodyText) ||\n  all.find(x => typeof x.systemPrompt === 'string') ||\n  all[0];\n\nconst ctxItem  = all.find(x => x.ai_context) || {};\nconst ai_context = ctxItem.ai_context || {};\n\nconst emailText =\n`Van: ${main.from || ''}\nAan: ${main.to || ''}\nOnderwerp: ${main.subject || ''}\nDatum: ${main.receivedDate || ''}\n\n${main.bodyText || ''}`;\n\nreturn {\n  json: {\n    systemPrompt: main.systemPrompt || '',\n    rawText:      emailText,\n\n    contactFields: {\n      ai_profiel_data: main.ai_profiel_data || null,\n    },\n\n    ai_context: {\n      open_tasks: Array.isArray(ai_context.open_tasks) ? ai_context.open_tasks : [],\n      projects:   Array.isArray(ai_context.projects)   ? ai_context.projects   : [],\n      rules:      ai_context.rules || {},\n    },\n\n    contactId:    main.contactId    ?? null,\n    contactEmail: main.contactEmail || main.mautic_email || null,\n    // FIX: forward points zodat Code in JavaScript1 kan optellen\n    points:       main.points       ?? 0,\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [704, 400],
+      "id": "c9a97b47-baff-43e9-8976-ad14713daf06",
+      "name": "Format Data voor LLM1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [864, 576],
+      "id": "5067acbf-3013-4f12-adb0-a588a013b988",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "UdiNlc10HwLGX8Uz",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.systemPrompt }}\n\n## BESTAAND PROFIEL (vul aan, overschrijf niet):\n{{ $json.contactFields.ai_profiel_data }}\n\n## NIEUWE EMAIL OM TE ANALYSEREN:\n{{ $json.rawText }}\n\n## OPEN TAKEN + PROJECTEN (context):\n{{ JSON.stringify($json.ai_context, null, 2) }}\n\n## BESCHIKBARE TEAMLEDEN (gebruik exact deze namen):\n- Melvin de Vree\n- Erling de Vree\n- Anja de Vree\n- Trudie Verduin\n- Algemeen\n\nBELANGRIJK:\n- Voeg nieuwe informatie TOE aan bestaande arrays.\n- Overschrijf bestaande waarden alleen als nieuwe info specifieker/recenter is.\n- Behoud alle bestaande data die niet in deze email voorkomt.\n- Als je een bestaande taak wilt wijzigen/afronden: gebruik ALLEEN een id uit ai_context.open_tasks.\n- Voor project koppeling: gebruik ALLEEN een projectId uit ai_context.projects.\n- Als niets nodig is: task_ops = [].\n\nOUTPUT:\nGeef ALLEEN valid JSON terug met exact deze top-level keys:\n- profiel: (object volgens het schema uit systemPrompt)\n- task_ops: (array)\n\ntask_ops items:\n- create:\n  {\n    \"op\": \"create\",\n    \"title\": \"...\",\n    \"description\": \"...\",\n    \"assignee\": \"Naam uit teamleden lijst\",\n    \"priority\": \"laag|normaal|hoog|urgent\",\n    \"category\": \"binnendienst|verkoop|aankoop|taxatie|administratie\",\n    \"dueDate\": \"YYYY-MM-DD\" of null,\n    \"projectId\": \"...\" of null\n  }\n\n- update:\n  {\n    \"op\": \"update\",\n    \"id\": \"Bestaand task id\",\n    \"status\": \"open|bezig|afgerond\",\n    \"title\": (optioneel),\n    \"description\": (optioneel),\n    \"priority\": (optioneel),\n    \"category\": (optioneel),\n    \"dueDate\": (optioneel ISO8601 of null),\n    \"projectId\": (optioneel \"...\" of null)\n  }",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [896, 384],
+      "id": "c08547ff-c931-43ab-8c5f-d70cd0613d08",
+      "name": "Basic LLM Chain1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1248, 368],
+      "id": "72c05641-2a43-445f-be54-def96669b458",
+      "name": "Merge4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiOutput   = $json.text;\nconst contactId  = $json.contactId  ?? null;\n// FIX: points nu correct doorgestuurd via Format Data voor LLM1\nconst oldPoints  = $json.points     ?? 0;\nconst lastActive = new Date().toISOString();\n\n// Strip markdown code fences als de LLM die toch meestuurt\nlet cleaned = aiOutput\n  .replace(/^`+(json)?\\s*/i, '')\n  .replace(/\\s*`+$/i,        '')\n  .trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  if (!match) throw new Error(`LLM output is geen geldige JSON: ${cleaned.slice(0, 200)}`);\n  parsed = JSON.parse(match[0]);\n}\n\nconst profiel  = parsed.profiel   ?? parsed;\nconst task_ops = Array.isArray(parsed.task_ops) ? parsed.task_ops : [];\n\n// Points berekenen\nconst engagementLevel = profiel.conversatie_stats?.engagement_level || '';\nlet pointsToAdd = 0;\nswitch (String(engagementLevel).toLowerCase()) {\n  case 'hoog':     case 'high':   pointsToAdd = 10; break;\n  case 'gemiddeld': case 'medium': pointsToAdd =  5; break;\n  case 'laag':     case 'low':    pointsToAdd =  2; break;\n  default: pointsToAdd = 0;\n}\n\nconst interesses = profiel.interesses || {};\n// FIX: points cap om onbegrensde groei te voorkomen\nconst totalPoints = Math.min(oldPoints + pointsToAdd, 1000);\n\nreturn {\n  json: {\n    success:   true,\n    contactId,\n    ai_profiel_data: JSON.stringify(profiel),\n    task_ops,\n    points:      totalPoints,\n    last_active: lastActive,\n\n    interesse_financiering:  interesses.financiering   || 0,\n    interesse_duurzaamheid:  interesses.duurzaamheid   || 0,\n    interesse_verbouwing:    interesses.verbouwing     || 0,\n    interesse_investeren:    interesses.investeren     || 0,\n    interesse_starters:      interesses.starters_info  || 0,\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1456, 464],
+      "id": "e15c88e0-7e6b-474e-8228-8ab5c1505e36",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4ba81944-70c6-4b8a-83ae-8969a452ab39",
+              "leftValue": "={{ $json.contactId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1664, 272],
+      "id": "78533ea0-43c6-456b-bef0-a7ae44c23ae0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://connect.devreemakelaardij.nl/api/contacts/{{ $json.contactId }}/edit",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mauticOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2080, 128],
+      "id": "ee2df280-5dce-498c-83d1-5e2549ac3abf",
+      "name": "Update mautic1",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json;\n\nconst taskOps = Array.isArray(input.task_ops) ? input.task_ops : [];\nif (taskOps.length === 0) return [];\n\nconst ASSIGNEE_EMAIL = {\n  \"Melvin de Vree\":  \"melvin@devreemakelaardij.nl\",\n  \"Algemeen\":        \"info@devreemakelaardij.nl\",\n  \"Anja de Vree\":    \"info@devreemakelaardij.nl\",\n  \"Trudie Verduin\":  \"info@devreemakelaardij.nl\",\n  \"Erling de Vree\":  \"info@devreemakelaardij.nl\",\n};\n\nconst defaultDue = new Date();\ndefaultDue.setDate(defaultDue.getDate() + 2);\n\nconst payloads = [];\n\nfor (const op of taskOps) {\n  if (op.op === \"create\") {\n    payloads.push({\n      action:        \"create\",\n      title:         op.title,\n      description:   op.description   ?? null,\n      priority:      op.priority      ?? \"normaal\",\n      category:      op.category      ?? \"administratie\",\n      dueDate:       op.dueDate\n                       ? new Date(op.dueDate).toISOString()\n                       : defaultDue.toISOString(),\n      assigneeEmail: ASSIGNEE_EMAIL[op.assignee] || ASSIGNEE_EMAIL[\"Algemeen\"],\n      projectId:     op.projectId ?? undefined,\n      contactId:     input.contactId ?? null,\n      notionPageId:  null,\n    });\n  }\n\n  if (op.op === \"update\") {\n    const body = {\n      action: \"update\",\n      ...(op.id           ? { id: op.id }                     : {}),\n      ...(op.notionPageId ? { notionPageId: op.notionPageId } : {}),\n    };\n\n    if (!body.id && !body.notionPageId) continue;\n\n    if (op.status      !== undefined) body.status      = op.status;\n    if (op.title       !== undefined) body.title       = op.title;\n    if (op.description !== undefined) body.description = op.description;\n    if (op.priority    !== undefined) body.priority    = op.priority;\n    if (op.category    !== undefined) body.category    = op.category;\n    if (op.dueDate     !== undefined) body.dueDate     = op.dueDate ? new Date(op.dueDate).toISOString() : null;\n    if (op.projectId   !== undefined) body.projectId   = op.projectId;\n    if (op.assignee)                  body.assigneeEmail = ASSIGNEE_EMAIL[op.assignee] || ASSIGNEE_EMAIL[\"Algemeen\"];\n\n    payloads.push(body);\n  }\n}\n\nreturn payloads.map(p => ({ json: p }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1856, 544],
+      "id": "591c6f5e-8643-4d81-a711-4d639f065906",
+      "name": "Taken maken"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kantoor.devreemakelaardij.nl/api/taken/webhook",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "vKnHQNz2nUpDpNsJu1AD6g"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2048, 544],
+      "id": "6780d6e8-7478-49be-b2f5-d53eb0825f9a",
+      "name": "HTTP Request",
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "ContactEmail en incoming bepalen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ContactEmail en incoming bepalen": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Get many contacts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get many database pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many contacts": {
+      "main": [
+        [
+          {
+            "node": "Mautic output opschonen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many database pages": {
+      "main": [
+        [
+          {
+            "node": "Systeemprompt na notion database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Systeemprompt na notion database": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mautic output opschonen": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a contact1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a contact1": {
+      "main": [
+        [
+          {
+            "node": "Transform nieuwe contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform nieuwe contact": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare note email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare note email": {
+      "main": [
+        [
+          {
+            "node": "Send note",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Haal taken op",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Haal projecten op",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Haal taken op": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Haal projecten op": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Overzicht maken van taken en projecten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Overzicht maken van taken en projecten": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Format Data voor LLM1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Data voor LLM1": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain1": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge4": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Taken maken",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Taken maken": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update mautic1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "emailId": "<1858922817.152194.1773925031166@localhost>",
+        "from": "info@devreemakelaardij.nl",
+        "to": "melanieeekhofx@gmail.com",
+        "subject": "Re: Een nieuwe reactie op Vlinderveen 201  Spijkenisse [SE11855-23128230]",
+        "receivedDate": "Thu, 19 Mar 2026 13:57:11 +0100 (CET)",
+        "bodyText": "Goedemiddag mevrouw Eekhof,\r\n\r\n\r\nOp dit moment is de woning Vlinderveen 201 te Spijkenisse verkocht onder voorbehoud van financiering.\r\nWij zullen uw gegevens bewaren en contact met u opnemen mocht de financiering niet rond komen.\r\n\r\n\r\nMet vriendelijke groet,\r\nAnja de Vree\r\n\r\n\r\nDe Vree Makelaardij B.V.\r\nDe Zoom 3 (Maasboulevard)\r\n3207 BX - Spijkenisse\r\ntel. (0181) 611919\r\ninfo@devreemakelaardij.nl\r\nwww.devreemakelaardij.nl\r\n\r\n\r\n \r\nVan: funda desk <notificaties@service.funda.nl>\r\nDatum: donderdag, 19 maart 2026 13:51\r\nAan: info@devreemakelaardij.nl\r\nOnderwerp: Een nieuwe reactie op Vlinderveen 201 Spijkenisse\r\n> \r\n>  \r\n> Klik hier voor de online versie\r\n>  \r\n> \r\n> Je hebt een nieuwe lead\r\n> Melanie wil graag bezichtigen en wacht op jouw reactie\r\n> \r\n>  \r\n>  \r\n>  \r\n> \r\n> Vlinderveen 201 \r\n> 3205EB Spijkenisse\r\n>    \r\n> Melanie Eekhof\r\n> 0641546392\r\n> melanieeekhofx@gmail.com\r\n> Donderdag, Ochtend\r\n>  \r\n>  \r\n> We hebben aanvullende informatie over deze lead. Je bekijkt het in je contactaanvragen in Funda Desk.\r\n> \r\n> Ga naar contactaanvragen    \r\n> \r\n>  \r\n>  \r\n> Bericht van Melanie\r\n>  \r\n> Goedemiddag,  \r\n> \r\n> Wij zijn een jong stel en wij staan op het punt om samen een nieuwe stap te zetten en willen graag verhuizen om ons gezamenlijke avontuur te beginnen en een toekomst samen op te bouwen.\r\n> \r\n> Wij hechten veel waarde aan een nette en rustige woonomgeving. Beiden werken wij hard en zijn wij gericht op stabiliteit en een goede toekomst. Met veel enthousiasme kijken wij uit naar een fijne woning waar wij ons samen kunnen vestigen en ons thuis kunnen creÃ«ren.\r\n> \r\n> Met vriendelijke groet,\r\n> \r\n> Melanie Eekhof  en Mitchel Rijsdijk\r\n>  \r\n>  \r\n> \r\n>  \r\n>  \r\n> 53% van de funda gebruikers staat ervoor open om te verhuizen\r\n> \r\n> Bron: funda doelgroeponderzoek, maart 2023\r\n> \r\n>  \r\n>  \r\n> Meer aandacht voor jouw kantoor\r\n> Een accountmanager helpt je graag verder om het bereik van je objecten op funda te vergroten.\r\n> \r\n> Neem contact op    \r\n> \r\n>  \r\n> Het podium voor de succesvolle makelaar\r\n> \r\n>  \r\n>  \r\n>  \r\n>  \r\n>  \r\n>  \r\n>  \r\n> Direct naar Mijn Account\r\n> \r\n> Dit is een automatisch bericht waar je niet op kunt reageren. Snel antwoord op je vraag? Op Vraag & Antwoord vind je alle veelgestelde vragen en actuele topics.\r\n> \r\n> Voorwaarden | Privacybeleid | 10472248\r\n> \r\n>  \r\n\r\n "
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87a1d868d5450dbb4dda501076b972570daba041e460c5c89588d3b02fc1be40"
+  }
+}
