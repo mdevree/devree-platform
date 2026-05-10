@@ -4,7 +4,6 @@ import { isAuthorized } from "@/lib/apiAuth";
 
 /**
  * GET /api/leads/[id]
- * Haal een enkele lead op met gekoppelde projecten
  */
 export async function GET(
   request: NextRequest,
@@ -34,6 +33,10 @@ export async function GET(
         },
         orderBy: { addedAt: "desc" },
       },
+      routes: {
+        orderBy: { routedAt: "desc" },
+        take: 10,
+      },
     },
   });
 
@@ -46,7 +49,8 @@ export async function GET(
 
 /**
  * PATCH /api/leads/[id]
- * Werk een lead bij
+ * Accepteert: naam, email, telefoon, mauticContactId, status, prioriteit, source, tags,
+ *             notities, hypotheekAdviseurId, hypotheekAdviseurDatum, hypotheekAfgesloten
  */
 export async function PATCH(
   request: NextRequest,
@@ -67,13 +71,19 @@ export async function PATCH(
   if (data.telefoon !== undefined) updateData.telefoon = data.telefoon || null;
   if (data.mauticContactId !== undefined) updateData.mauticContactId = data.mauticContactId || null;
   if (data.status !== undefined) updateData.status = data.status;
+  if (data.prioriteit !== undefined) updateData.prioriteit = data.prioriteit;
+  if (data.source !== undefined) updateData.source = data.source || null;
+  if (data.tags !== undefined) updateData.tags = data.tags ?? null;
   if (data.notities !== undefined) updateData.notities = data.notities || null;
   if (data.hypotheekAdviseurDatum !== undefined) {
-    updateData.hypotheekAdviseurDatum = data.hypotheekAdviseurDatum ? new Date(data.hypotheekAdviseurDatum) : null;
+    updateData.hypotheekAdviseurDatum = data.hypotheekAdviseurDatum
+      ? new Date(data.hypotheekAdviseurDatum)
+      : null;
   }
-  if (data.hypotheekAfgesloten !== undefined) updateData.hypotheekAfgesloten = data.hypotheekAfgesloten;
+  if (data.hypotheekAfgesloten !== undefined) {
+    updateData.hypotheekAfgesloten = data.hypotheekAfgesloten;
+  }
 
-  // hypotheekAdviseurId via connect/disconnect
   if (data.hypotheekAdviseurId !== undefined) {
     updateData.hypotheekAdviseur = data.hypotheekAdviseurId
       ? { connect: { id: data.hypotheekAdviseurId } }
@@ -85,7 +95,7 @@ export async function PATCH(
     data: updateData,
     include: {
       hypotheekAdviseur: { select: { id: true, naam: true, bedrijf: true } },
-      _count: { select: { projecten: true } },
+      _count: { select: { projecten: true, routes: true } },
     },
   });
 
@@ -94,7 +104,6 @@ export async function PATCH(
 
 /**
  * DELETE /api/leads/[id]
- * Verwijder een lead (LeadProject cascade via schema)
  */
 export async function DELETE(
   request: NextRequest,
