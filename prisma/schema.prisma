@@ -51,6 +51,23 @@ enum LeadStatus {
   INACTIEF
 }
 
+enum LeadSource {
+  WEBSITE
+  SOCIAL
+  TELEFOON
+  EMAIL
+  DOORVERWIJZING
+  HANDMATIG
+  API
+}
+
+enum LeadPrioriteit {
+  LAAG
+  NORMAAL
+  HOOG
+  URGENT
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -286,19 +303,43 @@ model Lead {
   email                  String?
   telefoon               String?
   status                 LeadStatus         @default(KIJKER)
+  prioriteit             LeadPrioriteit     @default(NORMAAL)
+  source                 LeadSource?
+  tags                   Json?              // string[]
   notities               String?            @db.Text
   hypotheekAdviseur      HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
   hypotheekAdviseurId    String?
   hypotheekAdviseurDatum DateTime?
   hypotheekAfgesloten    Boolean            @default(false)
   projecten              LeadProject[]
+  routes                 LeadRoute[]
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
   @@index([status])
+  @@index([prioriteit])
+  @@index([source])
   @@index([hypotheekAdviseurId])
   @@index([mauticContactId])
   @@map("leads")
+}
+
+model LeadRoute {
+  id            String   @id @default(cuid())
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId        String
+  routeType     String   // "hypotheekadviseur" | "makelaar" | "extern"
+  targetId      String?
+  targetNaam    String?
+  targetBedrijf String?
+  notities      String?  @db.Text
+  routedById    String?
+  routedAt      DateTime @default(now())
+
+  @@index([leadId])
+  @@index([routeType])
+  @@index([routedAt])
+  @@map("lead_routes")
 }
 
 model LeadProject {
