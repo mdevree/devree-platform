@@ -448,6 +448,171 @@ De velden zijn dynamisch — medewerkers kunnen vrij velden toevoegen, aanpassen
 
 ---
 
+### Leads & Lead Routing `/api/leads`
+
+Generiek lead routing systeem voor het beheren en doorsturen van leads naar elke bestemming (hypotheekadviseur, makelaar, externe partij).
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/leads` | Haal leads op met filters en paginering |
+| `POST` | `/api/leads` | Maak een nieuwe lead aan |
+| `GET` | `/api/leads/[id]` | Haal één lead op inclusief gekoppelde projecten en recente routes |
+| `PATCH` | `/api/leads/[id]` | Werk een lead bij |
+| `DELETE` | `/api/leads/[id]` | Verwijder een lead |
+| `POST` | `/api/leads/[id]/routes` | Stuur een lead door naar een bestemming |
+| `GET` | `/api/leads/[id]/routes` | Haal de volledige routeringshistorie op van een lead |
+| `POST` | `/api/leads/[id]/projecten` | Koppel een project aan een lead |
+| `DELETE` | `/api/leads/[id]/projecten` | Ontkoppel een project van een lead |
+| `GET` | `/api/leads/stats` | Statistieken per status, bron, prioriteit en routeringstype |
+| `POST` | `/api/leads/bulk` | Bulk-acties op meerdere leads tegelijk |
+| `GET` | `/api/leads/export` | Exporteer leads als CSV |
+
+#### `GET /api/leads` — Query parameters
+
+| Parameter | Type | Omschrijving |
+|-----------|------|--------------|
+| `status` | `string` | Filter op status: `KIJKER` \| `ZOEKER` \| `CONVERTED` \| `INACTIEF` |
+| `source` | `string` | Filter op bron: `WEBSITE` \| `SOCIAL` \| `TELEFOON` \| `EMAIL` \| `DOORVERWIJZING` \| `HANDMATIG` \| `API` |
+| `prioriteit` | `string` | Filter op prioriteit: `LAAG` \| `NORMAAL` \| `HOOG` \| `URGENT` |
+| `tags` | `string` | Komma-gescheiden lijst van tags — alle genoemde tags moeten aanwezig zijn |
+| `search` | `string` | Zoekterm — doorzoekt naam, e-mail en telefoonnummer |
+| `dateFrom` | `ISO 8601` | Leads aangemaakt op of na deze datum |
+| `dateTo` | `ISO 8601` | Leads aangemaakt op of voor deze datum |
+| `sort` | `string` | Sorteerveld: `createdAt` \| `naam` \| `prioriteit` \| `updatedAt` (standaard: `createdAt`) |
+| `order` | `string` | `asc` of `desc` (standaard: `desc`) |
+| `page` | `number` | Paginanummer (standaard: `1`) |
+| `limit` | `number` | Aantal resultaten per pagina (standaard: `24`, max: `100`) |
+
+**Response:**
+```json
+{
+  "leads": [...],
+  "pagination": { "page": 1, "limit": 24, "total": 80, "pages": 4 }
+}
+```
+
+Elke lead bevat `_count.projecten` en `_count.routes`.
+
+#### `POST /api/leads` — Body
+
+| Veld | Vereist | Omschrijving |
+|------|---------|--------------|
+| `naam` | ✅ | Naam van de lead |
+| `email` | | E-mailadres |
+| `telefoon` | | Telefoonnummer |
+| `mauticContactId` | | Koppeling met Mautic contact (vanuit Mautic haal je o.a. de Realworks-code op) |
+| `status` | | `KIJKER` \| `ZOEKER` \| `CONVERTED` \| `INACTIEF` (standaard: `KIJKER`) |
+| `prioriteit` | | `LAAG` \| `NORMAAL` \| `HOOG` \| `URGENT` (standaard: `NORMAAL`) |
+| `source` | | Bron van de lead (zie waarden hierboven) |
+| `tags` | | Array van strings, bijv. `["starter", "spoed"]` |
+| `notities` | | Vrije tekst |
+| `hypotheekAdviseurId` | | Direct koppelen aan een hypotheekadviseur bij aanmaken |
+
+#### `PATCH /api/leads/[id]` — Body
+
+Stuur alleen de velden mee die je wilt bijwerken. Alle velden uit POST zijn beschikbaar, aangevuld met:
+
+| Veld | Omschrijving |
+|------|--------------|
+| `hypotheekAdviseurDatum` | Datum van de doorverwijzing naar hypotheekadviseur (ISO 8601 of `null`) |
+| `hypotheekAfgesloten` | `true` / `false` — hypotheek is afgesloten |
+
+#### `POST /api/leads/[id]/routes` — Lead doorsturen
+
+Stuur een lead door naar een bestemming en sla dit op in de routeringshistorie.
+
+```json
+{
+  "routeType": "hypotheekadviseur",
+  "targetId": "adviseur-id",
+  "targetNaam": "Jan Jansen",
+  "targetBedrijf": "Hypotheek BV",
+  "notities": "Klant heeft spoed, graag deze week contact",
+  "routedById": "user-id"
+}
+```
+
+| Veld | Vereist | Omschrijving |
+|------|---------|--------------|
+| `routeType` | ✅ | Vrij type, bijv. `hypotheekadviseur`, `makelaar`, `extern` |
+| `targetId` | | ID van de bestemming (bijv. `HypotheekAdviseur.id` of `User.id`) |
+| `targetNaam` | | Naam van de bestemming (voor weergave) |
+| `targetBedrijf` | | Bedrijf van de bestemming |
+| `notities` | | Toelichting bij de doorverwijzing |
+| `routedById` | | ID van de medewerker die de doorverwijzing heeft gedaan |
+| `updateLead` | | `false` om automatische sync van `hypotheekAdviseurId` over te slaan (standaard: `true`) |
+
+> Bij `routeType: "hypotheekadviseur"` wordt `hypotheekAdviseurId` en `hypotheekAdviseurDatum` automatisch bijgewerkt op de lead.
+
+#### `GET /api/leads/stats` — Statistieken
+
+Optioneel te filteren op periode via `dateFrom` en `dateTo`.
+
+**Response:**
+```json
+{
+  "totaal": 120,
+  "byStatus": [
+    { "status": "KIJKER", "count": 60 },
+    { "status": "ZOEKER", "count": 35 }
+  ],
+  "bySource": [
+    { "source": "WEBSITE", "count": 45 }
+  ],
+  "byPrioriteit": [
+    { "prioriteit": "HOOG", "count": 20 }
+  ],
+  "byRouteType": [
+    { "routeType": "hypotheekadviseur", "count": 38 }
+  ]
+}
+```
+
+#### `POST /api/leads/bulk` — Bulk-acties
+
+```json
+{
+  "ids": ["id1", "id2", "id3"],
+  "action": "updateStatus",
+  "status": "ZOEKER"
+}
+```
+
+| Actie | Extra velden | Omschrijving |
+|-------|-------------|--------------|
+| `updateStatus` | `status` | Zet de status van alle opgegeven leads |
+| `updatePrioriteit` | `prioriteit` | Zet de prioriteit van alle opgegeven leads |
+| `addTag` | `tag` | Voeg een tag toe aan alle opgegeven leads |
+| `removeTag` | `tag` | Verwijder een tag van alle opgegeven leads |
+| `route` | `routeType`, `targetId`, `targetNaam`, `targetBedrijf`, `notities`, `routedById` | Stuur alle leads tegelijk door |
+
+**Response:**
+```json
+{ "success": true, "affected": 3 }
+```
+
+#### `GET /api/leads/export` — CSV export
+
+Ondersteunt dezelfde filters als `GET /api/leads` (max. 5.000 rijen). Response is een CSV-bestand met de volgende kolommen:
+
+`id`, `naam`, `email`, `telefoon`, `status`, `prioriteit`, `source`, `tags` (pipe-gescheiden), `mauticContactId`, `hypotheekAdviseur`, `hypotheekAdviseurBedrijf`, `hypotheekAdviseurDatum`, `hypotheekAfgesloten`, `notities`, `aangemaakt`, `bijgewerkt`
+
+#### `POST /api/leads/[id]/projecten` — Body
+
+```json
+{ "projectId": "project-id" }
+```
+
+Upsert — koppelt het project als het er nog niet aan gekoppeld is.
+
+#### `DELETE /api/leads/[id]/projecten` — Body
+
+```json
+{ "projectId": "project-id" }
+```
+
+---
+
 ### Buurtdata `/api/buurtdata`
 
 | Methode | Endpoint | Omschrijving |
@@ -504,6 +669,34 @@ Koppelt meerdere Mautic contacten aan een project. Vervangt de legacy `contactNa
 
 Unieke constraint op `(projectId, mauticContactId)`.
 
+### Lead
+
+| Veld | Type | Omschrijving |
+|------|------|--------------|
+| `mauticContactId` | `String?` | Koppeling met Mautic contact (bron voor o.a. Realworks-code) |
+| `status` | `LeadStatus` | `KIJKER` \| `ZOEKER` \| `CONVERTED` \| `INACTIEF` |
+| `prioriteit` | `LeadPrioriteit` | `LAAG` \| `NORMAAL` \| `HOOG` \| `URGENT` |
+| `source` | `LeadSource?` | Herkomst: `WEBSITE` \| `SOCIAL` \| `TELEFOON` \| `EMAIL` \| `DOORVERWIJZING` \| `HANDMATIG` \| `API` |
+| `tags` | `Json?` | Vrije labels als string-array, bijv. `["starter", "spoed"]` |
+| `hypotheekAdviseurId` | `String?` | Snelkoppeling naar de laatste doorverwijzing (hypotheekadviseur) |
+| `hypotheekAdviseurDatum` | `DateTime?` | Datum van de laatste doorverwijzing |
+| `hypotheekAfgesloten` | `Boolean` | Hypotheek is definitief afgesloten |
+
+### LeadRoute
+
+Elke doorverwijzing van een lead wordt als aparte regel opgeslagen. Hierdoor is de volledige routeringshistorie altijd beschikbaar.
+
+| Veld | Type | Omschrijving |
+|------|------|--------------|
+| `leadId` | `String` | Verwijzing naar de lead |
+| `routeType` | `String` | Vrij type: `hypotheekadviseur`, `makelaar`, `extern`, etc. |
+| `targetId` | `String?` | ID van de bestemming (adviseur of gebruiker) |
+| `targetNaam` | `String?` | Naam van de bestemming (voor weergave) |
+| `targetBedrijf` | `String?` | Bedrijf van de bestemming |
+| `notities` | `String?` | Toelichting bij de doorverwijzing |
+| `routedById` | `String?` | ID van de medewerker die de doorverwijzing heeft gedaan |
+| `routedAt` | `DateTime` | Tijdstip van de doorverwijzing |
+
 ### MauticEvent
 
 Lokale opslag van Mautic email activiteit (clicks en opens) voor weergave in contactpanels.
@@ -517,6 +710,34 @@ Lokale opslag van Mautic email activiteit (clicks en opens) voor weergave in con
 | `occurredAt` | `DateTime` | Tijdstip van het event |
 
 ---
+
+**SQL voor handmatige migraties (lead routing):**
+```sql
+ALTER TABLE `leads`
+  ADD COLUMN `prioriteit` ENUM('LAAG','NORMAAL','HOOG','URGENT') NOT NULL DEFAULT 'NORMAAL',
+  ADD COLUMN `source` ENUM('WEBSITE','SOCIAL','TELEFOON','EMAIL','DOORVERWIJZING','HANDMATIG','API') NULL,
+  ADD COLUMN `tags` JSON NULL;
+
+CREATE INDEX `leads_prioriteit_idx` ON `leads`(`prioriteit`);
+CREATE INDEX `leads_source_idx` ON `leads`(`source`);
+
+CREATE TABLE `lead_routes` (
+  `id`            VARCHAR(191) NOT NULL,
+  `leadId`        VARCHAR(191) NOT NULL,
+  `routeType`     VARCHAR(191) NOT NULL,
+  `targetId`      VARCHAR(191) NULL,
+  `targetNaam`    VARCHAR(191) NULL,
+  `targetBedrijf` VARCHAR(191) NULL,
+  `notities`      TEXT NULL,
+  `routedById`    VARCHAR(191) NULL,
+  `routedAt`      DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  INDEX `lead_routes_leadId_idx`(`leadId`),
+  INDEX `lead_routes_routeType_idx`(`routeType`),
+  INDEX `lead_routes_routedAt_idx`(`routedAt`),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `lead_routes_leadId_fkey` FOREIGN KEY (`leadId`) REFERENCES `leads`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
 **SQL voor handmatige migraties (tijdregistratie):**
 ```sql
