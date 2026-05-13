@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function isAuthorized(request: NextRequest, session: unknown): boolean {
+  if (session) return true;
+  const webhookSecret = request.headers.get("x-webhook-secret");
+  return (
+    !!process.env.N8N_WEBHOOK_SECRET &&
+    webhookSecret === process.env.N8N_WEBHOOK_SECRET
+  );
+}
+
+async function findCall(id: string) {
+  // Probeer eerst op interne id, dan op Voys callId
+  return await prisma.call.findFirst({
+    where: { OR: [{ id }, { callId: id }] },
+    include: { project: true },
+  });
+}
+
 /**
  * GET /api/calls/[id]/notes
  * Haal alle notities op van een gesprek
@@ -11,14 +28,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session) {
+  if (!isAuthorized(request, session)) {
     return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
   }
 
   const { id } = await params;
+  const call = await findCall(id);
+
+  if (!call) {
+    return NextResponse.json({ error: "Gesprek niet gevonden" }, { status: 404 });
+  }
 
   const notes = await prisma.callNote.findMany({
-    where: { callId: id },
+    where: { callId: call.id },
     orderBy: { createdAt: "desc" },
   });
 
@@ -34,7 +56,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session) {
+  if (!isAuthorized(request, session)) {
     return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
   }
 
@@ -45,11 +67,8 @@ export async function POST(
     return NextResponse.json({ error: "Notitie mag niet leeg zijn" }, { status: 400 });
   }
 
-  // Haal call op voor context
-  const call = await prisma.call.findUnique({
-    where: { id },
-    include: { project: true },
-  });
+  // Zoek call op interne id OF Voys callId
+  const call = await findCall(id);
 
   if (!call) {
     return NextResponse.json({ error: "Gesprek niet gevonden" }, { status: 404 });
@@ -58,9 +77,9 @@ export async function POST(
   // Sla notitie op
   const callNote = await prisma.callNote.create({
     data: {
-      callId: id,
+      callId: call.id,
       note: note.trim(),
-      createdBy: session.user?.name || session.user?.email || "Onbekend",
+      createdBy: session?.user?.name || session?.user?.email || "n8n",
     },
   });
 
@@ -118,8 +137,13 @@ export async function DELETE(
   const { id } = await params;
   const { noteId } = await request.json();
 
+  const call = await findCall(id);
+  if (!call) {
+    return NextResponse.json({ error: "Gesprek niet gevonden" }, { status: 404 });
+  }
+
   await prisma.callNote.deleteMany({
-    where: { id: noteId, callId: id },
+    where: { id: noteId, callId: call.id },
   });
 
   return NextResponse.json({ success: true });
