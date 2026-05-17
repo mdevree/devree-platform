@@ -1,5 +1,5 @@
 // Realworks → n8n Sync
-// Onderschept form saves en stuurt contactdata naar n8n voor verdere verwerking
+// Leest data uit het huidige frame bij page load en stuurt naar n8n
 
 const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-sync';
 
@@ -30,31 +30,22 @@ const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-s
     };
   }
 
-  function send(data) {
+  function init() {
+    const contact = readContact();
+    if (!contact.email && !contact.firstname && !contact.lastname) return;
+
     fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(contact)
     }).then(res => {
       if (res.ok) {
-        console.log('[Realworks Sync] ✓ Verstuurd:', data.email || data.firstname);
+        console.log('[Realworks Sync] ✓ Verstuurd:', contact.email || contact.firstname);
       } else {
         console.warn('[Realworks Sync] Fout:', res.status);
       }
     }).catch(err => {
       console.warn('[Realworks Sync] Verbindingsfout:', err);
-    });
-  }
-
-  function init() {
-    // Luister op alle forms in dit frame
-    document.querySelectorAll('form').forEach(form => {
-      form.addEventListener('submit', () => {
-        const contact = readContact();
-        if (contact.email || contact.firstname || contact.lastname) {
-          send(contact);
-        }
-      });
     });
   }
 
