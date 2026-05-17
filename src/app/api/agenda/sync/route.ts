@@ -14,7 +14,7 @@ interface RealworksItem {
   aglocation?: string;
   agobjcode?: string;
   agrcode?: string;
-  relation_relationid?: string;
+  relation_relationid?: string | number;
   employee_employeeid?: number;
   medewerker_fullname?: string;
   agmemo?: string;
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         aglocation: item.aglocation,
         agobjcode: item.agobjcode,
         agrcode: item.agrcode,
-        relationRelationid: item.relation_relationid,
+        relationRelationid: item.relation_relationid != null ? String(item.relation_relationid) : null,
         employeeEmployeeid: item.employee_employeeid,
         medewerkerFullname: item.medewerker_fullname,
         agmemo: item.agmemo,
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
         aglocation: item.aglocation,
         agobjcode: item.agobjcode,
         agrcode: item.agrcode,
-        relationRelationid: item.relation_relationid,
+        relationRelationid: item.relation_relationid != null ? String(item.relation_relationid) : null,
         employeeEmployeeid: item.employee_employeeid,
         medewerkerFullname: item.medewerker_fullname,
         agmemo: item.agmemo,
