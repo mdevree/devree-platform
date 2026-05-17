@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Realworks → Mautic Sync",
+  "version": "1.0",
+  "description": "Synchroniseert contacten automatisch van Realworks naar Mautic via n8n.",
+  "permissions": [
+    "webRequest"
+  ],
+  "host_permissions": [
+    "https://crm.realworks.nl/*",
+    "https://automation.devreemakelaardij.nl/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://crm.realworks.nl/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
