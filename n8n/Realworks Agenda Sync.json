@@ -1,0 +1,320 @@
+{
+  "name": "Realworks Agenda Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "realworks-agenda-sync",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-800, 400],
+      "webhookId": "realworks-agenda-sync"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\" }",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000002",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [-560, 240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.agenda }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "id": "a1b2c3d4-0001-0001-0001-000000000010"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000003",
+      "name": "Heeft agenda data?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [-560, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://platform.devreemakelaardij.nl/api/agenda/sync",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $env.PLATFORM_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "agenda": "={{ $json.body.agenda }}"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000011",
+      "name": "Platform sync (gewijzigd?)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-320, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.changed }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "id": "a1b2c3d4-0001-0001-0001-000000000012"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000013",
+      "name": "Zijn er wijzigingen?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [-80, 400]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000004",
+      "name": "Splits gewijzigde items",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [160, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-020",
+              "name": "gcal_id",
+              "value": "={{ 'crm.agenda_' + $json.systemid + '_' + $json.agowner + '@realworks.nl' }}",
+              "type": "string"
+            },
+            {
+              "id": "field-006",
+              "name": "agbegin",
+              "value": "={{ DateTime.fromFormat($json.agbegin, 'dd-MM-yyyy HH:mm:ss').toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "field-007",
+              "name": "agend",
+              "value": "={{ DateTime.fromFormat($json.agend, 'dd-MM-yyyy HH:mm:ss').toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000006",
+      "name": "Voeg gcal_id toe",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [400, 400]
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "privateExtendedProperty": "={{ 'id=' + $json.gcal_id }}"
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000007",
+      "name": "Zoek in Google Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [640, 400],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "VERVANG_MET_CREDENTIAL_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "id": "a1b2c3d4-0001-0001-0001-000000000014"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000008",
+      "name": "Gevonden in Google Calendar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [880, 400]
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "eventId": "={{ $json.id }}",
+        "updateFields": {
+          "summary": "={{ $('Voeg gcal_id toe').item.json.agtype ? '[' + $('Voeg gcal_id toe').item.json.agtype + '] ' + $('Voeg gcal_id toe').item.json.agdescr : $('Voeg gcal_id toe').item.json.agdescr }}",
+          "start": "={{ $('Voeg gcal_id toe').item.json.agbegin }}",
+          "end": "={{ $('Voeg gcal_id toe').item.json.agend }}",
+          "location": "={{ $('Voeg gcal_id toe').item.json.aglocation }}",
+          "description": "={{ [$('Voeg gcal_id toe').item.json.agstatus, $('Voeg gcal_id toe').item.json.agobjcode ? 'objcode: ' + $('Voeg gcal_id toe').item.json.agobjcode : '', $('Voeg gcal_id toe').item.json.agrcode ? 'rcode: ' + $('Voeg gcal_id toe').item.json.agrcode : '', $('Voeg gcal_id toe').item.json.agmemo].filter(Boolean).join('\\n') }}"
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000009",
+      "name": "Update event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [1120, 300],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "VERVANG_MET_CREDENTIAL_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          { "node": "Respond", "type": "main", "index": 0 },
+          { "node": "Heeft agenda data?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Heeft agenda data?": {
+      "main": [
+        [
+          { "node": "Platform sync (gewijzigd?)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Platform sync (gewijzigd?)": {
+      "main": [
+        [
+          { "node": "Zijn er wijzigingen?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Zijn er wijzigingen?": {
+      "main": [
+        [
+          { "node": "Splits gewijzigde items", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Splits gewijzigde items": {
+      "main": [
+        [
+          { "node": "Voeg gcal_id toe", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Voeg gcal_id toe": {
+      "main": [
+        [
+          { "node": "Zoek in Google Calendar", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Zoek in Google Calendar": {
+      "main": [
+        [
+          { "node": "Gevonden in Google Calendar?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Gevonden in Google Calendar?": {
+      "main": [
+        [
+          { "node": "Update event", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-05-17T00:00:00.000Z",
+  "versionId": "1"
+}
