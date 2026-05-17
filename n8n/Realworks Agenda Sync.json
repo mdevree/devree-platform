@@ -106,13 +106,13 @@
             {
               "id": "field-006",
               "name": "agbegin",
-              "value": "={{ $json.agbegin }}",
+              "value": "={{ DateTime.fromFormat($json.agbegin, 'dd-MM-yyyy HH:mm:ss').toISO() }}",
               "type": "string"
             },
             {
               "id": "field-007",
               "name": "agend",
-              "value": "={{ $json.agend }}",
+              "value": "={{ DateTime.fromFormat($json.agend, 'dd-MM-yyyy HH:mm:ss').toISO() }}",
               "type": "string"
             },
             {
