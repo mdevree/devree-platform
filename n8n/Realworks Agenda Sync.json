@@ -257,7 +257,7 @@
         "options": {}
       },
       "id": "a1b2c3d4-0001-0001-0001-000000000008",
-      "name": "Bestaat al?",
+      "name": "Gevonden in Google Calendar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [400, 400]
@@ -285,43 +285,7 @@
       "name": "Update event",
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
-      "position": [640, 280],
-      "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "VERVANG_MET_CREDENTIAL_ID",
-          "name": "Google Calendar account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "resource": "event",
-        "operation": "create",
-        "calendar": {
-          "__rl": true,
-          "value": "primary",
-          "mode": "list",
-          "cachedResultName": "primary"
-        },
-        "start": "={{ $json.agbegin }}",
-        "end": "={{ $json.agend }}",
-        "additionalFields": {
-          "summary": "={{ $json.agtype ? '[' + $json.agtype + '] ' + $json.agdescr : $json.agdescr }}",
-          "location": "={{ $json.aglocation }}",
-          "description": "={{ [$json.agstatus, $json.agmemo, $json.agintratext].filter(Boolean).join('\\n\\n') }}",
-          "extendedProperties": {
-            "private": {
-              "fromN8N": "true",
-              "id": "={{ $json.gcal_id }}"
-            }
-          }
-        }
-      },
-      "id": "a1b2c3d4-0001-0001-0001-000000000010",
-      "name": "Maak event aan",
-      "type": "n8n-nodes-base.googleCalendar",
-      "typeVersion": 1.3,
-      "position": [640, 520],
+      "position": [640, 300],
       "credentials": {
         "googleCalendarOAuth2Api": {
           "id": "VERVANG_MET_CREDENTIAL_ID",
@@ -363,17 +327,14 @@
     "Zoek in Google Calendar": {
       "main": [
         [
-          { "node": "Bestaat al?", "type": "main", "index": 0 }
+          { "node": "Gevonden in Google Calendar?", "type": "main", "index": 0 }
         ]
       ]
     },
-    "Bestaat al?": {
+    "Gevonden in Google Calendar?": {
       "main": [
         [
           { "node": "Update event", "type": "main", "index": 0 }
-        ],
-        [
-          { "node": "Maak event aan", "type": "main", "index": 0 }
         ]
       ]
     }
