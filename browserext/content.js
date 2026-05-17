@@ -14,13 +14,18 @@ window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (event.data?.type !== 'REALWORKS_AGENDA') return;
 
+  // Filter UI-renderitems eruit (hebben js_do_not_open=true, zijn duplicaten voor de kalenderweergave)
+  const items = (event.data.data || []).filter(item => item.js_do_not_open !== 'true');
+
+  if (!items.length) return;
+
   const payload = {
     source: 'realworks',
     page_url: window.location.href,
     fromdate: event.data.meta?.fromdate,
     todate: event.data.meta?.todate,
     employees: event.data.meta?.employees,
-    agenda: event.data.data,
+    agenda: items,
   };
 
   fetch(AGENDA_WEBHOOK_URL, {
@@ -28,7 +33,7 @@ window.addEventListener('message', (event) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   }).then(res => {
-    if (res.ok) console.log('[Realworks Agenda Sync] ✓ Verstuurd:', payload.fromdate, '-', payload.todate);
+    if (res.ok) console.log('[Realworks Agenda Sync] ✓ Verstuurd:', items.length, 'items,', payload.fromdate, '-', payload.todate);
     else console.warn('[Realworks Agenda Sync] Fout:', res.status);
   }).catch(err => console.warn('[Realworks Agenda Sync] Verbindingsfout:', err));
 });
