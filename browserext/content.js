@@ -15,28 +15,14 @@ window.addEventListener('message', (event) => {
 
   const d = event.data.data;
 
-  const contact = {
-    firstname:  d.firstname || d.christianname || '',
-    lastname:   d.lastname || '',
-    initials:   d.initials || '',
-    email:      d.email || '',
-    mobile:     d.mobile || '',
-    phone:      d.tel2 || d.tel1 || '',
-    address:    [d.hstreet, d.hhouseno, d.hhousenoext].filter(Boolean).join(' ').trim(),
-    zipcode:    d.hzipcode || '',
-    city:       d.hcity || '',
-    salutation: d.saluation || '',
-    sex:        d.sex || '',
-    title:      d.title || '',
-    typerela:   d.typerela || '',
-    systemid:   d._systemid || '',
-    rcode:      d.rcode || '',
-    rtype:      d.rtype || '',
-    source:     'realworks',
-    page_url:   window.location.href,
-  };
+  if (!d.email && !d.firstname && !d.lastname) return;
 
-  if (!contact.email && !contact.firstname && !contact.lastname) return;
+  // Filter __MASK velden eruit (lange dropdown-optielijsten, niet nuttig)
+  const SKIP = /(__MASK|__EDIT__|__NEW__|_grid_|_dispatcher|_collection|_entity|CSRFToken)/;
+  const contact = { source: 'realworks', page_url: window.location.href };
+  for (const [k, v] of Object.entries(d)) {
+    if (!SKIP.test(k) && v !== '') contact[k] = v;
+  }
 
   fetch(WEBHOOK_URL, {
     method: 'POST',
