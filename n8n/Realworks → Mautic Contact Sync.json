@@ -1,0 +1,528 @@
+{
+  "name": "Realworks → Mautic Contact Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "id": "00cd7c38-5a16-4cb1-a085-c915a7ca676b"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "93605f65-1ace-4b18-8c72-3e1aff846611",
+      "name": "Heeft e-mail?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\" }",
+        "options": {}
+      },
+      "id": "85a77280-0235-4217-acd3-98a26efc83cb",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "realworks-sync",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d0477c85-9e73-4d96-bba9-e9444e8eabae",
+      "name": "Webhook1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        944
+      ],
+      "webhookId": "a4346361-df9b-4c48-a8a2-8e53f2d7656f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "done",
+              "name": "status",
+              "value": "contact verwerkt",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0c04695a-7c6b-4ad5-83dc-17dd05753b3d",
+      "name": "Contact Verwerkt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        832,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "getAll",
+        "limit": 1,
+        "options": {
+          "search": "=email:{{ $json.email }}"
+        }
+      },
+      "type": "n8n-nodes-base.mautic",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        944
+      ],
+      "id": "0e29590f-52a7-4ab1-bfa9-5cee20d15f2f",
+      "name": "Search in Mautic1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const searchResult = $input.item.json;\nconst originalData = $('Code in JavaScript').first().json;\n\nconst contactExists = searchResult && searchResult.id ? true : false;\nconst mauticContactId = contactExists ? searchResult.id : null;\n\nreturn {\n  json: {\n    ...originalData,\n    _contactExists: contactExists,\n    _mauticContactId: mauticContactId\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        944
+      ],
+      "id": "8fa32ebb-0686-4859-adca-009d0c5e18c4",
+      "name": "Check if Exists1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "exists-check",
+              "leftValue": "={{ $json._contactExists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3b404404-583a-4257-85d8-62f3b04930dc",
+      "name": "Contact Exists?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        288,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "update",
+        "contactId": "={{ $json._mauticContactId }}",
+        "updateFields": {
+          "addressUi": {
+            "addressValues": {
+              "address1": "={{ $json.address }}",
+              "address2": "={{ $json.zipcode }} {{ $json.city }}",
+              "city": "={{ $json.city }}",
+              "country": "=",
+              "zipCode": "={{ $json.zipcode }}"
+            }
+          },
+          "customFieldsUi": {
+            "customFieldValues": [
+              {
+                "fieldId": "realworks_code",
+                "fieldValue": "={{ $json.realworks_code }}"
+              },
+              {
+                "fieldId": "huisnummer",
+                "fieldValue": "={{ $json.huisnummer }}"
+              },
+              {
+                "fieldId": "huisnummer_toevoeging",
+                "fieldValue": "={{ $json.huisnummer_toevoeging }}"
+              },
+              {
+                "fieldId": "contact_type_koper",
+                "fieldValue": "={{ $json.contact_type_koper }}"
+              },
+              {
+                "fieldId": "contact_type_verkoper",
+                "fieldValue": "={{ $json.contact_type_verkoper }}"
+              },
+              {
+                "fieldId": "contact_type_zoeker",
+                "fieldValue": "={{ $json.contact_type_zoeker }}"
+              },
+              {
+                "fieldId": "contact_type_bezichtiger",
+                "fieldValue": "={{ $json.contact_type_bezichtiger }}"
+              },
+              {
+                "fieldId": "laatste_transactie_jaar",
+                "fieldValue": "={{ $json.laatste_transactie_jaar }}"
+              },
+              {
+                "fieldId": "transactie_jaren",
+                "fieldValue": "={{ $json.transactie_jaren }}"
+              },
+              {
+                "fieldId": "segment_prioriteit",
+                "fieldValue": "={{ $json.segment_prioriteit }}"
+              },
+              {
+                "fieldId": "campagne_oudklanten",
+                "fieldValue": "={{ $json.campagne_oudklanten }}"
+              },
+              {
+                "fieldId": "intentie_verkoop",
+                "fieldValue": "={{ $json.intentie_verkoop }}"
+              }
+            ]
+          },
+          "firstName": "={{ $json.firstname }}",
+          "lastName": "={{ $json.lastname }}",
+          "mobile": "={{ $json.mobile }}",
+          "phone": "={{ $json.phone }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mautic",
+      "typeVersion": 1,
+      "position": [
+        544,
+        816
+      ],
+      "id": "59648abd-26aa-44ca-a88e-0653af104aab",
+      "name": "Update Mautic Contact1",
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "email": "={{ $json.email }}",
+        "firstName": "={{ $json.firstname }}",
+        "lastName": "={{ $json.lastname }}",
+        "additionalFields": {
+          "addressUi": {
+            "addressValues": {
+              "address1": "={{ $json.address }}",
+              "address2": "={{ $json.zipcode }} {{ $json.city }}",
+              "city": "={{ $json.city }}",
+              "zipCode": "={{ $json.zipcode }}"
+            }
+          },
+          "customFieldsUi": {
+            "customFieldValues": [
+              {
+                "fieldId": "realworks_code",
+                "fieldValue": "={{ $json.realworks_code }}"
+              },
+              {
+                "fieldId": "huisnummer",
+                "fieldValue": "={{ $json.huisnummer }}"
+              },
+              {
+                "fieldId": "huisnummer_toevoeging",
+                "fieldValue": "={{ $json.huisnummer_toevoeging }}"
+              },
+              {
+                "fieldId": "contact_type_koper",
+                "fieldValue": "={{ $json.contact_type_koper }}"
+              },
+              {
+                "fieldId": "contact_type_verkoper",
+                "fieldValue": "={{ $json.contact_type_verkoper }}"
+              },
+              {
+                "fieldId": "contact_type_zoeker",
+                "fieldValue": "={{ $json.contact_type_zoeker }}"
+              },
+              {
+                "fieldId": "contact_type_bezichtiger",
+                "fieldValue": "={{ $json.contact_type_bezichtiger }}"
+              },
+              {
+                "fieldId": "laatste_transactie_jaar",
+                "fieldValue": "={{ $json.laatste_transactie_jaar }}"
+              },
+              {
+                "fieldId": "transactie_jaren",
+                "fieldValue": "={{ $json.transactie_jaren }}"
+              },
+              {
+                "fieldId": "segment_prioriteit",
+                "fieldValue": "={{ $json.segment_prioriteit }}"
+              },
+              {
+                "fieldId": "campagne_oudklanten",
+                "fieldValue": "={{ $json.campagne_oudklanten }}"
+              },
+              {
+                "fieldId": "intentie_verkoop",
+                "fieldValue": "={{ $json.intentie_verkoop }}"
+              }
+            ]
+          },
+          "mobile": "={{ $json.mobile }}",
+          "phone": "={{ $json.phone }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mautic",
+      "typeVersion": 1,
+      "position": [
+        544,
+        1056
+      ],
+      "id": "8702ffa3-6fa0-47b1-b49f-941570d2e750",
+      "name": "Create Mautic Contact1",
+      "retryOnFail": true,
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nreturn [{\n  json: {\n    firstname:   body.firstname  || '',\n    lastname:    body.lastname   || '',\n    email:       body.email      || '',\n    mobile:      body.mobile     || '',\n    phone:       body.phone      || '',\n    address:     body.address    || '',\n    zipcode:     body.zipcode    || '',\n    city:        body.city       || '',\n    salutation:  body.salutation || '',\n    typerela:    body.typerela   || '',\n    systemid:    body.systemid   || '',\n    rcode:       body.rcode      || '',\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        960
+      ],
+      "id": "9b7f2d1c-dd78-49d5-bb3f-cfdeea5bbda4",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {
+    "Webhook1": [
+      {
+        "json": {
+          "headers": {
+            "connection": "upgrade",
+            "host": "automation.devreemakelaardij.nl",
+            "x-real-ip": "77.249.206.91",
+            "x-forwarded-for": "77.249.206.91",
+            "x-forwarded-proto": "https",
+            "content-length": "278",
+            "sec-ch-ua-platform": "\"macOS\"",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "sec-ch-ua": "\"Chromium\";v=\"148\", \"Google Chrome\";v=\"148\", \"Not/A)Brand\";v=\"99\"",
+            "content-type": "application/json",
+            "sec-ch-ua-mobile": "?0",
+            "accept": "*/*",
+            "origin": "https://crm.realworks.nl",
+            "sec-fetch-site": "cross-site",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-dest": "empty",
+            "referer": "https://crm.realworks.nl/",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
+            "priority": "u=1, i"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "firstname": "Fleur",
+            "lastname": "Aalst",
+            "email": "fleurvanaalst@hotmail.nl",
+            "mobile": "+31614121626",
+            "phone": "",
+            "address": "Toldijk 18",
+            "zipcode": "3209 BD",
+            "city": "HEKELINGEN",
+            "salutation": "Geachte mevrouw",
+            "typerela": "",
+            "systemid": "61907254",
+            "rcode": "891240",
+            "source": "realworks"
+          },
+          "webhookUrl": "https://automation.devreemakelaardij.nl/webhook/realworks-sync",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Heeft e-mail?": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Heeft e-mail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact Verwerkt": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search in Mautic1": {
+      "main": [
+        [
+          {
+            "node": "Check if Exists1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Exists1": {
+      "main": [
+        [
+          {
+            "node": "Contact Exists?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact Exists?1": {
+      "main": [
+        [
+          {
+            "node": "Update Mautic Contact1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Mautic Contact1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Mautic Contact1": {
+      "main": [
+        [
+          {
+            "node": "Contact Verwerkt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Mautic Contact1": {
+      "main": [
+        [
+          {
+            "node": "Contact Verwerkt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Search in Mautic1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "58e85ff1-f44c-4fd0-855c-6bb5ba26448e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87a1d868d5450dbb4dda501076b972570daba041e460c5c89588d3b02fc1be40"
+  },
+  "id": "BXamv0Exk1GFQRE6",
+  "tags": []
+}
