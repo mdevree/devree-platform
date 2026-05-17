@@ -1,33 +1,9 @@
-// Realworks → Mautic Sync
-// Leest contactdata uit de pagina en stuurt naar n8n bij elke paginaweergave
+// Realworks → n8n Sync
+// Onderschept form saves en stuurt contactdata naar n8n voor verdere verwerking
 
 const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-sync';
 
 (function () {
-
-  // Alleen op contactpagina's uitvoeren
-  if (!window.location.href.includes('/rela.person/')) return;
-
-  function init() {
-    const contact = readContact();
-
-    // Niet versturen als er geen e-mail en geen naam is
-    if (!contact.email && !contact.firstname && !contact.lastname) return;
-
-    fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(contact)
-    }).then(res => {
-      if (res.ok) {
-        console.log('[Realworks Sync] ✓ Verstuurd:', contact.email || contact.firstname);
-      } else {
-        console.warn('[Realworks Sync] Fout:', res.status);
-      }
-    }).catch(err => {
-      console.warn('[Realworks Sync] Verbindingsfout:', err);
-    });
-  }
 
   function val(name) {
     const el = document.querySelector(`[name="${name}"]`);
@@ -49,8 +25,37 @@ const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-s
       typerela:   val('typerela'),
       systemid:   val('_systemid'),
       rcode:      val('rcode'),
-      source:     'realworks'
+      source:     'realworks',
+      page_url:   window.location.href,
     };
+  }
+
+  function send(data) {
+    fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(res => {
+      if (res.ok) {
+        console.log('[Realworks Sync] ✓ Verstuurd:', data.email || data.firstname);
+      } else {
+        console.warn('[Realworks Sync] Fout:', res.status);
+      }
+    }).catch(err => {
+      console.warn('[Realworks Sync] Verbindingsfout:', err);
+    });
+  }
+
+  function init() {
+    // Luister op alle forms in dit frame
+    document.querySelectorAll('form').forEach(form => {
+      form.addEventListener('submit', () => {
+        const contact = readContact();
+        if (contact.email || contact.firstname || contact.lastname) {
+          send(contact);
+        }
+      });
+    });
   }
 
   if (document.readyState === 'loading') {
