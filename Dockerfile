@@ -38,6 +38,8 @@ COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 COPY entrypoint.sh ./entrypoint.sh
 
+RUN chown -R nextjs:nodejs /app/.next
+
 USER nextjs
 
 EXPOSE 3000
