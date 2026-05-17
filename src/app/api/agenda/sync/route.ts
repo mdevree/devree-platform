@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
-import { DateTime } from "luxon";
 
 interface RealworksItem {
   systemid: number;
@@ -25,10 +24,13 @@ interface RealworksItem {
   alastupd?: string;
 }
 
+// Parset "DD-MM-YYYY HH:mm:ss" (Amsterdam tijd) naar Date
 function parseRwDate(s?: string): Date | null {
   if (!s) return null;
-  const dt = DateTime.fromFormat(s, "dd-MM-yyyy HH:mm:ss", { zone: "Europe/Amsterdam" });
-  return dt.isValid ? dt.toJSDate() : null;
+  const [datePart, timePart] = s.split(" ");
+  if (!datePart || !timePart) return null;
+  const [day, month, year] = datePart.split("-");
+  return new Date(`${year}-${month}-${day}T${timePart}+02:00`);
 }
 
 export async function POST(req: NextRequest) {
