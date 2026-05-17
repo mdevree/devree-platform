@@ -60,59 +60,79 @@
     },
     {
       "parameters": {
-        "fieldToSplitOut": "body.agenda",
+        "method": "POST",
+        "url": "https://platform.devreemakelaardij.nl/api/agenda/sync",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $env.PLATFORM_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "agenda": "={{ $json.body.agenda }}"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000011",
+      "name": "Platform sync (gewijzigd?)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-320, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.changed }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "id": "a1b2c3d4-0001-0001-0001-000000000012"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000013",
+      "name": "Zijn er wijzigingen?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [-80, 400]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
         "options": {}
       },
       "id": "a1b2c3d4-0001-0001-0001-000000000004",
-      "name": "Splits agendapunten",
+      "name": "Splits gewijzigde items",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [-320, 400]
+      "position": [160, 400]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
             {
-              "id": "field-001",
-              "name": "systemid",
-              "value": "={{ $json.systemid }}",
-              "type": "number"
-            },
-            {
-              "id": "field-019",
-              "name": "agowner",
-              "value": "={{ $json.agowner }}",
-              "type": "string"
-            },
-            {
               "id": "field-020",
               "name": "gcal_id",
               "value": "={{ 'crm.agenda_' + $json.systemid + '_' + $json.agowner + '@realworks.nl' }}",
-              "type": "string"
-            },
-            {
-              "id": "field-002",
-              "name": "agcode",
-              "value": "={{ $json.agcode }}",
-              "type": "string"
-            },
-            {
-              "id": "field-003",
-              "name": "agdescr",
-              "value": "={{ $json.agdescr }}",
-              "type": "string"
-            },
-            {
-              "id": "field-004",
-              "name": "agtype",
-              "value": "={{ $json.agtype }}",
-              "type": "string"
-            },
-            {
-              "id": "field-005",
-              "name": "agstatus",
-              "value": "={{ $json.agstatus }}",
               "type": "string"
             },
             {
@@ -126,82 +146,17 @@
               "name": "agend",
               "value": "={{ DateTime.fromFormat($json.agend, 'dd-MM-yyyy HH:mm:ss').toISO() }}",
               "type": "string"
-            },
-            {
-              "id": "field-008",
-              "name": "aglocation",
-              "value": "={{ $json.aglocation }}",
-              "type": "string"
-            },
-            {
-              "id": "field-009",
-              "name": "agobjcode",
-              "value": "={{ $json.agobjcode }}",
-              "type": "string"
-            },
-            {
-              "id": "field-010",
-              "name": "agrcode",
-              "value": "={{ $json.agrcode }}",
-              "type": "string"
-            },
-            {
-              "id": "field-011",
-              "name": "relation_relationid",
-              "value": "={{ $json.relation_relationid }}",
-              "type": "string"
-            },
-            {
-              "id": "field-012",
-              "name": "employee_employeeid",
-              "value": "={{ $json.employee_employeeid }}",
-              "type": "number"
-            },
-            {
-              "id": "field-013",
-              "name": "medewerker_fullname",
-              "value": "={{ $json.medewerker_fullname }}",
-              "type": "string"
-            },
-            {
-              "id": "field-014",
-              "name": "agmemo",
-              "value": "={{ $json.agmemo }}",
-              "type": "string"
-            },
-            {
-              "id": "field-015",
-              "name": "agintratext",
-              "value": "={{ $json.agintratext }}",
-              "type": "string"
-            },
-            {
-              "id": "field-016",
-              "name": "agenda_date",
-              "value": "={{ $json.agenda_date }}",
-              "type": "string"
-            },
-            {
-              "id": "field-017",
-              "name": "agallday",
-              "value": "={{ $json.agallday }}",
-              "type": "boolean"
-            },
-            {
-              "id": "field-018",
-              "name": "aginactive",
-              "value": "={{ $json.aginactive }}",
-              "type": "boolean"
             }
           ]
         },
+        "includeOtherFields": true,
         "options": {}
       },
       "id": "a1b2c3d4-0001-0001-0001-000000000006",
-      "name": "Map velden",
+      "name": "Voeg gcal_id toe",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-80, 400]
+      "position": [400, 400]
     },
     {
       "parameters": {
@@ -223,7 +178,7 @@
       "name": "Zoek in Google Calendar",
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
-      "position": [160, 400],
+      "position": [640, 400],
       "credentials": {
         "googleCalendarOAuth2Api": {
           "id": "VERVANG_MET_CREDENTIAL_ID",
@@ -249,7 +204,7 @@
                 "operation": "notEmpty",
                 "singleValue": true
               },
-              "id": "a1b2c3d4-0001-0001-0001-000000000013"
+              "id": "a1b2c3d4-0001-0001-0001-000000000014"
             }
           ],
           "combinator": "and"
@@ -260,7 +215,7 @@
       "name": "Gevonden in Google Calendar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [400, 400]
+      "position": [880, 400]
     },
     {
       "parameters": {
@@ -274,18 +229,18 @@
         },
         "eventId": "={{ $json.id }}",
         "updateFields": {
-          "summary": "={{ $('Map velden').item.json.agtype ? '[' + $('Map velden').item.json.agtype + '] ' + $('Map velden').item.json.agdescr : $('Map velden').item.json.agdescr }}",
-          "start": "={{ $('Map velden').item.json.agbegin }}",
-          "end": "={{ $('Map velden').item.json.agend }}",
-          "location": "={{ $('Map velden').item.json.aglocation }}",
-          "description": "={{ [$('Map velden').item.json.agstatus, $('Map velden').item.json.agmemo, $('Map velden').item.json.agintratext].filter(Boolean).join('\\n\\n') }}"
+          "summary": "={{ $('Voeg gcal_id toe').item.json.agtype ? '[' + $('Voeg gcal_id toe').item.json.agtype + '] ' + $('Voeg gcal_id toe').item.json.agdescr : $('Voeg gcal_id toe').item.json.agdescr }}",
+          "start": "={{ $('Voeg gcal_id toe').item.json.agbegin }}",
+          "end": "={{ $('Voeg gcal_id toe').item.json.agend }}",
+          "location": "={{ $('Voeg gcal_id toe').item.json.aglocation }}",
+          "description": "={{ [$('Voeg gcal_id toe').item.json.agstatus, $('Voeg gcal_id toe').item.json.agobjcode ? 'objcode: ' + $('Voeg gcal_id toe').item.json.agobjcode : '', $('Voeg gcal_id toe').item.json.agrcode ? 'rcode: ' + $('Voeg gcal_id toe').item.json.agrcode : '', $('Voeg gcal_id toe').item.json.agmemo].filter(Boolean).join('\\n') }}"
         }
       },
       "id": "a1b2c3d4-0001-0001-0001-000000000009",
       "name": "Update event",
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
-      "position": [640, 300],
+      "position": [1120, 300],
       "credentials": {
         "googleCalendarOAuth2Api": {
           "id": "VERVANG_MET_CREDENTIAL_ID",
@@ -306,18 +261,32 @@
     "Heeft agenda data?": {
       "main": [
         [
-          { "node": "Splits agendapunten", "type": "main", "index": 0 }
+          { "node": "Platform sync (gewijzigd?)", "type": "main", "index": 0 }
         ]
       ]
     },
-    "Splits agendapunten": {
+    "Platform sync (gewijzigd?)": {
       "main": [
         [
-          { "node": "Map velden", "type": "main", "index": 0 }
+          { "node": "Zijn er wijzigingen?", "type": "main", "index": 0 }
         ]
       ]
     },
-    "Map velden": {
+    "Zijn er wijzigingen?": {
+      "main": [
+        [
+          { "node": "Splits gewijzigde items", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Splits gewijzigde items": {
+      "main": [
+        [
+          { "node": "Voeg gcal_id toe", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Voeg gcal_id toe": {
       "main": [
         [
           { "node": "Zoek in Google Calendar", "type": "main", "index": 0 }
