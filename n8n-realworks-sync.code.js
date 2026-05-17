@@ -1,69 +1,55 @@
 // n8n Code node: Realworks → Mautic veld mapping
 // Input: webhook body van de browser extensie
+// Output: flat object — velden direct bruikbaar door downstream Mautic nodes
 
 const d = $input.first().json.body ?? $input.first().json;
 
-// ISO landcodes → Mautic verwacht volledige naam
 const LANDEN = {
   NL: 'Netherlands', BE: 'Belgium', DE: 'Germany', FR: 'France',
   GB: 'United Kingdom', US: 'United States', TR: 'Turkey', MA: 'Morocco',
   PL: 'Poland', RO: 'Romania', BG: 'Bulgaria', HU: 'Hungary',
 };
 
-// typerela → contact_type booleans
 const typerela = (d.typerela || '').toLowerCase();
-const isVerkoper  = /verkoper|verkoop/.test(typerela);
-const isKoper     = /koper|aankoper/.test(typerela);
-const isZoeker    = /zoeker/.test(typerela);
-
-// Adresregel samenvoegen
-const address1 = [d.hstreet, d.hhouseno, d.hhousenoext]
-  .filter(Boolean).join(' ').trim();
-
-// Alleen velden meesturen die een waarde hebben (geen null/lege strings)
-function defined(val) {
-  return val !== undefined && val !== null && val !== '';
-}
-
-const mautic = {};
-
-if (defined(d.firstname || d.christianname)) mautic.firstname  = d.firstname || d.christianname;
-if (defined(d.lastname))    mautic.lastname   = d.lastname;
-if (defined(d.email))       mautic.email      = d.email;
-if (defined(d.mobile))      mautic.mobile     = d.mobile;
-
-// tel: voorkeur tel2, anders tel1
-const phone = d.tel2 || d.tel1;
-if (defined(phone))         mautic.phone      = phone;
-
-if (defined(address1))      mautic.address1   = address1;
-if (defined(d.hzipcode))    mautic.zipcode    = d.hzipcode;
-if (defined(d.hcity))       mautic.city       = d.hcity;
-if (defined(d.hcountry))    mautic.country    = LANDEN[d.hcountry] || d.hcountry;
-
-if (defined(d._systemid))   mautic.systemid   = parseInt(d._systemid);
-if (defined(d.rcode))       mautic.realworks_code = parseInt(d.rcode);
-if (defined(d.hhouseno))    mautic.huisnummer = parseInt(d.hhouseno);
-if (defined(d.hhousenoext)) mautic.huisnummer_toevoeging = d.hhousenoext;
-
-// Contact type booleans — alleen zetten als typerela ingevuld is
-if (defined(d.typerela)) {
-  mautic.contact_type_verkoper   = isVerkoper;
-  mautic.contact_type_koper      = isKoper;
-  mautic.contact_type_zoeker     = isZoeker;
-}
 
 return [{
   json: {
-    // Zoeksleutels voor volgende Mautic-node
+    // Zoeksleutels
     search_email:    d.email    || null,
     search_systemid: d._systemid || null,
 
-    // Payload voor Mautic contact update
-    mautic,
+    // Persoonsgegevens
+    firstname: d.firstname || d.christianname || null,
+    lastname:  d.lastname  || null,
+    email:     d.email     || null,
+    mobile:    d.mobile    || null,
+    phone:     d.tel2 || d.tel1 || null,
 
-    // Raw voor debugging
-    _source: d.source,
-    _page:   d.page_url,
+    // Adres (als 'address' want zo verwijzen de Mautic-nodes ernaar)
+    address:  [d.hstreet, d.hhouseno, d.hhousenoext].filter(Boolean).join(' ').trim() || null,
+    zipcode:  d.hzipcode  || null,
+    city:     d.hcity     || null,
+    country:  d.hcountry ? (LANDEN[d.hcountry] || d.hcountry) : null,
+
+    // Huisnummer apart voor custom veld
+    huisnummer:            d.hhouseno    ? parseInt(d.hhouseno)    : null,
+    huisnummer_toevoeging: d.hhousenoext || null,
+
+    // Realworks IDs
+    systemid:       d._systemid ? parseInt(d._systemid) : null,
+    realworks_code: d.rcode     ? parseInt(d.rcode)     : null,
+
+    // Contact type booleans (alleen als typerela gevuld is)
+    contact_type_verkoper:  d.typerela ? /verkoper|verkoop/.test(typerela) : null,
+    contact_type_koper:     d.typerela ? /koper|aankoper/.test(typerela)  : null,
+    contact_type_zoeker:    d.typerela ? /zoeker/.test(typerela)          : null,
+    contact_type_bezichtiger: null, // wordt elders gezet
+
+    // Velden die niet uit Realworks komen (worden niet overschreven)
+    laatste_transactie_jaar: null,
+    transactie_jaren:        null,
+    segment_prioriteit:      null,
+    campagne_oudklanten:     null,
+    intentie_verkoop:        null,
   }
 }];
