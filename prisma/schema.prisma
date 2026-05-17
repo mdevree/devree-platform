@@ -370,6 +370,38 @@ model VveGesprek {
   @@map("vve_gesprekken")
 }
 
+model AgendaAfspraak {
+  id                  String    @id @default(cuid())
+  systemid            Int       @unique
+  agowner             String?
+  agcode              String?
+  agdescr             String?
+  agtype              String?
+  agstatus            String?
+  agbegin             DateTime?
+  agend               DateTime?
+  aglocation          String?
+  agobjcode           String?
+  agrcode             String?
+  relationRelationid  String?
+  employeeEmployeeid  Int?
+  medewerkerFullname  String?
+  agmemo              String?   @db.Text
+  agintratext         String?   @db.Text
+  agallday            Boolean?
+  aginactive          Boolean?
+  alastupd            String?   // raw Realworks waarde, gebruikt voor wijzigingsdetectie
+  gcalEventId         String?   // Google Calendar event ID
+  gcalSyncedAt        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([agbegin])
+  @@index([agobjcode])
+  @@index([agowner])
+  @@map("agenda_afspraken")
+}
+
 model FacebookTrigger {
   id        String   @id @default(cuid())
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
