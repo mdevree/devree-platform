@@ -1,12 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Realworks → n8n Sync",
-  "version": "1.0",
-  "description": "Synchroniseert contacten automatisch van Realworks naar n8n voor verdere verwerking.",
+  "version": "1.1",
+  "description": "Synchroniseert contacten van Realworks naar n8n en voert terugschrijftaken uit via de wachtrij-API.",
+  "permissions": [
+    "alarms",
+    "storage"
+  ],
   "host_permissions": [
     "https://crm.realworks.nl/*",
-    "https://automation.devreemakelaardij.nl/*"
+    "https://automation.devreemakelaardij.nl/*",
+    "https://platform.devreemakelaardij.nl/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://crm.realworks.nl/*"],

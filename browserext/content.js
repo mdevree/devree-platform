@@ -1,5 +1,13 @@
 // Realworks → n8n Sync
-// Injecteert een script in de pagina-context om XHR calls te onderscheppen
+// Injecteert een script in de pagina-context om XHR calls te onderscheppen.
+// Pingt de background service worker elke 30s zodat terugschrijftaken worden opgepakt.
+
+// Ping direct bij laden, daarna elke 30 seconden
+function pingBackground() {
+  chrome.runtime.sendMessage({ type: 'POLL_REALWORKS_TASKS' }).catch(() => {});
+}
+pingBackground();
+setInterval(pingBackground, 30_000);
 
 const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-sync';
 const AGENDA_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-agenda-sync';
@@ -36,6 +44,20 @@ window.addEventListener('message', (event) => {
     if (res.ok) console.log('[Realworks Agenda Sync] ✓ Verstuurd:', items.length, 'items,', payload.fromdate, '-', payload.todate);
     else console.warn('[Realworks Agenda Sync] Fout:', res.status);
   }).catch(err => console.warn('[Realworks Agenda Sync] Verbindingsfout:', err));
+});
+
+// Cache de volledige raw form body in de background worker zodat terugschrijftaken
+// de exacte CSRF token + veldwaarden kunnen replayen.
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'REALWORKS_CONTACT_RAW') return;
+
+  chrome.runtime.sendMessage({
+    type: 'CACHE_REALWORKS_FORM',
+    systemid: event.data.systemid,
+    body: event.data.body,
+    url: event.data.url,
+  }).catch(() => {});
 });
 
 // Ontvang contact data van injected.js via postMessage
