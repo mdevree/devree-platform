@@ -120,6 +120,15 @@ async function writeRealworksField(task) {
     );
   }
 
+  // Verouderde /grid cache is onbruikbaar — verwijder hem en vraag om nieuwe cache.
+  if (cached.url && cached.url.includes('/grid')) {
+    await chrome.storage.local.remove(cacheKey);
+    throw new Error(
+      `Verouderde cache (grid-URL) voor contact ${task.realworksRelationId} verwijderd. ` +
+      `Open en sla het contact opnieuw op in Realworks zodat de extensie de /save cache kan vullen.`
+    );
+  }
+
   // Ondersteuning voor zowel nieuw formaat (fields-object) als oud formaat (raw body-string).
   const hasNewFormat = cached.fields != null;
   const fieldCount = hasNewFormat ? Object.keys(cached.fields).length : (cached.body?.length ?? 0);
