@@ -20,12 +20,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'CACHE_REALWORKS_FORM') {
     // Sla de formuliervelden op per systemid. CSRF token is geldig zolang
     // de Realworks sessie actief is (kantooruren).
-    chrome.storage.local.set({
-      [`rw_form_${message.systemid}`]: {
+    // Gooi stale /grid-cache weg als de nieuwe /save-cache binnenkomt.
+    const key = `rw_form_${message.systemid}`;
+    chrome.storage.local.get(key, (existing) => {
+      const old = existing[key];
+      if (old && !message.isMultipart && old.isMultipart) {
+        // Nieuw is URL-encoded /grid, oud is multipart /save — bewaar de /save cache.
+        console.log(`[RW Cache] /grid POST genegeerd — /save cache al aanwezig voor ${message.systemid}`);
+        return;
+      }
+      chrome.storage.local.set({ [key]: {
         fields: message.fields,
         isMultipart: message.isMultipart,
         url: message.url,
-      },
+      }});
+      console.log(`[RW Cache] Gecached: ${message.systemid} (${message.isMultipart ? 'multipart' : 'urlencoded'}, url=${message.url})`);
     });
     return;
   }
@@ -108,6 +117,15 @@ async function writeRealworksField(task) {
     throw new Error(
       `Geen gecachede formulierdata voor contact ${task.realworksRelationId}. ` +
       `Open en sla het contact op in Realworks zodat de extensie de data kan cachen.`
+    );
+  }
+
+  // Verouderde /grid cache is onbruikbaar — verwijder hem en vraag om nieuwe cache.
+  if (cached.url && cached.url.includes('/grid')) {
+    await chrome.storage.local.remove(cacheKey);
+    throw new Error(
+      `Verouderde cache (grid-URL) voor contact ${task.realworksRelationId} verwijderd. ` +
+      `Open en sla het contact opnieuw op in Realworks zodat de extensie de /save cache kan vullen.`
     );
   }
 
