@@ -1,8 +1,41 @@
-// Draait in pagina-context (niet isolated world) — onderschept XHR van GWT
+// Draait in pagina-context (niet isolated world) — onderschept XHR én form submits van GWT
 (function () {
-  const CONTACT_TARGET = '/rela.person/';
+  const CONTACT_SAVE_PATH = '/rela.person/save';
+  const CONTACT_XHR_TARGET = '/rela.person/';
   const AGENDA_TARGET = '/rela.agenda/searchAgendaDay';
 
+  // ── Formulier-submit interceptie ─────────────────────────────────────────────
+  // De contact-save POST is een echte formulier-navigatie in een iframe
+  // (sec-fetch-mode: navigate, sec-fetch-dest: iframe) — NIET gevangen door XHR.
+  // We onderscheppen het submit-event vóór de navigatie.
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!form || !form.action) return;
+
+    let actionPath;
+    try { actionPath = new URL(form.action).pathname; } catch { return; }
+    if (!actionPath.includes(CONTACT_SAVE_PATH)) return;
+
+    try {
+      const data = {};
+      new FormData(form).forEach((value, key) => {
+        if (typeof value === 'string') data[key] = value;
+      });
+
+      if (!data['_systemid']) return;
+
+      window.postMessage({ type: 'REALWORKS_CONTACT', data, url: actionPath }, '*');
+      window.postMessage({
+        type: 'REALWORKS_CONTACT_RAW',
+        systemid: data['_systemid'],
+        fields: data,
+        isMultipart: form.enctype === 'multipart/form-data',
+        url: actionPath,
+      }, '*');
+    } catch (_) {}
+  }, true); // capture-fase: vóór de navigatie
+
+  // ── XHR interceptie ──────────────────────────────────────────────────────────
   const OrigXHR = window.XMLHttpRequest;
   window.XMLHttpRequest = function () {
     const xhr = new OrigXHR();
@@ -21,39 +54,22 @@
     xhr.send = function (body) {
       _body = body;
 
-      if (_method === 'POST' && _url.includes(CONTACT_TARGET) && body) {
+      if (_method === 'POST' && _url.includes(CONTACT_XHR_TARGET) && body) {
         xhr.addEventListener('load', function () {
           if (xhr.status === 200) {
             try {
-              // Uitpakken van tekstvelden — werkt voor zowel FormData (multipart) als URL-encoded.
-              // FormData-waarden van File/Blob slaan we over: die zijn niet via postMessage
-              // te serialiseren en hoeven we niet te hersturen (lege uploads blijven leeg).
               const data = {};
-              let isMultipart = false;
-
               if (body instanceof FormData) {
-                isMultipart = true;
                 body.forEach((value, key) => {
                   if (typeof value === 'string') data[key] = value;
                 });
               } else {
                 new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
               }
-
+              // Alleen REALWORKS_CONTACT via XHR (n8n sync).
+              // REALWORKS_CONTACT_RAW gaat via de form-submit listener hierboven.
               window.postMessage({ type: 'REALWORKS_CONTACT', data, url: _url }, '*');
-
-              // Alleen de /save URL cachen voor terugschrijftaken — /grid overschrijft
-              // anders de /save cache (grid-call komt later).
-              if (data['_systemid'] && _url.includes('/rela.person/save')) {
-                window.postMessage({
-                  type: 'REALWORKS_CONTACT_RAW',
-                  systemid: data['_systemid'],
-                  fields: data,      // plain object — JSON-serialiseerbaar voor chrome messaging
-                  isMultipart,
-                  url: _url,
-                }, '*');
-              }
-            } catch (e) {}
+            } catch (_) {}
           }
         });
       }
@@ -70,7 +86,7 @@
                 employees: params.get('employees'),
               };
               window.postMessage({ type: 'REALWORKS_AGENDA', data: response, meta, url: _url }, '*');
-            } catch (e) {}
+            } catch (_) {}
           }
         });
       }
