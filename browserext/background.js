@@ -139,11 +139,12 @@ async function writeRealworksField(task) {
     throw new Error(`Fetch mislukt (netwerk?): ${fetchErr?.message}`);
   }
 
+  const responseText = await res.text().catch(() => '');
   console.log(`[RW Tasks] Realworks antwoord: ${res.status} ${res.statusText} (url=${res.url})`);
+  console.log(`[RW Tasks] Response body (eerste 500 chars):`, responseText.slice(0, 500));
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Realworks antwoordde ${res.status}: ${text.slice(0, 300)}`);
+    throw new Error(`Realworks antwoordde ${res.status}: ${responseText.slice(0, 300)}`);
   }
 
   // Detecteer stille redirect naar login (Realworks stuurt 200 terug op sessieverval).
