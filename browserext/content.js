@@ -2,12 +2,18 @@
 // Injecteert een script in de pagina-context om XHR calls te onderscheppen.
 // Pingt de background service worker elke 30s zodat terugschrijftaken worden opgepakt.
 
-// Ping direct bij laden, daarna elke 30 seconden
+// Ping direct bij laden, daarna elke 30 seconden.
+// chrome.runtime.id wordt undefined als de extensie herladen is (context invalidated).
+// In dat geval stopt de interval automatisch.
 function pingBackground() {
+  if (!chrome.runtime?.id) {
+    clearInterval(pingInterval);
+    return;
+  }
   chrome.runtime.sendMessage({ type: 'POLL_REALWORKS_TASKS' }).catch(() => {});
 }
 pingBackground();
-setInterval(pingBackground, 30_000);
+const pingInterval = setInterval(pingBackground, 30_000);
 
 const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-sync';
 const AGENDA_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-agenda-sync';
