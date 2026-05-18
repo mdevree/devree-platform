@@ -2,20 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
 
-/**
- * PATCH /api/realworks-tasks/[id]
- * De browser extensie markeert een taak als afgehandeld of mislukt.
- *
- * Body:
- *   status  - "processing" | "done" | "failed"
- *   error   - foutmelding (alleen bij status=failed)
- */
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "PATCH, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, x-webhook-secret",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!await isAuthorized(request)) {
-    return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
+    return NextResponse.json({ error: "Niet ingelogd" }, { status: 401, headers: CORS_HEADERS });
   }
 
   const { id } = await params;
@@ -47,9 +49,9 @@ export async function PATCH(
   if (updated.count === 0) {
     return NextResponse.json(
       { error: "Taak kon niet worden geclaimd (al in behandeling of afgerond)" },
-      { status: 409 }
+      { status: 409, headers: CORS_HEADERS }
     );
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true }, { headers: CORS_HEADERS });
 }
