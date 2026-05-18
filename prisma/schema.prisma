@@ -460,4 +460,19 @@ model WaMessage {
 
   @@index([conversationId])
   @@map("wa_messages")
+model RealworksTask {
+  id                  String    @id @default(cuid())
+  taskType            String    // "write_field"
+  realworksRelationId String    // Realworks relatie ID (bijv. "12345")
+  fieldName           String    // Realworks veldnaam (bijv. "vrij_veld_1")
+  fieldValue          String    @db.Text
+  status              String    @default("pending") // pending | processing | done | failed
+  error               String?   @db.Text
+  processedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("realworks_tasks")
 }
