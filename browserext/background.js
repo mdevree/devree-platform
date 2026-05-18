@@ -18,10 +18,14 @@ const WEBHOOK_SECRET = 'VULL_IN_MET_N8N_WEBHOOK_SECRET';
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'CACHE_REALWORKS_FORM') {
-    // Sla de raw form body op per systemid. TTL niet nodig: CSRF token is geldig
-    // zolang de Realworks sessie actief is (kantooruren).
+    // Sla de formuliervelden op per systemid. CSRF token is geldig zolang
+    // de Realworks sessie actief is (kantooruren).
     chrome.storage.local.set({
-      [`rw_form_${message.systemid}`]: { body: message.body, url: message.url },
+      [`rw_form_${message.systemid}`]: {
+        fields: message.fields,
+        isMultipart: message.isMultipart,
+        url: message.url,
+      },
     });
     return;
   }
@@ -100,8 +104,6 @@ async function writeRealworksField(task) {
   const stored = await chrome.storage.local.get(cacheKey);
   const cached = stored[cacheKey];
 
-  console.log(`[RW Tasks] Cache lookup '${cacheKey}':`, cached ? `gevonden (body ${cached.body?.length} chars, url=${cached.url})` : 'NIET gevonden');
-
   if (!cached) {
     throw new Error(
       `Geen gecachede formulierdata voor contact ${task.realworksRelationId}. ` +
@@ -109,47 +111,70 @@ async function writeRealworksField(task) {
     );
   }
 
-  // Parse de opgeslagen body, pas het doel-veld aan, bewaar de rest ongewijzigd.
-  const params = new URLSearchParams(cached.body);
-  const oldValue = params.get(task.fieldName);
-  params.set(task.fieldName, task.fieldValue);
-  console.log(`[RW Tasks] Veld '${task.fieldName}': '${oldValue}' → '${task.fieldValue}'`);
+  // Ondersteuning voor zowel nieuw formaat (fields-object) als oud formaat (raw body-string).
+  const hasNewFormat = cached.fields != null;
+  const fieldCount = hasNewFormat ? Object.keys(cached.fields).length : (cached.body?.length ?? 0);
+  console.log(`[RW Tasks] Cache '${cacheKey}': ${hasNewFormat ? fieldCount + ' velden' : fieldCount + ' chars (oud formaat)'}, url=${cached.url}`);
 
-  // Gebruik dezelfde URL als de originele POST (relatief of absoluut).
   const postUrl = cached.url.startsWith('http')
     ? cached.url
     : `${REALWORKS_BASE}${cached.url}`;
+  console.log(`[RW Tasks] POST naar: ${postUrl} (multipart=${cached.isMultipart})`);
 
-  console.log(`[RW Tasks] POST naar: ${postUrl}`);
+  let body;
+  const fetchHeaders = {
+    'Origin': REALWORKS_BASE,
+    'Referer': `${REALWORKS_BASE}/servlets/objects/rela.person/modify`,
+  };
 
-  // Stuur de volledige form body terug inclusief CSRF token en alle andere velden.
+  if (hasNewFormat) {
+    const fields = { ...cached.fields, [task.fieldName]: task.fieldValue };
+    console.log(`[RW Tasks] Veld '${task.fieldName}': '${cached.fields[task.fieldName]}' → '${task.fieldValue}'`);
+
+    if (cached.isMultipart) {
+      // Herbouw als FormData — browser voegt automatisch de juiste boundary toe.
+      // Lege file-velden (media, idscanid_file) zijn weggelaten; de server laat
+      // die dan ongewijzigd (foto / id-scan blijven intact).
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+      body = fd;
+      // Content-Type NIET zetten — browser zet hem inclusief boundary.
+    } else {
+      body = new URLSearchParams(fields).toString();
+      fetchHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+    }
+  } else {
+    // Oud formaat: raw URL-encoded body-string (cache van /grid-endpoint).
+    const params = new URLSearchParams(cached.body);
+    console.log(`[RW Tasks] Veld '${task.fieldName}' (oud): '${params.get(task.fieldName)}' → '${task.fieldValue}'`);
+    params.set(task.fieldName, task.fieldValue);
+    body = params.toString();
+    fetchHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+  }
+
   let res;
   try {
     res = await fetch(postUrl, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Origin': REALWORKS_BASE,
-        'Referer': `${REALWORKS_BASE}/servlets/objects/rela.person/modify`,
-      },
-      body: params.toString(),
+      headers: fetchHeaders,
+      body,
     });
   } catch (fetchErr) {
     throw new Error(`Fetch mislukt (netwerk?): ${fetchErr?.message}`);
   }
 
-  console.log(`[RW Tasks] Realworks antwoord: ${res.status} ${res.statusText} (url=${res.url})`);
+  const responseText = await res.text().catch(() => '');
+  console.log(`[RW Tasks] Realworks antwoord: ${res.status} (url=${res.url})`);
+  console.log(`[RW Tasks] Response body (500 chars):`, responseText.slice(0, 500));
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Realworks antwoordde ${res.status}: ${text.slice(0, 300)}`);
+    throw new Error(`Realworks antwoordde ${res.status}: ${responseText.slice(0, 300)}`);
   }
 
-  // Detecteer stille redirect naar login (Realworks stuurt 200 terug op sessieverval).
   const finalUrl = res.url || postUrl;
   if (!finalUrl.includes('/servlets/') && finalUrl.includes('/login')) {
-    throw new Error(`Realworks sessie verlopen — redirect naar login gedetecteerd (${finalUrl})`);
+    throw new Error(`Sessie verlopen — redirect naar login (${finalUrl})`);
   }
 }
 

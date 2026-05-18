@@ -32,8 +32,8 @@ try {
   (document.head || document.documentElement).appendChild(s);
 } catch {}
 
-// Cache de volledige raw form body in de background worker zodat terugschrijftaken
-// de exacte CSRF token + veldwaarden kunnen replayen.
+// Cache de formuliervelden in de background worker zodat terugschrijftaken
+// de CSRF token + veldwaarden opnieuw kunnen versturen.
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (event.data?.type !== 'REALWORKS_CONTACT_RAW') return;
@@ -41,7 +41,8 @@ window.addEventListener('message', (event) => {
   safeSendMessage({
     type: 'CACHE_REALWORKS_FORM',
     systemid: event.data.systemid,
-    body: event.data.body,
+    fields: event.data.fields,
+    isMultipart: event.data.isMultipart,
     url: event.data.url,
   });
 });

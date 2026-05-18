@@ -25,14 +25,31 @@
         xhr.addEventListener('load', function () {
           if (xhr.status === 200) {
             try {
-              const params = new URLSearchParams(body);
+              // Uitpakken van tekstvelden — werkt voor zowel FormData (multipart) als URL-encoded.
+              // FormData-waarden van File/Blob slaan we over: die zijn niet via postMessage
+              // te serialiseren en hoeven we niet te hersturen (lege uploads blijven leeg).
               const data = {};
-              params.forEach((v, k) => { data[k] = v; });
+              let isMultipart = false;
+
+              if (body instanceof FormData) {
+                isMultipart = true;
+                body.forEach((value, key) => {
+                  if (typeof value === 'string') data[key] = value;
+                });
+              } else {
+                new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
+              }
+
               window.postMessage({ type: 'REALWORKS_CONTACT', data, url: _url }, '*');
-              // Stuur ook de volledige raw body mee zodat de background worker
-              // hem kan cachen en later kan replayen voor terugschrijftaken.
+
               if (data['_systemid']) {
-                window.postMessage({ type: 'REALWORKS_CONTACT_RAW', systemid: data['_systemid'], body, url: _url }, '*');
+                window.postMessage({
+                  type: 'REALWORKS_CONTACT_RAW',
+                  systemid: data['_systemid'],
+                  fields: data,      // plain object — JSON-serialiseerbaar voor chrome messaging
+                  isMultipart,
+                  url: _url,
+                }, '*');
               }
             } catch (e) {}
           }
@@ -44,7 +61,6 @@
           if (xhr.status === 200) {
             try {
               const response = JSON.parse(xhr.responseText);
-              // Haal datum range uit de request body mee als context
               const params = _body ? new URLSearchParams(_body) : new URLSearchParams();
               const meta = {
                 fromdate: params.get('fromdate'),
