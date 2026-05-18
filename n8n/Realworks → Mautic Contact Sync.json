@@ -63,7 +63,7 @@
       "type": "n8n-nodes-base.mautic",
       "typeVersion": 1,
       "position": [
-        -112,
+        48,
         944
       ],
       "id": "0e29590f-52a7-4ab1-bfa9-5cee20d15f2f",
@@ -84,7 +84,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        96,
+        192,
         944
       ],
       "id": "8fa32ebb-0686-4859-adca-009d0c5e18c4",
@@ -96,7 +96,8 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "strict",
+            "version": 1
           },
           "conditions": [
             {
@@ -118,7 +119,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        288,
+        352,
         944
       ]
     },
@@ -198,7 +199,7 @@
       "typeVersion": 1,
       "position": [
         544,
-        1056
+        1152
       ],
       "id": "8702ffa3-6fa0-47b1-b49f-941570d2e750",
       "name": "Create Mautic Contact1",
@@ -213,13 +214,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body;\n\nconst countryMap = { 'NL': 'Netherlands', 'BE': 'Belgium', 'DE': 'Germany' };\n\nreturn [{\n  json: {\n    firstname:              body.firstname                                        || '',\n    lastname:               body.lastname                                         || '',\n    email:                  body.email                                            || '',\n    mobile:                 body.mobile                                           || '',\n    phone:                  body.tel1                                             || '',\n    address1:               `${body.hstreet || ''} ${body.hhouseno || ''}`.trim(),\n    address2:               `${body.hzipcode || ''} ${body.hcity || ''}`.trim(),\n    zipcode:                body.hzipcode                                         || '',\n    city:                   body.hcity                                            || '',\n    country:                countryMap[body.hcountry] || body.hcountry            || '',\n    salutation:             body.saluation                                        || '',\n    typerela:               body.rtype                                            || '',\n    systemid:               body._systemid                                        || '',\n    realworks_code:         body.rcode                                            || '',\n    huisnummer:             body.hhouseno                                         || '',\n    huisnummer_toevoeging:  body.hhousenoadd                                      || '',\n    woning_adres:           `${body.hstreet || ''} ${body.hhouseno || ''}, ${body.hzipcode || ''} ${body.hcity || ''}`.trim(),\n  }\n}];"
+        "jsCode": "const body = $input.first().json.body;\n\nconst countryMap = { 'NL': 'Netherlands', 'BE': 'Belgium', 'DE': 'Germany' };\n\nreturn [{\n  json: {\n    firstname:              body.firstname                                        || '',\n    lastname:               body.lastname                                         || '',\n    email:                  body.email                                            || '',\n    mobile:                 body.mobile                                           || '',\n    phone:                  body.tel1                                             || '',\n    address1:               `${body.hstreet || ''} ${body.hhouseno || ''}`.trim(),\n    address2:               `${body.hzipcode || ''} ${body.hcity || ''}`.trim(),\n    zipcode:                body.hzipcode                                         || '',\n    city:                   body.hcity                                            || '',\n    country:                countryMap[body.hcountry] || body.hcountry            || '',\n    salutation:             body.saluation                                        || '',\n    typerela:               body.rtype                                            || '',\n    systemid:               body._systemid                                        || '',\n    realworks_code:         body.rcode                                            || '',\n    huisnummer:             body.hhouseno                                         || '',\n    huisnummer_toevoeging:  body.hhousenoadd                                      || '',\n    _mauticContactId:  body.field1                                      || '',\n    woning_adres:           `${body.hstreet || ''} ${body.hhouseno || ''}, ${body.hzipcode || ''} ${body.hcity || ''}`.trim(),\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -304,
-        1008
+        848
       ],
       "id": "9b7f2d1c-dd78-49d5-bb3f-cfdeea5bbda4",
       "name": "Code in JavaScript"
@@ -309,8 +310,8 @@
       "type": "n8n-nodes-base.mautic",
       "typeVersion": 1,
       "position": [
-        544,
-        880
+        688,
+        752
       ],
       "id": "82fd5719-e74f-40b4-96de-4478e299bb90",
       "name": "Update Mautic Contact",
@@ -350,8 +351,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        896,
-        1008
+        752,
+        1040
       ]
     },
     {
@@ -377,8 +378,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1088,
-        880
+        992,
+        1264
       ],
       "continueOnFail": true
     },
@@ -393,8 +394,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        1520,
-        1056
+        1408,
+        832
       ]
     },
     {
@@ -416,9 +417,169 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1312,
-        1024
+        1200,
+        832
       ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._mauticContactId }}",
+                    "rightValue": 1,
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    },
+                    "id": "ff8d5504-6363-4a16-a7d4-dbb26fae94bd"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4e864ba7-72bd-4108-9e06-89813d51a246",
+                    "leftValue": "={{ $json._mauticContactId }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "empty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -128,
+        800
+      ],
+      "id": "c997a911-1da5-4d9b-a2a3-367a0b8cced4",
+      "name": "Switch2"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "update",
+        "contactId": "={{ $json._mauticContactId }}",
+        "updateFields": {
+          "addressUi": {
+            "addressValues": {
+              "address1": "={{ $json.address1 }}",
+              "address2": "={{ $json.address2 }}",
+              "city": "={{ $json.city }}",
+              "country": "={{ $json.country }}",
+              "zipCode": "={{ $json.zipcode }}"
+            }
+          },
+          "customFieldsUi": {
+            "customFieldValues": [
+              {
+                "fieldId": "systemid",
+                "fieldValue": "={{ $json.systemid }}"
+              },
+              {
+                "fieldId": "realworks_code",
+                "fieldValue": "={{ $json.realworks_code }}"
+              },
+              {
+                "fieldId": "huisnummer",
+                "fieldValue": "={{ $json.huisnummer }}"
+              },
+              {
+                "fieldId": "huisnummer_toevoeging",
+                "fieldValue": "={{ $json.huisnummer_toevoeging }}"
+              },
+              {
+                "fieldId": "woning_adres",
+                "fieldValue": "={{ $json.woning_adres }}"
+              },
+              {
+                "fieldId": "contact_type_koper",
+                "fieldValue": "={{ $json.contact_type_koper }}"
+              },
+              {
+                "fieldId": "contact_type_verkoper",
+                "fieldValue": "={{ $json.contact_type_verkoper }}"
+              },
+              {
+                "fieldId": "contact_type_zoeker",
+                "fieldValue": "={{ $json.contact_type_zoeker }}"
+              },
+              {
+                "fieldId": "contact_type_bezichtiger",
+                "fieldValue": "={{ $json.contact_type_bezichtiger }}"
+              },
+              {
+                "fieldId": "laatste_transactie_jaar",
+                "fieldValue": "={{ $json.laatste_transactie_jaar }}"
+              },
+              {
+                "fieldId": "transactie_jaren",
+                "fieldValue": "={{ $json.transactie_jaren }}"
+              },
+              {
+                "fieldId": "segment_prioriteit",
+                "fieldValue": "={{ $json.segment_prioriteit }}"
+              },
+              {
+                "fieldId": "campagne_oudklanten",
+                "fieldValue": "={{ $json.campagne_oudklanten }}"
+              },
+              {
+                "fieldId": "intentie_verkoop",
+                "fieldValue": "={{ $json.intentie_verkoop }}"
+              }
+            ]
+          },
+          "firstName": "={{ $json.firstname }}",
+          "lastName": "={{ $json.lastname }}",
+          "mobile": "={{ $json.mobile }}",
+          "phone": "={{ $json.phone }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mautic",
+      "typeVersion": 1,
+      "position": [
+        560,
+        928
+      ],
+      "id": "74e080d9-bec8-4871-98c2-14e84ab19694",
+      "name": "Update Mautic Contact1",
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
     }
   ],
   "connections": {
@@ -470,7 +631,7 @@
       "main": [
         [
           {
-            "node": "Update Mautic Contact",
+            "node": "Update Mautic Contact1",
             "type": "main",
             "index": 0
           }
@@ -499,7 +660,7 @@
       "main": [
         [
           {
-            "node": "Search in Mautic1",
+            "node": "Switch2",
             "type": "main",
             "index": 0
           }
@@ -510,7 +671,7 @@
       "main": [
         [
           {
-            "node": "Heeft systemid?",
+            "node": "Contact Verwerkt1",
             "type": "main",
             "index": 0
           }
@@ -551,6 +712,35 @@
         [
           {
             "node": "Respond1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch2": {
+      "main": [
+        [
+          {
+            "node": "Update Mautic Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search in Mautic1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Mautic Contact1": {
+      "main": [
+        [
+          {
+            "node": "Heeft systemid?",
             "type": "main",
             "index": 0
           }
