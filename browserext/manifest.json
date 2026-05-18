@@ -10,7 +10,7 @@
   "host_permissions": [
     "https://crm.realworks.nl/*",
     "https://automation.devreemakelaardij.nl/*",
-    "https://platform.devreemakelaardij.nl/*"
+    "https://kantoor.devreemakelaardij.nl/*"
   ],
   "background": {
     "service_worker": "background.js"
