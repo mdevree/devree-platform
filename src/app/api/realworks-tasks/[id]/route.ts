@@ -28,8 +28,15 @@ export async function PATCH(
     );
   }
 
-  const task = await prisma.realworksTask.update({
-    where: { id },
+  // Claim is alleen geldig als de huidige status nog "pending" is.
+  // Zo wordt voorkomen dat meerdere extensies dezelfde taak dubbel uitvoeren.
+  const whereClause =
+    status === "processing"
+      ? { id, status: "pending" }
+      : { id };
+
+  const updated = await prisma.realworksTask.updateMany({
+    where: whereClause,
     data: {
       status,
       error: error ?? null,
@@ -37,5 +44,12 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json({ success: true, task });
+  if (updated.count === 0) {
+    return NextResponse.json(
+      { error: "Taak kon niet worden geclaimd (al in behandeling of afgerond)" },
+      { status: 409 }
+    );
+  }
+
+  return NextResponse.json({ success: true });
 }

@@ -54,8 +54,10 @@ async function pollAndExecute() {
 }
 
 async function processTask(task) {
-  // Markeer als "processing" zodat parallelle extensies de taak niet dubbel uitvoeren
-  await patchTask(task.id, { status: 'processing' });
+  // Atomische claim: slaagt alleen als status nog "pending" is.
+  // Bij 409 heeft een andere extensie de taak al geclaimd — overslaan.
+  const claimed = await patchTask(task.id, { status: 'processing' });
+  if (!claimed) return;
 
   try {
     if (task.taskType === 'write_field') {
@@ -103,9 +105,10 @@ async function writeRealworksField(task) {
   }
 }
 
+// Geeft true terug als de update gelukt is, false bij 409 (al geclaimd) of netwerkkfout.
 async function patchTask(id, data) {
   try {
-    await fetch(`${QUEUE_URL}/${id}`, {
+    const res = await fetch(`${QUEUE_URL}/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -113,7 +116,10 @@ async function patchTask(id, data) {
       },
       body: JSON.stringify(data),
     });
+    if (res.status === 409) return false;
+    return res.ok;
   } catch (err) {
     console.warn('[RW Tasks] Kon taakstatus niet bijwerken:', err);
+    return false;
   }
 }
