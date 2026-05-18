@@ -100,6 +100,8 @@ async function writeRealworksField(task) {
   const stored = await chrome.storage.local.get(cacheKey);
   const cached = stored[cacheKey];
 
+  console.log(`[RW Tasks] Cache lookup '${cacheKey}':`, cached ? `gevonden (body ${cached.body?.length} chars, url=${cached.url})` : 'NIET gevonden');
+
   if (!cached) {
     throw new Error(
       `Geen gecachede formulierdata voor contact ${task.realworksRelationId}. ` +
@@ -109,28 +111,45 @@ async function writeRealworksField(task) {
 
   // Parse de opgeslagen body, pas het doel-veld aan, bewaar de rest ongewijzigd.
   const params = new URLSearchParams(cached.body);
+  const oldValue = params.get(task.fieldName);
   params.set(task.fieldName, task.fieldValue);
+  console.log(`[RW Tasks] Veld '${task.fieldName}': '${oldValue}' → '${task.fieldValue}'`);
 
   // Gebruik dezelfde URL als de originele POST (relatief of absoluut).
   const postUrl = cached.url.startsWith('http')
     ? cached.url
     : `${REALWORKS_BASE}${cached.url}`;
 
+  console.log(`[RW Tasks] POST naar: ${postUrl}`);
+
   // Stuur de volledige form body terug inclusief CSRF token en alle andere velden.
-  const res = await fetch(postUrl, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Origin': REALWORKS_BASE,
-      'Referer': `${REALWORKS_BASE}/servlets/objects/rela.person/modify`,
-    },
-    body: params.toString(),
-  });
+  let res;
+  try {
+    res = await fetch(postUrl, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': REALWORKS_BASE,
+        'Referer': `${REALWORKS_BASE}/servlets/objects/rela.person/modify`,
+      },
+      body: params.toString(),
+    });
+  } catch (fetchErr) {
+    throw new Error(`Fetch mislukt (netwerk?): ${fetchErr?.message}`);
+  }
+
+  console.log(`[RW Tasks] Realworks antwoord: ${res.status} ${res.statusText} (url=${res.url})`);
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Realworks antwoordde ${res.status}: ${text.slice(0, 300)}`);
+  }
+
+  // Detecteer stille redirect naar login (Realworks stuurt 200 terug op sessieverval).
+  const finalUrl = res.url || postUrl;
+  if (!finalUrl.includes('/servlets/') && finalUrl.includes('/login')) {
+    throw new Error(`Realworks sessie verlopen — redirect naar login gedetecteerd (${finalUrl})`);
   }
 }
 
