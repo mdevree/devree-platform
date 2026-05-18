@@ -7,7 +7,7 @@
 //   3. Bij een schrijftaak zoeken we de gecachte body op, passen één veld aan,
 //      en replayen de volledige POST (inclusief CSRF token) naar Realworks.
 
-const QUEUE_URL = 'https://platform.devreemakelaardij.nl/api/realworks-tasks';
+const QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-tasks';
 const REALWORKS_BASE = 'https://crm.realworks.nl';
 const SAVE_PATH = '/servlets/objects/rela.person/grid';
 
