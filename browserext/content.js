@@ -46,6 +46,20 @@ window.addEventListener('message', (event) => {
   }).catch(err => console.warn('[Realworks Agenda Sync] Verbindingsfout:', err));
 });
 
+// Cache de volledige raw form body in de background worker zodat terugschrijftaken
+// de exacte CSRF token + veldwaarden kunnen replayen.
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'REALWORKS_CONTACT_RAW') return;
+
+  chrome.runtime.sendMessage({
+    type: 'CACHE_REALWORKS_FORM',
+    systemid: event.data.systemid,
+    body: event.data.body,
+    url: event.data.url,
+  }).catch(() => {});
+});
+
 // Ontvang contact data van injected.js via postMessage
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;

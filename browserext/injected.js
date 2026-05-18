@@ -29,6 +29,11 @@
               const data = {};
               params.forEach((v, k) => { data[k] = v; });
               window.postMessage({ type: 'REALWORKS_CONTACT', data, url: _url }, '*');
+              // Stuur ook de volledige raw body mee zodat de background worker
+              // hem kan cachen en later kan replayen voor terugschrijftaken.
+              if (data['_systemid']) {
+                window.postMessage({ type: 'REALWORKS_CONTACT_RAW', systemid: data['_systemid'], body, url: _url }, '*');
+              }
             } catch (e) {}
           }
         });
