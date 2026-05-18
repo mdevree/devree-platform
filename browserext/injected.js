@@ -42,7 +42,9 @@
 
               window.postMessage({ type: 'REALWORKS_CONTACT', data, url: _url }, '*');
 
-              if (data['_systemid']) {
+              // Alleen de /save URL cachen voor terugschrijftaken — /grid overschrijft
+              // anders de /save cache (grid-call komt later).
+              if (data['_systemid'] && _url.includes('/rela.person/save')) {
                 window.postMessage({
                   type: 'REALWORKS_CONTACT_RAW',
                   systemid: data['_systemid'],
