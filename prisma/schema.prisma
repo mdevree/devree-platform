@@ -460,6 +460,8 @@ model WaMessage {
 
   @@index([conversationId])
   @@map("wa_messages")
+}
+
 model RealworksTask {
   id                  String    @id @default(cuid())
   taskType            String    // "write_field"
