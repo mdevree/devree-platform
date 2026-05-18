@@ -2,16 +2,25 @@
 // Injecteert een script in de pagina-context om XHR calls te onderscheppen.
 // Pingt de background service worker elke 30s zodat terugschrijftaken worden opgepakt.
 
+let pingInterval = null;
+
+function stopPolling() {
+  clearInterval(pingInterval);
+  pingInterval = null;
+}
+
 function safeSendMessage(msg) {
   try {
-    if (!chrome.runtime?.id) { clearInterval(pingInterval); return; }
+    if (!chrome.runtime?.id) { stopPolling(); return; }
     chrome.runtime.sendMessage(msg).catch(() => {});
-  } catch { clearInterval(pingInterval); }
+  } catch {
+    stopPolling();
+  }
 }
 
 function pingBackground() { safeSendMessage({ type: 'POLL_REALWORKS_TASKS' }); }
 pingBackground();
-const pingInterval = setInterval(pingBackground, 30_000);
+pingInterval = setInterval(pingBackground, 30_000);
 
 const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-sync';
 const AGENDA_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-agenda-sync';
