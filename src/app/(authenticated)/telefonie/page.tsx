@@ -131,6 +131,7 @@ export default function TelefoniePage() {
   const [showLinkProject, setShowLinkProject] = useState(false);
   const [linkCallId, setLinkCallId] = useState("");
   const [linkProjectId, setLinkProjectId] = useState("");
+  const [linkProjectType, setLinkProjectType] = useState<string | null>(null);
   const [linkSaving, setLinkSaving] = useState(false);
 
   // Notitie modal
@@ -304,6 +305,7 @@ export default function TelefoniePage() {
   function openLinkProject(call: Call) {
     setLinkCallId(call.id);
     setLinkProjectId(call.project?.id || "");
+    setLinkProjectType(null);
     setShowLinkProject(true);
   }
 
@@ -1586,14 +1588,43 @@ export default function TelefoniePage() {
 
             <form onSubmit={handleLinkProject}>
               <div className="mb-4">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Project
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Type project
                 </label>
+                <div className="mb-3 flex gap-2">
+                  {(
+                    [
+                      { value: "VERKOOP", label: "Verkoop" },
+                      { value: "AANKOOP", label: "Aankoop" },
+                      { value: "TAXATIE", label: "Taxatie" },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setLinkProjectType(
+                          linkProjectType === opt.value ? null : opt.value
+                        );
+                        setLinkProjectId("");
+                      }}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        linkProjectType === opt.value
+                          ? "border-primary bg-primary text-white"
+                          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
                 <ProjectSelector
                   value={linkProjectId}
                   onChange={setLinkProjectId}
                   emptyLabel="Geen project (ontkoppelen)"
                   className="w-full"
+                  type={linkProjectType ?? undefined}
+                  activeOnly={!!linkProjectType}
                 />
               </div>
 

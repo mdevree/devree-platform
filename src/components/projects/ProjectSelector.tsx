@@ -6,6 +6,7 @@ interface Project {
   id: string;
   name: string;
   status: string;
+  type: string;
 }
 
 interface ProjectSelectorProps {
@@ -14,6 +15,8 @@ interface ProjectSelectorProps {
   className?: string;
   includeEmpty?: boolean;
   emptyLabel?: string;
+  type?: string; // VERKOOP | AANKOOP | TAXATIE
+  activeOnly?: boolean;
 }
 
 export default function ProjectSelector({
@@ -22,31 +25,41 @@ export default function ProjectSelector({
   className = "",
   includeEmpty = true,
   emptyLabel = "Geen project",
+  type,
+  activeOnly = false,
 }: ProjectSelectorProps) {
   const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     async function fetchProjects() {
       try {
-        // Haal actief en lead apart op zodat actief altijd bovenaan staat
-        const [actiefRes, leadRes] = await Promise.all([
-          fetch("/api/projecten?status=actief&limit=100"),
-          fetch("/api/projecten?status=lead&limit=100"),
-        ]);
-        const [actiefData, leadData] = await Promise.all([
-          actiefRes.json(),
-          leadRes.json(),
-        ]);
-        setProjects([
-          ...(actiefData.projects || []),
-          ...(leadData.projects || []),
-        ]);
+        const typeParam = type ? `&type=${type}` : "";
+        if (activeOnly) {
+          const res = await fetch(
+            `/api/projecten?status=actief&limit=200${typeParam}`
+          );
+          const data = await res.json();
+          setProjects(data.projects || []);
+        } else {
+          const [actiefRes, leadRes] = await Promise.all([
+            fetch(`/api/projecten?status=actief&limit=200${typeParam}`),
+            fetch(`/api/projecten?status=lead&limit=200${typeParam}`),
+          ]);
+          const [actiefData, leadData] = await Promise.all([
+            actiefRes.json(),
+            leadRes.json(),
+          ]);
+          setProjects([
+            ...(actiefData.projects || []),
+            ...(leadData.projects || []),
+          ]);
+        }
       } catch {
         console.error("Fout bij ophalen projecten");
       }
     }
     fetchProjects();
-  }, []);
+  }, [type, activeOnly]);
 
   const actief = projects.filter((p) => p.status === "actief");
   const lead = projects.filter((p) => p.status === "lead");
