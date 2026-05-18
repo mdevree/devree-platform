@@ -6,11 +6,15 @@
 // chrome.runtime.id wordt undefined als de extensie herladen is (context invalidated).
 // In dat geval stopt de interval automatisch.
 function pingBackground() {
-  if (!chrome.runtime?.id) {
+  try {
+    if (!chrome.runtime?.id) {
+      clearInterval(pingInterval);
+      return;
+    }
+    chrome.runtime.sendMessage({ type: 'POLL_REALWORKS_TASKS' }).catch(() => {});
+  } catch {
     clearInterval(pingInterval);
-    return;
   }
-  chrome.runtime.sendMessage({ type: 'POLL_REALWORKS_TASKS' }).catch(() => {});
 }
 pingBackground();
 const pingInterval = setInterval(pingBackground, 30_000);
