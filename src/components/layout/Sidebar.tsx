@@ -18,6 +18,7 @@ import {
   BuildingOfficeIcon,
   MagnifyingGlassCircleIcon,
   MegaphoneIcon,
+  CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -26,6 +27,7 @@ const navigation = [
   { name: "Projecten", href: "/projecten", icon: FolderIcon },
   { name: "Contacten", href: "/contacten", icon: UsersIcon },
   { name: "Pipeline", href: "/pipeline", icon: ChartBarIcon },
+  { name: "Agenda", href: "/agenda", icon: CalendarDaysIcon },
   { name: "Taken", href: "/taken", icon: ClipboardDocumentListIcon },
   { name: "Buurtdata", href: "/buurtdata", icon: MapPinIcon },
   { name: "Kijkers", href: "/leads", icon: UserGroupIcon },

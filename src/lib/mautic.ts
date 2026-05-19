@@ -506,6 +506,45 @@ export async function searchContactsWithPipeline(options: {
 }
 
 /**
+ * Zoek een contact in Mautic op basis van Realworks Rcode (agrcode)
+ */
+export async function searchContactByRealworksCode(agrcode: string): Promise<MauticContact | null> {
+  const query = new URLSearchParams({
+    "where[0][col]": "realworks_code",
+    "where[0][expr]": "eq",
+    "where[0][val]": agrcode,
+    limit: "1",
+  });
+
+  const response = await mauticFetch(`/api/contacts?${query}`);
+  if (!response.ok) {
+    console.error("Mautic Rcode zoekfout:", response.status, await response.text());
+    return null;
+  }
+
+  const data = await response.json();
+  const contacts = data.contacts || {};
+  const contactIds = Object.keys(contacts);
+  if (contactIds.length === 0) return null;
+
+  const contactId = contactIds[0];
+  const contact = contacts[contactId];
+  const fields = contact.fields?.all || {};
+
+  return {
+    id: parseInt(contactId),
+    firstname: fields.firstname || "",
+    lastname: fields.lastname || "",
+    email: fields.email || null,
+    phone: fields.phone || null,
+    mobile: fields.mobile || null,
+    company: fields.company || null,
+    points: contact.points || 0,
+    lastActive: fields.last_active || null,
+  };
+}
+
+/**
  * Werk contact velden bij in Mautic
  */
 export async function updateContact(
