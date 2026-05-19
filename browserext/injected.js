@@ -3,9 +3,10 @@
   const CONTACT_SAVE_PATH = '/rela.person/save';
   const CONTACT_XHR_TARGET = '/rela.person/';
   const AGENDA_TARGET = '/rela.agenda/searchAgendaDay';
+  const TAXATIE_PATH = '/broker.taxatie/';
 
   // ── Formulier-submit interceptie ─────────────────────────────────────────────
-  // De contact-save POST is een echte formulier-navigatie in een iframe
+  // Zowel contact-save als taxatie-save zijn echte formulier-navigaties in een iframe
   // (sec-fetch-mode: navigate, sec-fetch-dest: iframe) — NIET gevangen door XHR.
   // We onderscheppen het submit-event vóór de navigatie.
   document.addEventListener('submit', function (e) {
@@ -14,25 +15,47 @@
 
     let actionPath;
     try { actionPath = new URL(form.action).pathname; } catch { return; }
-    if (!actionPath.includes(CONTACT_SAVE_PATH)) return;
 
-    try {
-      const data = {};
-      new FormData(form).forEach((value, key) => {
-        if (typeof value === 'string') data[key] = value;
-      });
+    if (actionPath.includes(CONTACT_SAVE_PATH)) {
+      try {
+        const data = {};
+        new FormData(form).forEach((value, key) => {
+          if (typeof value === 'string') data[key] = value;
+        });
 
-      if (!data['_systemid']) return;
+        if (!data['_systemid']) return;
 
-      window.postMessage({ type: 'REALWORKS_CONTACT', data, url: actionPath }, '*');
-      window.postMessage({
-        type: 'REALWORKS_CONTACT_RAW',
-        systemid: data['_systemid'],
-        fields: data,
-        isMultipart: form.enctype === 'multipart/form-data',
-        url: actionPath,
-      }, '*');
-    } catch (_) {}
+        window.postMessage({ type: 'REALWORKS_CONTACT', data, url: actionPath }, '*');
+        window.postMessage({
+          type: 'REALWORKS_CONTACT_RAW',
+          systemid: data['_systemid'],
+          fields: data,
+          isMultipart: form.enctype === 'multipart/form-data',
+          url: actionPath,
+        }, '*');
+      } catch (_) {}
+      return;
+    }
+
+    if (actionPath.includes(TAXATIE_PATH)) {
+      try {
+        const data = {};
+        new FormData(form).forEach((value, key) => {
+          if (typeof value === 'string') data[key] = value;
+        });
+
+        if (!data['_systemid']) return;
+
+        window.postMessage({ type: 'REALWORKS_TAXATIE', data, url: actionPath }, '*');
+        window.postMessage({
+          type: 'REALWORKS_TAXATIE_RAW',
+          systemid: data['_systemid'],
+          fields: data,
+          isMultipart: form.enctype === 'multipart/form-data',
+          url: actionPath,
+        }, '*');
+      } catch (_) {}
+    }
   }, true); // capture-fase: vóór de navigatie
 
   // ── XHR interceptie ──────────────────────────────────────────────────────────
@@ -69,6 +92,26 @@
               // Alleen REALWORKS_CONTACT via XHR (n8n sync).
               // REALWORKS_CONTACT_RAW gaat via de form-submit listener hierboven.
               window.postMessage({ type: 'REALWORKS_CONTACT', data, url: _url }, '*');
+            } catch (_) {}
+          }
+        });
+      }
+
+      if (_method === 'POST' && _url.includes(TAXATIE_PATH) && body) {
+        xhr.addEventListener('load', function () {
+          if (xhr.status === 200) {
+            try {
+              const data = {};
+              if (body instanceof FormData) {
+                body.forEach((value, key) => {
+                  if (typeof value === 'string') data[key] = value;
+                });
+              } else {
+                new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
+              }
+              // Alleen REALWORKS_TAXATIE via XHR (n8n sync).
+              // REALWORKS_TAXATIE_RAW gaat via de form-submit listener hierboven.
+              window.postMessage({ type: 'REALWORKS_TAXATIE', data, url: _url }, '*');
             } catch (_) {}
           }
         });
