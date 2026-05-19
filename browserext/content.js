@@ -24,6 +24,7 @@ pingInterval = setInterval(pingBackground, 30_000);
 
 const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-sync';
 const AGENDA_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-agenda-sync';
+const TAXATIE_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-taxatie-sync';
 
 // Inject in pagina-context zodat we toegang hebben tot window.XMLHttpRequest
 try {
@@ -40,6 +41,20 @@ window.addEventListener('message', (event) => {
 
   safeSendMessage({
     type: 'CACHE_REALWORKS_FORM',
+    systemid: event.data.systemid,
+    fields: event.data.fields,
+    isMultipart: event.data.isMultipart,
+    url: event.data.url,
+  });
+});
+
+// Cache de taxatie-formuliervelden in de background worker.
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'REALWORKS_TAXATIE_RAW') return;
+
+  safeSendMessage({
+    type: 'CACHE_REALWORKS_TAXATIE_FORM',
     systemid: event.data.systemid,
     fields: event.data.fields,
     isMultipart: event.data.isMultipart,
@@ -93,5 +108,29 @@ window.addEventListener('message', (event) => {
   }).then(res => {
     if (res.ok) console.log('[Realworks Sync] ✓ Verstuurd:', contact.email || contact.firstname);
     else console.warn('[Realworks Sync] Fout:', res.status);
+  }).catch(() => {});
+});
+
+// Ontvang taxatierapport data van injected.js via postMessage
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'REALWORKS_TAXATIE') return;
+
+  const d = event.data.data;
+  if (!d._systemid && !d.taxcode) return;
+
+  const SKIP = /(__MASK|__EDIT__|__NEW__|_grid_|_dispatcher|_collection|_entity|CSRFToken|_parentform|_callback)/;
+  const taxatie = { source: 'realworks', page_url: window.location.href };
+  for (const [k, v] of Object.entries(d)) {
+    if (!SKIP.test(k) && v !== '') taxatie[k] = v;
+  }
+
+  fetch(TAXATIE_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(taxatie)
+  }).then(res => {
+    if (res.ok) console.log('[Realworks Taxatie Sync] ✓ Verstuurd:', taxatie.taxcode || taxatie._systemid);
+    else console.warn('[Realworks Taxatie Sync] Fout:', res.status);
   }).catch(() => {});
 });
