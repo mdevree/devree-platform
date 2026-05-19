@@ -545,6 +545,19 @@ export async function searchContactByRealworksCode(agrcode: string): Promise<Mau
 }
 
 /**
+ * Voeg een notitie toe aan een Mautic contact
+ */
+export async function addMauticNote(contactId: number, text: string): Promise<void> {
+  const response = await mauticFetch("/api/notes/new", {
+    method: "POST",
+    body: JSON.stringify({ lead: contactId, text, type: "general" }),
+  });
+  if (!response.ok) {
+    console.error("Mautic notitie fout:", response.status, await response.text());
+  }
+}
+
+/**
  * Werk contact velden bij in Mautic
  */
 export async function updateContact(

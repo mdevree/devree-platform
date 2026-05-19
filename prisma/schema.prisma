@@ -428,3 +428,64 @@ model FacebookTrigger {
   @@index([projectId])
   @@map("facebook_triggers")
 }
+
+// ─── WhatsApp Inbox ───────────────────────────────────────────────────────────
+
+enum WaStatus {
+  OPEN
+  CLOSED
+}
+
+enum WaDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model WaConversation {
+  id              String       @id @default(cuid())
+  waPhone         String
+  waName          String?
+  mauticContactId Int?
+  status          WaStatus     @default(OPEN)
+  lastMessageAt   DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  messages        WaMessage[]
+
+  @@index([waPhone])
+  @@index([status])
+  @@map("wa_conversations")
+}
+
+model WaMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   WaConversation @relation(fields: [conversationId], references: [id])
+  direction      WaDirection
+  body           String         @db.Text
+  mediaUrl       String?
+  mediaType      String?
+  evolutionMsgId String?        @unique
+  readAt         DateTime?
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+  @@map("wa_messages")
+}
+
+model RealworksTask {
+  id                  String    @id @default(cuid())
+  taskType            String    // "write_field"
+  realworksRelationId String    // Realworks relatie ID (bijv. "12345")
+  fieldName           String    // Realworks veldnaam (bijv. "vrij_veld_1")
+  fieldValue          String    @db.Text
+  status              String    @default("pending") // pending | processing | done | failed
+  error               String?   @db.Text
+  processedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("realworks_tasks")
+}
