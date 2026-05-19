@@ -138,6 +138,7 @@ model Project {
   calls               Call[]
   leadProjecten       LeadProject[]
   facebookTriggers    FacebookTrigger[]
+  agendaAfspraken     AgendaAfspraak[]
   hypotheekAdviseur   HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
   hypotheekAdviseurId String?
   createdAt           DateTime           @default(now())
@@ -393,12 +394,22 @@ model AgendaAfspraak {
   alastupd            String?   // raw Realworks waarde, gebruikt voor wijzigingsdetectie
   gcalEventId         String?   // Google Calendar event ID
   gcalSyncedAt        DateTime?
+  // Enrichment velden (gevuld via "Meer info" knop)
+  contactNaam         String?
+  contactEmail        String?
+  contactTelefoon     String?
+  mauticContactId     Int?
+  project             Project?  @relation(fields: [projectId], references: [id])
+  projectId           String?
+  enrichedAt          DateTime?
+  enrichmentStatus    String?   // "ok" | "partial" | "no_contact" | "no_project" | "error"
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
   @@index([agbegin])
   @@index([agobjcode])
   @@index([agowner])
+  @@index([projectId])
   @@map("agenda_afspraken")
 }
 
