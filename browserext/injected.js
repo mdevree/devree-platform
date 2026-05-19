@@ -98,23 +98,29 @@
       }
 
       if (_method === 'POST' && _url.includes(TAXATIE_PATH) && body) {
-        xhr.addEventListener('load', function () {
-          if (xhr.status === 200) {
-            try {
-              const data = {};
-              if (body instanceof FormData) {
-                body.forEach((value, key) => {
-                  if (typeof value === 'string') data[key] = value;
-                });
-              } else {
-                new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
-              }
-              // Alleen REALWORKS_TAXATIE via XHR (n8n sync).
-              // REALWORKS_TAXATIE_RAW gaat via de form-submit listener hierboven.
-              window.postMessage({ type: 'REALWORKS_TAXATIE', data, url: _url }, '*');
-            } catch (_) {}
-          }
-        });
+        // Grid-calls (sub-tabellen die bij paginaload vuren) overslaan —
+        // die hebben _dispatcher=gwt_json maar geen echte taxatievelden.
+        const bodyStr = typeof body === 'string' ? body : '';
+        const isGridCall = bodyStr.includes('_dispatcher=gwt_json') || _url.includes('/grid');
+        if (!isGridCall) {
+          xhr.addEventListener('load', function () {
+            if (xhr.status === 200) {
+              try {
+                const data = {};
+                if (body instanceof FormData) {
+                  body.forEach((value, key) => {
+                    if (typeof value === 'string') data[key] = value;
+                  });
+                } else {
+                  new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
+                }
+                // Alleen REALWORKS_TAXATIE via XHR (n8n sync).
+                // REALWORKS_TAXATIE_RAW gaat via de form-submit listener hierboven.
+                window.postMessage({ type: 'REALWORKS_TAXATIE', data, url: _url }, '*');
+              } catch (_) {}
+            }
+          });
+        }
       }
 
       if (_method === 'POST' && _url.includes(AGENDA_TARGET)) {
