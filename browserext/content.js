@@ -117,7 +117,8 @@ window.addEventListener('message', (event) => {
   if (event.data?.type !== 'REALWORKS_TAXATIE') return;
 
   const d = event.data.data;
-  if (!d._systemid && !d.taxcode) return;
+  // Alleen doorsturen als het echte taxatiedata is (niet een sub-operatie of grid-call).
+  if (!d.taxcode) return;
 
   const SKIP = /(__MASK|__EDIT__|__NEW__|_grid_|_dispatcher|_collection|_entity|CSRFToken|_parentform|_callback)/;
   const taxatie = { source: 'realworks', page_url: window.location.href };
