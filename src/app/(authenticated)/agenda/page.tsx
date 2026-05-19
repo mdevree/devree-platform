@@ -109,8 +109,11 @@ export default function AgendaPage() {
     try {
       const params = new URLSearchParams();
       if (view === "week") {
+        const eind = new Date(weekStart);
+        eind.setDate(weekStart.getDate() + 6);
+        eind.setHours(23, 59, 59, 999);
         params.set("van", weekStart.toISOString());
-        params.set("tot", weekEind.toISOString());
+        params.set("tot", eind.toISOString());
       } else {
         params.set("van", new Date().toISOString());
       }
@@ -131,7 +134,7 @@ export default function AgendaPage() {
     } finally {
       setLoading(false);
     }
-  }, [view, weekStart, weekEind, typeFilter, medewerkerFilter]);
+  }, [view, weekStart, typeFilter, medewerkerFilter]);
 
   useEffect(() => {
     laadAfspraken();
