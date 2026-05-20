@@ -58,6 +58,37 @@
     }
   }, true); // capture-fase: vóór de navigatie
 
+  // ── HTMLFormElement.prototype.submit override ─────────────────────────────────
+  // GWT roept form.submit() programmatisch aan — dat triggert geen 'submit'-event.
+  // We overriden de native methode om deze GWT-submits toch te pakken.
+  const origFormSubmit = HTMLFormElement.prototype.submit;
+  HTMLFormElement.prototype.submit = function () {
+    if (this.action) {
+      let actionPath;
+      try { actionPath = new URL(this.action).pathname; } catch { return origFormSubmit.call(this); }
+
+      if (actionPath.includes(TAXATIE_PATH)) {
+        try {
+          const data = {};
+          new FormData(this).forEach((value, key) => {
+            if (typeof value === 'string') data[key] = value;
+          });
+          if (data['_systemid']) {
+            window.postMessage({ type: 'REALWORKS_TAXATIE', data, url: actionPath }, '*');
+            window.postMessage({
+              type: 'REALWORKS_TAXATIE_RAW',
+              systemid: data['_systemid'],
+              fields: data,
+              isMultipart: this.enctype === 'multipart/form-data',
+              url: actionPath,
+            }, '*');
+          }
+        } catch (_) {}
+      }
+    }
+    return origFormSubmit.call(this);
+  };
+
   // ── XHR interceptie ──────────────────────────────────────────────────────────
   const OrigXHR = window.XMLHttpRequest;
   window.XMLHttpRequest = function () {
