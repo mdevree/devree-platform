@@ -15,6 +15,60 @@ const SAVE_PATH = '/servlets/objects/rela.person/grid';
 // Webhook secret — zelfde als N8N_WEBHOOK_SECRET op de VPS.
 const WEBHOOK_SECRET = 'VULL_IN_MET_N8N_WEBHOOK_SECRET';
 
+// ─── Taxatie save interceptie via webRequest ─────────────────────────────────
+// form.submit() en submit-events zijn onbetrouwbaar bij GWT; webRequest
+// onderschept op netwerkniveau, ongeacht hoe de form verstuurd wordt.
+
+const TAXATIE_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-taxatie-sync';
+const TAXATIE_SKIP = /(__MASK|__EDIT__|__NEW__|_grid_|_dispatcher|_collection|_entity|CSRFToken|_parentform|_callback|__FIELD_INACTIVE__|__MEDIA_LABEL__)/;
+
+chrome.webRequest.onBeforeRequest.addListener(
+  function (details) {
+    if (details.method !== 'POST') return;
+    const raw = details.requestBody?.formData;
+    if (!raw) return;
+
+    const fields = {};
+    for (const [key, values] of Object.entries(raw)) {
+      fields[key] = values[0] ?? '';
+    }
+
+    if (!fields.taxcode) return;
+
+    // Cache voor eventuele write-back taken
+    if (fields._systemid) {
+      chrome.storage.local.set({
+        [`rw_taxatie_form_${fields._systemid}`]: {
+          fields,
+          isMultipart: false,
+          url: '/servlets/objects/broker.taxatie/save',
+        },
+      });
+      console.log(`[RW Taxatie Cache] Gecached via webRequest: ${fields._systemid} (${fields.taxcode})`);
+    }
+
+    // Stuur naar n8n webhook
+    const taxatie = { source: 'realworks' };
+    for (const [k, v] of Object.entries(fields)) {
+      if (!TAXATIE_SKIP.test(k) && v !== '') taxatie[k] = v;
+    }
+
+    fetch(TAXATIE_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(taxatie),
+    }).then(res => {
+      if (res.ok) console.log('[RW Taxatie Sync] ✓ Verstuurd:', fields.taxcode);
+      else console.warn('[RW Taxatie Sync] Fout:', res.status);
+    }).catch(err => console.warn('[RW Taxatie Sync] Netwerkfout:', err));
+  },
+  {
+    urls: ['https://crm.realworks.nl/servlets/objects/broker.taxatie/save'],
+    types: ['sub_frame', 'main_frame'],
+  },
+  ['requestBody']
+);
+
 // ─── Berichten van content script ────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
