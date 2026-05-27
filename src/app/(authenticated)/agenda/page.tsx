@@ -46,6 +46,24 @@ interface Afspraak {
 
 type ViewMode = "week" | "lijst";
 
+const MEDEWERKER_KLEUREN: Record<string, string> = {};
+const KLEUR_PALET = [
+  "border-l-blue-400 bg-blue-50/40",
+  "border-l-green-400 bg-green-50/40",
+  "border-l-purple-400 bg-purple-50/40",
+  "border-l-amber-400 bg-amber-50/40",
+  "border-l-rose-400 bg-rose-50/40",
+  "border-l-cyan-400 bg-cyan-50/40",
+];
+function medewerkerKleur(medewerker: string | null): string {
+  if (!medewerker) return "";
+  if (!MEDEWERKER_KLEUREN[medewerker]) {
+    const idx = Object.keys(MEDEWERKER_KLEUREN).length % KLEUR_PALET.length;
+    MEDEWERKER_KLEUREN[medewerker] = KLEUR_PALET[idx];
+  }
+  return MEDEWERKER_KLEUREN[medewerker];
+}
+
 const WEEKDAGEN = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
 const MAANDEN = [
   "januari", "februari", "maart", "april", "mei", "juni",
@@ -99,6 +117,7 @@ export default function AgendaPage() {
   const [medewerkerFilter, setMedewerkerFilter] = useState("alle");
   const [agTypes, setAgTypes] = useState<string[]>([]);
   const [medewerkers, setMedewerkers] = useState<string[]>([]);
+  const [woningFotos, setWoningFotos] = useState<Record<string, string | null>>({});
 
   const weekEind = new Date(weekStart);
   weekEind.setDate(weekStart.getDate() + 6);
@@ -127,9 +146,27 @@ export default function AgendaPage() {
 
         // Verzamel unieke types en medewerkers voor filters
         const types = [...new Set(data.map((a) => a.agtype).filter(Boolean))] as string[];
+        // Gebruik fullname als label én value (API filtert op medewerkerFullname OR agowner)
         const meds = [...new Set(data.map((a) => a.medewerkerFullname ?? a.agowner).filter(Boolean))] as string[];
         setAgTypes((prev) => [...new Set([...prev, ...types])]);
         setMedewerkers((prev) => [...new Set([...prev, ...meds])]);
+
+        // Haal WordPress woning foto's op voor afspraken met een objectcode
+        data.filter((a) => a.agobjcode).forEach((a) => {
+          const code = a.agobjcode!;
+          setWoningFotos((prev) => {
+            if (code in prev) return prev;
+            fetch(`/api/wordpress/woning?realworksId=${encodeURIComponent(code)}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((woning) => {
+                setWoningFotos((cache) => ({ ...cache, [code]: woning?.featuredImage ?? null }));
+              })
+              .catch(() => {
+                setWoningFotos((cache) => ({ ...cache, [code]: null }));
+              });
+            return { ...prev, [code]: null };
+          });
+        });
       }
     } finally {
       setLoading(false);
@@ -309,12 +346,14 @@ export default function AgendaPage() {
           isVandaag={isVandaag}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
+          woningFotos={woningFotos}
         />
       ) : (
         <LijstWeergave
           afspraken={afspraken}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
+          woningFotos={woningFotos}
         />
       )}
     </div>
@@ -329,12 +368,14 @@ function WeekWeergave({
   isVandaag,
   enrichingIds,
   onEnrich,
+  woningFotos,
 }: {
   dagen: Date[];
   afsprakenOpDag: (dag: Date) => Afspraak[];
   isVandaag: (dag: Date) => boolean;
   enrichingIds: Set<string>;
   onEnrich: (id: string) => void;
+  woningFotos: Record<string, string | null>;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -369,6 +410,7 @@ function WeekWeergave({
                     afspraak={a}
                     enriching={enrichingIds.has(a.id)}
                     onEnrich={onEnrich}
+                    woningFoto={a.agobjcode ? (woningFotos[a.agobjcode] ?? null) : null}
                   />
                 ))}
               </div>
@@ -386,10 +428,12 @@ function LijstWeergave({
   afspraken,
   enrichingIds,
   onEnrich,
+  woningFotos,
 }: {
   afspraken: Afspraak[];
   enrichingIds: Set<string>;
   onEnrich: (id: string) => void;
+  woningFotos: Record<string, string | null>;
 }) {
   if (afspraken.length === 0) {
     return (
@@ -421,6 +465,7 @@ function LijstWeergave({
                 afspraak={a}
                 enriching={enrichingIds.has(a.id)}
                 onEnrich={onEnrich}
+                woningFoto={a.agobjcode ? (woningFotos[a.agobjcode] ?? null) : null}
               />
             ))}
           </div>
@@ -436,16 +481,19 @@ function AfspraakKaart({
   afspraak: a,
   enriching,
   onEnrich,
+  woningFoto,
 }: {
   afspraak: Afspraak;
   enriching: boolean;
   onEnrich: (id: string) => void;
+  woningFoto: string | null;
 }) {
   const heeftContact = Boolean(a.contactNaam || a.contactEmail || a.contactTelefoon);
   const heeftTelefoon = Boolean(a.contactTelefoon);
+  const kleur = medewerkerKleur(a.medewerkerFullname ?? a.agowner);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md border-l-4 ${kleur || "border-l-gray-200"}`}>
       {/* Bovenste rij: tijd + type + omschrijving */}
       <div className="flex items-start gap-3">
         <div className="min-w-[52px] text-sm font-semibold text-primary">
@@ -478,6 +526,29 @@ function AfspraakKaart({
             </div>
           )}
 
+          {/* Project koppeling (automatisch via agobjcode) */}
+          {a.project && (
+            <div className="mt-2 flex items-start gap-2">
+              {woningFoto && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={woningFoto}
+                  alt="Woning"
+                  className="h-16 w-24 flex-shrink-0 rounded-lg object-cover"
+                />
+              )}
+              <div className="flex items-center gap-1 text-xs text-primary">
+                <BuildingOfficeIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="font-medium">{a.project.name}</span>
+                {(a.project.woningAdres || a.project.woningPlaats) && (
+                  <span className="text-gray-400">
+                    · {[a.project.woningAdres, a.project.woningPlaats].filter(Boolean).join(", ")}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Enriched contact info */}
           {heeftContact && (
             <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
@@ -489,17 +560,6 @@ function AfspraakKaart({
               )}
               {a.contactTelefoon && (
                 <p className="text-gray-500">{a.contactTelefoon}</p>
-              )}
-              {a.project && (
-                <div className="mt-1 flex items-center gap-1 text-xs text-primary">
-                  <BuildingOfficeIcon className="h-3.5 w-3.5" />
-                  {a.project.name}
-                  {(a.project.woningAdres || a.project.woningPlaats) && (
-                    <span className="text-gray-400">
-                      · {[a.project.woningAdres, a.project.woningPlaats].filter(Boolean).join(", ")}
-                    </span>
-                  )}
-                </div>
               )}
             </div>
           )}

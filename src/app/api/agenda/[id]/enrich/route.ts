@@ -16,11 +16,13 @@ export async function POST(
   if (!afspraak)
     return NextResponse.json({ error: "Afspraak niet gevonden" }, { status: 404 });
 
-  // Parallel: Mautic-contact + project opzoeken
+  // Parallel: Mautic-contact opzoeken via agrcode + project opzoeken via agobjcode
   const [mauticContact, project] = await Promise.all([
     afspraak.agrcode ? searchContactByRealworksCode(afspraak.agrcode) : Promise.resolve(null),
     afspraak.agobjcode
       ? prisma.project.findFirst({ where: { realworksId: afspraak.agobjcode } })
+      : afspraak.projectId
+      ? prisma.project.findUnique({ where: { id: afspraak.projectId } })
       : Promise.resolve(null),
   ]);
 
