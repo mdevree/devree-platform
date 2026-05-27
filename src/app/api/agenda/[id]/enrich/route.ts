@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
-import { searchContactByRealworksCode, getContact } from "@/lib/mautic";
+import { searchContactByRealworksCode } from "@/lib/mautic";
 
 export async function POST(
   req: NextRequest,
@@ -16,26 +16,15 @@ export async function POST(
   if (!afspraak)
     return NextResponse.json({ error: "Afspraak niet gevonden" }, { status: 404 });
 
-  // Parallel: Mautic-contact + project opzoeken
-  let [mauticContact, project] = await Promise.all([
+  // Parallel: Mautic-contact opzoeken via agrcode + project opzoeken via agobjcode
+  const [mauticContact, project] = await Promise.all([
     afspraak.agrcode ? searchContactByRealworksCode(afspraak.agrcode) : Promise.resolve(null),
     afspraak.agobjcode
-      ? prisma.project.findFirst({
-          where: { realworksId: afspraak.agobjcode },
-          include: { contacts: { orderBy: { addedAt: "asc" }, take: 1 } },
-        })
+      ? prisma.project.findFirst({ where: { realworksId: afspraak.agobjcode } })
       : afspraak.projectId
-      ? prisma.project.findUnique({
-          where: { id: afspraak.projectId },
-          include: { contacts: { orderBy: { addedAt: "asc" }, take: 1 } },
-        })
+      ? prisma.project.findUnique({ where: { id: afspraak.projectId } })
       : Promise.resolve(null),
   ]);
-
-  // Fallback: als agrcode geen contact oplevert, probeer het project-contact via Mautic ID
-  if (!mauticContact && project && "contacts" in project && project.contacts.length > 0) {
-    mauticContact = await getContact(project.contacts[0].mauticContactId);
-  }
 
   const hasContact = mauticContact !== null;
   const hasProject = project !== null;
