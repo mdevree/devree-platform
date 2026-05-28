@@ -10,6 +10,7 @@ async function fetchWoningVanWordPress(realworksId: string) {
     const url = new URL(`${WP_BASE_URL}/woning`);
     url.searchParams.set("realworks_id", realworksId);
     url.searchParams.set("per_page", "1");
+    url.searchParams.set("_embed", "wp:featuredmedia");
     // next.revalidate is a Next.js extension to fetch, not in standard RequestInit
     const fetchOptions = { headers: { Accept: "application/json" }, next: { revalidate: 300 } };
     const res = await fetch(url.toString(), fetchOptions as RequestInit);
@@ -17,11 +18,18 @@ async function fetchWoningVanWordPress(realworksId: string) {
     const woningen = await res.json();
     if (!woningen?.length) return null;
     const w = woningen[0];
+    const featuredImage =
+      w._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.large?.source_url ||
+      w._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.medium_large?.source_url ||
+      w._embedded?.["wp:featuredmedia"]?.[0]?.source_url ||
+      w.yoast_head_json?.og_image?.[0]?.url ||
+      null;
     return {
       wpId: w.id,
       slug: w.slug,
       link: w.link,
       titel: w.title?.rendered ?? null,
+      featuredImage,
       acf: w.acf ?? {},
     };
   } catch {
@@ -138,23 +146,65 @@ export async function GET(
       ? {
           titel: woning.titel,
           link: woning.link,
+          foto: woning.featuredImage,
           adres: afspraak.project
             ? [afspraak.project.woningAdres, afspraak.project.woningPostcode, afspraak.project.woningPlaats]
                 .filter(Boolean)
                 .join(", ")
-            : null,
-          vraagprijs: afspraak.project?.vraagprijs ?? null,
-          oppervlakte: afspraak.project?.woningOppervlakte ?? null,
-          // Alle ACF velden (beschrijving, kenmerken, foto URLs etc.)
-          beschrijving: woning.acf?.aanbiedingstekst ?? null,
-          introTekst: woning.acf?.intro_tekst_ai ?? null,
+            : [woning.acf?.straat, woning.acf?.huisnummer, woning.acf?.postcode, woning.acf?.plaats]
+                .filter(Boolean)
+                .join(" ") || null,
+          // Prijs & voorwaarden
+          prijs: {
+            koopsom: woning.acf?.koopsom ?? afspraak.project?.vraagprijs ?? null,
+            koopprijsLabel: woning.acf?.koopprijs_label ?? null,
+            koopconditie: woning.acf?.koopconditie ?? null,
+            aanvaarding: woning.acf?.aanvaarding ?? null,
+            status: woning.acf?.status ?? null,
+          },
+          // Fysieke kenmerken
           kenmerken: {
-            woonoppervlakte: woning.acf?.woonoppervlakte,
-            kamers: woning.acf?.aantal_kamers,
-            bouwjaar: woning.acf?.bouwjaar,
-            energieklasse: woning.acf?.energieklasse,
-            verwarming: woning.acf?.verwarming,
-            isolatievormen: woning.acf?.isolatievormen,
+            woonoppervlakte: woning.acf?.woonoppervlakte ?? null,
+            kadastraleOppervlakte: woning.acf?.kadastrale_oppervlakte ?? null,
+            inhoud: woning.acf?.inhoud ?? null,
+            kamers: woning.acf?.aantal_kamers ?? null,
+            bouwjaar: woning.acf?.bouwjaar ?? null,
+            bouwvorm: woning.acf?.bouwvorm ?? null,
+            woonhuissoort: woning.acf?.woonhuissoort ?? null,
+            woonhuistype: woning.acf?.woonhuistype ?? null,
+            energieklasse: woning.acf?.energieklasse ?? null,
+            energielabelDatum: woning.acf?.energielabel_datum ?? null,
+            verwarming: woning.acf?.verwarming ?? null,
+            isolatievormen: woning.acf?.isolatievormen ?? null,
+            voorzieningen: woning.acf?.voorzieningen ?? null,
+            ligging: woning.acf?.ligging ?? null,
+          },
+          // Locatie
+          locatie: {
+            straat: woning.acf?.straat ?? null,
+            huisnummer: woning.acf?.huisnummer ?? null,
+            postcode: woning.acf?.postcode ?? null,
+            plaats: woning.acf?.plaats ?? null,
+            gemeente: woning.acf?.gemeente ?? null,
+            provincie: woning.acf?.provincie ?? null,
+            wijk: woning.acf?.wijk ?? null,
+            coordinatenX: woning.acf?.coordinaten_x ?? null,
+            coordinatenY: woning.acf?.coordinaten_y ?? null,
+          },
+          // Teksten (voor gebruik in PDF en AI-generatie)
+          teksten: {
+            aanbiedingstekst: woning.acf?.aanbiedingstekst ?? null,
+            introTekstAi: woning.acf?.intro_tekst_ai ?? null,
+            woningBeschrijvingAi: woning.acf?.woning_beschrijving_ai ?? null,
+            buitenBeschrijvingAi: woning.acf?.buiten_beschrijving_ai ?? null,
+            indelingBeschrijvingAi: woning.acf?.indeling_beschrijving_ai ?? null,
+            locatieBeschrijvingAi: woning.acf?.locatie_beschrijving_ai ?? null,
+          },
+          // Media
+          media: {
+            floorplanner: woning.acf?.floorplanner_fml ?? null,
+            tour360: woning.acf?.tour_360_url ?? null,
+            video: woning.acf?.woning_video_url ?? null,
           },
         }
       : null,
