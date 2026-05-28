@@ -44,7 +44,7 @@ interface Afspraak {
   project: ProjectInfo | null;
 }
 
-type ViewMode = "week" | "lijst";
+type ViewMode = "week" | "dag" | "lijst";
 
 const MEDEWERKER_KLEUREN: Record<string, string> = {};
 const KLEUR_PALET = [
@@ -133,6 +133,13 @@ export default function AgendaPage() {
         eind.setHours(23, 59, 59, 999);
         params.set("van", weekStart.toISOString());
         params.set("tot", eind.toISOString());
+      } else if (view === "dag") {
+        const dagStart = new Date(weekStart);
+        dagStart.setHours(0, 0, 0, 0);
+        const dagEind = new Date(weekStart);
+        dagEind.setHours(23, 59, 59, 999);
+        params.set("van", dagStart.toISOString());
+        params.set("tot", dagEind.toISOString());
       } else {
         params.set("van", new Date().toISOString());
       }
@@ -210,8 +217,41 @@ export default function AgendaPage() {
     });
   }
 
+  function vorigeDag() {
+    setWeekStart((d) => {
+      const n = new Date(d);
+      n.setDate(n.getDate() - 1);
+      return n;
+    });
+  }
+
+  function volgendeDag() {
+    setWeekStart((d) => {
+      const n = new Date(d);
+      n.setDate(n.getDate() + 1);
+      return n;
+    });
+  }
+
   function vandaag() {
-    setWeekStart(getMaandag(new Date()));
+    if (view === "dag") {
+      const nu = new Date();
+      nu.setHours(0, 0, 0, 0);
+      setWeekStart(nu);
+    } else {
+      setWeekStart(getMaandag(new Date()));
+    }
+  }
+
+  function switchView(v: ViewMode) {
+    if (v === "dag") {
+      const nu = new Date();
+      nu.setHours(0, 0, 0, 0);
+      setWeekStart(nu);
+    } else if (v === "week") {
+      setWeekStart(getMaandag(new Date()));
+    }
+    setView(v);
   }
 
   // Groepeer op dag (weekweergave)
@@ -252,18 +292,28 @@ export default function AgendaPage() {
           {/* Weergave-tabs */}
           <div className="flex rounded-lg border border-gray-200 bg-white">
             <button
-              onClick={() => setView("week")}
+              onClick={() => switchView("dag")}
               className={`flex items-center gap-1.5 rounded-l-lg px-3 py-2 text-sm font-medium transition-colors ${
-                view === "week"
+                view === "dag"
                   ? "bg-primary text-white"
                   : "text-gray-600 hover:bg-gray-50"
               }`}
             >
               <CalendarDaysIcon className="h-4 w-4" />
+              Dag
+            </button>
+            <button
+              onClick={() => switchView("week")}
+              className={`flex items-center gap-1.5 border-x border-gray-200 px-3 py-2 text-sm font-medium transition-colors ${
+                view === "week"
+                  ? "bg-primary text-white"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
               Week
             </button>
             <button
-              onClick={() => setView("lijst")}
+              onClick={() => switchView("lijst")}
               className={`flex items-center gap-1.5 rounded-r-lg px-3 py-2 text-sm font-medium transition-colors ${
                 view === "lijst"
                   ? "bg-primary text-white"
@@ -275,11 +325,11 @@ export default function AgendaPage() {
             </button>
           </div>
 
-          {/* Week navigatie (alleen bij weekweergave) */}
-          {view === "week" && (
+          {/* Navigatie (dag en week) */}
+          {(view === "week" || view === "dag") && (
             <div className="flex items-center gap-1">
               <button
-                onClick={vorigeWeek}
+                onClick={view === "dag" ? vorigeDag : vorigeWeek}
                 className="rounded-lg border border-gray-200 p-2 text-gray-600 transition-colors hover:bg-gray-50"
               >
                 <ChevronLeftIcon className="h-4 w-4" />
@@ -291,14 +341,17 @@ export default function AgendaPage() {
                 Vandaag
               </button>
               <button
-                onClick={volgendeWeek}
+                onClick={view === "dag" ? volgendeDag : volgendeWeek}
                 className="rounded-lg border border-gray-200 p-2 text-gray-600 transition-colors hover:bg-gray-50"
               >
                 <ChevronRightIcon className="h-4 w-4" />
               </button>
               <span className="ml-2 text-sm text-gray-500">
-                {weekStart.getDate()} {MAANDEN[weekStart.getMonth()]} –{" "}
-                {weekEind.getDate()} {MAANDEN[weekEind.getMonth()]} {weekEind.getFullYear()}
+                {view === "dag" ? (
+                  `${WEEKDAGEN[(weekStart.getDay() + 6) % 7]} ${weekStart.getDate()} ${MAANDEN[weekStart.getMonth()]} ${weekStart.getFullYear()}`
+                ) : (
+                  `${weekStart.getDate()} ${MAANDEN[weekStart.getMonth()]} – ${weekEind.getDate()} ${MAANDEN[weekEind.getMonth()]} ${weekEind.getFullYear()}`
+                )}
               </span>
             </div>
           )}
@@ -339,6 +392,15 @@ export default function AgendaPage() {
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
+      ) : view === "dag" ? (
+        <DagWeergave
+          dag={weekStart}
+          afspraken={afspraken}
+          isVandaag={isVandaag}
+          enrichingIds={enrichingIds}
+          onEnrich={enrichAfspraak}
+          woningFotos={woningFotos}
+        />
       ) : view === "week" ? (
         <WeekWeergave
           dagen={dagenInWeek}
@@ -355,6 +417,66 @@ export default function AgendaPage() {
           onEnrich={enrichAfspraak}
           woningFotos={woningFotos}
         />
+      )}
+    </div>
+  );
+}
+
+// ── Dag weergave ───────────────────────────────────────────────────────────────
+
+function DagWeergave({
+  dag,
+  afspraken,
+  isVandaag,
+  enrichingIds,
+  onEnrich,
+  woningFotos,
+}: {
+  dag: Date;
+  afspraken: Afspraak[];
+  isVandaag: (dag: Date) => boolean;
+  enrichingIds: Set<string>;
+  onEnrich: (id: string) => void;
+  woningFotos: Record<string, string | null>;
+}) {
+  const vandaag = isVandaag(dag);
+  const dagNaam = WEEKDAGEN[(dag.getDay() + 6) % 7];
+  const maandNaam = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"][dag.getMonth()];
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-full text-base font-bold ${
+            vandaag ? "bg-primary text-white" : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          {dag.getDate()}
+        </div>
+        <div>
+          <p className={`text-base font-semibold ${vandaag ? "text-primary" : "text-gray-800"}`}>
+            {dagNaam} {dag.getDate()} {maandNaam} {dag.getFullYear()}
+          </p>
+          {vandaag && <p className="text-xs text-gray-400">Vandaag</p>}
+        </div>
+      </div>
+
+      {afspraken.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center text-gray-400">
+          Geen afspraken vandaag
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {afspraken.map((a) => (
+            <AfspraakKaart
+              key={a.id}
+              afspraak={a}
+              enriching={enrichingIds.has(a.id)}
+              onEnrich={onEnrich}
+              woningFoto={a.agobjcode ? (woningFotos[a.agobjcode] ?? null) : null}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
