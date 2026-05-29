@@ -25,6 +25,7 @@ pingInterval = setInterval(pingBackground, 30_000);
 const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-sync';
 const AGENDA_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-agenda-sync';
 const TAXATIE_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-taxatie-sync';
+const LEAD_RESPONSE_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-lead-response';
 
 // Inject in pagina-context zodat we toegang hebben tot window.XMLHttpRequest
 try {
@@ -108,6 +109,29 @@ window.addEventListener('message', (event) => {
   }).then(res => {
     if (res.ok) console.log('[Realworks Sync] ✓ Verstuurd:', contact.email || contact.firstname);
     else console.warn('[Realworks Sync] Fout:', res.status);
+  }).catch(() => {});
+});
+
+// Ontvang lead response data van injected.js via postMessage
+// Bevat kwalificatievragen: eigen woning, verkoopoverweging, hypotheekstatus
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'REALWORKS_LEAD_RESPONSE') return;
+
+  const d = event.data.data;
+  if (!d?.systemid) return;
+
+  fetch(LEAD_RESPONSE_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source: 'realworks_lead_response',
+      page_url: window.location.href,
+      ...d,
+    })
+  }).then(res => {
+    if (res.ok) console.log('[Realworks Lead Response] ✓ Verstuurd:', d.resprcode, d.rlisnr);
+    else console.warn('[Realworks Lead Response] Fout:', res.status);
   }).catch(() => {});
 });
 
