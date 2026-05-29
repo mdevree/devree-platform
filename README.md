@@ -4,6 +4,7 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 
 ## Modules
 
+- **Agenda** — Realworks agendakoppeling: dag- en weekweergave per medewerker, auto-koppeling van woningprojecten via `agobjcode`, enrichment van kijkersgegevens via Mautic, PDF-contextendpoint voor bezichtigingsvoorbereiding
 - **Dashboard** — Tijdsgebonden begroeting, overzicht van openstaande taken en recente activiteit
 - **Telefonie** — Live call popups, call history, Mautic CRM koppeling, notities per gesprek, contact detail panel met AI data profiel
 - **Taken** — Kanban + tabeloverzicht, per makelaar en centraal voor binnendienst, met tijdregistratie per taak
@@ -446,6 +447,77 @@ Voorbeeld inhoud:
 
 De velden zijn dynamisch — medewerkers kunnen vrij velden toevoegen, aanpassen en verwijderen.
 
+#### Kijker kwalificatievelden
+
+Gevuld door de browser extensie via `broker.response/save` in Realworks → n8n workflow `Realworks Lead Response → Mautic Kwalificatie`.
+
+| Mautic alias | Type | Omschrijving |
+|---|---|---|
+| `kijker_eigen_woning` | boolean | Heeft de kijker een eigen woning? |
+| `kijker_overweegt_verkoop` | boolean | Overweegt de kijker de eigen woning te verkopen? |
+| `kijker_hypotheek_status` | select (`nee` / `ja` / `open`) | Status hypotheekadvies |
+| `kijker_aanvrager_type` | select (`particulier` / `aankoopmakelaar`) | Type aanvrager |
+| `kijker_lead_herkomst` | text | Herkomst van de lead (bijv. `Funda Lead`) |
+
+#### AI sub-velden (gegenereerd door n8n AI-workflow)
+
+| Mautic alias | Omschrijving |
+|---|---|
+| `ai_current_situation` | Huidige woonsituatie |
+| `ai_housing_motivation` | Motivatie voor aankoop |
+| `ai_budget_indication` | Budgetindicatie |
+| `ai_timeline` | Gewenste tijdlijn |
+| `ai_family_status` | Gezinssituatie |
+| `ai_lifestyle_preference` | Leefstijlvoorkeuren |
+
+#### Bezichtigingsvelden
+
+| Mautic alias | Type | Omschrijving |
+|---|---|---|
+| `bezichtiging_notities` | textarea | Notities van makelaar na bezichtiging |
+| `bezichtiging_interesse` | number (0-100) | Interessescore |
+| `contact_type_bezichtiger` | text | Wordt automatisch `bezichtiger` bij lead response |
+| `afspraak_intake_antwoord` | textarea | JSON met antwoorden op intakevragen |
+| `zoeker_data` | textarea | JSON met zoekprofiel van de kijker |
+
+---
+
+### Agenda `/api/agenda`
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/agenda` | Haal afspraken op per week of dag, gefilterd op medewerker |
+| `POST` | `/api/agenda/[id]/enrich` | Koppel Mautic contact (via `agrcode`) en project (via `agobjcode`) aan afspraak |
+| `GET` | `/api/agenda/[id]/context` | Volledige context voor PDF-generatie: afspraak + kijker + woning + historie |
+
+#### `GET /api/agenda` — Query parameters
+
+| Parameter | Type | Omschrijving |
+|-----------|------|--------------|
+| `weekStart` | `YYYY-MM-DD` | Maandag van de op te halen week (of startdatum bij dagweergave) |
+| `medewerker` | `string` | Filter op medewerker (`medewerkerFullname` of `agowner`) |
+| `view` | `dag\|week` | `dag` haalt één dag op, `week` haalt zeven dagen op |
+
+Bij het ophalen worden afspraken met een `agobjcode` automatisch gekoppeld aan het bijbehorende `Project` via het `realworksId`-veld.
+
+#### `POST /api/agenda/[id]/enrich`
+
+Zoekt het Mautic contact op via het `agrcode` (Realworks relatiecode) van de afspraak en koppelt het project via `agobjcode`. Slaat `contactNaam`, `contactEmail`, `contactTelefoon`, `mauticContactId`, `projectId` en `enrichedAt` op.
+
+#### `GET /api/agenda/[id]/context`
+
+Gebruikt door n8n voor het genereren van een bezichtigings-PDF. Geeft terug:
+
+- **`afspraak`** — begin, eind, type, omschrijving, locatie, memo, medewerker
+- **`kijker`** — volledig Mautic-profiel inclusief:
+  - `aiProfiel` — JSON-object met het AI-gegenereerde kennisprofiel
+  - `aiAnalyse` — sub-velden: `huidigeSituatie`, `woningMotivatie`, `budgetIndicatie`, `tijdlijn`, `gezinssituatie`, `leefstijlVoorkeur`
+  - `bezichtiging` — `notities`, `interesseScore`, `contactType`, `intakeAntwoord`, `zoekprofiel`
+  - `kwalificatie` — `heeftEigenWoning`, `overwegtVerkoop`, `hypotheekStatus`, `aanvragerType`, `leadHerkomst`
+- **`woning`** — WordPress ACF-data: foto, prijs, kenmerken, locatie, teksten (AI), media
+- **`contactHistorie`** — eerdere afspraken van dezelfde kijker (op `agrcode`)
+- **`project`** — gekoppeld verkoopproject
+
 ---
 
 ### Buurtdata `/api/buurtdata`
@@ -466,6 +538,34 @@ De velden zijn dynamisch — medewerkers kunnen vrij velden toevoegen, aanpassen
 De response bevat een uitgebreid JSON-object met onder andere: BAG-gegevens (oppervlakte, bouwjaar, gebruiksdoel), leefbaarheidscore, bevolkingsopbouw, woningmarktdata, inkomen, bereikbaarheid, klimaatdata, geluidsbelasting en luchtkwaliteit. Timeout: 30 seconden.
 
 De buurtdata pagina (`/buurtdata`) toont deze data als een printbaar rapport geschikt om met klanten te delen.
+
+---
+
+---
+
+## n8n Workflows
+
+Alle workflows staan als importeerbare JSON in de `n8n/` map. Gebruik het `Mautic account` credential (OAuth2, ID `cM1cWckWqxTr8y3V`).
+
+| Bestand | Webhook path | Omschrijving |
+|---------|-------------|--------------|
+| `Realworks → Mautic Contact Sync.json` | `realworks-sync` | Contactpersoon opslaan in Realworks → upsert in Mautic |
+| `Realworks Agenda Sync.json` | `realworks-agenda-sync` | Agendadag ophalen in Realworks → opslaan in `AgendaAfspraak` |
+| `Realworks Lead Response → Mautic Kwalificatie.json` | `realworks-lead-response` | Bezichtigingsreactie opslaan → kijker-kwalificatievelden bijwerken in Mautic (of nieuw contact aanmaken) |
+| `n8n-email-verwerking.workflow.json` | — | Email-afhandeling |
+| `n8n-facebook-dm-trigger.workflow.json` | — | Facebook DM verwerking |
+
+### Lead Response workflow (gedetailleerd)
+
+```
+Webhook POST /realworks-lead-response
+  → Code: extraheer email, naam, tel, kwalificatie + map naar Mautic velden
+  → Mautic getAll: zoek op email
+  → Code: gevonden? + contactId doorgeven
+  → IF gevonden?
+      ✓ Update: realworks_code, kijker_*, contact_type_bezichtiger  → 200
+      ✗ Create: voornaam, achternaam, email, mobile + alle velden    → 201
+```
 
 ---
 

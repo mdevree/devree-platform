@@ -11,8 +11,37 @@ Chrome-extensie die data uit de Realworks CRM haalt en doorstuurt naar n8n, en o
 | Relatie (contactpersoon) | Opslaan van een relatie in Realworks | `realworks-sync` |
 | Agenda | Openen van een agendadag in Realworks | `realworks-agenda-sync` |
 | Taxatierapport | Versturen van een taxatieformulier in Realworks | `realworks-taxatie-sync` |
+| Lead Response (kijker) | Opslaan van een bezichtigingsreactie (`broker.response/save`) | `realworks-lead-response` |
 
 De extensie onderschept form-submits en XHR-calls op `crm.realworks.nl` en stuurt de relevante velden als JSON naar de n8n webhook. Interne Realworks-velden (CSRF-tokens, grid-parameters, maskers) worden weggefilterd.
+
+#### Lead Response payload
+
+Bij het opslaan van een bezichtigingsreactie (`broker.response/save`) wordt de functie `extractLeadResponse()` aangeroepen in `injected.js`. `__MASK`-waarden worden gedecodeerd naar leesbare labels via `decodeMask()`.
+
+```json
+{
+  "source": "realworks_lead_response",
+  "resprcode": "891537",
+  "rlisnr": "SE11845",
+  "contact": { "voornaam": "...", "achternaam": "...", "email": "...", "telefoon": "..." },
+  "lead": {
+    "herkomstCode": "6", "herkomst": "Funda Lead",
+    "labelCode": "1",    "label": "Koop",
+    "statusCode": "1",   "status": "Nieuw"
+  },
+  "kwalificatie": {
+    "aanvragerType": "Particulier",
+    "heeftEigenWoning": false,
+    "overwegtVerkoopWoning": false,
+    "hypotheekAdviesStatus": "Nee"
+  },
+  "memo": { "intern": "...", "publiek": "..." },
+  "makelaarCode": "100001"
+}
+```
+
+De n8n workflow (`Realworks Lead Response → Mautic Kwalificatie`) zoekt het contact op in Mautic via e-mail, maakt het aan als het niet bestaat, en vult de kijker-kwalificatievelden in.
 
 ### Schrijven (n8n → Realworks)
 

@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extraheer de webhook body en map velden naar Mautic-formaat\nconst body = $input.first().json.body;\nconst kw = body.kwalificatie || {};\nconst lead = body.lead || {};\n\nif (!body.resprcode) {\n  throw new Error('Geen resprcode in payload — kan contact niet opzoeken');\n}\n\n// Vertaal decoded Realworks labels naar Mautic select-waarden\nfunction mapHypotheek(status) {\n  if (!status) return '';\n  const s = status.toLowerCase();\n  if (s === 'ja') return 'ja';\n  if (s.includes('open') || s.includes('nog niet')) return 'open';\n  return 'nee';\n}\n\nfunction mapAanvragerType(type) {\n  if (!type) return 'particulier';\n  const t = type.toLowerCase();\n  if (t.includes('aankoop') || t.includes('makelaar')) return 'aankoopmakelaar';\n  return 'particulier';\n}\n\nreturn [{\n  json: {\n    resprcode: body.resprcode,\n    rlisnr: body.rlisnr || '',\n    kijker_eigen_woning: kw.heeftEigenWoning ? '1' : '0',\n    kijker_overweegt_verkoop: kw.overwegtVerkoopWoning ? '1' : '0',\n    kijker_hypotheek_status: mapHypotheek(kw.hypotheekAdviesStatus),\n    kijker_aanvrager_type: mapAanvragerType(kw.aanvragerType),\n    kijker_lead_herkomst: lead.herkomst || '',\n    contact_type_bezichtiger: 'bezichtiger',\n    _debug: {\n      hypotheekAdviesStatus: kw.hypotheekAdviesStatus,\n      aanvragerType: kw.aanvragerType,\n      heeftEigenWoning: kw.heeftEigenWoning,\n      overwegtVerkoopWoning: kw.overwegtVerkoopWoning,\n    }\n  }\n}];"
+        "jsCode": "const body = $input.first().json.body;\nconst kw = body.kwalificatie || {};\nconst lead = body.lead || {};\nconst contact = body.contact || {};\n\nif (!body.resprcode) {\n  throw new Error('Geen resprcode in payload — verplicht veld');\n}\n\nfunction mapHypotheek(status) {\n  if (!status) return '';\n  const s = status.toLowerCase();\n  if (s === 'ja') return 'ja';\n  if (s.includes('open') || s.includes('nog niet')) return 'open';\n  return 'nee';\n}\n\nfunction mapAanvragerType(type) {\n  if (!type) return 'particulier';\n  const t = type.toLowerCase();\n  if (t.includes('aankoop') || t.includes('makelaar')) return 'aankoopmakelaar';\n  return 'particulier';\n}\n\nreturn [{\n  json: {\n    // Contactgegevens voor zoeken en aanmaken\n    email: contact.email || '',\n    voornaam: contact.voornaam || '',\n    achternaam: contact.achternaam || '',\n    telefoon: contact.telefoon || '',\n    // Realworks identificatie\n    resprcode: body.resprcode,\n    rlisnr: body.rlisnr || '',\n    systemid: body.systemid || '',\n    // Gemapte Mautic velden\n    kijker_eigen_woning: kw.heeftEigenWoning ? '1' : '0',\n    kijker_overweegt_verkoop: kw.overwegtVerkoopWoning ? '1' : '0',\n    kijker_hypotheek_status: mapHypotheek(kw.hypotheekAdviesStatus),\n    kijker_aanvrager_type: mapAanvragerType(kw.aanvragerType),\n    kijker_lead_herkomst: lead.herkomst || '',\n    contact_type_bezichtiger: 'bezichtiger',\n    // Memo voor notitie\n    memo_publiek: body.memo?.publiek || '',\n  }\n}];"
       },
       "id": "aa001111-0000-0000-0000-000000000002",
       "name": "Verwerk kwalificatiedata",
@@ -30,11 +30,11 @@
         "operation": "getAll",
         "limit": 1,
         "options": {
-          "search": "=realworks_code:{{ $json.resprcode }}"
+          "search": "=email:{{ $json.email }}"
         }
       },
       "id": "aa001111-0000-0000-0000-000000000003",
-      "name": "Zoek contact in Mautic",
+      "name": "Zoek contact op email",
       "type": "n8n-nodes-base.mautic",
       "typeVersion": 1,
       "position": [-520, 300],
@@ -48,7 +48,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Controleer of Mautic een contact heeft teruggestuurd\nconst items = $input.all();\nconst prev = $('Verwerk kwalificatiedata').first().json;\n\nconst found = items.length > 0 && items[0].json.id !== undefined;\nconst contactId = found ? items[0].json.id : null;\n\nreturn [{\n  json: {\n    contactFound: found,\n    contactId: contactId,\n    // Geef kwalificatievelden door naar volgende stap\n    ...prev\n  }\n}];"
+        "jsCode": "const items = $input.all();\nconst prev = $('Verwerk kwalificatiedata').first().json;\n\nconst found = items.length > 0 && items[0].json.id !== undefined;\nconst contactId = found ? items[0].json.id : null;\n\nreturn [{\n  json: {\n    contactFound: found,\n    contactId: contactId,\n    ...prev\n  }\n}];"
       },
       "id": "aa001111-0000-0000-0000-000000000004",
       "name": "Contact gevonden?",
@@ -82,7 +82,7 @@
         "options": {}
       },
       "id": "aa001111-0000-0000-0000-000000000005",
-      "name": "Contact gevonden?1",
+      "name": "Bestaat in Mautic?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [-80, 300]
@@ -95,40 +95,23 @@
         "updateFields": {
           "customFieldsUi": {
             "customFieldValues": [
-              {
-                "fieldId": "kijker_eigen_woning",
-                "fieldValue": "={{ $json.kijker_eigen_woning }}"
-              },
-              {
-                "fieldId": "kijker_overweegt_verkoop",
-                "fieldValue": "={{ $json.kijker_overweegt_verkoop }}"
-              },
-              {
-                "fieldId": "kijker_hypotheek_status",
-                "fieldValue": "={{ $json.kijker_hypotheek_status }}"
-              },
-              {
-                "fieldId": "kijker_aanvrager_type",
-                "fieldValue": "={{ $json.kijker_aanvrager_type }}"
-              },
-              {
-                "fieldId": "kijker_lead_herkomst",
-                "fieldValue": "={{ $json.kijker_lead_herkomst }}"
-              },
-              {
-                "fieldId": "contact_type_bezichtiger",
-                "fieldValue": "={{ $json.contact_type_bezichtiger }}"
-              }
+              { "fieldId": "realworks_code", "fieldValue": "={{ $json.resprcode }}" },
+              { "fieldId": "kijker_eigen_woning", "fieldValue": "={{ $json.kijker_eigen_woning }}" },
+              { "fieldId": "kijker_overweegt_verkoop", "fieldValue": "={{ $json.kijker_overweegt_verkoop }}" },
+              { "fieldId": "kijker_hypotheek_status", "fieldValue": "={{ $json.kijker_hypotheek_status }}" },
+              { "fieldId": "kijker_aanvrager_type", "fieldValue": "={{ $json.kijker_aanvrager_type }}" },
+              { "fieldId": "kijker_lead_herkomst", "fieldValue": "={{ $json.kijker_lead_herkomst }}" },
+              { "fieldId": "contact_type_bezichtiger", "fieldValue": "={{ $json.contact_type_bezichtiger }}" }
             ]
           }
         },
         "options": {}
       },
       "id": "aa001111-0000-0000-0000-000000000006",
-      "name": "Update Mautic kwalificatie",
+      "name": "Update kwalificatie",
       "type": "n8n-nodes-base.mautic",
       "typeVersion": 1,
-      "position": [140, 180],
+      "position": [140, 160],
       "credentials": {
         "mauticOAuth2Api": {
           "id": "cM1cWckWqxTr8y3V",
@@ -139,105 +122,86 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ ok: true, contactId: $('Contact gevonden?').first().json.contactId, rlisnr: $('Contact gevonden?').first().json.rlisnr }) }}",
-        "options": {
-          "responseCode": 200
-        }
+        "responseBody": "={{ JSON.stringify({ ok: true, action: 'updated', contactId: $('Contact gevonden?').first().json.contactId, rlisnr: $('Contact gevonden?').first().json.rlisnr }) }}",
+        "options": { "responseCode": 200 }
       },
       "id": "aa001111-0000-0000-0000-000000000007",
-      "name": "Respond: OK",
+      "name": "Respond: OK bijgewerkt",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [360, 180]
+      "position": [380, 160]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "create",
+        "email": "={{ $json.email }}",
+        "additionalFields": {
+          "firstName": "={{ $json.voornaam }}",
+          "lastName": "={{ $json.achternaam }}",
+          "mobile": "={{ $json.telefoon }}",
+          "customFieldsUi": {
+            "customFieldValues": [
+              { "fieldId": "realworks_code", "fieldValue": "={{ $json.resprcode }}" },
+              { "fieldId": "kijker_eigen_woning", "fieldValue": "={{ $json.kijker_eigen_woning }}" },
+              { "fieldId": "kijker_overweegt_verkoop", "fieldValue": "={{ $json.kijker_overweegt_verkoop }}" },
+              { "fieldId": "kijker_hypotheek_status", "fieldValue": "={{ $json.kijker_hypotheek_status }}" },
+              { "fieldId": "kijker_aanvrager_type", "fieldValue": "={{ $json.kijker_aanvrager_type }}" },
+              { "fieldId": "kijker_lead_herkomst", "fieldValue": "={{ $json.kijker_lead_herkomst }}" },
+              { "fieldId": "contact_type_bezichtiger", "fieldValue": "={{ $json.contact_type_bezichtiger }}" }
+            ]
+          }
+        }
+      },
+      "id": "aa001111-0000-0000-0000-000000000009",
+      "name": "Maak nieuw contact aan",
+      "type": "n8n-nodes-base.mautic",
+      "typeVersion": 1,
+      "position": [140, 440],
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ ok: false, error: 'Contact niet gevonden in Mautic', resprcode: $('Contact gevonden?').first().json.resprcode }) }}",
-        "options": {
-          "responseCode": 404
-        }
+        "responseBody": "={{ JSON.stringify({ ok: true, action: 'created', contactId: $json.id, rlisnr: $('Contact gevonden?').first().json.rlisnr }) }}",
+        "options": { "responseCode": 201 }
       },
-      "id": "aa001111-0000-0000-0000-000000000008",
-      "name": "Respond: Niet gevonden",
+      "id": "aa001111-0000-0000-0000-000000000010",
+      "name": "Respond: OK aangemaakt",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [140, 420]
+      "position": [380, 440]
     }
   ],
   "connections": {
     "Webhook: Lead Response": {
-      "main": [
-        [
-          {
-            "node": "Verwerk kwalificatiedata",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Verwerk kwalificatiedata", "type": "main", "index": 0 }]]
     },
     "Verwerk kwalificatiedata": {
-      "main": [
-        [
-          {
-            "node": "Zoek contact in Mautic",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Zoek contact op email", "type": "main", "index": 0 }]]
     },
-    "Zoek contact in Mautic": {
-      "main": [
-        [
-          {
-            "node": "Contact gevonden?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Zoek contact op email": {
+      "main": [[{ "node": "Contact gevonden?", "type": "main", "index": 0 }]]
     },
     "Contact gevonden?": {
+      "main": [[{ "node": "Bestaat in Mautic?", "type": "main", "index": 0 }]]
+    },
+    "Bestaat in Mautic?": {
       "main": [
-        [
-          {
-            "node": "Contact gevonden?1",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Update kwalificatie", "type": "main", "index": 0 }],
+        [{ "node": "Maak nieuw contact aan", "type": "main", "index": 0 }]
       ]
     },
-    "Contact gevonden?1": {
-      "main": [
-        [
-          {
-            "node": "Update Mautic kwalificatie",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Respond: Niet gevonden",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Update kwalificatie": {
+      "main": [[{ "node": "Respond: OK bijgewerkt", "type": "main", "index": 0 }]]
     },
-    "Update Mautic kwalificatie": {
-      "main": [
-        [
-          {
-            "node": "Respond: OK",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Maak nieuw contact aan": {
+      "main": [[{ "node": "Respond: OK aangemaakt", "type": "main", "index": 0 }]]
     }
   },
   "pinData": {},
