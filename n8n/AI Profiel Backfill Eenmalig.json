@@ -12,8 +12,12 @@
       "parameters": {
         "authentication": "oAuth2",
         "operation": "getAll",
-        "returnAll": true,
-        "options": {}
+        "returnAll": false,
+        "limit": 30,
+        "options": {
+          "orderBy": "dateModified",
+          "orderByDir": "DESC"
+        }
       },
       "id": "bf100001-0000-0000-0000-000000000003",
       "name": "Haal Mautic contacten op",
