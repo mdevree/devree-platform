@@ -10,25 +10,16 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "https://connect.devreemakelaardij.nl/api/contacts",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mauticOAuth2Api",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            { "name": "orderBy", "value": "dateModified" },
-            { "name": "orderByDir", "value": "desc" },
-            { "name": "limit", "value": "200" }
-          ]
-        },
+        "authentication": "oAuth2",
+        "operation": "getAll",
+        "returnAll": true,
         "options": {}
       },
       "id": "bf100001-0000-0000-0000-000000000003",
       "name": "Haal Mautic contacten op",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [-760, 300],
+      "type": "n8n-nodes-base.mautic",
+      "typeVersion": 1,
+      "position": [-980, 300],
       "credentials": {
         "mauticOAuth2Api": {
           "id": "cM1cWckWqxTr8y3V",
@@ -38,13 +29,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst contacts = Object.values(response.contacts || {});\n\n// Datum cutoff: laatste 14 dagen\nconst cutoffMs = Date.now() - 14 * 24 * 60 * 60 * 1000;\n\n// Filter: bijgewerkt in de laatste 14 dagen + ai_profiel_data aanwezig + ai_current_situation leeg\nconst toProcess = contacts.filter(c => {\n  const fields = c.fields?.all || {};\n  const dateModified = new Date(c.dateModified || 0).getTime();\n  return dateModified >= cutoffMs && fields.ai_profiel_data && !fields.ai_current_situation;\n});\n\nif (toProcess.length === 0) {\n  return [];\n}\n\nreturn toProcess.map(c => ({\n  json: {\n    contactId: c.id,\n    naam: `${c.fields?.all?.firstname || ''} ${c.fields?.all?.lastname || ''}`.trim(),\n    email: c.fields?.all?.email || '',\n    ai_profiel_data: c.fields?.all?.ai_profiel_data,\n  }\n}));"
+        "jsCode": "const items = $input.all();\n\n// Datum cutoff: laatste 14 dagen\nconst cutoffMs = Date.now() - 14 * 24 * 60 * 60 * 1000;\n\n// Filter: bijgewerkt in de laatste 14 dagen + ai_profiel_data aanwezig + ai_current_situation leeg\nconst toProcess = items\n  .filter(item => {\n    const c = item.json;\n    const fields = c.fields?.all || {};\n    const dateModified = new Date(c.dateModified || 0).getTime();\n    return dateModified >= cutoffMs && fields.ai_profiel_data && !fields.ai_current_situation;\n  })\n  .map(item => ({\n    json: {\n      contactId: item.json.id,\n      naam: `${item.json.firstname || ''} ${item.json.lastname || ''}`.trim(),\n      email: item.json.email || '',\n      ai_profiel_data: item.json.fields?.all?.ai_profiel_data,\n    }\n  }));\n\nif (toProcess.length === 0) {\n  return [];\n}\n\nreturn toProcess;"
       },
       "id": "bf100001-0000-0000-0000-000000000004",
       "name": "Filter te verwerken contacten",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-540, 300]
+      "position": [-760, 300]
     },
     {
       "parameters": {
@@ -55,7 +46,7 @@
       "name": "Loop per contact",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [-320, 300]
+      "position": [-540, 300]
     },
     {
       "parameters": {
@@ -65,7 +56,7 @@
       "name": "Bouw LLM prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-80, 300]
+      "position": [-300, 300]
     },
     {
       "parameters": {
@@ -83,7 +74,7 @@
       "name": "OpenAI Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
-      "position": [160, 500],
+      "position": [-60, 500],
       "credentials": {
         "openAiApi": {
           "id": "UdiNlc10HwLGX8Uz",
@@ -101,7 +92,7 @@
       "name": "Extraheer situatie velden",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
-      "position": [160, 300]
+      "position": [-60, 300]
     },
     {
       "parameters": {
@@ -113,7 +104,7 @@
       "name": "Voeg output samen",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [400, 300]
+      "position": [180, 300]
     },
     {
       "parameters": {
@@ -123,7 +114,7 @@
       "name": "Parseer LLM output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [620, 300]
+      "position": [400, 300]
     },
     {
       "parameters": {
@@ -154,7 +145,7 @@
       "name": "Heeft situatievelden?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [840, 300]
+      "position": [620, 300]
     },
     {
       "parameters": {
@@ -171,7 +162,7 @@
       "name": "Update Mautic contact",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1060, 160],
+      "position": [840, 160],
       "credentials": {
         "mauticOAuth2Api": {
           "id": "cM1cWckWqxTr8y3V",
@@ -188,7 +179,7 @@
       "name": "Wacht 1 seconde",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1280, 300],
+      "position": [1060, 300],
       "webhookId": "bf100001-wait-webhook"
     },
     {
@@ -199,7 +190,7 @@
       "name": "Backfill klaar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-320, 500]
+      "position": [-540, 500]
     }
   ],
   "connections": {
