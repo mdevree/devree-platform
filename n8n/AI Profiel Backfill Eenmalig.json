@@ -1,0 +1,274 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "bf100001-0000-0000-0000-000000000001",
+      "name": "Handmatig starten",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1200, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst cutoff = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);\nconst dateFrom = cutoff.toISOString().slice(0, 10);\nreturn [{ json: { dateFrom } }];"
+      },
+      "id": "bf100001-0000-0000-0000-000000000002",
+      "name": "Bereken datum range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-980, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://connect.devreemakelaardij.nl/api/contacts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mauticOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "orderBy", "value": "dateModified" },
+            { "name": "orderByDir", "value": "desc" },
+            { "name": "limit", "value": "200" },
+            { "name": "where[0][col]", "value": "date_modified" },
+            { "name": "where[0][expr]", "value": "gte" },
+            { "name": "where[0][val]", "value": "={{ $json.dateFrom }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bf100001-0000-0000-0000-000000000003",
+      "name": "Haal Mautic contacten op",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-760, 300],
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst contacts = Object.values(response.contacts || {});\n\n// Filter: ai_profiel_data aanwezig + ai_current_situation nog leeg\nconst toProcess = contacts.filter(c => {\n  const fields = c.fields?.all || {};\n  return fields.ai_profiel_data && !fields.ai_current_situation;\n});\n\nif (toProcess.length === 0) {\n  return [];\n}\n\nreturn toProcess.map(c => ({\n  json: {\n    contactId: c.id,\n    naam: `${c.fields?.all?.firstname || ''} ${c.fields?.all?.lastname || ''}`.trim(),\n    email: c.fields?.all?.email || '',\n    ai_profiel_data: c.fields?.all?.ai_profiel_data,\n  }\n}));"
+      },
+      "id": "bf100001-0000-0000-0000-000000000004",
+      "name": "Filter te verwerken contacten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-540, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "bf100001-0000-0000-0000-000000000005",
+      "name": "Loop per contact",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet profiel = {};\ntry {\n  profiel = JSON.parse(item.ai_profiel_data);\n} catch (_) {}\n\n// Compact subset voor de LLM — sla grote arrays af op relevante velden\nconst compact = {\n  situatie: profiel.situatie || {},\n  recent_interactions: (profiel.recent_interactions || []).slice(0, 5),\n  kantoor_intelligence: profiel.kantoor_intelligence || {},\n  bekeken_woningen: (profiel.bekeken_woningen || []).slice(0, 5),\n  conversatie_stats: profiel.conversatie_stats || {},\n  lifestyle: profiel.lifestyle || {},\n  financieel: profiel.financieel || {},\n  geo_voorkeuren: profiel.geo_voorkeuren || {},\n  interesses: profiel.interesses || {},\n};\n\nconst prompt = `Je ontvangt een AI-profiel JSON van een contactpersoon van makelaardij De Vree. Extraheer de 6 situatievelden op basis van alle beschikbare informatie in het profiel. Als een waarde echt onbekend is, gebruik dan null.\n\nGeef ALLEEN dit JSON object terug, zonder uitleg of markdown:\n{\n  \"huidige_woning\": null,\n  \"motivatie_aankoop\": null,\n  \"budget_indicatie\": null,\n  \"tijdlijn\": null,\n  \"gezinssituatie\": null,\n  \"leefstijl_voorkeur\": null\n}\n\nVelduitleg:\n- huidige_woning: huidige woonsituatie (huurder/eigenaar/inwonend/etc)\n- motivatie_aankoop: reden om te kopen of te verkopen\n- budget_indicatie: genoemde of impliciete prijsrange of budget\n- tijdlijn: wanneer wil het contact kopen/verkopen (bijv. \"binnen 3 maanden\")\n- gezinssituatie: stel/gezin/alleenstaand/etc\n- leefstijl_voorkeur: woonwensen en -voorkeuren\n\nPROFIEL:\n${JSON.stringify(compact, null, 2)}`;\n\nreturn [{ json: { contactId: item.contactId, naam: item.naam, prompt } }];"
+      },
+      "id": "bf100001-0000-0000-0000-000000000006",
+      "name": "Bouw LLM prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, 300]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "bf100001-0000-0000-0000-000000000007",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [160, 500],
+      "credentials": {
+        "openAiApi": {
+          "id": "UdiNlc10HwLGX8Uz",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "batching": {}
+      },
+      "id": "bf100001-0000-0000-0000-000000000008",
+      "name": "Extraheer situatie velden",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [160, 300]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "bf100001-0000-0000-0000-000000000009",
+      "name": "Voeg output samen",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst aiOutput = item.text || '';\nconst contactId = item.contactId;\nconst naam = item.naam || '';\n\nlet cleaned = aiOutput\n  .replace(/^```+(json)?\\s*/i, '')\n  .replace(/\\s*```+$/i, '')\n  .trim();\n\nlet situatie = {};\ntry {\n  situatie = JSON.parse(cleaned);\n} catch (_) {\n  const m = cleaned.match(/\\{[\\s\\S]*\\}/);\n  if (m) {\n    try { situatie = JSON.parse(m[0]); } catch (_) {}\n  }\n}\n\nconst body = {};\nconst mapping = [\n  ['ai_current_situation',    situatie.huidige_woning],\n  ['ai_housing_motivation',   situatie.motivatie_aankoop],\n  ['ai_budget_indication',    situatie.budget_indicatie],\n  ['ai_timeline',             situatie.tijdlijn],\n  ['ai_family_status',        situatie.gezinssituatie],\n  ['ai_lifestyle_preference', situatie.leefstijl_voorkeur],\n];\n\nfor (const [key, val] of mapping) {\n  if (val !== null && val !== undefined && val !== '') {\n    body[key] = val;\n  }\n}\n\nif (Object.keys(body).length === 0) {\n  return [{ json: { _skip: true, contactId, naam } }];\n}\n\nreturn [{ json: { contactId, naam, body } }];"
+      },
+      "id": "bf100001-0000-0000-0000-000000000010",
+      "name": "Parseer LLM output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [620, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-has-fields",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bf100001-0000-0000-0000-000000000011",
+      "name": "Heeft situatievelden?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://connect.devreemakelaardij.nl/api/contacts/{{ $json.contactId }}/edit",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mauticOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "bf100001-0000-0000-0000-000000000012",
+      "name": "Update Mautic contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1060, 160],
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "unit": "seconds",
+        "amount": 1
+      },
+      "id": "bf100001-0000-0000-0000-000000000013",
+      "name": "Wacht 1 seconde",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1280, 300],
+      "webhookId": "bf100001-wait-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { status: 'Backfill voltooid', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "bf100001-0000-0000-0000-000000000014",
+      "name": "Backfill klaar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-320, 500]
+    }
+  ],
+  "connections": {
+    "Handmatig starten": {
+      "main": [[{ "node": "Bereken datum range", "type": "main", "index": 0 }]]
+    },
+    "Bereken datum range": {
+      "main": [[{ "node": "Haal Mautic contacten op", "type": "main", "index": 0 }]]
+    },
+    "Haal Mautic contacten op": {
+      "main": [[{ "node": "Filter te verwerken contacten", "type": "main", "index": 0 }]]
+    },
+    "Filter te verwerken contacten": {
+      "main": [[{ "node": "Loop per contact", "type": "main", "index": 0 }]]
+    },
+    "Loop per contact": {
+      "main": [
+        [{ "node": "Bouw LLM prompt", "type": "main", "index": 0 }],
+        [{ "node": "Backfill klaar", "type": "main", "index": 0 }]
+      ]
+    },
+    "Bouw LLM prompt": {
+      "main": [
+        [
+          { "node": "Extraheer situatie velden", "type": "main", "index": 0 },
+          { "node": "Voeg output samen", "type": "main", "index": 1 }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [[{ "node": "Extraheer situatie velden", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Extraheer situatie velden": {
+      "main": [[{ "node": "Voeg output samen", "type": "main", "index": 0 }]]
+    },
+    "Voeg output samen": {
+      "main": [[{ "node": "Parseer LLM output", "type": "main", "index": 0 }]]
+    },
+    "Parseer LLM output": {
+      "main": [[{ "node": "Heeft situatievelden?", "type": "main", "index": 0 }]]
+    },
+    "Heeft situatievelden?": {
+      "main": [
+        [{ "node": "Update Mautic contact", "type": "main", "index": 0 }],
+        [{ "node": "Wacht 1 seconde", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Mautic contact": {
+      "main": [[{ "node": "Wacht 1 seconde", "type": "main", "index": 0 }]]
+    },
+    "Wacht 1 seconde": {
+      "main": [[{ "node": "Loop per contact", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
