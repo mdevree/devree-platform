@@ -133,13 +133,41 @@ export async function GET(
           adres: [mauticContact.address1, mauticContact.address2].filter(Boolean).join(" "),
           postcode: mauticContact.zipcode,
           plaats: mauticContact.city,
-          // AI profiel (JSON string met door AI gegenereerde kennis over contact)
+          tags: mauticContact.tags,
+          aangemeld: mauticContact.dateAdded,
+          // AI profiel — geparsed JSON of raw string indien parsefout
           aiProfiel: mauticContact.aiProfile ? (() => {
             try { return JSON.parse(mauticContact.aiProfile!); } catch { return mauticContact.aiProfile; }
           })() : null,
-          // Pipeline / verkoopintentie (bewaar voor context in PDF)
-          tags: mauticContact.tags,
-          aangemeld: mauticContact.dateAdded,
+          // Gestructureerde AI sub-velden (gegenereerd door AI-workflow)
+          aiAnalyse: {
+            huidigeSituatie: mauticContact.aiCurrentSituation,
+            woningMotivatie: mauticContact.aiHousingMotivation,
+            budgetIndicatie: mauticContact.aiBudgetIndication,
+            tijdlijn: mauticContact.aiTimeline,
+            gezinssituatie: mauticContact.aiFamilyStatus,
+            leefstijlVoorkeur: mauticContact.aiLifestylePreference,
+          },
+          // Bezichtigingsdata
+          bezichtiging: {
+            notities: mauticContact.bezichtigingNotities,
+            interesseScore: mauticContact.bezichtigingInteresse,
+            contactType: mauticContact.contactTypeBezichtiger,
+            intakeAntwoord: mauticContact.afspraakIntakeAntwoord ? (() => {
+              try { return JSON.parse(mauticContact.afspraakIntakeAntwoord!); } catch { return mauticContact.afspraakIntakeAntwoord; }
+            })() : null,
+            zoekprofiel: mauticContact.zoekerData ? (() => {
+              try { return JSON.parse(mauticContact.zoekerData!); } catch { return mauticContact.zoekerData; }
+            })() : null,
+          },
+          // Kwalificatiedata uit Realworks (browser extensie → n8n → Mautic)
+          kwalificatie: {
+            heeftEigenWoning: mauticContact.kijkerEigenWoning,
+            overwegtVerkoop: mauticContact.kijkerOverwegtVerkoop,
+            hypotheekStatus: mauticContact.kijkerHypotheekStatus,
+            aanvragerType: mauticContact.kijkerAanvragerType,
+            leadHerkomst: mauticContact.kijkerLeadHerkomst,
+          },
         }
       : null,
     woning: woning
@@ -209,7 +237,7 @@ export async function GET(
         }
       : null,
     // Eerdere afspraken met deze kijker – beschrijvingen bruikbaar als FAQ-basis
-    contactHistorie: historie.map((h) => ({
+    contactHistorie: historie.map((h: typeof historie[number]) => ({
       datum: h.agbegin,
       type: h.agtype,
       omschrijving: h.agdescr,

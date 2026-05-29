@@ -116,6 +116,25 @@ export interface MauticContactFull extends MauticContact {
   website: string | null;
   // AI data profiel veld (JSON string opgeslagen in een custom veld)
   aiProfile: string | null;
+  // AI sub-velden (gegenereerd door AI-workflow op basis van Mautic data + interacties)
+  aiCurrentSituation: string | null;      // ai_current_situation
+  aiHousingMotivation: string | null;     // ai_housing_motivation
+  aiBudgetIndication: string | null;      // ai_budget_indication
+  aiTimeline: string | null;              // ai_timeline
+  aiFamilyStatus: string | null;         // ai_family_status
+  aiLifestylePreference: string | null;  // ai_lifestyle_preference
+  // Bezichtigingsvelden
+  bezichtigingNotities: string | null;   // bezichtiging_notities
+  bezichtigingInteresse: number | null;  // bezichtiging_interesse (score 0-100)
+  contactTypeBezichtiger: string | null; // contact_type_bezichtiger
+  afspraakIntakeAntwoord: string | null; // afspraak_intake_antwoord
+  zoekerData: string | null;             // zoeker_data (JSON string met zoekprofiel)
+  // Kijker kwalificatievelden (gevuld vanuit Realworks broker.response via browser extensie)
+  kijkerEigenWoning: boolean | null;     // kijker_eigen_woning
+  kijkerOverwegtVerkoop: boolean | null; // kijker_overweegt_verkoop
+  kijkerHypotheekStatus: string | null;  // kijker_hypotheek_status
+  kijkerAanvragerType: string | null;    // kijker_aanvrager_type
+  kijkerLeadHerkomst: string | null;     // kijker_lead_herkomst
   // Ruwe velden voor uitgebreide weergave
   tags: string[];
   dateAdded: string | null;
@@ -293,6 +312,11 @@ export async function getContactFull(contactId: number): Promise<MauticContactFu
   // Tags ophalen
   const tags: string[] = (contact.tags || []).map((t: { tag: string }) => t.tag);
 
+  const boolField = (val: unknown): boolean | null => {
+    if (val === null || val === undefined || val === "") return null;
+    return val === "1" || val === 1 || val === true;
+  };
+
   return {
     id: contact.id,
     firstname: fields.firstname || "",
@@ -311,6 +335,22 @@ export async function getContactFull(contactId: number): Promise<MauticContactFu
     country: fields.country || null,
     website: fields.website || null,
     aiProfile: fields.ai_profiel_data || null,
+    aiCurrentSituation: fields.ai_current_situation || null,
+    aiHousingMotivation: fields.ai_housing_motivation || null,
+    aiBudgetIndication: fields.ai_budget_indication || null,
+    aiTimeline: fields.ai_timeline || null,
+    aiFamilyStatus: fields.ai_family_status || null,
+    aiLifestylePreference: fields.ai_lifestyle_preference || null,
+    bezichtigingNotities: fields.bezichtiging_notities || null,
+    bezichtigingInteresse: fields.bezichtiging_interesse != null ? Number(fields.bezichtiging_interesse) : null,
+    contactTypeBezichtiger: fields.contact_type_bezichtiger || null,
+    afspraakIntakeAntwoord: fields.afspraak_intake_antwoord || null,
+    zoekerData: fields.zoeker_data || null,
+    kijkerEigenWoning: boolField(fields.kijker_eigen_woning),
+    kijkerOverwegtVerkoop: boolField(fields.kijker_overweegt_verkoop),
+    kijkerHypotheekStatus: fields.kijker_hypotheek_status || null,
+    kijkerAanvragerType: fields.kijker_aanvrager_type || null,
+    kijkerLeadHerkomst: fields.kijker_lead_herkomst || null,
     tags,
     dateAdded: contact.dateAdded || null,
   };
