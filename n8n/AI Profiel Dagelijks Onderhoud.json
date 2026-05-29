@@ -19,16 +19,6 @@
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date();\nconst cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);\nconst dateFrom = cutoff.toISOString().slice(0, 10);\nreturn [{ json: { dateFrom } }];"
-      },
-      "id": "do100001-0000-0000-0000-000000000002",
-      "name": "Bereken datum range",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [-980, 300]
-    },
-    {
-      "parameters": {
         "method": "GET",
         "url": "https://connect.devreemakelaardij.nl/api/contacts",
         "authentication": "predefinedCredentialType",
@@ -38,10 +28,7 @@
           "parameters": [
             { "name": "orderBy", "value": "dateModified" },
             { "name": "orderByDir", "value": "desc" },
-            { "name": "limit", "value": "200" },
-            { "name": "where[0][col]", "value": "date_modified" },
-            { "name": "where[0][expr]", "value": "gte" },
-            { "name": "where[0][val]", "value": "={{ $json.dateFrom }}" }
+            { "name": "limit", "value": "200" }
           ]
         },
         "options": {}
@@ -60,7 +47,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst contacts = Object.values(response.contacts || {});\n\n// Filter: ai_profiel_data aanwezig + ai_current_situation nog leeg\nconst toProcess = contacts.filter(c => {\n  const fields = c.fields?.all || {};\n  return fields.ai_profiel_data && !fields.ai_current_situation;\n});\n\nif (toProcess.length === 0) {\n  return [];\n}\n\nreturn toProcess.map(c => ({\n  json: {\n    contactId: c.id,\n    naam: `${c.fields?.all?.firstname || ''} ${c.fields?.all?.lastname || ''}`.trim(),\n    email: c.fields?.all?.email || '',\n    ai_profiel_data: c.fields?.all?.ai_profiel_data,\n  }\n}));"
+        "jsCode": "const response = $input.first().json;\nconst contacts = Object.values(response.contacts || {});\n\n// Datum cutoff: laatste 24 uur\nconst cutoffMs = Date.now() - 24 * 60 * 60 * 1000;\n\n// Filter: bijgewerkt in de laatste 24 uur + ai_profiel_data aanwezig + ai_current_situation leeg\nconst toProcess = contacts.filter(c => {\n  const fields = c.fields?.all || {};\n  const dateModified = new Date(c.dateModified || 0).getTime();\n  return dateModified >= cutoffMs && fields.ai_profiel_data && !fields.ai_current_situation;\n});\n\nif (toProcess.length === 0) {\n  return [];\n}\n\nreturn toProcess.map(c => ({\n  json: {\n    contactId: c.id,\n    naam: `${c.fields?.all?.firstname || ''} ${c.fields?.all?.lastname || ''}`.trim(),\n    email: c.fields?.all?.email || '',\n    ai_profiel_data: c.fields?.all?.ai_profiel_data,\n  }\n}));"
       },
       "id": "do100001-0000-0000-0000-000000000004",
       "name": "Filter te verwerken contacten",
@@ -226,9 +213,6 @@
   ],
   "connections": {
     "Dagelijks om 03:00": {
-      "main": [[{ "node": "Bereken datum range", "type": "main", "index": 0 }]]
-    },
-    "Bereken datum range": {
       "main": [[{ "node": "Haal Mautic contacten op", "type": "main", "index": 0 }]]
     },
     "Haal Mautic contacten op": {
