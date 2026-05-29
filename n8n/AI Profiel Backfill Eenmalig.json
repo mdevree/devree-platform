@@ -33,7 +33,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\n// Datum cutoff: laatste 14 dagen\nconst cutoffMs = Date.now() - 14 * 24 * 60 * 60 * 1000;\n\n// Filter: bijgewerkt in de laatste 14 dagen + ai_profiel_data aanwezig + ai_current_situation leeg\nconst toProcess = items\n  .filter(item => {\n    const c = item.json;\n    const fields = c.fields?.all || {};\n    const dateModified = new Date(c.dateModified || 0).getTime();\n    return dateModified >= cutoffMs && fields.ai_profiel_data && !fields.ai_current_situation;\n  })\n  .map(item => ({\n    json: {\n      contactId: item.json.id,\n      naam: `${item.json.firstname || ''} ${item.json.lastname || ''}`.trim(),\n      email: item.json.email || '',\n      ai_profiel_data: item.json.fields?.all?.ai_profiel_data,\n    }\n  }));\n\nif (toProcess.length === 0) {\n  return [];\n}\n\nreturn toProcess;"
+        "jsCode": "const items = $input.all();\n\n// Filter: ai_profiel_data aanwezig + ai_current_situation nog leeg (geen datumbeperking)\nconst toProcess = items\n  .filter(item => {\n    const fields = item.json.fields?.all || {};\n    return fields.ai_profiel_data && !fields.ai_current_situation;\n  })\n  .map(item => ({\n    json: {\n      contactId: item.json.id,\n      naam: `${item.json.firstname || ''} ${item.json.lastname || ''}`.trim(),\n      email: item.json.email || '',\n      ai_profiel_data: item.json.fields?.all?.ai_profiel_data,\n    }\n  }));\n\nif (toProcess.length === 0) {\n  return [];\n}\n\nreturn toProcess;"
       },
       "id": "bf100001-0000-0000-0000-000000000004",
       "name": "Filter te verwerken contacten",
