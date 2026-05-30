@@ -441,6 +441,11 @@ enum WaDirection {
   OUTBOUND
 }
 
+enum WaDeliveryStatus {
+  SENT
+  FAILED
+}
+
 model WaConversation {
   id              String       @id @default(cuid())
   waPhone         String
@@ -466,6 +471,8 @@ model WaMessage {
   mediaUrl       String?
   mediaType      String?
   evolutionMsgId String?        @unique
+  deliveryStatus WaDeliveryStatus?
+  deliveryError  String?        @db.Text
   readAt         DateTime?
   createdAt      DateTime       @default(now())
 

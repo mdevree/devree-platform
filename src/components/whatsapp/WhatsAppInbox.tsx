@@ -7,6 +7,7 @@ type Message = {
   direction: "INBOUND" | "OUTBOUND";
   body: string;
   createdAt: string;
+  deliveryStatus?: "SENT" | "FAILED" | null;
 };
 
 type Conversation = {
@@ -27,6 +28,7 @@ export default function WhatsAppInbox() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"OPEN" | "CLOSED">("OPEN");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -81,17 +83,24 @@ export default function WhatsAppInbox() {
   async function handleSend() {
     if (!reply.trim() || !activeId) return;
     setSending(true);
+    setError(null);
     try {
       const res = await fetch(`/api/whatsapp/conversations/${activeId}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: reply }),
       });
+      const data = await res.json().catch(() => null);
       if (res.ok) {
-        const newMsg = await res.json();
-        setMessages((prev) => [...prev, newMsg]);
+        if (data) setMessages((prev) => [...prev, data]);
         setReply("");
+      } else {
+        // Toon de fout én het mislukte bericht (server bewaart het als FAILED).
+        setError(data?.error || "Bericht kon niet worden verzonden");
+        if (data?.message) setMessages((prev) => [...prev, data.message]);
       }
+    } catch {
+      setError("Netwerkfout bij verzenden");
     } finally {
       setSending(false);
     }
@@ -213,18 +222,25 @@ export default function WhatsAppInbox() {
                 >
                   <div
                     className={`max-w-sm px-4 py-2 rounded-2xl text-sm ${
-                      msg.direction === "OUTBOUND"
-                        ? "bg-primary text-white rounded-br-sm"
-                        : "bg-white text-gray-800 shadow-sm rounded-bl-sm"
+                      msg.deliveryStatus === "FAILED"
+                        ? "bg-red-50 text-gray-800 border border-red-300 rounded-br-sm"
+                        : msg.direction === "OUTBOUND"
+                          ? "bg-primary text-white rounded-br-sm"
+                          : "bg-white text-gray-800 shadow-sm rounded-bl-sm"
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{msg.body}</p>
                     <p
                       className={`text-xs mt-1 ${
-                        msg.direction === "OUTBOUND" ? "text-white/70" : "text-gray-400"
+                        msg.deliveryStatus === "FAILED"
+                          ? "text-red-600"
+                          : msg.direction === "OUTBOUND"
+                            ? "text-white/70"
+                            : "text-gray-400"
                       }`}
                     >
                       {formatTime(msg.createdAt)}
+                      {msg.deliveryStatus === "FAILED" && " · niet verzonden"}
                     </p>
                   </div>
                 </div>
@@ -234,7 +250,13 @@ export default function WhatsAppInbox() {
 
             {/* Reply */}
             {activeConversation.status === "OPEN" ? (
-              <div className="p-4 border-t border-gray-200 bg-white flex gap-3">
+              <div className="border-t border-gray-200 bg-white">
+                {error && (
+                  <div className="px-4 pt-3 text-sm text-red-600">
+                    {error}
+                  </div>
+                )}
+                <div className="p-4 flex gap-3">
                 <textarea
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
@@ -255,6 +277,7 @@ export default function WhatsAppInbox() {
                 >
                   {sending ? "…" : "Stuur"}
                 </button>
+                </div>
               </div>
             ) : (
               <div className="p-4 border-t border-gray-200 bg-gray-50 text-center text-sm text-gray-400">

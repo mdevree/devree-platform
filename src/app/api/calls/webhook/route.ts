@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { searchContactByPhone } from "@/lib/mautic";
+import { searchContactByPhone, addContactPoints } from "@/lib/mautic";
 import {
   getContactNumber,
   calculateCallPoints,
-  normalizePhoneNumber,
 } from "@/lib/phone";
 import { callEmitter, type CallEvent } from "@/lib/callStream";
 
@@ -80,6 +79,10 @@ export async function POST(request: NextRequest) {
     const points =
       status === "ended" ? calculateCallPoints(direction, reason) : 0;
 
+    // Bestond deze call al? Bepaalt of we de Mautic-punten al toegekend hebben,
+    // zodat herhaalde webhooks voor dezelfde call geen dubbele punten geven.
+    const previous = await prisma.call.findUnique({ where: { callId } });
+
     // Opslaan of bijwerken in database
     const call = await prisma.call.upsert({
       where: { callId },
@@ -106,6 +109,17 @@ export async function POST(request: NextRequest) {
         points,
       },
     });
+
+    // Voed Mautic's scoring met het telefoonsignaal — alleen wanneer de call net
+    // op "ended" komt en er punten zijn, en alleen de eerste keer voor deze call.
+    const alreadyEnded = previous?.status === "ended";
+    if (status === "ended" && !alreadyEnded && mauticContactId && points > 0) {
+      try {
+        await addContactPoints(mauticContactId, points);
+      } catch (error) {
+        console.error("Kon call-punten niet naar Mautic schrijven:", error);
+      }
+    }
 
     // Push event naar alle verbonden SSE clients
     const eventType =

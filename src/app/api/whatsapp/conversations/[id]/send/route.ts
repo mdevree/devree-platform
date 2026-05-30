@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
-import { sendWhatsAppMessage } from "@/lib/evolution";
+import { sendWhatsAppMessage, EvolutionError } from "@/lib/evolution";
 
 export async function POST(
   req: NextRequest,
@@ -23,10 +23,49 @@ export async function POST(
     return NextResponse.json({ error: "Gesprek niet gevonden" }, { status: 404 });
   }
 
-  await sendWhatsAppMessage(conversation.waPhone, message);
+  try {
+    await sendWhatsAppMessage(conversation.waPhone, message);
+  } catch (err) {
+    const detail =
+      err instanceof EvolutionError && err.detail
+        ? err.detail
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    console.error("WhatsApp verzenden mislukt:", detail);
+
+    // Bewaar het bericht als FAILED zodat het in de UI zichtbaar blijft,
+    // niet als verzonden wordt geteld en eventueel opnieuw geprobeerd kan worden.
+    const failed = await prisma.waMessage.create({
+      data: {
+        conversationId: id,
+        direction: "OUTBOUND",
+        body: message,
+        deliveryStatus: "FAILED",
+        deliveryError:
+          err instanceof Error ? err.message : "Onbekende fout bij verzenden",
+      },
+    });
+
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "WhatsApp-bericht kon niet worden verzonden",
+        message: failed,
+      },
+      { status: 502 }
+    );
+  }
 
   const saved = await prisma.waMessage.create({
-    data: { conversationId: id, direction: "OUTBOUND", body: message },
+    data: {
+      conversationId: id,
+      direction: "OUTBOUND",
+      body: message,
+      deliveryStatus: "SENT",
+    },
   });
 
   await prisma.waConversation.update({

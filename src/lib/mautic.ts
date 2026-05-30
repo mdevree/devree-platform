@@ -160,6 +160,9 @@ export interface MauticContactPipeline extends MauticContact {
     starters: number | null;
   };
   bezichtigingInteresse: number | null;  // bezichtiging_interesse
+  // Kwalificatievelden (voor kans-type classificatie)
+  kijkerEigenWoning: boolean | null;     // kijker_eigen_woning
+  kijkerOverwegtVerkoop: boolean | null; // kijker_overweegt_verkoop
   // Berekend warm-score veld
   warmScore: number;
 }
@@ -462,6 +465,14 @@ function mapToPipeline(contact: Record<string, unknown>, contactId: number): Mau
       starters: fields.interesse_starters !== undefined ? Number(fields.interesse_starters) : null,
     },
     bezichtigingInteresse: fields.bezichtiging_interesse !== undefined ? Number(fields.bezichtiging_interesse) : null,
+    kijkerEigenWoning:
+      fields.kijker_eigen_woning === undefined || fields.kijker_eigen_woning === null || fields.kijker_eigen_woning === ""
+        ? null
+        : fields.kijker_eigen_woning === "1" || fields.kijker_eigen_woning === true,
+    kijkerOverwegtVerkoop:
+      fields.kijker_overweegt_verkoop === undefined || fields.kijker_overweegt_verkoop === null || fields.kijker_overweegt_verkoop === ""
+        ? null
+        : fields.kijker_overweegt_verkoop === "1" || fields.kijker_overweegt_verkoop === true,
     warmScore: calcWarmScore(points, lastActive),
   };
 }
@@ -582,6 +593,32 @@ export async function searchContactByRealworksCode(agrcode: string): Promise<Mau
     points: contact.points || 0,
     lastActive: fields.last_active || null,
   };
+}
+
+/**
+ * Ken punten toe aan een Mautic-contact via het native points-endpoint.
+ * Optioneel binnen een Mautic 7 puntgroep via de `group`-query (best-effort:
+ * oudere Mautic-versies negeren de parameter en tellen bij het globale totaal).
+ * Zo voeden platform-signalen (gesprek, WhatsApp, bezichtiging) Mautic's scoring.
+ */
+export async function addContactPoints(
+  contactId: number,
+  points: number,
+  group?: number
+): Promise<void> {
+  if (!points || points <= 0) return;
+  const qs = group ? `?group=${group}` : "";
+  const response = await mauticFetch(
+    `/api/contacts/${contactId}/points/plus/${points}${qs}`,
+    { method: "POST" }
+  );
+  if (!response.ok) {
+    console.error(
+      "Mautic punten toevoegen mislukt:",
+      response.status,
+      await response.text()
+    );
+  }
 }
 
 /**
