@@ -15,9 +15,16 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
 
+  // Evolution stuurt het event afhankelijk van versie/config als
+  // "messages.upsert" óf "MESSAGES_UPSERT". Normaliseer naar dotted-lowercase.
+  const event = String(body?.event ?? "")
+    .toLowerCase()
+    .replace(/_/g, ".");
+
   if (DEBUG) {
     console.log("[wa-webhook]", {
-      event: body?.event,
+      rawEvent: body?.event,
+      event,
       from: body?.data?.key?.remoteJid,
       fromMe: body?.data?.key?.fromMe,
       secretMatch,
@@ -31,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (body.event !== "messages.upsert") {
+  if (event !== "messages.upsert") {
     return NextResponse.json({ ok: true });
   }
 
