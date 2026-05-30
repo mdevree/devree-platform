@@ -13,7 +13,25 @@ const REALWORKS_BASE = 'https://crm.realworks.nl';
 const SAVE_PATH = '/servlets/objects/rela.person/grid';
 
 // Webhook secret — zelfde als N8N_WEBHOOK_SECRET op de VPS.
-const WEBHOOK_SECRET = 'VULL_IN_MET_N8N_WEBHOOK_SECRET';
+// Wordt ingesteld via de opties-pagina en bewaard in chrome.storage.local,
+// zodat er geen secret hardcoded in de broncode staat.
+let WEBHOOK_SECRET = '';
+
+async function loadWebhookSecret() {
+  const { webhookSecret } = await chrome.storage.local.get('webhookSecret');
+  WEBHOOK_SECRET = webhookSecret || '';
+  return WEBHOOK_SECRET;
+}
+
+// Houd de in-memory waarde up-to-date als de gebruiker hem wijzigt.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.webhookSecret) {
+    WEBHOOK_SECRET = changes.webhookSecret.newValue || '';
+  }
+});
+
+// Laad direct bij het starten van de service worker.
+loadWebhookSecret();
 
 // ─── Taxatie save interceptie via webRequest ─────────────────────────────────
 // form.submit() en submit-events zijn onbetrouwbaar bij GWT; webRequest

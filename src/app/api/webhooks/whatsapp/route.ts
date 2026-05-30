@@ -1,18 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { searchContactByPhone, createContact } from "@/lib/mautic";
+import { searchContactByPhone, createContact, addContactPoints } from "@/lib/mautic";
 import { normalizePhoneNumber } from "@/lib/phone";
+
+// Zet WHATSAPP_WEBHOOK_DEBUG=1 om binnenkomende events gestructureerd te loggen
+// (event-type, afzender, secret-match) tijdens het diagnosticeren van de inbox.
+const DEBUG = process.env.WHATSAPP_WEBHOOK_DEBUG === "1";
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-webhook-secret");
+  const secretMatch =
+    !process.env.EVOLUTION_WEBHOOK_SECRET ||
+    secret === process.env.EVOLUTION_WEBHOOK_SECRET;
+
+  const body = await req.json();
+
+  if (DEBUG) {
+    console.log("[wa-webhook]", {
+      event: body?.event,
+      from: body?.data?.key?.remoteJid,
+      fromMe: body?.data?.key?.fromMe,
+      secretMatch,
+    });
+  }
+
   if (
     process.env.EVOLUTION_WEBHOOK_SECRET &&
     secret !== process.env.EVOLUTION_WEBHOOK_SECRET
   ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const body = await req.json();
 
   if (body.event !== "messages.upsert") {
     return NextResponse.json({ ok: true });
@@ -91,6 +108,15 @@ export async function POST(req: NextRequest) {
       where: { id: conversation.id },
       data: { lastMessageAt: new Date() },
     });
+
+    // Een inkomende WhatsApp-reactie is een engagement-signaal → voed Mautic.
+    if (conversation.mauticContactId) {
+      try {
+        await addContactPoints(conversation.mauticContactId, 2);
+      } catch (err) {
+        console.error("Kon WhatsApp-punten niet naar Mautic schrijven:", err);
+      }
+    }
   }
 
   return NextResponse.json({ ok: true });

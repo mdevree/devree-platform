@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <title>Realworks → n8n Sync — Instellingen</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; color: #1f2937; }
+    h1 { font-size: 1.25rem; }
+    label { display: block; font-weight: 600; margin-bottom: .25rem; }
+    input { width: 100%; padding: .5rem; border: 1px solid #d1d5db; border-radius: .375rem; font-size: .9rem; box-sizing: border-box; }
+    button { margin-top: 1rem; padding: .5rem 1rem; background: #2563eb; color: #fff; border: none; border-radius: .375rem; cursor: pointer; font-size: .9rem; }
+    button:hover { background: #1d4ed8; }
+    .hint { color: #6b7280; font-size: .8rem; margin-top: .25rem; }
+    .status { margin-top: 1rem; font-size: .9rem; }
+    .ok { color: #059669; }
+  </style>
+</head>
+<body>
+  <h1>Realworks → n8n Sync</h1>
+  <p class="hint">Dit secret moet gelijk zijn aan <code>N8N_WEBHOOK_SECRET</code> op de VPS. Het wordt lokaal in de browser bewaard en niet in de broncode opgeslagen.</p>
+  <label for="secret">Webhook secret</label>
+  <input id="secret" type="password" autocomplete="off" placeholder="N8N_WEBHOOK_SECRET" />
+  <p class="hint">Klik op opslaan om de wachtrij-poll te activeren.</p>
+  <button id="save">Opslaan</button>
+  <div class="status" id="status"></div>
+  <script src="options.js"></script>
+</body>
+</html>

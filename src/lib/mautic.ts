@@ -585,6 +585,32 @@ export async function searchContactByRealworksCode(agrcode: string): Promise<Mau
 }
 
 /**
+ * Ken punten toe aan een Mautic-contact via het native points-endpoint.
+ * Optioneel binnen een Mautic 7 puntgroep via de `group`-query (best-effort:
+ * oudere Mautic-versies negeren de parameter en tellen bij het globale totaal).
+ * Zo voeden platform-signalen (gesprek, WhatsApp, bezichtiging) Mautic's scoring.
+ */
+export async function addContactPoints(
+  contactId: number,
+  points: number,
+  group?: number
+): Promise<void> {
+  if (!points || points <= 0) return;
+  const qs = group ? `?group=${group}` : "";
+  const response = await mauticFetch(
+    `/api/contacts/${contactId}/points/plus/${points}${qs}`,
+    { method: "POST" }
+  );
+  if (!response.ok) {
+    console.error(
+      "Mautic punten toevoegen mislukt:",
+      response.status,
+      await response.text()
+    );
+  }
+}
+
+/**
  * Voeg een notitie toe aan een Mautic contact
  */
 export async function addMauticNote(contactId: number, text: string): Promise<void> {
