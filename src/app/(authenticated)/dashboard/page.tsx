@@ -5,6 +5,7 @@ import {
   DocumentTextIcon,
   ArrowTopRightOnSquareIcon,
   FolderIcon,
+  FireIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import Greeting from "@/components/Greeting";
@@ -24,6 +25,25 @@ export default async function DashboardPage() {
 
       {/* Snelkoppelingen */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <Link
+          href="/kansen"
+          className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-50">
+              <FireIcon className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 group-hover:text-primary">
+                Kansen
+              </h3>
+              <p className="text-sm text-gray-500">
+                Waar de meeste omzetkans zit
+              </p>
+            </div>
+          </div>
+        </Link>
+
         <Link
           href="/telefonie"
           className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"

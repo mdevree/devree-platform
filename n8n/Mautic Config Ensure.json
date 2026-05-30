@@ -1,0 +1,32 @@
+{
+  "name": "Mautic Config Ensure (additief)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "bb001111-0000-0000-0000-000000000001",
+      "name": "Handmatig starten",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-820, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mautic Config Ensure — additief & non-destructief.\n//\n// Zet DRY_RUN op false om daadwerkelijk te schrijven. In dry-run (default)\n// rapporteert de node alleen wat het ZOU aanmaken; er wordt niets gewijzigd.\n//\n// De routine maakt ALLEEN aan wat ontbreekt. Bestaande velden, puntgroepen,\n// point-acties en segmenten worden nooit overschreven of verwijderd.\n//\n// Auth loopt via de Mautic OAuth2-credential van n8n (zelfde als de andere\n// workflows) met this.helpers.httpRequestWithAuthentication.\n\nconst DRY_RUN = true;\nconst MAUTIC_URL = 'https://connect.devreemakelaardij.nl';\nconst CRED = 'mauticOAuth2Api';\n\nasync function api(method, path, body) {\n  return await this.helpers.httpRequestWithAuthentication.call(this, CRED, {\n    method,\n    url: `${MAUTIC_URL}${path}`,\n    body,\n    json: true,\n  });\n}\nconst call = api.bind(this);\n\n// ─── Gewenste configuratie (declaratief) ──────────────────────────────\n\n// Mautic 7 puntgroepen: gescheiden scores per kans-type.\nconst pointGroups = [\n  { name: 'Koopinteresse', description: 'Signalen die op koopintentie wijzen' },\n  { name: 'Verkoopopdracht', description: 'Signalen die op een verkoopopdracht wijzen' },\n];\n\n// Contact custom velden (alias = sleutel). Alleen ontbrekende worden aangemaakt.\nconst contactFields = [\n  { alias: 'bezichtiging_interesse', label: 'Bezichtiging interesse', type: 'number' },\n  { alias: 'bezichtiging_notities', label: 'Bezichtiging notities', type: 'textarea' },\n  { alias: 'kijker_eigen_woning', label: 'Kijker heeft eigen woning', type: 'boolean' },\n  { alias: 'kijker_overweegt_verkoop', label: 'Kijker overweegt verkoop', type: 'boolean' },\n  { alias: 'kijker_hypotheek_status', label: 'Kijker hypotheek status', type: 'text' },\n  { alias: 'verkoopgesprek_status', label: 'Verkoopgesprek status', type: 'text' },\n  { alias: 'segment_prioriteit', label: 'Segment prioriteit', type: 'text' },\n];\n\n// Point-acties (Mautic-native gedrag). group wordt na aanmaak gekoppeld op naam.\nconst pointActions = [\n  { name: 'E-mail geopend', type: 'email.open', delta: 1, group: 'Koopinteresse' },\n  { name: 'E-mail link geklikt', type: 'email.click', delta: 2, group: 'Koopinteresse' },\n  { name: 'Woningpagina bezocht', type: 'page.hit', delta: 2, group: 'Koopinteresse' },\n  { name: 'Formulier ingevuld', type: 'form.submit', delta: 5, group: 'Koopinteresse' },\n];\n\n// Segmenten (publicly: alias + naam). Filters bewust leeg gelaten zodat ze in\n// Mautic verfijnd kunnen worden; aanmaken is non-destructief.\nconst segments = [\n  { name: 'Hete kopers', alias: 'hete_kopers', description: 'Hoge koopinteresse / recent warm' },\n  { name: 'Verkoop-opdrachtkans', alias: 'verkoop_opdrachtkans', description: 'Eigen woning + overweegt verkoop' },\n  { name: 'Herwarmen koud', alias: 'herwarmen_koud', description: 'Opgebouwde punten maar lang stil' },\n];\n\n// ─── Ensure-helpers ─────────────────────────────────────────\nconst report = { dryRun: DRY_RUN, created: [], skipped: [], errors: [] };\n\nasync function ensure(label, listPath, listKey, identify, want, createPath, buildBody) {\n  let existing = {};\n  try {\n    const res = await call('GET', `${listPath}?limit=200`);\n    existing = res[listKey] || {};\n  } catch (e) {\n    report.errors.push(`${label}: ophalen mislukt — ${e.message}`);\n    return {};\n  }\n  const existingKeys = new Set(\n    Object.values(existing).map((it) => String(identify(it)).toLowerCase())\n  );\n  const idMap = {};\n  for (const it of Object.values(existing)) idMap[String(identify(it)).toLowerCase()] = it.id;\n\n  for (const item of want) {\n    const key = String(identify(item)).toLowerCase();\n    if (existingKeys.has(key)) {\n      report.skipped.push(`${label}: ${key} bestaat al`);\n      continue;\n    }\n    if (DRY_RUN) {\n      report.created.push(`${label}: ${key} ZOU worden aangemaakt`);\n      continue;\n    }\n    try {\n      const created = await call('POST', createPath, buildBody(item));\n      const newId = created[listKey.replace(/s$/, '')]?.id || created?.id;\n      if (newId) idMap[key] = newId;\n      report.created.push(`${label}: ${key} aangemaakt`);\n    } catch (e) {\n      report.errors.push(`${label}: ${key} aanmaken mislukt — ${e.message}`);\n    }\n  }\n  return idMap;\n}\n\n// 1) Puntgroepen eerst (point-acties verwijzen ernaar).\nconst groupIds = await ensure(\n  'Puntgroep', '/api/points/groups', 'pointGroups',\n  (g) => g.name, pointGroups, '/api/points/groups/new',\n  (g) => ({ name: g.name, description: g.description })\n);\n\n// 2) Contact custom velden.\nawait ensure(\n  'Veld', '/api/fields/contact', 'fields',\n  (f) => f.alias, contactFields, '/api/fields/contact/new',\n  (f) => ({ label: f.label, alias: f.alias, type: f.type, object: 'lead' })\n);\n\n// 3) Point-acties (gekoppeld aan puntgroep waar mogelijk).\nawait ensure(\n  'Point-actie', '/api/points', 'points',\n  (p) => p.name, pointActions, '/api/points/new',\n  (p) => {\n    const body = { name: p.name, type: p.type, delta: p.delta, isPublished: true };\n    const gid = groupIds[String(p.group).toLowerCase()];\n    if (gid) body.group = gid;\n    return body;\n  }\n);\n\n// 4) Segmenten.\nawait ensure(\n  'Segment', '/api/segments', 'lists',\n  (s) => s.alias, segments, '/api/segments/new',\n  (s) => ({ name: s.name, alias: s.alias, description: s.description, isPublished: true })\n);\n\nreturn [{ json: report }];"
+      },
+      "id": "bb001111-0000-0000-0000-000000000002",
+      "name": "Ensure Mautic config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 300]
+    }
+  ],
+  "connections": {
+    "Handmatig starten": {
+      "main": [[{ "node": "Ensure Mautic config", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {},
+  "meta": {
+    "description": "Additieve, non-destructieve inrichting van Mautic: puntgroepen (Mautic 7), contact custom velden, point-acties en segmenten. Draait standaard in DRY_RUN (rapporteert alleen). Zet DRY_RUN=false in de Code-node om te schrijven. Maakt alleen aan wat ontbreekt; overschrijft of verwijdert nooit."
+  }
+}
