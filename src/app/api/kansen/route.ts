@@ -65,6 +65,9 @@ export async function GET(request: NextRequest) {
       const maxPoints = contacts.reduce((m, c) => Math.max(m, c.points), 0);
       const maxWarm = contacts.reduce((m, c) => Math.max(m, c.warmScore), 0);
       const metEmail = contacts.filter((c) => c.email).length;
+      const metHypotheekStatus = contacts.filter(
+        (c) => c.kijkerHypotheekStatus
+      ).length;
       return NextResponse.json({
         onderzocht: contacts.length,
         herwarmVenster: { van: zesmaanden, tot: driemaanden, gevonden: stil.length },
@@ -76,6 +79,7 @@ export async function GET(request: NextRequest) {
           metKijkerEigenWoning: withEigenWoning,
           metLastActive: withLastActive,
           metEmail,
+          metHypotheekStatus,
         },
         voorbeelden: contacts.slice(0, 5).map((c) => ({
           id: c.id,
@@ -86,6 +90,7 @@ export async function GET(request: NextRequest) {
           bezichtigingInteresse: c.bezichtigingInteresse,
           kijkerEigenWoning: c.kijkerEigenWoning,
           kijkerOverwegtVerkoop: c.kijkerOverwegtVerkoop,
+          kijkerHypotheekStatus: c.kijkerHypotheekStatus,
         })),
       });
     }

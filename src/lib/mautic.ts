@@ -163,6 +163,7 @@ export interface MauticContactPipeline extends MauticContact {
   // Kwalificatievelden (voor kans-type classificatie)
   kijkerEigenWoning: boolean | null;     // kijker_eigen_woning
   kijkerOverwegtVerkoop: boolean | null; // kijker_overweegt_verkoop
+  kijkerHypotheekStatus: string | null;  // kijker_hypotheek_status ("ja" = heeft adviseur)
   // Berekend warm-score veld
   warmScore: number;
 }
@@ -484,6 +485,7 @@ function mapToPipeline(contact: Record<string, unknown>, contactId: number): Mau
       fields.kijker_overweegt_verkoop === undefined || fields.kijker_overweegt_verkoop === null || fields.kijker_overweegt_verkoop === ""
         ? null
         : fields.kijker_overweegt_verkoop === "1" || fields.kijker_overweegt_verkoop === true,
+    kijkerHypotheekStatus: (fields.kijker_hypotheek_status as string) || null,
     warmScore: calcWarmScore(points, lastActive),
   };
 }

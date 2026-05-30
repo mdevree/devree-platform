@@ -33,6 +33,7 @@ function contact(overrides: Partial<MauticContactPipeline>): MauticContactPipeli
     bezichtigingInteresse: null,
     kijkerEigenWoning: null,
     kijkerOverwegtVerkoop: null,
+    kijkerHypotheekStatus: null,
     warmScore: 0,
     ...overrides,
   };
@@ -101,6 +102,25 @@ test("koud contact zonder signalen → geen kans", () => {
   assert.equal(item, null);
 });
 
+test("hypotheek open voor advies → hypotheekkans", () => {
+  const item = classifyKans(
+    contact({
+      points: 0,
+      warmScore: 0,
+      kijkerHypotheekStatus: "Nog niet, maar ik sta open voor advies",
+    })
+  );
+  assert.equal(item?.type, "hypotheekkans");
+  assert.ok(item?.redenen.some((r) => r.toLowerCase().includes("hypotheek")));
+});
+
+test("hypotheek 'ja' (heeft al adviseur) → geen hypotheekkans", () => {
+  const item = classifyKans(
+    contact({ points: 0, warmScore: 0, kijkerHypotheekStatus: "ja" })
+  );
+  assert.equal(item, null);
+});
+
 test("hete koper heeft voorrang op opdrachtkans", () => {
   const item = classifyKans(
     contact({
@@ -112,12 +132,12 @@ test("hete koper heeft voorrang op opdrachtkans", () => {
   assert.equal(item?.type, "hete_koper");
 });
 
-test("groupKansen sorteert aflopend op warmScore en levert 3 groepen", () => {
+test("groupKansen sorteert aflopend op warmScore en levert 4 groepen", () => {
   const groepen = groupKansen([
     contact({ id: 1, bezichtigingInteresse: 65, warmScore: 65 }),
     contact({ id: 2, bezichtigingInteresse: 90, warmScore: 90 }),
   ]);
-  assert.equal(groepen.length, 3);
+  assert.equal(groepen.length, 4);
   const heet = groepen.find((g) => g.type === "hete_koper");
   assert.equal(heet?.items[0].warmScore, 90);
   assert.equal(heet?.items[1].warmScore, 65);
