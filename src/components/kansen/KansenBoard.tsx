@@ -8,6 +8,7 @@ import {
   FireIcon,
   HomeModernIcon,
   ArrowPathIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 
 type KansType = "hete_koper" | "opdrachtkans" | "herwarmen";
@@ -59,11 +60,20 @@ function waLink(item: KansItem): string | null {
   return `https://wa.me/${clean}`;
 }
 
+type InteresseItem = {
+  mauticContactId: number;
+  slug: string;
+  bezoeken: number;
+  laatsteBezoek: string;
+  voorbeeldUrl: string;
+};
+
 export default function KansenBoard() {
   const [groepen, setGroepen] = useState<KansGroep[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totaal, setTotaal] = useState(0);
+  const [feed, setFeed] = useState<InteresseItem[]>([]);
 
   useEffect(() => {
     let actief = true;
@@ -71,14 +81,21 @@ export default function KansenBoard() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/kansen");
-        const data = await res.json();
+        const [kansenRes, feedRes] = await Promise.all([
+          fetch("/api/kansen"),
+          fetch("/api/kansen/actieve-interesse"),
+        ]);
+        const data = await kansenRes.json();
         if (!actief) return;
-        if (res.ok) {
+        if (kansenRes.ok) {
           setGroepen(data.groepen || []);
           setTotaal(data.totaal || 0);
         } else {
           setError(data.error || "Kon kansen niet laden");
+        }
+        if (feedRes.ok) {
+          const feedData = await feedRes.json();
+          if (actief) setFeed(feedData.feed || []);
         }
       } catch {
         if (actief) setError("Netwerkfout bij laden van kansen");
@@ -196,6 +213,76 @@ export default function KansenBoard() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {!loading && feed.length > 0 && (
+        <div className="mt-10">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <EyeIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-gray-900">Actieve interesse</h2>
+              <p className="text-xs text-gray-500">
+                Leads die recent dezelfde woning meermaals bekeken — nu opvolgen.
+              </p>
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs text-gray-500">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Contact</th>
+                  <th className="px-4 py-2 font-medium">Woning</th>
+                  <th className="px-4 py-2 font-medium">Bezoeken</th>
+                  <th className="px-4 py-2 font-medium">Laatste</th>
+                  <th className="px-4 py-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {feed.map((f) => (
+                  <tr
+                    key={`${f.mauticContactId}-${f.slug}`}
+                    className="border-t border-gray-100"
+                  >
+                    <td className="px-4 py-2">
+                      <a
+                        href={`${MAUTIC_URL}/s/contacts/view/${f.mauticContactId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        #{f.mauticContactId}
+                      </a>
+                    </td>
+                    <td className="px-4 py-2 text-gray-700">{f.slug}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">
+                      {f.bezoeken}×
+                    </td>
+                    <td className="px-4 py-2 text-gray-500">
+                      {new Date(f.laatsteBezoek).toLocaleDateString("nl-NL", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {f.voorbeeldUrl && (
+                        <a
+                          href={f.voorbeeldUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-primary"
+                        >
+                          <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" /> Woning
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

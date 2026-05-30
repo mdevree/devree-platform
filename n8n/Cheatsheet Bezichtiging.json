@@ -1,0 +1,73 @@
+{
+  "name": "Cheatsheet Bezichtiging (PDF → Nextcloud → OCR → Mautic)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cheatsheet-genereer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "cc001111-0000-0000-0000-000000000001",
+      "name": "Webhook: Genereer cheat-sheet",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-960, 200],
+      "webhookId": "cheatsheet-genereer"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.body.contextUrl }}",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cc001111-0000-0000-0000-000000000002",
+      "name": "Haal afspraak-context op",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-720, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Render een eenvoudige A4 HTML-cheatsheet met ruime aantekenvlakken die\n// 1-op-1 mappen op Mautic-velden. Een volgende node (bijv. Gotenberg/HTML-to-PDF)\n// zet dit om naar PDF. Hier houden we het HTML zodat het zonder extra binaries werkt.\nconst ctx = $input.first().json;\nconst k = ctx.kijker || {};\nconst w = ctx.woning || {};\nconst a = ctx.afspraak || {};\n\nconst html = `<!DOCTYPE html><html lang=\"nl\"><head><meta charset=\"utf-8\"><style>\n  body{font-family:system-ui,sans-serif;color:#1f2937;margin:24px;font-size:13px}\n  h1{font-size:18px;margin:0 0 4px} h2{font-size:14px;border-bottom:1px solid #e5e7eb;padding-bottom:2px;margin-top:18px}\n  .vak{border:1px solid #cbd5e1;border-radius:6px;min-height:60px;margin-top:6px;padding:6px}\n  .label{font-weight:600;font-size:12px;color:#475569}\n</style></head><body>\n  <h1>Bezichtiging — ${a.contactNaam || ''}</h1>\n  <div>${w.titel || ''} · ${a.begin || ''}</div>\n  <h2>Kijker</h2>\n  <div>${(k.aiAnalyse && k.aiAnalyse.huidigeSituatie) || ''}</div>\n  <h2>Kwalificatie</h2>\n  <div>Eigen woning: ${k.kwalificatie?.heeftEigenWoning ?? '-'} · Overweegt verkoop: ${k.kwalificatie?.overwegtVerkoop ?? '-'}</div>\n  <h2>Aantekeningen (worden teruggelezen)</h2>\n  <div class=\"label\">Notities bezichtiging</div><div class=\"vak\"></div>\n  <div class=\"label\">Interesse 0–100</div><div class=\"vak\"></div>\n  <div class=\"label\">Vervolgactie</div><div class=\"vak\"></div>\n</body></html>`;\n\nreturn [{ json: { afspraakId: ctx.afspraak?.id, html, bestandsnaam: `bezichtiging-${ctx.afspraak?.id || 'onbekend'}.html` } }];"
+      },
+      "id": "cc001111-0000-0000-0000-000000000003",
+      "name": "Render cheat-sheet HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"afspraakId\": $json.afspraakId, \"bestandsnaam\": $json.bestandsnaam } }}"
+      },
+      "id": "cc001111-0000-0000-0000-000000000004",
+      "name": "Antwoord",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [-240, 200]
+    }
+  ],
+  "connections": {
+    "Webhook: Genereer cheat-sheet": {
+      "main": [[{ "node": "Haal afspraak-context op", "type": "main", "index": 0 }]]
+    },
+    "Haal afspraak-context op": {
+      "main": [[{ "node": "Render cheat-sheet HTML", "type": "main", "index": 0 }]]
+    },
+    "Render cheat-sheet HTML": {
+      "main": [[{ "node": "Antwoord", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {},
+  "meta": {
+    "description": "Genereert een voorbereidings-cheatsheet voor een bezichtiging uit /api/agenda/[id]/context. Vervolgstappen (in te vullen tegen jullie infra): HTML→PDF (Gotenberg), opslaan in Nextcloud via WebDAV, en een tweede trigger die de geannoteerde PDF via OCR terugstuurt naar POST /api/agenda/[id]/cheatsheet/verwerk."
+  }
+}
