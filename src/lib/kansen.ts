@@ -10,7 +10,11 @@ import type { MauticContactPipeline } from "./mautic";
  * (Fase 1A) live zijn, kan dit één-op-één tegen segment-lidmaatschap aangelegd worden.
  */
 
-export type KansType = "hete_koper" | "opdrachtkans" | "herwarmen";
+export type KansType =
+  | "hete_koper"
+  | "opdrachtkans"
+  | "hypotheekkans"
+  | "herwarmen";
 
 export interface KansItem {
   contactId: number;
@@ -35,9 +39,32 @@ export interface KansGroep {
 
 const DAG_MS = 1000 * 60 * 60 * 24;
 
+// Herwarmen: contacten uit het 'last-contact' segment (≤6 mnd contact, mét
+// e-mailadres) die 3+ maanden stil zijn geworden.
+const HERWARM_MIN_DAGEN = 90; // 3 maanden stil
+const HERWARM_MAX_DAGEN = 180; // binnen 6 maanden contact gehad
+
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
   return (Date.now() - new Date(iso).getTime()) / DAG_MS;
+}
+
+/**
+ * kijker_hypotheek_status (door Realworks gevuld) onderscheidt onder andere:
+ *  - "ja" → heeft al een hypotheekadviseur (geen lead voor ons)
+ *  - "nog niet, maar open voor advies" → wél interessant: doorsturen naar
+ *    onze eigen hypotheekadviseur.
+ * Deze helper herkent die tweede groep, tolerant t.o.v. de schrijfwijze.
+ */
+export function hypotheekOpenVoorAdvies(
+  status: string | null | undefined
+): boolean {
+  if (!status) return false;
+  const s = status.trim().toLowerCase();
+  if (!s) return false;
+  // Heeft al een adviseur → geen lead voor ons.
+  if (s === "ja" || s.includes("heeft") || s.includes("al een")) return false;
+  return s.includes("open") || s.includes("advies") || s.includes("nog niet");
 }
 
 function naamVan(c: MauticContactPipeline): string {
@@ -56,7 +83,7 @@ export function classifyKans(c: MauticContactPipeline): KansItem | null {
   // Hete koper: hoge bezichtigingsinteresse en/of recente warmte.
   const hogeInteresse =
     c.bezichtigingInteresse !== null && c.bezichtigingInteresse >= 60;
-  const heet = c.warmScore >= 60;
+  const heet = c.warmScore >= 30 && c.points >= 5;
   if (hogeInteresse || (heet && dagen !== null && dagen < 14)) {
     if (hogeInteresse)
       redenen.push(`Bezichtigingsinteresse ${c.bezichtigingInteresse}/100`);
@@ -81,12 +108,26 @@ export function classifyKans(c: MauticContactPipeline): KansItem | null {
     };
   }
 
-  // Herwarmen: ooit warm geweest (punten), maar lang niet actief.
-  if (c.points >= 10 && dagen !== null && dagen >= 30) {
-    redenen.push(
-      `${c.points} punten opgebouwd`,
-      `Al ${Math.round(dagen)} dgn stil`
-    );
+  // Hypotheekkans: open voor hypotheekadvies → doorsturen naar onze adviseur.
+  if (hypotheekOpenVoorAdvies(c.kijkerHypotheekStatus)) {
+    redenen.push(`Open voor hypotheekadvies (${c.kijkerHypotheekStatus})`);
+    if (c.warmScore > 0) redenen.push(`Score ${c.warmScore}`);
+    return {
+      ...baseItem(c),
+      type: "hypotheekkans",
+      redenen,
+    };
+  }
+
+  // Herwarmen: had contact binnen 6 mnd (mét e-mail) maar is 3+ mnd stil.
+  if (
+    c.email &&
+    dagen !== null &&
+    dagen >= HERWARM_MIN_DAGEN &&
+    dagen <= HERWARM_MAX_DAGEN
+  ) {
+    redenen.push(`Al ${Math.round(dagen)} dgn stil`, "Binnen 6-mnd e-mailsegment");
+    if (c.points > 0) redenen.push(`${c.points} punten opgebouwd`);
     return {
       ...baseItem(c),
       type: "herwarmen",
@@ -119,13 +160,23 @@ const GROEP_META: Record<KansType, { label: string; beschrijving: string }> = {
     label: "Opdrachtkansen",
     beschrijving: "Eigen woning + overweegt verkoop — verkoopgesprek aanbieden.",
   },
+  hypotheekkans: {
+    label: "Hypotheekkansen",
+    beschrijving:
+      "Open voor hypotheekadvies — doorsturen naar onze hypotheekadviseur.",
+  },
   herwarmen: {
     label: "Herwarmen",
     beschrijving: "Opgebouwde punten maar stil geworden — opnieuw activeren.",
   },
 };
 
-const GROEP_VOLGORDE: KansType[] = ["hete_koper", "opdrachtkans", "herwarmen"];
+const GROEP_VOLGORDE: KansType[] = [
+  "hete_koper",
+  "opdrachtkans",
+  "hypotheekkans",
+  "herwarmen",
+];
 
 /**
  * Groepeer een lijst pipeline-contacten in kans-groepen, gesorteerd op warmScore.
@@ -134,6 +185,7 @@ export function groupKansen(contacts: MauticContactPipeline[]): KansGroep[] {
   const buckets: Record<KansType, KansItem[]> = {
     hete_koper: [],
     opdrachtkans: [],
+    hypotheekkans: [],
     herwarmen: [],
   };
 

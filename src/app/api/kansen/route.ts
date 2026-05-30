@@ -20,11 +20,35 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(request.nextUrl.searchParams.get("limit") || "200");
   const debug = request.nextUrl.searchParams.get("debug") === "1";
 
+  // Datumgrenzen voor de herwarm-bucket: contacten die 3–6 maanden stil zijn.
+  const ymd = (d: Date) => d.toISOString().slice(0, 10);
+  const driemaanden = ymd(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000));
+  const zesmaanden = ymd(new Date(Date.now() - 180 * 24 * 60 * 60 * 1000));
+
   try {
-    const { contacts } = await searchContactsWithPipeline({
+    // Recente contacten: voeden hete kopers + opdrachtkansen.
+    const { contacts: recent } = await searchContactsWithPipeline({
       limit,
       orderBy: "last_active",
       orderByDir: "desc",
+    });
+
+    // Stilgevallen contacten (3–6 mnd geleden laatst actief): voeden herwarmen.
+    // Aparte query nodig omdat de recente lijst deze per definitie niet bevat.
+    const { contacts: stil } = await searchContactsWithPipeline({
+      limit,
+      orderBy: "last_active",
+      orderByDir: "desc",
+      lastActiveAfter: zesmaanden,
+      lastActiveBefore: driemaanden,
+    });
+
+    // Samenvoegen en dedupliceren op contact-id.
+    const gezien = new Set<number>();
+    const contacts = [...recent, ...stil].filter((c) => {
+      if (gezien.has(c.id)) return false;
+      gezien.add(c.id);
+      return true;
     });
 
     // Diagnose-modus: laat zien wat er écht in de Mautic-velden zit, zodat we
@@ -40,8 +64,13 @@ export async function GET(request: NextRequest) {
       const withLastActive = contacts.filter((c) => c.lastActive).length;
       const maxPoints = contacts.reduce((m, c) => Math.max(m, c.points), 0);
       const maxWarm = contacts.reduce((m, c) => Math.max(m, c.warmScore), 0);
+      const metEmail = contacts.filter((c) => c.email).length;
+      const metHypotheekStatus = contacts.filter(
+        (c) => c.kijkerHypotheekStatus
+      ).length;
       return NextResponse.json({
         onderzocht: contacts.length,
+        herwarmVenster: { van: zesmaanden, tot: driemaanden, gevonden: stil.length },
         statistiek: {
           metPunten: withPoints,
           maxPunten: maxPoints,
@@ -49,6 +78,8 @@ export async function GET(request: NextRequest) {
           metBezichtigingInteresse: withInteresse,
           metKijkerEigenWoning: withEigenWoning,
           metLastActive: withLastActive,
+          metEmail,
+          metHypotheekStatus,
         },
         voorbeelden: contacts.slice(0, 5).map((c) => ({
           id: c.id,
@@ -59,6 +90,7 @@ export async function GET(request: NextRequest) {
           bezichtigingInteresse: c.bezichtigingInteresse,
           kijkerEigenWoning: c.kijkerEigenWoning,
           kijkerOverwegtVerkoop: c.kijkerOverwegtVerkoop,
+          kijkerHypotheekStatus: c.kijkerHypotheekStatus,
         })),
       });
     }

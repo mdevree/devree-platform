@@ -163,6 +163,7 @@ export interface MauticContactPipeline extends MauticContact {
   // Kwalificatievelden (voor kans-type classificatie)
   kijkerEigenWoning: boolean | null;     // kijker_eigen_woning
   kijkerOverwegtVerkoop: boolean | null; // kijker_overweegt_verkoop
+  kijkerHypotheekStatus: string | null;  // kijker_hypotheek_status ("ja" = heeft adviseur)
   // Berekend warm-score veld
   warmScore: number;
 }
@@ -421,6 +422,17 @@ export async function searchContacts(options: {
 }
 
 /**
+ * Map een ruw Mautic-veld naar een number, of null als het veld leeg is.
+ * Mautic levert lege custom fields aan als "" of null (niet als undefined),
+ * dus puur op `!== undefined` checken zou "leeg" foutief als 0 inlezen.
+ */
+function numField(val: unknown): number | null {
+  if (val === null || val === undefined || val === "") return null;
+  const n = Number(val);
+  return Number.isNaN(n) ? null : n;
+}
+
+/**
  * Berekent een warm-score op basis van points en recente activiteit
  */
 function calcWarmScore(points: number, lastActive: string | null): number {
@@ -458,13 +470,13 @@ function mapToPipeline(contact: Record<string, unknown>, contactId: number): Mau
     volgendeAfspraakStatus: (fields.volgende_afspraak_status as string) || null,
     datumVerkoopgesprek: (fields.datum_verkoopgesprek as string) || null,
     interesses: {
-      financiering: fields.interesse_financiering !== undefined ? Number(fields.interesse_financiering) : null,
-      duurzaamheid: fields.interesse_duurzaamheid !== undefined ? Number(fields.interesse_duurzaamheid) : null,
-      verbouwing: fields.interesse_verbouwing !== undefined ? Number(fields.interesse_verbouwing) : null,
-      investeren: fields.interesse_investeren !== undefined ? Number(fields.interesse_investeren) : null,
-      starters: fields.interesse_starters !== undefined ? Number(fields.interesse_starters) : null,
+      financiering: numField(fields.interesse_financiering),
+      duurzaamheid: numField(fields.interesse_duurzaamheid),
+      verbouwing: numField(fields.interesse_verbouwing),
+      investeren: numField(fields.interesse_investeren),
+      starters: numField(fields.interesse_starters),
     },
-    bezichtigingInteresse: fields.bezichtiging_interesse !== undefined ? Number(fields.bezichtiging_interesse) : null,
+    bezichtigingInteresse: numField(fields.bezichtiging_interesse),
     kijkerEigenWoning:
       fields.kijker_eigen_woning === undefined || fields.kijker_eigen_woning === null || fields.kijker_eigen_woning === ""
         ? null
@@ -473,6 +485,7 @@ function mapToPipeline(contact: Record<string, unknown>, contactId: number): Mau
       fields.kijker_overweegt_verkoop === undefined || fields.kijker_overweegt_verkoop === null || fields.kijker_overweegt_verkoop === ""
         ? null
         : fields.kijker_overweegt_verkoop === "1" || fields.kijker_overweegt_verkoop === true,
+    kijkerHypotheekStatus: (fields.kijker_hypotheek_status as string) || null,
     warmScore: calcWarmScore(points, lastActive),
   };
 }
@@ -496,6 +509,8 @@ export async function searchContactsWithPipeline(options: {
   search?: string;
   stage?: string;      // verkoopgesprek_status waarde
   segment?: string;    // segment_prioriteit waarde (a_sweetspot, b_volledig, etc.)
+  lastActiveAfter?: string;  // YYYY-MM-DD: alleen contacten met last_active >= deze datum
+  lastActiveBefore?: string; // YYYY-MM-DD: alleen contacten met last_active <= deze datum
   start?: number;
   limit?: number;
   orderBy?: string;
@@ -505,6 +520,8 @@ export async function searchContactsWithPipeline(options: {
     search = "",
     stage,
     segment,
+    lastActiveAfter,
+    lastActiveBefore,
     start = 0,
     limit = 100,
     orderBy = "last_active",
@@ -530,6 +547,16 @@ export async function searchContactsWithPipeline(options: {
 
   if (segment) {
     whereParts.push(`where[${whereIdx}][col]=segment_prioriteit&where[${whereIdx}][expr]=eq&where[${whereIdx}][val]=${encodeURIComponent(segment)}`);
+    whereIdx++;
+  }
+
+  if (lastActiveAfter) {
+    whereParts.push(`where[${whereIdx}][col]=last_active&where[${whereIdx}][expr]=gte&where[${whereIdx}][val]=${encodeURIComponent(lastActiveAfter)}`);
+    whereIdx++;
+  }
+
+  if (lastActiveBefore) {
+    whereParts.push(`where[${whereIdx}][col]=last_active&where[${whereIdx}][expr]=lte&where[${whereIdx}][val]=${encodeURIComponent(lastActiveBefore)}`);
     whereIdx++;
   }
 

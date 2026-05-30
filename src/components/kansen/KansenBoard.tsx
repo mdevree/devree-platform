@@ -9,9 +9,10 @@ import {
   HomeModernIcon,
   ArrowPathIcon,
   EyeIcon,
+  BanknotesIcon,
 } from "@heroicons/react/24/outline";
 
-type KansType = "hete_koper" | "opdrachtkans" | "herwarmen";
+type KansType = "hete_koper" | "opdrachtkans" | "hypotheekkans" | "herwarmen";
 
 type KansItem = {
   contactId: number;
@@ -39,12 +40,14 @@ const MAUTIC_URL =
 const GROEP_ICON: Record<KansType, typeof FireIcon> = {
   hete_koper: FireIcon,
   opdrachtkans: HomeModernIcon,
+  hypotheekkans: BanknotesIcon,
   herwarmen: ArrowPathIcon,
 };
 
 const GROEP_KLEUR: Record<KansType, string> = {
   hete_koper: "text-red-600 bg-red-50",
   opdrachtkans: "text-emerald-600 bg-emerald-50",
+  hypotheekkans: "text-indigo-600 bg-indigo-50",
   herwarmen: "text-amber-600 bg-amber-50",
 };
 
