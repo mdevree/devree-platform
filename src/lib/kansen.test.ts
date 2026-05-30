@@ -54,11 +54,46 @@ test("eigen woning + overweegt verkoop → opdrachtkans", () => {
   assert.equal(item?.type, "opdrachtkans");
 });
 
-test("punten maar lang stil → herwarmen", () => {
+test("3-6 mnd stil mét e-mail → herwarmen", () => {
   const item = classifyKans(
-    contact({ points: 25, lastActive: dagenGeleden(60) })
+    contact({ points: 8, lastActive: dagenGeleden(120) })
   );
   assert.equal(item?.type, "herwarmen");
+});
+
+test("3-6 mnd stil zonder e-mail → geen herwarmen", () => {
+  const item = classifyKans(
+    contact({ points: 8, email: null, lastActive: dagenGeleden(120) })
+  );
+  assert.equal(item, null);
+});
+
+test("korter dan 3 mnd stil → nog geen herwarmen", () => {
+  const item = classifyKans(
+    contact({ points: 8, lastActive: dagenGeleden(60) })
+  );
+  assert.equal(item, null);
+});
+
+test("langer dan 6 mnd stil → buiten segment, geen herwarmen", () => {
+  const item = classifyKans(
+    contact({ points: 8, lastActive: dagenGeleden(220) })
+  );
+  assert.equal(item, null);
+});
+
+test("recent actief met te weinig punten → geen hete koper", () => {
+  const item = classifyKans(
+    contact({ points: 3, warmScore: 33, lastActive: dagenGeleden(2) })
+  );
+  assert.equal(item, null);
+});
+
+test("recent actief met 5+ punten → hete koper", () => {
+  const item = classifyKans(
+    contact({ points: 5, warmScore: 35, lastActive: dagenGeleden(2) })
+  );
+  assert.equal(item?.type, "hete_koper");
 });
 
 test("koud contact zonder signalen → geen kans", () => {

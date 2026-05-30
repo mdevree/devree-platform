@@ -35,6 +35,11 @@ export interface KansGroep {
 
 const DAG_MS = 1000 * 60 * 60 * 24;
 
+// Herwarmen: contacten uit het 'last-contact' segment (≤6 mnd contact, mét
+// e-mailadres) die 3+ maanden stil zijn geworden.
+const HERWARM_MIN_DAGEN = 90; // 3 maanden stil
+const HERWARM_MAX_DAGEN = 180; // binnen 6 maanden contact gehad
+
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
   return (Date.now() - new Date(iso).getTime()) / DAG_MS;
@@ -56,7 +61,7 @@ export function classifyKans(c: MauticContactPipeline): KansItem | null {
   // Hete koper: hoge bezichtigingsinteresse en/of recente warmte.
   const hogeInteresse =
     c.bezichtigingInteresse !== null && c.bezichtigingInteresse >= 60;
-  const heet = c.warmScore >= 60;
+  const heet = c.warmScore >= 30 && c.points >= 5;
   if (hogeInteresse || (heet && dagen !== null && dagen < 14)) {
     if (hogeInteresse)
       redenen.push(`Bezichtigingsinteresse ${c.bezichtigingInteresse}/100`);
@@ -81,12 +86,15 @@ export function classifyKans(c: MauticContactPipeline): KansItem | null {
     };
   }
 
-  // Herwarmen: ooit warm geweest (punten), maar lang niet actief.
-  if (c.points >= 10 && dagen !== null && dagen >= 30) {
-    redenen.push(
-      `${c.points} punten opgebouwd`,
-      `Al ${Math.round(dagen)} dgn stil`
-    );
+  // Herwarmen: had contact binnen 6 mnd (mét e-mail) maar is 3+ mnd stil.
+  if (
+    c.email &&
+    dagen !== null &&
+    dagen >= HERWARM_MIN_DAGEN &&
+    dagen <= HERWARM_MAX_DAGEN
+  ) {
+    redenen.push(`Al ${Math.round(dagen)} dgn stil`, "Binnen 6-mnd e-mailsegment");
+    if (c.points > 0) redenen.push(`${c.points} punten opgebouwd`);
     return {
       ...baseItem(c),
       type: "herwarmen",
