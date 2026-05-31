@@ -75,6 +75,7 @@ export default function BuurtdataRapportPage() {
   const [email, setEmail] = useState("");
   const [telefoon, setTelefoon] = useState("");
   const [toestemming, setToestemming] = useState(false);
+  const [woningType, setWoningType] = useState<"huidig" | "potentieel" | "anders" | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +116,10 @@ export default function BuurtdataRapportPage() {
 
   async function handleGegevensSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!woningType) {
+      setError("Geef aan voor welk type woning u het rapport opvraagt");
+      return;
+    }
     if (!toestemming) {
       setError("Geef toestemming om het rapport te ontvangen");
       return;
@@ -134,6 +139,7 @@ export default function BuurtdataRapportPage() {
           naam: naam.trim(),
           email: email.trim().toLowerCase(),
           telefoon: telefoon.trim() || null,
+          woningType,
         }),
       });
 
@@ -317,6 +323,58 @@ export default function BuurtdataRapportPage() {
             </div>
 
             <form onSubmit={handleGegevensSubmit} className="space-y-4">
+              {/* ── Woningtype selector ── */}
+              <div>
+                <p className="mb-2 text-sm font-semibold text-gray-700">
+                  Voor welk type woning vraagt u het rapport op?{" "}
+                  <span className="text-red-500">*</span>
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {[
+                    {
+                      value: "huidig" as const,
+                      icon: "🏠",
+                      label: "Mijn huidige woning",
+                      sub: "Ik wil weten hoe mijn buurt ervoor staat",
+                    },
+                    {
+                      value: "potentieel" as const,
+                      icon: "🔍",
+                      label: "Woning die ik overweeg",
+                      sub: "Ik oriënteer me op een mogelijke aankoop",
+                    },
+                    {
+                      value: "anders" as const,
+                      icon: "💡",
+                      label: "Gewoon nieuwsgierig",
+                      sub: "Ik ben benieuwd naar de buurtdata",
+                    },
+                  ].map((opt) => {
+                    const selected = woningType === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setWoningType(opt.value)}
+                        className={`flex flex-col items-start rounded-xl border-2 p-3 text-left transition-colors ${
+                          selected
+                            ? "border-primary bg-primary/5"
+                            : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className="mb-1 text-xl">{opt.icon}</span>
+                        <span
+                          className={`text-sm font-semibold ${selected ? "text-primary" : "text-gray-800"}`}
+                        >
+                          {opt.label}
+                        </span>
+                        <span className="mt-0.5 text-xs text-gray-500">{opt.sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Uw naam <span className="text-red-500">*</span>

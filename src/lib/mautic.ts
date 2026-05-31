@@ -671,6 +671,7 @@ export async function upsertBuurtdataLead(data: {
   email: string;
   telefoon?: string | null;
   adres?: string;
+  woningType?: "huidig" | "potentieel" | "anders";
 }): Promise<void> {
   const naamParts = data.naam.trim().split(/\s+/);
   const firstname = naamParts[0] || "";
@@ -689,6 +690,18 @@ export async function upsertBuurtdataLead(data: {
     if (ids.length > 0) contactId = parseInt(ids[0]);
   }
 
+  // Segment-tag op basis van woningtype
+  const woningTag =
+    data.woningType === "huidig"
+      ? "buurtdata-eigen-woning"
+      : data.woningType === "potentieel"
+      ? "buurtdata-potentieel-koper"
+      : "buurtdata-overig";
+
+  // kijker_eigen_woning: true = huidige eigenaar (mogelijk verkoper), false = zoeker
+  const eigenWoningVal =
+    data.woningType === "huidig" ? "1" : data.woningType === "potentieel" ? "0" : null;
+
   const fields: Record<string, string> = {
     firstname,
     lastname,
@@ -696,6 +709,9 @@ export async function upsertBuurtdataLead(data: {
     kijker_lead_herkomst: "website-buurtdata",
   };
   if (data.telefoon) fields.phone = data.telefoon;
+  if (eigenWoningVal !== null) fields.kijker_eigen_woning = eigenWoningVal;
+
+  const tags = ["buurtdata-lead", woningTag];
 
   if (contactId) {
     await mauticFetch(`/api/contacts/${contactId}/edit`, {
@@ -704,12 +720,12 @@ export async function upsertBuurtdataLead(data: {
     });
     await mauticFetch(`/api/contacts/${contactId}/tags/add`, {
       method: "POST",
-      body: JSON.stringify({ tags: ["buurtdata-lead"] }),
+      body: JSON.stringify({ tags }),
     });
   } else {
     const createRes = await mauticFetch("/api/contacts/new", {
       method: "POST",
-      body: JSON.stringify({ ...fields, tags: ["buurtdata-lead"] }),
+      body: JSON.stringify({ ...fields, tags }),
     });
     if (createRes.ok) {
       const created = await createRes.json();
@@ -718,7 +734,16 @@ export async function upsertBuurtdataLead(data: {
   }
 
   if (contactId && data.adres) {
-    await addMauticNote(contactId, `Buurtrapport aangevraagd voor: ${data.adres}`);
+    const typeLabel =
+      data.woningType === "huidig"
+        ? "huidige woning"
+        : data.woningType === "potentieel"
+        ? "potentiële aankoop"
+        : "overig";
+    await addMauticNote(
+      contactId,
+      `Buurtrapport aangevraagd voor: ${data.adres} (${typeLabel})`
+    );
   }
 }
 

@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Ongeldig verzoek" }, { status: 400 });
   }
 
-  const { postcode, huisnummer, huisletter, huisnummer_toevoeging, naam, email, telefoon } = body as Record<string, string>;
+  const { postcode, huisnummer, huisletter, huisnummer_toevoeging, naam, email, telefoon, woningType } = body as Record<string, string>;
 
   // Validatie
   if (!postcode || !huisnummer) {
@@ -84,12 +84,17 @@ export async function POST(request: NextRequest) {
     (buurtdata as { adres?: { volledig?: string } }).adres?.volledig ||
     `${postcodeNorm} ${huisnummerInt}`;
 
+  const woningTypeVal = ["huidig", "potentieel", "anders"].includes(String(woningType))
+    ? (woningType as "huidig" | "potentieel" | "anders")
+    : undefined;
+
   try {
     await upsertBuurtdataLead({
       naam: String(naam).trim(),
       email: String(email).trim().toLowerCase(),
       telefoon: telefoon ? String(telefoon).trim() : null,
       adres: volledigAdres,
+      woningType: woningTypeVal,
     });
   } catch (err) {
     console.error("Mautic lead aanmaken mislukt:", err);
