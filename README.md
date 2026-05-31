@@ -11,7 +11,7 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 - **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info en kosten. Projecten kunnen worden samengevoegd
 - **Contacten** — Mautic CRM overzicht met zoekfunctie, contactdetails bewerken, AI data profiel en email activiteit. Nieuw contact aanmaken direct vanuit de pagina
 - **Pipeline** — Kanban-board op basis van `verkoopgesprek_status` uit Mautic, met interesse-scores en AI profielen
-- **Buurtdata** — Opzoeken van wijkdata op basis van postcode + huisnummer via n8n. Genereert een printbaar rapport met: BAG-gegevens, leefbaarheidsscore, bevolkingssamenstelling, huishoudens, woningmarkt, inkomen, bereikbaarheid, klimaat, geluidsbelasting en luchtkwaliteit
+- **Buurtdata** — Opzoeken van wijkdata op basis van postcode + huisnummer via n8n. Genereert een printbaar rapport met: BAG-gegevens, leefbaarheidsscore, bevolkingssamenstelling, huishoudens, woningmarkt, inkomen, bereikbaarheid, klimaat, geluidsbelasting en luchtkwaliteit. Beschikbaar als interne tool (authenticated) én als publieke lead generator via `/buurtdata-rapport` (WordPress shortcode `[buurtdata_rapport]`)
 - **Tijdregistratie** — Timer per taak (start/pauze/stop) + handmatig tijd toevoegen, logboek van sessies, beschikbaar via API
 - **Mautic** — CRM contacten opzoeken, aanmaken en bijwerken (inclusief AI data profiel en email activiteit)
 - **Notion** — Bidirectionele sync via n8n webhooks
@@ -541,6 +541,103 @@ De buurtdata pagina (`/buurtdata`) toont deze data als een printbaar rapport ges
 
 ---
 
+### Buurtdata Lead Generator `/api/public/buurtdata`
+
+Publiek endpoint — **geen authenticatie vereist**. Bedoeld voor de WordPress-widget en directe bezoekers.
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `POST` | `/api/public/buurtdata` | Haal buurtdata op én registreer de bezoeker als Mautic-lead |
+
+#### `POST /api/public/buurtdata` — Body
+
+| Veld | Vereist | Omschrijving |
+|------|---------|--------------|
+| `postcode` | ✅ | Postcode (bijv. `1234AB`) |
+| `huisnummer` | ✅ | Huisnummer (integer ≥ 1) |
+| `naam` | ✅ | Volledige naam van de bezoeker |
+| `email` | ✅ | E-mailadres (wordt gevalideerd op formaat) |
+| `huisletter` | | Optionele huisletter |
+| `huisnummer_toevoeging` | | Optionele toevoeging |
+| `telefoon` | | Telefoonnummer |
+| `woningType` | | `huidig` \| `potentieel` \| `anders` — voor welk type woning het rapport wordt aangevraagd |
+
+De response is identiek aan `/api/buurtdata`. Mautic-lead aanmaken is **niet-blokkerend**: als de CRM-koppeling wegvalt, krijgt de bezoeker nog steeds zijn rapport.
+
+#### Mautic-koppeling
+
+Bij elk verzoek wordt het contact gezocht op e-mailadres en aangemaakt of bijgewerkt:
+
+| Actie | Omschrijving |
+|-------|--------------|
+| Aanmaken of bijwerken | `firstname`, `lastname`, `email`, `phone` |
+| `kijker_lead_herkomst` | Ingesteld op `website-buurtdata` |
+| `kijker_eigen_woning` | `1` bij `woningType=huidig`, `0` bij `potentieel`, leeg bij `anders` |
+| Tags | Altijd `buurtdata-lead` + één segment-tag (zie tabel hieronder) |
+| Notitie | `Buurtrapport aangevraagd voor: [adres] ([woningtype])` |
+
+**Segment-tags op basis van woningtype:**
+
+| `woningType` | Tag | Betekenis |
+|---|---|---|
+| `huidig` | `buurtdata-eigen-woning` | Huidige eigenaar — potentieel verkoper |
+| `potentieel` | `buurtdata-potentieel-koper` | Oriënteert zich op aankoop |
+| `anders` | `buurtdata-overig` | Overige interesse |
+
+---
+
+### Publieke pagina `/buurtdata-rapport`
+
+URL (na deployment): `https://platform.devreemakelaardij.nl/buurtdata-rapport`
+
+Driestappe flow voor bezoekers:
+
+1. **Adres** — postcode + huisnummer (+ optioneel huisletter / toevoeging)
+2. **Gegevens** — keuze woningtype (visuele kaarten) + naam, e-mail, telefoon, toestemmingscheckbox (AVG)
+3. **Rapport** — volledig buurtrapport direct zichtbaar + bevestiging per e-mail
+
+De pagina stuurt zijn hoogte via `postMessage` naar de parent voor automatische iframe-resize.
+
+---
+
+### WordPress shortcode plugin
+
+**Bestand:** `wordpress/buurtdata-widget/buurtdata-widget.php`
+
+#### Installatie
+
+1. Kopieer de map `wordpress/buurtdata-widget/` naar `wp-content/plugins/` op de WordPress-server
+2. Activeer de plugin via **Plugins → Geïnstalleerde plugins** in het WordPress-dashboard
+3. Stel de platform-URL in `wp-config.php` in:
+
+```php
+define( 'DEVREE_PLATFORM_URL', 'https://platform.devreemakelaardij.nl' );
+```
+
+> Zonder deze definitie valt de plugin terug op `https://platform.devreemakelaardij.nl` als standaard.
+
+#### Shortcode gebruiken
+
+Plak de shortcode in elke pagina, post of widget:
+
+```
+[buurtdata_rapport]
+```
+
+Met aangepaste minimale hoogte (standaard 800 px):
+
+```
+[buurtdata_rapport hoogte="1000"]
+```
+
+De iframe past zijn hoogte automatisch aan op basis van de inhoud (via `postMessage`). De opgegeven `hoogte` is de beginhoogte — zodra de pagina volledig geladen en ingevuld is, wordt de hoogte automatisch bijgesteld.
+
+#### iframe-headers (Next.js)
+
+De header `X-Frame-Options: ALLOWALL` en `Content-Security-Policy: frame-ancestors *` zijn al geconfigureerd in `next.config.ts` voor het pad `/buurtdata-rapport`. Geen extra serverinstelling nodig.
+
+---
+
 ---
 
 ## n8n Workflows
@@ -650,6 +747,7 @@ CREATE TABLE time_entries (
 | `MAUTIC_CLIENT_ID` | Mautic OAuth2 client ID |
 | `MAUTIC_CLIENT_SECRET` | Mautic OAuth2 client secret |
 | `NEXT_PUBLIC_MAUTIC_URL` | Publieke Mautic URL (voor frontend links naar contactpagina's) |
+| `NEXT_PUBLIC_PLATFORM_URL` | Publieke URL van dit platform — gebruikt in de WordPress shortcode plugin als `iframe src` (bijv. `https://platform.devreemakelaardij.nl`) |
 | `CALL_NOTE_WEBHOOK_URL` | Optionele webhook URL die wordt aangeroepen bij het opslaan van een gespreksnotitie |
 | `NEXT_PUBLIC_DEBITEUREN_URL` | Externe link naar het debiteuren/facturatie systeem (zichtbaar in sidebar) |
 

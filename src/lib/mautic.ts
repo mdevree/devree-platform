@@ -662,6 +662,92 @@ export async function addMauticNote(contactId: number, text: string): Promise<vo
 }
 
 /**
+ * Maak een buurtdata lead aan of update een bestaand contact in Mautic.
+ * Zoekt op e-mailadres, maakt nieuw aan als niet gevonden.
+ * Voegt tag "buurtdata-lead" toe en slaat het gezochte adres op als notitie.
+ */
+export async function upsertBuurtdataLead(data: {
+  naam: string;
+  email: string;
+  telefoon?: string | null;
+  adres?: string;
+  woningType?: "huidig" | "potentieel" | "anders";
+}): Promise<void> {
+  const naamParts = data.naam.trim().split(/\s+/);
+  const firstname = naamParts[0] || "";
+  const lastname = naamParts.slice(1).join(" ") || "";
+
+  // Zoek bestaand contact op e-mailadres
+  const searchRes = await mauticFetch(
+    `/api/contacts?where[0][col]=email&where[0][expr]=eq&where[0][val]=${encodeURIComponent(data.email)}&limit=1`
+  );
+
+  let contactId: number | null = null;
+
+  if (searchRes.ok) {
+    const searchData = await searchRes.json();
+    const ids = Object.keys(searchData.contacts || {});
+    if (ids.length > 0) contactId = parseInt(ids[0]);
+  }
+
+  // Segment-tag op basis van woningtype
+  const woningTag =
+    data.woningType === "huidig"
+      ? "buurtdata-eigen-woning"
+      : data.woningType === "potentieel"
+      ? "buurtdata-potentieel-koper"
+      : "buurtdata-overig";
+
+  // kijker_eigen_woning: true = huidige eigenaar (mogelijk verkoper), false = zoeker
+  const eigenWoningVal =
+    data.woningType === "huidig" ? "1" : data.woningType === "potentieel" ? "0" : null;
+
+  const fields: Record<string, string> = {
+    firstname,
+    lastname,
+    email: data.email,
+    kijker_lead_herkomst: "website-buurtdata",
+  };
+  if (data.telefoon) fields.phone = data.telefoon;
+  if (eigenWoningVal !== null) fields.kijker_eigen_woning = eigenWoningVal;
+
+  const tags = ["buurtdata-lead", woningTag];
+
+  if (contactId) {
+    await mauticFetch(`/api/contacts/${contactId}/edit`, {
+      method: "PATCH",
+      body: JSON.stringify(fields),
+    });
+    await mauticFetch(`/api/contacts/${contactId}/tags/add`, {
+      method: "POST",
+      body: JSON.stringify({ tags }),
+    });
+  } else {
+    const createRes = await mauticFetch("/api/contacts/new", {
+      method: "POST",
+      body: JSON.stringify({ ...fields, tags }),
+    });
+    if (createRes.ok) {
+      const created = await createRes.json();
+      contactId = created.contact?.id ?? null;
+    }
+  }
+
+  if (contactId && data.adres) {
+    const typeLabel =
+      data.woningType === "huidig"
+        ? "huidige woning"
+        : data.woningType === "potentieel"
+        ? "potentiële aankoop"
+        : "overig";
+    await addMauticNote(
+      contactId,
+      `Buurtrapport aangevraagd voor: ${data.adres} (${typeLabel})`
+    );
+  }
+}
+
+/**
  * Werk contact velden bij in Mautic
  */
 export async function updateContact(
