@@ -662,6 +662,67 @@ export async function addMauticNote(contactId: number, text: string): Promise<vo
 }
 
 /**
+ * Maak een buurtdata lead aan of update een bestaand contact in Mautic.
+ * Zoekt op e-mailadres, maakt nieuw aan als niet gevonden.
+ * Voegt tag "buurtdata-lead" toe en slaat het gezochte adres op als notitie.
+ */
+export async function upsertBuurtdataLead(data: {
+  naam: string;
+  email: string;
+  telefoon?: string | null;
+  adres?: string;
+}): Promise<void> {
+  const naamParts = data.naam.trim().split(/\s+/);
+  const firstname = naamParts[0] || "";
+  const lastname = naamParts.slice(1).join(" ") || "";
+
+  // Zoek bestaand contact op e-mailadres
+  const searchRes = await mauticFetch(
+    `/api/contacts?where[0][col]=email&where[0][expr]=eq&where[0][val]=${encodeURIComponent(data.email)}&limit=1`
+  );
+
+  let contactId: number | null = null;
+
+  if (searchRes.ok) {
+    const searchData = await searchRes.json();
+    const ids = Object.keys(searchData.contacts || {});
+    if (ids.length > 0) contactId = parseInt(ids[0]);
+  }
+
+  const fields: Record<string, string> = {
+    firstname,
+    lastname,
+    email: data.email,
+    kijker_lead_herkomst: "website-buurtdata",
+  };
+  if (data.telefoon) fields.phone = data.telefoon;
+
+  if (contactId) {
+    await mauticFetch(`/api/contacts/${contactId}/edit`, {
+      method: "PATCH",
+      body: JSON.stringify(fields),
+    });
+    await mauticFetch(`/api/contacts/${contactId}/tags/add`, {
+      method: "POST",
+      body: JSON.stringify({ tags: ["buurtdata-lead"] }),
+    });
+  } else {
+    const createRes = await mauticFetch("/api/contacts/new", {
+      method: "POST",
+      body: JSON.stringify({ ...fields, tags: ["buurtdata-lead"] }),
+    });
+    if (createRes.ok) {
+      const created = await createRes.json();
+      contactId = created.contact?.id ?? null;
+    }
+  }
+
+  if (contactId && data.adres) {
+    await addMauticNote(contactId, `Buurtrapport aangevraagd voor: ${data.adres}`);
+  }
+}
+
+/**
  * Werk contact velden bij in Mautic
  */
 export async function updateContact(
