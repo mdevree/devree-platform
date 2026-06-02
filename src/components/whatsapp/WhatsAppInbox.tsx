@@ -73,7 +73,6 @@ export default function WhatsAppInbox() {
   useEffect(() => {
     if (!activeId) return;
     loadMessages(activeId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
   useEffect(() => {

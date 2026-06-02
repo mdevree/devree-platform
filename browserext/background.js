@@ -10,7 +10,6 @@
 const QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-tasks';
 const TAXATIE_QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-taxatie-tasks';
 const REALWORKS_BASE = 'https://crm.realworks.nl';
-const SAVE_PATH = '/servlets/objects/rela.person/grid';
 
 // Webhook secret — zelfde als N8N_WEBHOOK_SECRET op de VPS.
 // Wordt ingesteld via de opties-pagina en bewaard in chrome.storage.local,

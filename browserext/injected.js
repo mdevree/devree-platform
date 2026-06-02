@@ -82,7 +82,7 @@
           isMultipart: form.enctype === 'multipart/form-data',
           url: actionPath,
         }, '*');
-      } catch (_) {}
+      } catch {}
       return;
     }
 
@@ -100,7 +100,7 @@
           data: extractLeadResponse(data),
           url: actionPath,
         }, '*');
-      } catch (_) {}
+      } catch {}
       return;
     }
 
@@ -121,7 +121,7 @@
           isMultipart: form.enctype === 'multipart/form-data',
           url: actionPath,
         }, '*');
-      } catch (_) {}
+      } catch {}
     }
   }, true);
 
@@ -146,7 +146,7 @@
               url: actionPath,
             }, '*');
           }
-        } catch (_) {}
+        } catch {}
       }
 
       if (actionPath.includes(TAXATIE_PATH)) {
@@ -165,7 +165,7 @@
               url: actionPath,
             }, '*');
           }
-        } catch (_) {}
+        } catch {}
       }
     }
     return origFormSubmit.call(this);
@@ -203,7 +203,7 @@
                 new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
               }
               window.postMessage({ type: 'REALWORKS_CONTACT', data, url: _url }, '*');
-            } catch (_) {}
+            } catch {}
           }
         });
       }
@@ -225,7 +225,7 @@
                   new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
                 }
                 window.postMessage({ type: 'REALWORKS_TAXATIE', data, url: _url }, '*');
-              } catch (_) {}
+              } catch {}
             }
           });
         }
@@ -243,7 +243,7 @@
                 employees: params.get('employees'),
               };
               window.postMessage({ type: 'REALWORKS_AGENDA', data: response, meta, url: _url }, '*');
-            } catch (_) {}
+            } catch {}
           }
         });
       }

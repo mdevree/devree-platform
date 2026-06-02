@@ -78,10 +78,6 @@ const statusTabs = [
   { key: "afgerond", label: "Afgerond/Geannuleerd", statusGroup: "terminal" },
 ];
 
-function getProjectStatus(project: Project): string {
-  return project.projectStatus || project.status;
-}
-
 function getStatusLabel(project: Project): string {
   const s = project.projectStatus;
   if (s && STATUS_LABELS[s]) return STATUS_LABELS[s];
