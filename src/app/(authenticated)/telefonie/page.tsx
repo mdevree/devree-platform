@@ -170,6 +170,8 @@ export default function TelefoniePage() {
 
   // Check of er een 'nieuw' parameter is (van call notification)
   useEffect(() => {
+    // Synchroniseert een URL-parameter (externe bron) eenmalig naar state.
+    /* eslint-disable react-hooks/set-state-in-effect */
     const nieuwNummer = searchParams.get("nieuw");
     if (nieuwNummer) {
       setNewContactPhone(nieuwNummer);
@@ -184,6 +186,7 @@ export default function TelefoniePage() {
       setSourceCallId(null); // Geen specifiek gesprek bij URL-parameter flow
       setShowNewContact(true);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [searchParams]);
 
   const fetchCalls = useCallback(async () => {
@@ -207,6 +210,8 @@ export default function TelefoniePage() {
   }, [page, search, filterDirection, filterReason]);
 
   useEffect(() => {
+    // Data-fetch synchroniseert met de externe API; setLoading hierin is bewust.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCalls();
   }, [fetchCalls]);
 

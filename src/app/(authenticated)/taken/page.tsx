@@ -281,6 +281,8 @@ export default function TakenPage() {
   }, []);
 
   useEffect(() => {
+    // Data-fetch synchroniseert met de externe API; setLoading hierin is bewust.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTasks();
     fetchUsers();
   }, [fetchTasks, fetchUsers]);

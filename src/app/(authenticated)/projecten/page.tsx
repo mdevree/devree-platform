@@ -228,6 +228,8 @@ export default function ProjectenPage() {
   }, [page, search, typeFilter, statusFilter]);
 
   useEffect(() => {
+    // Data-fetch synchroniseert met de externe API; setLoading hierin is bewust.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProjects();
   }, [fetchProjects]);
 
