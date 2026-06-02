@@ -72,5 +72,12 @@ export async function POST(
     );
   }
 
+  // Markeer als aangevraagd zodat de UI de generatie-cyclus kan volgen.
+  // n8n meldt het eindresultaat terug via /cheatsheet/status.
+  await prisma.agendaAfspraak.update({
+    where: { id },
+    data: { cheatsheetStatus: "gevraagd" },
+  });
+
   return NextResponse.json({ ok: true, afspraakId: id });
 }

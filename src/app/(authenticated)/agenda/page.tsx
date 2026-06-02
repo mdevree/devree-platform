@@ -11,13 +11,21 @@ import {
   MapPinIcon,
   UserIcon,
   BuildingOfficeIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
+import BezichtigingDetailPaneel from "./BezichtigingDetailPaneel";
 
 interface ProjectInfo {
   id: string;
   name: string;
   woningAdres: string | null;
   woningPlaats: string | null;
+}
+
+interface LeadInfo {
+  id: string;
+  status: string;
+  prioriteit: string;
 }
 
 interface Afspraak {
@@ -41,10 +49,13 @@ interface Afspraak {
   projectId: string | null;
   enrichedAt: string | null;
   enrichmentStatus: string | null;
+  leadId: string | null;
+  cheatsheetStatus: string | null;
   project: ProjectInfo | null;
+  lead: LeadInfo | null;
 }
 
-type ViewMode = "week" | "dag" | "lijst";
+type ViewMode = "week" | "dag" | "lijst" | "bezichtigingen";
 
 const MEDEWERKER_KLEUREN: Record<string, string> = {};
 const KLEUR_PALET = [
@@ -118,6 +129,7 @@ export default function AgendaPage() {
   const [agTypes, setAgTypes] = useState<string[]>([]);
   const [medewerkers, setMedewerkers] = useState<string[]>([]);
   const [woningFotos, setWoningFotos] = useState<Record<string, string | null>>({});
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const weekEind = new Date(weekStart);
   weekEind.setDate(weekStart.getDate() + 6);
@@ -141,9 +153,12 @@ export default function AgendaPage() {
         params.set("van", dagStart.toISOString());
         params.set("tot", dagEind.toISOString());
       } else {
+        // lijst & bezichtigingen: vanaf nu vooruit
         params.set("van", new Date().toISOString());
       }
-      if (typeFilter !== "alle") params.set("type", typeFilter);
+      // De bezichtigingen-weergave toont uitsluitend bezichtigingen.
+      if (view === "bezichtigingen") params.set("type", "bezichtiging");
+      else if (typeFilter !== "alle") params.set("type", typeFilter);
       if (medewerkerFilter !== "alle") params.set("medewerker", medewerkerFilter);
 
       const res = await fetch(`/api/agenda?${params}`);
@@ -314,7 +329,7 @@ export default function AgendaPage() {
             </button>
             <button
               onClick={() => switchView("lijst")}
-              className={`flex items-center gap-1.5 rounded-r-lg px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 border-l border-gray-200 px-3 py-2 text-sm font-medium transition-colors ${
                 view === "lijst"
                   ? "bg-primary text-white"
                   : "text-gray-600 hover:bg-gray-50"
@@ -322,6 +337,17 @@ export default function AgendaPage() {
             >
               <ListBulletIcon className="h-4 w-4" />
               Lijst
+            </button>
+            <button
+              onClick={() => switchView("bezichtigingen")}
+              className={`flex items-center gap-1.5 rounded-r-lg border-l border-gray-200 px-3 py-2 text-sm font-medium transition-colors ${
+                view === "bezichtigingen"
+                  ? "bg-primary text-white"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <EyeIcon className="h-4 w-4" />
+              Bezichtigingen
             </button>
           </div>
 
@@ -360,18 +386,20 @@ export default function AgendaPage() {
 
       {/* Filters */}
       <div className="mb-4 flex gap-3">
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary focus:outline-none"
-        >
-          <option value="alle">Alle types</option>
-          {agTypes.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+        {view !== "bezichtigingen" && (
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary focus:outline-none"
+          >
+            <option value="alle">Alle types</option>
+            {agTypes.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        )}
 
         <select
           value={medewerkerFilter}
@@ -399,6 +427,7 @@ export default function AgendaPage() {
           isVandaag={isVandaag}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
+          onOpenDetail={setDetailId}
           woningFotos={woningFotos}
         />
       ) : view === "week" ? (
@@ -408,6 +437,15 @@ export default function AgendaPage() {
           isVandaag={isVandaag}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
+          onOpenDetail={setDetailId}
+          woningFotos={woningFotos}
+        />
+      ) : view === "bezichtigingen" ? (
+        <BezichtigingenWeergave
+          afspraken={afspraken}
+          enrichingIds={enrichingIds}
+          onEnrich={enrichAfspraak}
+          onOpenDetail={setDetailId}
           woningFotos={woningFotos}
         />
       ) : (
@@ -415,7 +453,17 @@ export default function AgendaPage() {
           afspraken={afspraken}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
+          onOpenDetail={setDetailId}
           woningFotos={woningFotos}
+        />
+      )}
+
+      {/* Detailpaneel bezichtiging */}
+      {detailId && (
+        <BezichtigingDetailPaneel
+          afspraakId={detailId}
+          onClose={() => setDetailId(null)}
+          onGekoppeld={laadAfspraken}
         />
       )}
     </div>
@@ -430,6 +478,7 @@ function DagWeergave({
   isVandaag,
   enrichingIds,
   onEnrich,
+  onOpenDetail,
   woningFotos,
 }: {
   dag: Date;
@@ -437,6 +486,7 @@ function DagWeergave({
   isVandaag: (dag: Date) => boolean;
   enrichingIds: Set<string>;
   onEnrich: (id: string) => void;
+  onOpenDetail: (id: string) => void;
   woningFotos: Record<string, string | null>;
 }) {
   const vandaag = isVandaag(dag);
@@ -473,6 +523,7 @@ function DagWeergave({
               afspraak={a}
               enriching={enrichingIds.has(a.id)}
               onEnrich={onEnrich}
+              onOpenDetail={onOpenDetail}
               woningFoto={a.agobjcode ? (woningFotos[a.agobjcode] ?? null) : null}
             />
           ))}
@@ -490,6 +541,7 @@ function WeekWeergave({
   isVandaag,
   enrichingIds,
   onEnrich,
+  onOpenDetail,
   woningFotos,
 }: {
   dagen: Date[];
@@ -497,6 +549,7 @@ function WeekWeergave({
   isVandaag: (dag: Date) => boolean;
   enrichingIds: Set<string>;
   onEnrich: (id: string) => void;
+  onOpenDetail: (id: string) => void;
   woningFotos: Record<string, string | null>;
 }) {
   return (
@@ -532,6 +585,7 @@ function WeekWeergave({
                     afspraak={a}
                     enriching={enrichingIds.has(a.id)}
                     onEnrich={onEnrich}
+                    onOpenDetail={onOpenDetail}
                     woningFoto={a.agobjcode ? (woningFotos[a.agobjcode] ?? null) : null}
                   />
                 ))}
@@ -550,11 +604,13 @@ function LijstWeergave({
   afspraken,
   enrichingIds,
   onEnrich,
+  onOpenDetail,
   woningFotos,
 }: {
   afspraken: Afspraak[];
   enrichingIds: Set<string>;
   onEnrich: (id: string) => void;
+  onOpenDetail: (id: string) => void;
   woningFotos: Record<string, string | null>;
 }) {
   if (afspraken.length === 0) {
@@ -587,9 +643,113 @@ function LijstWeergave({
                 afspraak={a}
                 enriching={enrichingIds.has(a.id)}
                 onEnrich={onEnrich}
+                onOpenDetail={onOpenDetail}
                 woningFoto={a.agobjcode ? (woningFotos[a.agobjcode] ?? null) : null}
               />
             ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Bezichtigingen weergave ──────────────────────────────────────────────────────
+
+function leadStatusBadge(status: string): string {
+  switch (status) {
+    case "KIJKER": return "bg-blue-100 text-blue-700";
+    case "ZOEKER": return "bg-amber-100 text-amber-700";
+    case "CONVERTED": return "bg-green-100 text-green-700";
+    case "INACTIEF": return "bg-gray-100 text-gray-500";
+    default: return "bg-gray-100 text-gray-600";
+  }
+}
+
+function BezichtigingenWeergave({
+  afspraken,
+  enrichingIds,
+  onEnrich,
+  onOpenDetail,
+}: {
+  afspraken: Afspraak[];
+  enrichingIds: Set<string>;
+  onEnrich: (id: string) => void;
+  onOpenDetail: (id: string) => void;
+  woningFotos: Record<string, string | null>;
+}) {
+  if (afspraken.length === 0) {
+    return (
+      <div className="py-16 text-center text-gray-400">
+        Geen komende bezichtigingen gevonden.
+      </div>
+    );
+  }
+
+  // Groepeer per woning (project)
+  const groepen = new Map<string, { naam: string; items: Afspraak[] }>();
+  for (const a of afspraken) {
+    const key = a.project?.id ?? a.agobjcode ?? "onbekend";
+    const naam = a.project?.name ?? "Niet-gekoppelde woning";
+    if (!groepen.has(key)) groepen.set(key, { naam, items: [] });
+    groepen.get(key)!.items.push(a);
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {[...groepen.entries()].map(([key, { naam, items }]) => (
+        <div key={key} className="rounded-xl border border-gray-200 bg-white">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
+            <BuildingOfficeIcon className="h-4 w-4 text-primary" />
+            <span className="font-medium text-gray-900">{naam}</span>
+            <span className="text-xs text-gray-400">· {items.length} bezichtiging{items.length === 1 ? "" : "en"}</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {items.map((a) => {
+              const enriching = enrichingIds.has(a.id);
+              const heeftContact = Boolean(a.contactNaam || a.contactEmail);
+              return (
+                <div key={a.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                  <div className="min-w-[120px] text-sm text-gray-600">
+                    {formatDatum(a.agbegin)}
+                    <div className="text-xs text-gray-400">{formatTijd(a.agbegin)}</div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800">{a.contactNaam || "Onbekende kijker"}</p>
+                    <p className="text-xs text-gray-400">{a.medewerkerFullname ?? a.agowner}</p>
+                  </div>
+                  {/* Kijker-koppelstatus */}
+                  {a.lead ? (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${leadStatusBadge(a.lead.status)}`}>
+                      {a.lead.status}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-gray-50 px-2 py-0.5 text-xs text-gray-400">geen kijker</span>
+                  )}
+                  {/* Cheatsheet-status */}
+                  {a.cheatsheetStatus && (
+                    <span className="rounded bg-purple-50 px-2 py-0.5 text-xs text-purple-600">
+                      PDF: {a.cheatsheetStatus}
+                    </span>
+                  )}
+                  {!heeftContact && a.agrcode && (
+                    <button
+                      onClick={() => onEnrich(a.id)}
+                      disabled={enriching}
+                      className="rounded-lg bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+                    >
+                      {enriching ? "..." : "Verrijk"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onOpenDetail(a.id)}
+                    className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    Detail
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -603,13 +763,16 @@ function AfspraakKaart({
   afspraak: a,
   enriching,
   onEnrich,
+  onOpenDetail,
   woningFoto,
 }: {
   afspraak: Afspraak;
   enriching: boolean;
   onEnrich: (id: string) => void;
+  onOpenDetail: (id: string) => void;
   woningFoto: string | null;
 }) {
+  const isBezichtiging = (a.agtype ?? "").toLowerCase() === "bezichtiging";
   const heeftContact = Boolean(a.contactNaam || a.contactEmail || a.contactTelefoon);
   const heeftTelefoon = Boolean(a.contactTelefoon);
   const kleur = medewerkerKleur(a.medewerkerFullname ?? a.agowner);
@@ -724,6 +887,22 @@ function AfspraakKaart({
           )}
           {heeftContact ? "Vernieuwen" : "Meer info"}
         </button>
+
+        {/* Detail (bezichtiging) */}
+        {isBezichtiging && (
+          <button
+            onClick={() => onOpenDetail(a.id)}
+            className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+          >
+            <EyeIcon className="h-3.5 w-3.5" />
+            Detail
+            {a.lead && (
+              <span className="ml-1 rounded-full bg-white/60 px-1.5 text-[10px] font-semibold">
+                {a.lead.status}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* Bellen */}
         {heeftTelefoon && (

@@ -92,6 +92,12 @@ export async function POST(
     await updateContact(mauticContactId, velden);
   }
 
+  // Markeer de bezichtiging als verwerkt zodat de UI de cyclus sluit.
+  await prisma.agendaAfspraak.update({
+    where: { id },
+    data: { cheatsheetStatus: "verwerkt" },
+  });
+
   // Een afgeronde bezichtiging met hoge interesse is een sterk koopsignaal.
   const interesse = Number(body.bezichtigingInteresse);
   if (!Number.isNaN(interesse) && interesse >= 60) {
