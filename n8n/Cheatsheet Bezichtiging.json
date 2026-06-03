@@ -12,116 +12,151 @@
       "name": "Webhook: Genereer cheat-sheet",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-1280, 200],
+      "position": [
+        -1280,
+        200
+      ],
       "webhookId": "cheatsheet-genereer"
     },
     {
       "parameters": {
         "url": "={{ $json.body.contextUrl }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "options": {}
       },
       "id": "cc001111-0000-0000-0000-000000000002",
       "name": "Haal afspraak-context op",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-1060, 200]
+      "position": [
+        -1060,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "Platform webhook secret"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "// Render een A4 HTML-cheatsheet met woning- en kijkerinfo plus ruime\n// aantekenvlakken die 1-op-1 mappen op de Mautic-velden die\n// POST /api/agenda/[id]/cheatsheet/verwerk verwacht.\n// De HTML wordt als binary 'data' (index.html) doorgegeven aan Gotenberg.\nconst ctx = $input.first().json;\nconst a = ctx.afspraak || {};\nconst k = ctx.kijker || {};\nconst w = ctx.woning || {};\nconst ai = k.aiAnalyse || {};\nconst kw = k.kwalificatie || {};\nconst bz = k.bezichtiging || {};\n\nconst esc = (v) => (v === null || v === undefined ? '' : String(v)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));\nconst jaNee = (v) => (v === true ? 'Ja' : v === false ? 'Nee' : '-');\nconst beginISO = a.begin || '';\nconst beginNL = beginISO ? new Date(beginISO).toLocaleString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';\nconst prijs = w.prijs && w.prijs.koopsom ? ('\\u20ac ' + Number(w.prijs.koopsom).toLocaleString('nl-NL')) : (w.prijs && w.prijs.koopprijsLabel) || '';\n\nconst html = `<!DOCTYPE html><html lang=\"nl\"><head><meta charset=\"utf-8\"><style>\n  @page { size: A4; margin: 16mm; }\n  body{font-family:system-ui,Arial,sans-serif;color:#1f2937;font-size:12px;line-height:1.45}\n  h1{font-size:19px;margin:0 0 2px}\n  h2{font-size:13px;border-bottom:1px solid #e5e7eb;padding-bottom:3px;margin:16px 0 6px;color:#0f172a}\n  .sub{color:#64748b;margin-bottom:10px}\n  .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}\n  .row{display:flex;gap:6px}\n  .lab{font-weight:600;color:#475569;min-width:130px}\n  .foto{float:right;width:180px;height:120px;object-fit:cover;border-radius:8px;margin:0 0 8px 12px}\n  .vak{border:1px solid #cbd5e1;border-radius:6px;min-height:64px;margin:4px 0 10px;padding:6px}\n  .vaklabel{font-weight:600;font-size:11px;color:#475569;margin-top:8px}\n  .pill{display:inline-block;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:1px 8px;font-size:11px}\n</style></head><body>\n  ${w.foto ? `<img class=\"foto\" src=\"${esc(w.foto)}\"/>` : ''}\n  <h1>Bezichtiging \\u2014 ${esc(a.contactNaam || k.naam || '')}</h1>\n  <div class=\"sub\">${esc(w.titel || '')}${w.adres ? ' \\u00b7 ' + esc(w.adres) : ''}<br/>${esc(beginNL)}${a.medewerker ? ' \\u00b7 ' + esc(a.medewerker) : ''}</div>\n\n  <h2>Woning</h2>\n  <div class=\"grid\">\n    <div class=\"row\"><span class=\"lab\">Vraagprijs</span><span>${esc(prijs)}</span></div>\n    <div class=\"row\"><span class=\"lab\">Woonoppervlak</span><span>${esc(w.kenmerken?.woonoppervlakte || '')} m\\u00b2</span></div>\n    <div class=\"row\"><span class=\"lab\">Kamers</span><span>${esc(w.kenmerken?.kamers || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">Bouwjaar</span><span>${esc(w.kenmerken?.bouwjaar || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">Energieklasse</span><span>${esc(w.kenmerken?.energieklasse || '')}</span></div>\n  </div>\n\n  <h2>Kijker</h2>\n  <div class=\"grid\">\n    <div class=\"row\"><span class=\"lab\">Telefoon</span><span>${esc(k.telefoon || a.contactTelefoon || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">E-mail</span><span>${esc(k.email || a.contactEmail || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">Eigen woning</span><span>${jaNee(kw.heeftEigenWoning)}</span></div>\n    <div class=\"row\"><span class=\"lab\">Overweegt verkoop</span><span>${jaNee(kw.overwegtVerkoop)}</span></div>\n    <div class=\"row\"><span class=\"lab\">Hypotheekstatus</span><span>${esc(kw.hypotheekStatus || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">Eerdere interesse</span><span>${bz.interesseScore != null ? esc(bz.interesseScore) + '/100' : '-'}</span></div>\n  </div>\n  ${(ai.huidigeSituatie || ai.woningMotivatie || ai.budgetIndicatie || ai.tijdlijn) ? `<div style=\"margin-top:6px\">\n    ${ai.huidigeSituatie ? `<div class=\"row\"><span class=\"lab\">Situatie</span><span>${esc(ai.huidigeSituatie)}</span></div>` : ''}\n    ${ai.woningMotivatie ? `<div class=\"row\"><span class=\"lab\">Motivatie</span><span>${esc(ai.woningMotivatie)}</span></div>` : ''}\n    ${ai.budgetIndicatie ? `<div class=\"row\"><span class=\"lab\">Budget</span><span>${esc(ai.budgetIndicatie)}</span></div>` : ''}\n    ${ai.tijdlijn ? `<div class=\"row\"><span class=\"lab\">Tijdlijn</span><span>${esc(ai.tijdlijn)}</span></div>` : ''}\n  </div>` : ''}\n\n  <h2>Aantekeningen (worden via OCR teruggelezen naar Mautic)</h2>\n  <div class=\"vaklabel\">Notities bezichtiging</div><div class=\"vak\"></div>\n  <div class=\"vaklabel\">Interesse 0\\u2013100</div><div class=\"vak\"></div>\n  <div class=\"vaklabel\">Verkoopgesprek-status</div><div class=\"vak\"></div>\n  <div class=\"vaklabel\">Vervolgactie</div><div class=\"vak\"></div>\n</body></html>`;\n\nconst slug = (a.contactNaam || k.naam || 'kijker').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');\nconst datum = (beginISO || '').slice(0, 10) || 'onbekend';\nconst map = String(ctx.project?.realworksId || ctx.project?.naam || 'overig').replace(/[^A-Za-z0-9_-]+/g, '_');\nconst basePath = $env.NEXTCLOUD_BASE_PATH || 'Bezichtigingen';\nconst bestandsnaam = `bezichtiging_${datum}_${slug}_${a.id}.pdf`;\nconst pad = `${basePath}/${map}/${bestandsnaam}`;\n\nreturn [{\n  json: { afspraakId: a.id, pad, map, basePath, bestandsnaam, contactNaam: a.contactNaam || k.naam || '' },\n  binary: { data: { data: Buffer.from(html).toString('base64'), mimeType: 'text/html', fileName: 'index.html' } }\n}];"
+        "jsCode": "// Render een A4 HTML-cheatsheet met woning- en kijkerinfo plus ruime\n// aantekenvlakken die 1-op-1 mappen op de Mautic-velden die\n// POST /api/agenda/[id]/cheatsheet/verwerk verwacht.\n// De HTML wordt als binary 'data' (index.html) doorgegeven aan Gotenberg.\nconst ctx = $input.first().json;\nconst a = ctx.afspraak || {};\nconst k = ctx.kijker || {};\nconst w = ctx.woning || {};\nconst ai = k.aiAnalyse || {};\nconst kw = k.kwalificatie || {};\nconst bz = k.bezichtiging || {};\n\nconst esc = (v) => (v === null || v === undefined ? '' : String(v)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));\nconst jaNee = (v) => (v === true ? 'Ja' : v === false ? 'Nee' : '-');\nconst beginISO = a.begin || '';\nconst beginNL = beginISO ? new Date(beginISO).toLocaleString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';\nconst prijs = w.prijs && w.prijs.koopsom ? ('\\u20ac ' + Number(w.prijs.koopsom).toLocaleString('nl-NL')) : (w.prijs && w.prijs.koopprijsLabel) || '';\n\nconst html = `<!DOCTYPE html><html lang=\"nl\"><head><meta charset=\"utf-8\"><style>\n  @page { size: A4; margin: 16mm; }\n  body{font-family:system-ui,Arial,sans-serif;color:#1f2937;font-size:12px;line-height:1.45}\n  h1{font-size:19px;margin:0 0 2px}\n  h2{font-size:13px;border-bottom:1px solid #e5e7eb;padding-bottom:3px;margin:16px 0 6px;color:#0f172a}\n  .sub{color:#64748b;margin-bottom:10px}\n  .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}\n  .row{display:flex;gap:6px}\n  .lab{font-weight:600;color:#475569;min-width:130px}\n  .foto{float:right;width:180px;height:120px;object-fit:cover;border-radius:8px;margin:0 0 8px 12px}\n  .vak{border:1px solid #cbd5e1;border-radius:6px;min-height:64px;margin:4px 0 10px;padding:6px}\n  .vaklabel{font-weight:600;font-size:11px;color:#475569;margin-top:8px}\n  .pill{display:inline-block;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:1px 8px;font-size:11px}\n</style></head><body>\n  ${w.foto ? `<img class=\"foto\" src=\"${esc(w.foto)}\"/>` : ''}\n  <h1>Bezichtiging \\u2014 ${esc(a.contactNaam || k.naam || '')}</h1>\n  <div class=\"sub\">${esc(w.titel || '')}${w.adres ? ' \\u00b7 ' + esc(w.adres) : ''}<br/>${esc(beginNL)}${a.medewerker ? ' \\u00b7 ' + esc(a.medewerker) : ''}</div>\n\n  <h2>Woning</h2>\n  <div class=\"grid\">\n    <div class=\"row\"><span class=\"lab\">Vraagprijs</span><span>${esc(prijs)}</span></div>\n    <div class=\"row\"><span class=\"lab\">Woonoppervlak</span><span>${esc(w.kenmerken?.woonoppervlakte || '')} m\\u00b2</span></div>\n    <div class=\"row\"><span class=\"lab\">Kamers</span><span>${esc(w.kenmerken?.kamers || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">Bouwjaar</span><span>${esc(w.kenmerken?.bouwjaar || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">Energieklasse</span><span>${esc(w.kenmerken?.energieklasse || '')}</span></div>\n  </div>\n\n  <h2>Kijker</h2>\n  <div class=\"grid\">\n    <div class=\"row\"><span class=\"lab\">Telefoon</span><span>${esc(k.telefoon || a.contactTelefoon || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">E-mail</span><span>${esc(k.email || a.contactEmail || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">Eigen woning</span><span>${jaNee(kw.heeftEigenWoning)}</span></div>\n    <div class=\"row\"><span class=\"lab\">Overweegt verkoop</span><span>${jaNee(kw.overwegtVerkoop)}</span></div>\n    <div class=\"row\"><span class=\"lab\">Hypotheekstatus</span><span>${esc(kw.hypotheekStatus || '')}</span></div>\n    <div class=\"row\"><span class=\"lab\">Eerdere interesse</span><span>${bz.interesseScore != null ? esc(bz.interesseScore) + '/100' : '-'}</span></div>\n  </div>\n  ${(ai.huidigeSituatie || ai.woningMotivatie || ai.budgetIndicatie || ai.tijdlijn) ? `<div style=\"margin-top:6px\">\n    ${ai.huidigeSituatie ? `<div class=\"row\"><span class=\"lab\">Situatie</span><span>${esc(ai.huidigeSituatie)}</span></div>` : ''}\n    ${ai.woningMotivatie ? `<div class=\"row\"><span class=\"lab\">Motivatie</span><span>${esc(ai.woningMotivatie)}</span></div>` : ''}\n    ${ai.budgetIndicatie ? `<div class=\"row\"><span class=\"lab\">Budget</span><span>${esc(ai.budgetIndicatie)}</span></div>` : ''}\n    ${ai.tijdlijn ? `<div class=\"row\"><span class=\"lab\">Tijdlijn</span><span>${esc(ai.tijdlijn)}</span></div>` : ''}\n  </div>` : ''}\n\n  <h2>Aantekeningen (worden via OCR teruggelezen naar Mautic)</h2>\n  <div class=\"vaklabel\">Notities bezichtiging</div><div class=\"vak\"></div>\n  <div class=\"vaklabel\">Interesse 0\\u2013100</div><div class=\"vak\"></div>\n  <div class=\"vaklabel\">Verkoopgesprek-status</div><div class=\"vak\"></div>\n  <div class=\"vaklabel\">Vervolgactie</div><div class=\"vak\"></div>\n</body></html>`;\n\nconst slug = (a.contactNaam || k.naam || 'kijker').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');\nconst datum = (beginISO || '').slice(0, 10) || 'onbekend';\nconst map = String(ctx.project?.realworksId || ctx.project?.naam || 'overig').replace(/[^A-Za-z0-9_-]+/g, '_');\nconst basePath = 'Bezichtigingen';\nconst bestandsnaam = `bezichtiging_${datum}_${slug}_${a.id}.pdf`;\nconst pad = `${basePath}/${map}/${bestandsnaam}`;\n// Pas NEXTCLOUD_WEB_BASE aan naar de web-URL van je Nextcloud; dit wordt de\n// klikbare link in het platform (auth voor het uploaden zelf gaat via de\n// Nextcloud-credential, niet via deze constante).\nconst NEXTCLOUD_WEB_BASE = 'https://cloud.devreemakelaardij.nl';\nconst webUrl = `${NEXTCLOUD_WEB_BASE}/index.php/apps/files/?dir=/${basePath}/${map}`;\n\nreturn [{\n  json: { afspraakId: a.id, pad, map, basePath, bestandsnaam, webUrl, contactNaam: a.contactNaam || k.naam || '' },\n  binary: { data: { data: Buffer.from(html).toString('base64'), mimeType: 'text/html', fileName: 'index.html' } }\n}];"
       },
       "id": "cc001111-0000-0000-0000-000000000003",
       "name": "Render cheat-sheet HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-840, 200]
+      "position": [
+        -840,
+        200
+      ]
     },
     {
       "parameters": {
-        "method": "MKCOL",
-        "url": "={{ $env.NEXTCLOUD_URL }}/remote.php/dav/files/{{ $env.NEXTCLOUD_USER }}/{{ $json.basePath }}/{{ $json.map }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "=Basic {{ Buffer.from($env.NEXTCLOUD_USER + ':' + $env.NEXTCLOUD_APP_PASSWORD).toString('base64') }}" }
-          ]
-        },
-        "options": {}
+        "resource": "folder",
+        "operation": "create",
+        "path": "={{ $json.basePath }}/{{ $json.map }}"
       },
       "id": "cc001111-0000-0000-0000-000000000004",
       "name": "Map aanmaken (idempotent)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [-620, 200],
+      "type": "n8n-nodes-base.nextCloud",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        200
+      ],
       "onError": "continueRegularOutput",
-      "notes": "MKCOL is idempotent: een 405 (map bestaat al) wordt genegeerd dankzij continueOnFail."
+      "notes": "MKCOL is idempotent: een 405 (map bestaat al) wordt genegeerd dankzij continueOnFail.",
+      "credentials": {
+        "nextCloudApi": {
+          "id": null,
+          "name": "Nextcloud account"
+        }
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.GOTENBERG_URL }}/forms/chromium/convert/html",
+        "url": "http://localhost:3000/forms/chromium/convert/html",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            { "parameterType": "formBinaryData", "name": "files", "inputDataFieldName": "data" }
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "data"
+            }
           ]
         },
-        "options": { "response": { "response": { "responseFormat": "file", "outputPropertyName": "data" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
       },
       "id": "cc001111-0000-0000-0000-000000000005",
       "name": "HTML → PDF (Gotenberg)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-400, 200]
+      "position": [
+        -180,
+        200
+      ]
     },
     {
       "parameters": {
-        "method": "PUT",
-        "url": "={{ $env.NEXTCLOUD_URL }}/remote.php/dav/files/{{ $env.NEXTCLOUD_USER }}/{{ $('Render cheat-sheet HTML').item.json.pad }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "=Basic {{ Buffer.from($env.NEXTCLOUD_USER + ':' + $env.NEXTCLOUD_APP_PASSWORD).toString('base64') }}" }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "binaryData",
-        "inputDataFieldName": "data",
-        "options": {}
+        "resource": "file",
+        "operation": "upload",
+        "path": "={{ $('Render cheat-sheet HTML').item.json.pad }}",
+        "binaryDataUpload": true,
+        "binaryPropertyName": "data"
       },
       "id": "cc001111-0000-0000-0000-000000000006",
       "name": "Opslaan in Nextcloud",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [-180, 200]
+      "type": "n8n-nodes-base.nextCloud",
+      "typeVersion": 1,
+      "position": [
+        40,
+        200
+      ],
+      "credentials": {
+        "nextCloudApi": {
+          "id": null,
+          "name": "Nextcloud account"
+        }
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.PLATFORM_BASE_URL }}/api/agenda/{{ $('Render cheat-sheet HTML').item.json.afspraakId }}/cheatsheet/status",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
-          ]
-        },
+        "url": "=https://kantoor.devreemakelaardij.nl/api/agenda/{{ $('Render cheat-sheet HTML').item.json.afspraakId }}/cheatsheet/status",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ cheatsheetStatus: 'gegenereerd', cheatsheetPath: $('Render cheat-sheet HTML').item.json.pad, cheatsheetUrl: $env.NEXTCLOUD_URL + '/remote.php/dav/files/' + $env.NEXTCLOUD_USER + '/' + $('Render cheat-sheet HTML').item.json.pad }) }}",
+        "jsonBody": "={{ JSON.stringify({ cheatsheetStatus: 'gegenereerd', cheatsheetPath: $('Render cheat-sheet HTML').item.json.pad, cheatsheetUrl: $('Render cheat-sheet HTML').item.json.webUrl }) }}",
         "options": {}
       },
       "id": "cc001111-0000-0000-0000-000000000007",
       "name": "Meld status terug",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [40, 200]
+      "position": [
+        260,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "Platform webhook secret"
+        }
+      }
     },
     {
       "parameters": {
@@ -132,30 +167,113 @@
       "name": "Antwoord",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [260, 200]
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// De Nextcloud-map-node geeft alleen het mapresultaat terug, waardoor de\n// HTML-binary van de Render-node verloren gaat. Hier zetten we json + de\n// HTML-binary terug zodat Gotenberg er een PDF van kan renderen.\nreturn [{\n  json: $('Render cheat-sheet HTML').item.json,\n  binary: $('Render cheat-sheet HTML').item.binary,\n}];"
+      },
+      "id": "bcf2f6c0-e1cd-4c27-a22e-017fd47277de",
+      "name": "Herstel HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        200
+      ]
     }
   ],
   "connections": {
     "Webhook: Genereer cheat-sheet": {
-      "main": [[{ "node": "Haal afspraak-context op", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Haal afspraak-context op",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Haal afspraak-context op": {
-      "main": [[{ "node": "Render cheat-sheet HTML", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Render cheat-sheet HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Render cheat-sheet HTML": {
-      "main": [[{ "node": "Map aanmaken (idempotent)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Map aanmaken (idempotent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Map aanmaken (idempotent)": {
-      "main": [[{ "node": "HTML → PDF (Gotenberg)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Herstel HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "HTML → PDF (Gotenberg)": {
-      "main": [[{ "node": "Opslaan in Nextcloud", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Opslaan in Nextcloud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Opslaan in Nextcloud": {
-      "main": [[{ "node": "Meld status terug", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Meld status terug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Meld status terug": {
-      "main": [[{ "node": "Antwoord", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Antwoord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Herstel HTML": {
+      "main": [
+        [
+          {
+            "node": "HTML → PDF (Gotenberg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {},
