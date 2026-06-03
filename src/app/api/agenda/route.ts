@@ -42,6 +42,9 @@ export async function GET(req: NextRequest) {
       project: {
         select: { id: true, name: true, woningAdres: true, woningPlaats: true },
       },
+      lead: {
+        select: { id: true, status: true, prioriteit: true },
+      },
     },
   });
 

@@ -15,7 +15,6 @@ import {
 import {
   PROJECT_TYPE_LABELS,
   PROJECT_TYPE_COLORS,
-  STATUS_LABELS,
   STATUS_COLORS,
   PIPELINE_STAGES_VERKOOP,
   PIPELINE_STAGES_AANKOOP,
@@ -127,8 +126,12 @@ export default function PipelinePage() {
   }, [activeType, search]);
 
   useEffect(() => {
+    // Data-fetch synchroniseert met de externe API en reset de selectie bij
+    // een nieuwe filtercombinatie; setState is hier bewust.
+    /* eslint-disable react-hooks/set-state-in-effect */
     fetchProjects();
     setSelectedProject(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [fetchProjects]);
 
   const stages = STAGES[activeType];

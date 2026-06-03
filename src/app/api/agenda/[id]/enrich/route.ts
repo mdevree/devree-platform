@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { searchContactByRealworksCode } from "@/lib/mautic";
+import { koppelAfspraakAanLead } from "@/lib/kijkerKoppeling";
 
 export async function POST(
   req: NextRequest,
@@ -54,6 +55,16 @@ export async function POST(
       },
     },
   });
+
+  // Brug naar het kijker-systeem: koppel/maak een Lead (kijker) en hang die aan
+  // de woning. Best-effort — een fout hier mag de enrich-respons niet breken.
+  if (updated.mauticContactId) {
+    try {
+      await koppelAfspraakAanLead(updated);
+    } catch (err) {
+      console.error("Kijker-koppeling mislukt bij enrich:", err);
+    }
+  }
 
   return NextResponse.json(updated);
 }

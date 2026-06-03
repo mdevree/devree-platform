@@ -314,6 +314,7 @@ model Lead {
   hypotheekAfgesloten    Boolean            @default(false)
   projecten              LeadProject[]
   routes                 LeadRoute[]
+  agendaAfspraken        AgendaAfspraak[]
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
@@ -403,6 +404,14 @@ model AgendaAfspraak {
   projectId           String?
   enrichedAt          DateTime?
   enrichmentStatus    String?   // "ok" | "partial" | "no_contact" | "no_project" | "error"
+  // Brug naar het kijker-systeem: gekoppelde Lead (kijker)
+  lead                Lead?     @relation(fields: [leadId], references: [id])
+  leadId              String?
+  // Cheatsheet/PDF tracking (n8n → Nextcloud)
+  cheatsheetStatus      String?   // "gevraagd" | "gegenereerd" | "mislukt" | "verwerkt"
+  cheatsheetPath        String?   // Nextcloud WebDAV-pad
+  cheatsheetUrl         String?   // optionele directe (share)link
+  cheatsheetGeneratedAt DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -410,6 +419,7 @@ model AgendaAfspraak {
   @@index([agobjcode])
   @@index([agowner])
   @@index([projectId])
+  @@index([leadId])
   @@map("agenda_afspraken")
 }
 

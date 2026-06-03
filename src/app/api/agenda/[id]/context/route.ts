@@ -2,40 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { getContactFull } from "@/lib/mautic";
-
-const WP_BASE_URL = "https://www.devreemakelaardij.nl/wp-json/wp/v2";
-
-async function fetchWoningVanWordPress(realworksId: string) {
-  try {
-    const url = new URL(`${WP_BASE_URL}/woning`);
-    url.searchParams.set("realworks_id", realworksId);
-    url.searchParams.set("per_page", "1");
-    url.searchParams.set("_embed", "wp:featuredmedia");
-    // next.revalidate is a Next.js extension to fetch, not in standard RequestInit
-    const fetchOptions = { headers: { Accept: "application/json" }, next: { revalidate: 300 } };
-    const res = await fetch(url.toString(), fetchOptions as RequestInit);
-    if (!res.ok) return null;
-    const woningen = await res.json();
-    if (!woningen?.length) return null;
-    const w = woningen[0];
-    const featuredImage =
-      w._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.large?.source_url ||
-      w._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.medium_large?.source_url ||
-      w._embedded?.["wp:featuredmedia"]?.[0]?.source_url ||
-      w.yoast_head_json?.og_image?.[0]?.url ||
-      null;
-    return {
-      wpId: w.id,
-      slug: w.slug,
-      link: w.link,
-      titel: w.title?.rendered ?? null,
-      featuredImage,
-      acf: w.acf ?? {},
-    };
-  } catch {
-    return null;
-  }
-}
+import { fetchWoningVanWordPress } from "@/lib/wordpress";
 
 /**
  * GET /api/agenda/[id]/context
@@ -123,6 +90,11 @@ export async function GET(
       contactNaam: afspraak.contactNaam,
       contactEmail: afspraak.contactEmail,
       contactTelefoon: afspraak.contactTelefoon,
+      leadId: afspraak.leadId,
+      cheatsheetStatus: afspraak.cheatsheetStatus,
+      cheatsheetPath: afspraak.cheatsheetPath,
+      cheatsheetUrl: afspraak.cheatsheetUrl,
+      cheatsheetGeneratedAt: afspraak.cheatsheetGeneratedAt,
     },
     kijker: mauticContact
       ? {

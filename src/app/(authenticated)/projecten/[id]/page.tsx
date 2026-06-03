@@ -30,6 +30,8 @@ import {
   ArrowPathIcon,
   DocumentTextIcon,
   ChevronDownIcon,
+  UserGroupIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 import {
   PROJECT_TYPE_LABELS,
@@ -207,7 +209,40 @@ interface Project {
   updatedAt: string;
 }
 
-type ActiveTab = "taken" | "telefonie" | "woning" | "dossier";
+type ActiveTab = "taken" | "telefonie" | "woning" | "kijkers" | "dossier";
+
+interface KijkerLead {
+  id: string;
+  naam: string;
+  email: string | null;
+  telefoon: string | null;
+  status: string;
+  prioriteit: string;
+  mauticContactId: string | null;
+  gekoppeldOp: string;
+}
+
+interface Bezichtiging {
+  id: string;
+  agbegin: string | null;
+  agend: string | null;
+  aglocation: string | null;
+  medewerkerFullname: string | null;
+  agowner: string | null;
+  contactNaam: string | null;
+  contactEmail: string | null;
+  contactTelefoon: string | null;
+  leadId: string | null;
+  enrichmentStatus: string | null;
+  cheatsheetStatus: string | null;
+  cheatsheetUrl: string | null;
+  lead: { id: string; status: string; prioriteit: string } | null;
+}
+
+interface BezichtigingenData {
+  bezichtigingen: Bezichtiging[];
+  kijkers: KijkerLead[];
+}
 
 interface MauticEvent {
   id: string;
@@ -221,8 +256,12 @@ interface MauticEvent {
 function EmailActivitySection({ contactId }: { contactId: number }) {
   const [events, setEvents] = useState<MauticEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  // Stabiel referentiemoment voor "X dagen geleden"-labels (één keer per mount).
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
+    // Bewuste laadindicator bij (her)ophalen uit de externe Mautic-API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/mautic/events?contactId=${contactId}&limit=10`)
       .then((r) => r.json())
@@ -233,7 +272,7 @@ function EmailActivitySection({ contactId }: { contactId: number }) {
 
   const hasRecentClick = events.some((e) => {
     if (e.eventType !== "email.click") return false;
-    const daysSince = (Date.now() - new Date(e.occurredAt).getTime()) / (1000 * 60 * 60 * 24);
+    const daysSince = (now - new Date(e.occurredAt).getTime()) / (1000 * 60 * 60 * 24);
     return daysSince < 14;
   });
 
@@ -262,7 +301,7 @@ function EmailActivitySection({ contactId }: { contactId: number }) {
       )}
       <div className="space-y-1">
         {events.map((event) => {
-          const daysSince = Math.floor((Date.now() - new Date(event.occurredAt).getTime()) / (1000 * 60 * 60 * 24));
+          const daysSince = Math.floor((now - new Date(event.occurredAt).getTime()) / (1000 * 60 * 60 * 24));
           const timeLabel = daysSince === 0 ? "Vandaag" : daysSince === 1 ? "Gisteren" : `${daysSince} dagen geleden`;
           const isClick = event.eventType === "email.click";
           return (
@@ -374,6 +413,10 @@ export default function ProjectDetailPage() {
   const [woningError, setWoningError] = useState<string | null>(null);
   const [woningStatusSaving, setWoningStatusSaving] = useState(false);
   const [woningStatusMessage, setWoningStatusMessage] = useState("");
+
+  // Kijkers & bezichtigingen
+  const [kijkersData, setKijkersData] = useState<BezichtigingenData | null>(null);
+  const [kijkersLoading, setKijkersLoading] = useState(false);
 
   // Edit project modal
   const [showEdit, setShowEdit] = useState(false);
@@ -539,6 +582,17 @@ export default function ProjectDetailPage() {
       fetchWoning(project.realworksId);
     }
   }, [activeTab, project?.realworksId, woning, woningLoading, fetchWoning]);
+
+  // Laad kijkers & bezichtigingen zodra de kijkers-tab actief wordt
+  useEffect(() => {
+    if (activeTab === "kijkers" && projectId && !kijkersData && !kijkersLoading) {
+      setKijkersLoading(true);
+      fetch(`/api/projecten/${projectId}/bezichtigingen`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => setKijkersData(d))
+        .finally(() => setKijkersLoading(false));
+    }
+  }, [activeTab, projectId, kijkersData, kijkersLoading]);
 
   async function handleWoningStatusChange(newStatus: string) {
     if (!woning) return;
@@ -1301,6 +1355,20 @@ export default function ProjectDetailPage() {
           )}
         </button>
         <button
+          onClick={() => setActiveTab("kijkers")}
+          className={`inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
+            activeTab === "kijkers" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <UserGroupIcon className="h-4 w-4" />
+          Kijkers
+          {kijkersData && kijkersData.kijkers.length > 0 && (
+            <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+              {kijkersData.kijkers.length}
+            </span>
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab("dossier")}
           className={`inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
             activeTab === "dossier" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
@@ -1779,6 +1847,115 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           ) : null}
+        </div>
+      )}
+
+      {/* ===== KIJKERS TAB ===== */}
+      {activeTab === "kijkers" && (
+        <div className="space-y-6">
+          {kijkersLoading ? (
+            <div className="flex justify-center py-16">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : !kijkersData ? (
+            <div className="py-16 text-center text-gray-400">Kon kijkers niet laden.</div>
+          ) : (
+            <>
+              {/* Gekoppelde kijkers */}
+              <div>
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900">
+                  <UserGroupIcon className="h-4 w-4 text-primary" />
+                  Gekoppelde kijkers ({kijkersData.kijkers.length})
+                </h3>
+                {kijkersData.kijkers.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">
+                    Nog geen kijkers gekoppeld. Verrijk bezichtigingen in de agenda om kijkers automatisch te koppelen.
+                  </p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-gray-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-left text-xs text-gray-500">
+                        <tr>
+                          <th className="px-4 py-2 font-medium">Naam</th>
+                          <th className="px-4 py-2 font-medium">Contact</th>
+                          <th className="px-4 py-2 font-medium">Status</th>
+                          <th className="px-4 py-2 font-medium">Gekoppeld</th>
+                          <th className="px-4 py-2"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {kijkersData.kijkers.map((kijker) => (
+                          <tr key={kijker.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 font-medium text-gray-800">{kijker.naam}</td>
+                            <td className="px-4 py-2 text-gray-500">
+                              {kijker.email || kijker.telefoon || "—"}
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                kijker.status === "CONVERTED" ? "bg-green-100 text-green-700" :
+                                kijker.status === "ZOEKER" ? "bg-amber-100 text-amber-700" :
+                                kijker.status === "INACTIEF" ? "bg-gray-100 text-gray-500" :
+                                "bg-blue-100 text-blue-700"
+                              }`}>
+                                {kijker.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-gray-400">{formatDateFull(kijker.gekoppeldOp)}</td>
+                            <td className="px-4 py-2 text-right">
+                              <a href={`/leads?leadId=${kijker.id}`} className="text-xs text-primary hover:underline">
+                                Profiel
+                              </a>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Bezichtigingen */}
+              <div>
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900">
+                  <EyeIcon className="h-4 w-4 text-primary" />
+                  Bezichtigingen ({kijkersData.bezichtigingen.length})
+                </h3>
+                {kijkersData.bezichtigingen.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">
+                    Nog geen bezichtigingen voor deze woning.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {kijkersData.bezichtigingen.map((b) => (
+                      <div key={b.id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+                        <div className="min-w-[110px] text-sm text-gray-600">{formatDateFull(b.agbegin)}</div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800">{b.contactNaam || "Onbekende kijker"}</p>
+                          <p className="text-xs text-gray-400">{b.medewerkerFullname ?? b.agowner}</p>
+                        </div>
+                        {b.lead ? (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                            {b.lead.status}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-gray-50 px-2 py-0.5 text-xs text-gray-400">geen kijker</span>
+                        )}
+                        {b.cheatsheetStatus && (
+                          b.cheatsheetUrl ? (
+                            <a href={b.cheatsheetUrl} target="_blank" rel="noopener noreferrer" className="rounded bg-purple-50 px-2 py-0.5 text-xs text-purple-600 hover:bg-purple-100">
+                              PDF: {b.cheatsheetStatus}
+                            </a>
+                          ) : (
+                            <span className="rounded bg-purple-50 px-2 py-0.5 text-xs text-purple-600">PDF: {b.cheatsheetStatus}</span>
+                          )
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 

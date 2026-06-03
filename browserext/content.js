@@ -24,7 +24,6 @@ pingInterval = setInterval(pingBackground, 30_000);
 
 const WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-sync';
 const AGENDA_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-agenda-sync';
-const TAXATIE_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-taxatie-sync';
 const LEAD_RESPONSE_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-lead-response';
 
 // Inject in pagina-context zodat we toegang hebben tot window.XMLHttpRequest

@@ -77,8 +77,12 @@ interface MauticEvent {
 function EmailActivitySection({ contactId }: { contactId: number }) {
   const [events, setEvents] = useState<MauticEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  // Stabiel referentiemoment voor "X dagen geleden"-labels (één keer per mount).
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
+    // Bewuste laadindicator bij (her)ophalen uit de externe Mautic-API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/mautic/events?contactId=${contactId}&limit=10`)
       .then((r) => r.json())
@@ -89,7 +93,7 @@ function EmailActivitySection({ contactId }: { contactId: number }) {
 
   const hasRecentClick = events.some((e) => {
     if (e.eventType !== "email.click") return false;
-    const daysSince = (Date.now() - new Date(e.occurredAt).getTime()) / (1000 * 60 * 60 * 24);
+    const daysSince = (now - new Date(e.occurredAt).getTime()) / (1000 * 60 * 60 * 24);
     return daysSince < 14;
   });
 
@@ -118,7 +122,7 @@ function EmailActivitySection({ contactId }: { contactId: number }) {
       )}
       <div className="space-y-1">
         {events.map((event) => {
-          const daysSince = Math.floor((Date.now() - new Date(event.occurredAt).getTime()) / (1000 * 60 * 60 * 24));
+          const daysSince = Math.floor((now - new Date(event.occurredAt).getTime()) / (1000 * 60 * 60 * 24));
           const timeLabel = daysSince === 0 ? "Vandaag" : daysSince === 1 ? "Gisteren" : `${daysSince} dagen geleden`;
           const isClick = event.eventType === "email.click";
           return (
@@ -200,6 +204,8 @@ export default function ContactenPage() {
   }, [page, search]);
 
   useEffect(() => {
+    // Data-fetch synchroniseert met de externe API; setLoading hierin is bewust.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContacts();
   }, [fetchContacts]);
 

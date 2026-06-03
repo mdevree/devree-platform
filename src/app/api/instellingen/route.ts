@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
  * GET /api/instellingen
  * Haal alle app-instellingen op als key-value object
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
