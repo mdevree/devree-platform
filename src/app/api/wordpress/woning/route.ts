@@ -114,10 +114,12 @@ export async function GET(request: NextRequest) {
     const woningen: WoningPost[] = await res.json();
 
     if (!woningen || woningen.length === 0) {
-      return NextResponse.json(
-        { error: "Geen woning gevonden met dit Realworks ID" },
-        { status: 404 }
-      );
+      // "Niet gevonden" is een normaal resultaat van deze lookup: veel
+      // agenda-objecten (gesprekken, taxaties, niet-gepubliceerde woningen)
+      // hebben een objectcode die niet als woning op de website staat. Geef
+      // daarom 200 met een leeg resultaat terug i.p.v. 404, zodat de console
+      // niet volloopt met 404-netwerkfouten.
+      return NextResponse.json({ found: false, error: "Geen woning gevonden met dit Realworks ID" });
     }
 
     const woning = woningen[0];

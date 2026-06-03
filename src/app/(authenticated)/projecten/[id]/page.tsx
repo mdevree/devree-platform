@@ -536,10 +536,10 @@ export default function ProjectDetailPage() {
     try {
       const res = await fetch(`/api/wordpress/woning?realworksId=${encodeURIComponent(realworksId)}`);
       const data = await res.json();
-      if (res.ok) {
+      if (res.ok && data?.found !== false && !data?.error) {
         setWoning(data);
       } else {
-        setWoningError(data.error || "Woning niet gevonden");
+        setWoningError(data?.error || "Woning niet gevonden");
       }
     } catch {
       setWoningError("Kan WordPress niet bereiken");
