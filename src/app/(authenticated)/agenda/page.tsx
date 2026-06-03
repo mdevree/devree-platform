@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -130,6 +130,8 @@ export default function AgendaPage() {
   const [medewerkers, setMedewerkers] = useState<string[]>([]);
   const [woningFotos, setWoningFotos] = useState<Record<string, string | null>>({});
   const [detailId, setDetailId] = useState<string | null>(null);
+  // Houdt bij welke objectcodes al opgevraagd zijn, zodat we niet dubbel fetchen.
+  const opgevraagdeWoningen = useRef<Set<string>>(new Set());
 
   const weekEind = new Date(weekStart);
   weekEind.setDate(weekStart.getDate() + 6);
@@ -173,21 +175,28 @@ export default function AgendaPage() {
         setAgTypes((prev) => [...new Set([...prev, ...types])]);
         setMedewerkers((prev) => [...new Set([...prev, ...meds])]);
 
-        // Haal WordPress woning foto's op voor afspraken met een objectcode
-        data.filter((a) => a.agobjcode).forEach((a) => {
-          const code = a.agobjcode!;
-          setWoningFotos((prev) => {
-            if (code in prev) return prev;
-            fetch(`/api/wordpress/woning?realworksId=${encodeURIComponent(code)}`)
-              .then((r) => (r.ok ? r.json() : null))
-              .then((woning) => {
-                setWoningFotos((cache) => ({ ...cache, [code]: woning?.featuredImage ?? null }));
-              })
-              .catch(() => {
-                setWoningFotos((cache) => ({ ...cache, [code]: null }));
-              });
-            return { ...prev, [code]: null };
-          });
+        // Haal WordPress woning-foto's alleen op voor afspraken met een
+        // gekoppelde woning (project) — alleen dan tonen we de foto. Dat
+        // voorkomt overbodige lookups voor objecten die geen woning op de site
+        // zijn (gesprekken, taxaties, niet-gepubliceerde panden).
+        const teLaden = [
+          ...new Set(
+            data
+              .filter((a) => a.agobjcode && a.project)
+              .map((a) => a.agobjcode as string)
+          ),
+        ];
+        teLaden.forEach((code) => {
+          if (opgevraagdeWoningen.current.has(code)) return;
+          opgevraagdeWoningen.current.add(code);
+          fetch(`/api/wordpress/woning?realworksId=${encodeURIComponent(code)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((woning) => {
+              setWoningFotos((cache) => ({ ...cache, [code]: woning?.featuredImage ?? null }));
+            })
+            .catch(() => {
+              setWoningFotos((cache) => ({ ...cache, [code]: null }));
+            });
         });
       }
     } finally {
