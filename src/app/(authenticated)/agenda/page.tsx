@@ -112,10 +112,15 @@ function normalizeWhatsApp(tel: string): string {
 function typeBadgeKleur(agtype: string | null): string {
   if (!agtype) return "bg-gray-100 text-gray-600";
   const t = agtype.toLowerCase();
-  if (t === "bezichtiging") return "bg-blue-100 text-blue-700";
+  if (t.includes("bezichtiging")) return "bg-blue-100 text-blue-700";
   if (t.includes("gesprek")) return "bg-green-100 text-green-700";
   if (t.includes("opname")) return "bg-orange-100 text-orange-700";
   return "bg-gray-100 text-gray-600";
+}
+
+// Herkent alle bezichtiging-varianten, bijv. "Bezichtiging (planner)".
+function isBezichtigingType(agtype: string | null): boolean {
+  return (agtype ?? "").toLowerCase().includes("bezichtiging");
 }
 
 export default function AgendaPage() {
@@ -158,9 +163,9 @@ export default function AgendaPage() {
         // lijst & bezichtigingen: vanaf nu vooruit
         params.set("van", new Date().toISOString());
       }
-      // De bezichtigingen-weergave toont uitsluitend bezichtigingen.
-      if (view === "bezichtigingen") params.set("type", "bezichtiging");
-      else if (typeFilter !== "alle") params.set("type", typeFilter);
+      // De bezichtigingen-weergave filtert client-side op alle bezichtiging-
+      // varianten (bijv. "Bezichtiging (planner)"), omdat de API exact matcht.
+      if (view !== "bezichtigingen" && typeFilter !== "alle") params.set("type", typeFilter);
       if (medewerkerFilter !== "alle") params.set("medewerker", medewerkerFilter);
 
       const res = await fetch(`/api/agenda?${params}`);
@@ -687,7 +692,10 @@ function BezichtigingenWeergave({
   onOpenDetail: (id: string) => void;
   woningFotos: Record<string, string | null>;
 }) {
-  if (afspraken.length === 0) {
+  // Alleen bezichtigingen (alle varianten, bijv. "Bezichtiging (planner)").
+  const bezichtigingen = afspraken.filter((a) => isBezichtigingType(a.agtype));
+
+  if (bezichtigingen.length === 0) {
     return (
       <div className="py-16 text-center text-gray-400">
         Geen komende bezichtigingen gevonden.
@@ -697,7 +705,7 @@ function BezichtigingenWeergave({
 
   // Groepeer per woning (project)
   const groepen = new Map<string, { naam: string; items: Afspraak[] }>();
-  for (const a of afspraken) {
+  for (const a of bezichtigingen) {
     const key = a.project?.id ?? a.agobjcode ?? "onbekend";
     const naam = a.project?.name ?? "Niet-gekoppelde woning";
     if (!groepen.has(key)) groepen.set(key, { naam, items: [] });
@@ -781,7 +789,7 @@ function AfspraakKaart({
   onOpenDetail: (id: string) => void;
   woningFoto: string | null;
 }) {
-  const isBezichtiging = (a.agtype ?? "").toLowerCase() === "bezichtiging";
+  const isBezichtiging = isBezichtigingType(a.agtype);
   const heeftContact = Boolean(a.contactNaam || a.contactEmail || a.contactTelefoon);
   const heeftTelefoon = Boolean(a.contactTelefoon);
   const kleur = medewerkerKleur(a.medewerkerFullname ?? a.agowner);
