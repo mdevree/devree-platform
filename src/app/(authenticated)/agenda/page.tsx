@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -112,10 +112,15 @@ function normalizeWhatsApp(tel: string): string {
 function typeBadgeKleur(agtype: string | null): string {
   if (!agtype) return "bg-gray-100 text-gray-600";
   const t = agtype.toLowerCase();
-  if (t === "bezichtiging") return "bg-blue-100 text-blue-700";
+  if (t.includes("bezichtiging")) return "bg-blue-100 text-blue-700";
   if (t.includes("gesprek")) return "bg-green-100 text-green-700";
   if (t.includes("opname")) return "bg-orange-100 text-orange-700";
   return "bg-gray-100 text-gray-600";
+}
+
+// Herkent alle bezichtiging-varianten, bijv. "Bezichtiging (planner)".
+function isBezichtigingType(agtype: string | null): boolean {
+  return (agtype ?? "").toLowerCase().includes("bezichtiging");
 }
 
 export default function AgendaPage() {
@@ -130,6 +135,8 @@ export default function AgendaPage() {
   const [medewerkers, setMedewerkers] = useState<string[]>([]);
   const [woningFotos, setWoningFotos] = useState<Record<string, string | null>>({});
   const [detailId, setDetailId] = useState<string | null>(null);
+  // Houdt bij welke objectcodes al opgevraagd zijn, zodat we niet dubbel fetchen.
+  const opgevraagdeWoningen = useRef<Set<string>>(new Set());
 
   const weekEind = new Date(weekStart);
   weekEind.setDate(weekStart.getDate() + 6);
@@ -156,9 +163,9 @@ export default function AgendaPage() {
         // lijst & bezichtigingen: vanaf nu vooruit
         params.set("van", new Date().toISOString());
       }
-      // De bezichtigingen-weergave toont uitsluitend bezichtigingen.
-      if (view === "bezichtigingen") params.set("type", "bezichtiging");
-      else if (typeFilter !== "alle") params.set("type", typeFilter);
+      // De bezichtigingen-weergave filtert client-side op alle bezichtiging-
+      // varianten (bijv. "Bezichtiging (planner)"), omdat de API exact matcht.
+      if (view !== "bezichtigingen" && typeFilter !== "alle") params.set("type", typeFilter);
       if (medewerkerFilter !== "alle") params.set("medewerker", medewerkerFilter);
 
       const res = await fetch(`/api/agenda?${params}`);
@@ -173,21 +180,28 @@ export default function AgendaPage() {
         setAgTypes((prev) => [...new Set([...prev, ...types])]);
         setMedewerkers((prev) => [...new Set([...prev, ...meds])]);
 
-        // Haal WordPress woning foto's op voor afspraken met een objectcode
-        data.filter((a) => a.agobjcode).forEach((a) => {
-          const code = a.agobjcode!;
-          setWoningFotos((prev) => {
-            if (code in prev) return prev;
-            fetch(`/api/wordpress/woning?realworksId=${encodeURIComponent(code)}`)
-              .then((r) => (r.ok ? r.json() : null))
-              .then((woning) => {
-                setWoningFotos((cache) => ({ ...cache, [code]: woning?.featuredImage ?? null }));
-              })
-              .catch(() => {
-                setWoningFotos((cache) => ({ ...cache, [code]: null }));
-              });
-            return { ...prev, [code]: null };
-          });
+        // Haal WordPress woning-foto's alleen op voor afspraken met een
+        // gekoppelde woning (project) — alleen dan tonen we de foto. Dat
+        // voorkomt overbodige lookups voor objecten die geen woning op de site
+        // zijn (gesprekken, taxaties, niet-gepubliceerde panden).
+        const teLaden = [
+          ...new Set(
+            data
+              .filter((a) => a.agobjcode && a.project)
+              .map((a) => a.agobjcode as string)
+          ),
+        ];
+        teLaden.forEach((code) => {
+          if (opgevraagdeWoningen.current.has(code)) return;
+          opgevraagdeWoningen.current.add(code);
+          fetch(`/api/wordpress/woning?realworksId=${encodeURIComponent(code)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((woning) => {
+              setWoningFotos((cache) => ({ ...cache, [code]: woning?.featuredImage ?? null }));
+            })
+            .catch(() => {
+              setWoningFotos((cache) => ({ ...cache, [code]: null }));
+            });
         });
       }
     } finally {
@@ -678,7 +692,10 @@ function BezichtigingenWeergave({
   onOpenDetail: (id: string) => void;
   woningFotos: Record<string, string | null>;
 }) {
-  if (afspraken.length === 0) {
+  // Alleen bezichtigingen (alle varianten, bijv. "Bezichtiging (planner)").
+  const bezichtigingen = afspraken.filter((a) => isBezichtigingType(a.agtype));
+
+  if (bezichtigingen.length === 0) {
     return (
       <div className="py-16 text-center text-gray-400">
         Geen komende bezichtigingen gevonden.
@@ -688,7 +705,7 @@ function BezichtigingenWeergave({
 
   // Groepeer per woning (project)
   const groepen = new Map<string, { naam: string; items: Afspraak[] }>();
-  for (const a of afspraken) {
+  for (const a of bezichtigingen) {
     const key = a.project?.id ?? a.agobjcode ?? "onbekend";
     const naam = a.project?.name ?? "Niet-gekoppelde woning";
     if (!groepen.has(key)) groepen.set(key, { naam, items: [] });
@@ -772,7 +789,7 @@ function AfspraakKaart({
   onOpenDetail: (id: string) => void;
   woningFoto: string | null;
 }) {
-  const isBezichtiging = (a.agtype ?? "").toLowerCase() === "bezichtiging";
+  const isBezichtiging = isBezichtigingType(a.agtype);
   const heeftContact = Boolean(a.contactNaam || a.contactEmail || a.contactTelefoon);
   const heeftTelefoon = Boolean(a.contactTelefoon);
   const kleur = medewerkerKleur(a.medewerkerFullname ?? a.agowner);
