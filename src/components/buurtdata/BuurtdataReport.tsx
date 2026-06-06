@@ -158,6 +158,9 @@ export function BuurtdataReport({ data, showLogo = false }: { data: BuurtdataRes
   const gel = data.geluid;
   const lk = data.luchtkwaliteit;
   const lfColors = lf ? leefbaarheidColors(lf.klasse_score) : null;
+  const cbsBron =
+    data.meta.bronnen.find((b) => b.toLowerCase().includes("cbs")) ??
+    "CBS Kerncijfers Wijken en Buurten 2024";
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -280,7 +283,7 @@ export function BuurtdataReport({ data, showLogo = false }: { data: BuurtdataRes
       {/* ── Demografische gegevens ── */}
       {bd && (
         <>
-          <Section title="Bevolking" source="CBS Kerncijfers Wijken en Buurten 2024">
+          <Section title="Bevolking" source={cbsBron}>
             <StatGrid
               items={[
                 { label: "Aantal inwoners", value: fmt(bd.bevolking.aantal_inwoners) },
@@ -353,7 +356,7 @@ export function BuurtdataReport({ data, showLogo = false }: { data: BuurtdataRes
           </Section>
 
           {/* ── Huishoudens ── */}
-          <Section title="Huishoudens" source="CBS Kerncijfers Wijken en Buurten 2024">
+          <Section title="Huishoudens" source={cbsBron}>
             <StatGrid
               items={[
                 { label: "Totaal huishoudens", value: fmt(bd.huishoudens.totaal) },
@@ -369,7 +372,7 @@ export function BuurtdataReport({ data, showLogo = false }: { data: BuurtdataRes
           </Section>
 
           {/* ── Woningmarkt ── */}
-          <Section title="Woningmarkt" source="CBS Kerncijfers Wijken en Buurten 2024">
+          <Section title="Woningmarkt" source={cbsBron}>
             <StatGrid
               items={[
                 { label: "Woningvoorraad", value: fmt(bd.woningmarkt.woningvoorraad) },
@@ -387,7 +390,7 @@ export function BuurtdataReport({ data, showLogo = false }: { data: BuurtdataRes
           </Section>
 
           {/* ── Inkomen & Sociaal ── */}
-          <Section title="Inkomen & Sociaal" source="CBS Kerncijfers Wijken en Buurten 2024">
+          <Section title="Inkomen & Sociaal" source={cbsBron}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -431,7 +434,7 @@ export function BuurtdataReport({ data, showLogo = false }: { data: BuurtdataRes
           </Section>
 
           {/* ── Bereikbaarheid & Mobiliteit ── */}
-          <Section title="Bereikbaarheid" source="CBS Kerncijfers Wijken en Buurten 2024">
+          <Section title="Bereikbaarheid" source={cbsBron}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
