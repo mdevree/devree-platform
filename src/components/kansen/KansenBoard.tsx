@@ -76,6 +76,7 @@ export default function KansenBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totaal, setTotaal] = useState(0);
+  const [uitgesloten, setUitgesloten] = useState(0);
   const [feed, setFeed] = useState<InteresseItem[]>([]);
 
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function KansenBoard() {
         if (kansenRes.ok) {
           setGroepen(data.groepen || []);
           setTotaal(data.totaal || 0);
+          setUitgesloten(data.uitgeslotenKlanten || 0);
         } else {
           setError(data.error || "Kon kansen niet laden");
         }
@@ -116,8 +118,14 @@ export default function KansenBoard() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Kansen</h1>
         <p className="mt-1 text-gray-500">
-          Waar de meeste omzetkans zit, op volgorde van Mautic-score.
+          Nieuwe kansen die nog niet in de pipeline zitten, op volgorde van Mautic-score.
           {totaal > 0 && ` ${totaal} kansen.`}
+          {uitgesloten > 0 && (
+            <span className="text-gray-400">
+              {" "}
+              {uitgesloten} bestaande {uitgesloten === 1 ? "klant" : "klanten"} verborgen.
+            </span>
+          )}
         </p>
       </div>
 

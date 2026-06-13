@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { searchContactsWithPipeline } from "@/lib/mautic";
 import { groupKansen } from "@/lib/kansen";
+import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/kansen
@@ -45,11 +46,26 @@ export async function GET(request: NextRequest) {
 
     // Samenvoegen en dedupliceren op contact-id.
     const gezien = new Set<number>();
-    const contacts = [...recent, ...stil].filter((c) => {
+    const alle = [...recent, ...stil].filter((c) => {
       if (gezien.has(c.id)) return false;
       gezien.add(c.id);
       return true;
     });
+
+    // Sluit bestaande klanten/relaties uit: contacten die al aan een project
+    // gekoppeld zijn, worden al door een makelaar behandeld. Kansen toont juist
+    // mensen die nog NIET in de pipeline zitten — anders overspoelen bestaande
+    // klanten (met wie we het meeste contact hebben → hoogste warmScore) het bord.
+    const ids = alle.map((c) => c.id);
+    const gekoppeld = ids.length
+      ? await prisma.projectContact.findMany({
+          where: { mauticContactId: { in: ids } },
+          select: { mauticContactId: true },
+        })
+      : [];
+    const klantIds = new Set(gekoppeld.map((p) => p.mauticContactId));
+    const contacts = alle.filter((c) => !klantIds.has(c.id));
+    const uitgeslotenKlanten = alle.length - contacts.length;
 
     // Diagnose-modus: laat zien wat er écht in de Mautic-velden zit, zodat we
     // kunnen bepalen of kansen leeg zijn door ontbrekende data of door mapping.
@@ -70,6 +86,7 @@ export async function GET(request: NextRequest) {
       ).length;
       return NextResponse.json({
         onderzocht: contacts.length,
+        uitgeslotenKlanten,
         herwarmVenster: { van: zesmaanden, tot: driemaanden, gevonden: stil.length },
         statistiek: {
           metPunten: withPoints,
@@ -98,7 +115,7 @@ export async function GET(request: NextRequest) {
     const groepen = groupKansen(contacts);
     const totaal = groepen.reduce((sum, g) => sum + g.items.length, 0);
 
-    return NextResponse.json({ groepen, totaal, onderzocht: contacts.length });
+    return NextResponse.json({ groepen, totaal, onderzocht: contacts.length, uitgeslotenKlanten });
   } catch (error) {
     console.error("Kansen ophalen mislukt:", error);
     return NextResponse.json(
