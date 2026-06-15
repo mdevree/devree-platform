@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
+import { fetchFriduRadarContext } from "@/lib/friduRadar";
 
 const N8N_WEBHOOK_URL = "https://automation.devreemakelaardij.nl/webhook/buurtdata";
 
@@ -45,6 +46,16 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await res.json();
+    const normalizedData = Array.isArray(data) ? data[0] : data;
+    const radar = await fetchFriduRadarContext({
+      postcode: postcode.replace(/\s/g, "").toUpperCase(),
+      huisnummer: parseInt(String(huisnummer), 10),
+      huisletter: huisletter || null,
+      huisnummer_toevoeging: huisnummer_toevoeging || null,
+    });
+    if (normalizedData && typeof normalizedData === "object") {
+      return NextResponse.json({ ...normalizedData, radar });
+    }
     return NextResponse.json(data);
   } catch (err) {
     clearTimeout(timeout);

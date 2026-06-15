@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertBuurtdataLead } from "@/lib/mautic";
+import { fetchFriduRadarContext } from "@/lib/friduRadar";
 
 const N8N_WEBHOOK_URL = "https://automation.devreemakelaardij.nl/webhook/buurtdata";
 
@@ -98,6 +99,17 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("Mautic lead aanmaken mislukt:", err);
+  }
+
+  const radar = await fetchFriduRadarContext({
+    postcode: postcodeNorm,
+    huisnummer: huisnummerInt,
+    huisletter: huisletter || null,
+    huisnummer_toevoeging: huisnummer_toevoeging || null,
+  });
+
+  if (buurtdata && typeof buurtdata === "object") {
+    return NextResponse.json({ ...(buurtdata as Record<string, unknown>), radar });
   }
 
   return NextResponse.json(buurtdata);

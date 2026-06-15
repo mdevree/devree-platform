@@ -156,4 +156,20 @@ export interface BuurtdataResult {
     };
     bron: string;
   } | null;
+  radar?: {
+    available: boolean;
+    headline: string;
+    text: string;
+    riskLevel: "laag" | "gemiddeld" | "hoog";
+    badges: string[];
+    fullReportUrl: string | null;
+    signals: {
+      title: string;
+      category: string;
+      distanceMeters: number | null;
+      sourceName: string | null;
+      sourceUrl: string | null;
+    }[];
+    source: "Fridu Radar";
+  } | null;
 }

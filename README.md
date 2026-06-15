@@ -11,7 +11,7 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 - **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info en kosten. Projecten kunnen worden samengevoegd
 - **Contacten** — Mautic CRM overzicht met zoekfunctie, contactdetails bewerken, AI data profiel en email activiteit. Nieuw contact aanmaken direct vanuit de pagina
 - **Pipeline** — Kanban-board op basis van `verkoopgesprek_status` uit Mautic, met interesse-scores en AI profielen
-- **Buurtdata** — Opzoeken van wijkdata op basis van postcode + huisnummer via n8n. Genereert een printbaar rapport met: BAG-gegevens, leefbaarheidsscore, bevolkingssamenstelling, huishoudens, woningmarkt, inkomen, bereikbaarheid, klimaat, geluidsbelasting en luchtkwaliteit. Beschikbaar als interne tool (authenticated) én als publieke lead generator via `/buurtdata-rapport` (WordPress shortcode `[buurtdata_rapport]`)
+- **Buurtdata** — Opzoeken van wijkdata op basis van postcode + huisnummer via n8n. Genereert een printbaar rapport met: BAG-gegevens, leefbaarheidsscore, bevolkingssamenstelling, huishoudens, woningmarkt, inkomen, bereikbaarheid, klimaat, geluidsbelasting, luchtkwaliteit en optionele Fridu Radar-omgevingssignalen. Beschikbaar als interne tool (authenticated) én als publieke lead generator via `/buurtdata-rapport` (WordPress shortcode `[buurtdata_rapport]`)
 - **Tijdregistratie** — Timer per taak (start/pauze/stop) + handmatig tijd toevoegen, logboek van sessies, beschikbaar via API
 - **Mautic** — CRM contacten opzoeken, aanmaken en bijwerken (inclusief AI data profiel en email activiteit)
 - **Notion** — Bidirectionele sync via n8n webhooks
@@ -535,7 +535,7 @@ Gebruikt door n8n voor het genereren van een bezichtigings-PDF. Geeft terug:
 | `huisletter` | | Optionele huisletter |
 | `huisnummer_toevoeging` | | Optionele toevoeging |
 
-De response bevat een uitgebreid JSON-object met onder andere: BAG-gegevens (oppervlakte, bouwjaar, gebruiksdoel), leefbaarheidscore, bevolkingsopbouw, woningmarktdata, inkomen, bereikbaarheid, klimaatdata, geluidsbelasting en luchtkwaliteit. Timeout: 30 seconden.
+De response bevat een uitgebreid JSON-object met onder andere: BAG-gegevens (oppervlakte, bouwjaar, gebruiksdoel), leefbaarheidscore, bevolkingsopbouw, woningmarktdata, inkomen, bereikbaarheid, klimaatdata, geluidsbelasting en luchtkwaliteit. Als `FRIDU_RADAR_API_KEY` is ingesteld, bevat de response daarnaast optioneel een `radar`-blok met compacte omgevingssignalen en een link naar het volledige Fridu Radar-rapport. Timeout voor buurtdata: 30 seconden; Radar-verrijking heeft een eigen korte timeout.
 
 De buurtdata pagina (`/buurtdata`) toont deze data als een printbaar rapport geschikt om met klanten te delen.
 
@@ -562,7 +562,7 @@ Publiek endpoint — **geen authenticatie vereist**. Bedoeld voor de WordPress-w
 | `telefoon` | | Telefoonnummer |
 | `woningType` | | `huidig` \| `potentieel` \| `anders` — voor welk type woning het rapport wordt aangevraagd |
 
-De response is identiek aan `/api/buurtdata`. Mautic-lead aanmaken is **niet-blokkerend**: als de CRM-koppeling wegvalt, krijgt de bezoeker nog steeds zijn rapport.
+De response is identiek aan `/api/buurtdata`. Fridu Radar-verrijking en Mautic-lead aanmaken zijn **niet-blokkerend**: als een koppeling wegvalt, krijgt de bezoeker nog steeds zijn rapport.
 
 #### Mautic-koppeling
 
