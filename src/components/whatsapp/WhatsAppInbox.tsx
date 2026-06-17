@@ -57,6 +57,7 @@ export default function WhatsAppInbox() {
   const [showContactPanel, setShowContactPanel] = useState(false);
   const [contactDetail, setContactDetail] = useState<MauticContactFull | null>(null);
   const [contactDetailLoading, setContactDetailLoading] = useState(false);
+  const [initialConversationId, setInitialConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeConversation = conversations.find((c) => c.id === activeId);
@@ -95,9 +96,30 @@ export default function WhatsAppInbox() {
   }
 
   useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("conversation");
+    if (id) {
+      // Queryparameter selecteert het gesprek na navigatie vanuit Contacten.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveId(id);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInitialConversationId(id);
+    }
+    loadConversations();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     loadConversations();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  useEffect(() => {
+    if (!initialConversationId) return;
+    if (conversations.some((c) => c.id === initialConversationId)) {
+      setActiveId(initialConversationId);
+      setInitialConversationId(null);
+    }
+  }, [conversations, initialConversationId]);
 
   useEffect(() => {
     const interval = setInterval(() => {

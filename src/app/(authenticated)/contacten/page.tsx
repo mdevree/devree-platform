@@ -14,6 +14,7 @@ import {
   PencilSquareIcon,
   XMarkIcon,
   PlusIcon,
+  ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 
 const MAUTIC_URL =
@@ -184,6 +185,8 @@ export default function ContactenPage() {
   const [aiProfileMessage, setAiProfileMessage] = useState("");
   const [newProfileKey, setNewProfileKey] = useState("");
   const [newProfileValue, setNewProfileValue] = useState("");
+  const [whatsAppStartingId, setWhatsAppStartingId] = useState<number | null>(null);
+  const [whatsAppError, setWhatsAppError] = useState("");
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -416,6 +419,39 @@ export default function ContactenPage() {
     setAiProfileRaw((prev) => { const n = { ...prev }; delete n[key]; return n; });
   }
 
+  async function openWhatsAppForContact(contact: Pick<Contact, "id" | "firstname" | "lastname" | "phone" | "mobile">) {
+    const phone = contact.mobile || contact.phone;
+    if (!phone) {
+      setWhatsAppError("Dit contact heeft geen telefoonnummer.");
+      return;
+    }
+
+    setWhatsAppStartingId(contact.id);
+    setWhatsAppError("");
+
+    try {
+      const res = await fetch("/api/whatsapp/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone,
+          mauticContactId: contact.id,
+          name: [contact.firstname, contact.lastname].filter(Boolean).join(" "),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWhatsAppError(data.error || "WhatsApp gesprek kon niet worden geopend.");
+        return;
+      }
+      window.location.href = `/whatsapp?conversation=${data.id}`;
+    } catch {
+      setWhatsAppError("Netwerkfout bij openen van WhatsApp.");
+    } finally {
+      setWhatsAppStartingId(null);
+    }
+  }
+
   function renderAiValue(value: unknown): React.ReactNode {
     if (value === null || value === undefined || value === "") {
       return <span className="italic text-gray-400">leeg</span>;
@@ -520,6 +556,9 @@ export default function ContactenPage() {
             <p className="mt-0.5 text-sm text-gray-500">
               Mautic CRM — meest recent actieve contacten
             </p>
+            {whatsAppError && (
+              <p className="mt-1 text-sm text-red-600">{whatsAppError}</p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {pagination && (
@@ -652,6 +691,15 @@ export default function ContactenPage() {
                       >
                         <UserCircleIcon className="h-3.5 w-3.5" />
                         Details
+                      </button>
+                      <button
+                        onClick={() => openWhatsAppForContact(contact)}
+                        disabled={whatsAppStartingId === contact.id || (!contact.mobile && !contact.phone)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        title={contact.mobile || contact.phone ? "WhatsApp openen" : "Geen telefoonnummer"}
+                      >
+                        <ChatBubbleLeftRightIcon className="h-3.5 w-3.5" />
+                        {whatsAppStartingId === contact.id ? "..." : "WhatsApp"}
                       </button>
                       <a
                         href={`${MAUTIC_URL}/s/contacts/view/${contact.id}`}
@@ -976,6 +1024,16 @@ export default function ContactenPage() {
 
                 {/* Email activiteit */}
                 <EmailActivitySection contactId={panelContact.id} />
+
+                <button
+                  onClick={() => openWhatsAppForContact(panelContact)}
+                  disabled={whatsAppStartingId === panelContact.id || (!panelContact.mobile && !panelContact.phone)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-green-200 px-4 py-2.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title={panelContact.mobile || panelContact.phone ? "WhatsApp openen" : "Geen telefoonnummer"}
+                >
+                  <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                  {whatsAppStartingId === panelContact.id ? "WhatsApp openen..." : "WhatsApp sturen"}
+                </button>
 
                 {/* Mautic link */}
                 <a

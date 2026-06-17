@@ -106,16 +106,6 @@ export interface MauticContact {
   lastActive: string | null;
 }
 
-export interface MauticEnrichmentContact extends MauticContact {
-  dateAdded: string | null;
-  rcode: string | null;
-  systemid: string | null;
-  address1: string | null;
-  city: string | null;
-  zipcode: string | null;
-  tags: string[];
-}
-
 export interface MauticContactFull extends MauticContact {
   address1: string | null;
   address2: string | null;
@@ -427,78 +417,6 @@ export async function searchContacts(options: {
       lastActive: (fields.last_active as string) || null,
     };
   });
-
-  return { contacts, total };
-}
-
-function mapToEnrichmentContact(contact: Record<string, unknown>): MauticEnrichmentContact {
-  const fields = (contact.fields as Record<string, Record<string, unknown>>)?.all || {};
-  const tags = Array.isArray(contact.tags)
-    ? (contact.tags as Array<{ tag?: string }>).map((t) => t.tag || "").filter(Boolean)
-    : [];
-
-  return {
-    id: contact.id as number,
-    firstname: (fields.firstname as string) || "",
-    lastname: (fields.lastname as string) || "",
-    email: (fields.email as string) || null,
-    phone: (fields.phone as string) || null,
-    mobile: (fields.mobile as string) || null,
-    company: (fields.company as string) || null,
-    points: (contact.points as number) || 0,
-    lastActive: (fields.last_active as string) || null,
-    dateAdded: (contact.dateAdded as string) || null,
-    // In Mautic heet het label "rcode"; de technische API-alias is "realworks_code".
-    rcode: (fields.realworks_code as string) || null,
-    systemid: (fields.systemid as string) || null,
-    address1: (fields.address1 as string) || null,
-    city: (fields.city as string) || null,
-    zipcode: (fields.zipcode as string) || null,
-    tags,
-  };
-}
-
-export async function getContactsBySegment(options: {
-  segmentId: number;
-  search?: string;
-  start?: number;
-  limit?: number;
-  orderBy?: string;
-  orderByDir?: "asc" | "desc";
-}): Promise<{ contacts: MauticEnrichmentContact[]; total: number }> {
-  const {
-    segmentId,
-    search = "",
-    start = 0,
-    limit = 30,
-    orderBy = "dateAdded",
-    orderByDir = "desc",
-  } = options;
-
-  const params = new URLSearchParams({
-    start: String(start),
-    limit: String(limit),
-    orderBy,
-    orderByDir,
-  });
-
-  if (search.trim()) {
-    params.set("search", search.trim());
-  }
-
-  const response = await mauticFetch(`/api/segments/${segmentId}/contacts?${params}`);
-
-  if (!response.ok) {
-    console.error("Mautic segment contacten lijstfout:", response.status, await response.text());
-    return { contacts: [], total: 0 };
-  }
-
-  const data = await response.json();
-  const rawContacts = data.contacts || {};
-  const total = data.total ? parseInt(data.total) : Object.keys(rawContacts).length;
-  const contacts = Object.values(rawContacts).map((c) =>
-    mapToEnrichmentContact(c as Record<string, unknown>)
-  );
 
   return { contacts, total };
 }
