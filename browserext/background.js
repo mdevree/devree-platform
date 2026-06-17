@@ -9,7 +9,20 @@
 
 const QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-tasks';
 const TAXATIE_QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-taxatie-tasks';
+const WONING_QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-woning-tasks';
 const REALWORKS_BASE = 'https://crm.realworks.nl';
+
+// Decodeert een __MASK-waarde naar een leesbaar label.
+// bv. maskString = "0;|1;Vrijstaande woning|4;Tussenwoning", value = "4" → "Tussenwoning"
+function decodeMask(value, maskString) {
+  if (!maskString || value === undefined || value === null || value === '') return value;
+  for (const entry of maskString.split('|')) {
+    const sep = entry.indexOf(';');
+    if (sep === -1) continue;
+    if (entry.slice(0, sep) === String(value)) return entry.slice(sep + 1);
+  }
+  return value;
+}
 
 // Webhook secret — zelfde als N8N_WEBHOOK_SECRET op de VPS.
 // Wordt ingesteld via de opties-pagina en bewaard in chrome.storage.local,
@@ -86,6 +99,64 @@ chrome.webRequest.onBeforeRequest.addListener(
   ['requestBody']
 );
 
+// ─── Woning (object) save interceptie via webRequest ─────────────────────────
+// broker.brokerobject/save is een multipart GWT-form; net als bij taxatie is
+// form.submit()-interceptie onbetrouwbaar, dus we lezen op netwerkniveau.
+
+const WONING_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-woning-sync';
+const WONING_SKIP = /(__MASK|__EDIT__|__NEW__|_grid_|_dispatcher|_collection|_entity|CSRFToken|_parentform|_callback|__FIELD_INACTIVE__|__MEDIA_LABEL__|__NO__FIELD__|multipleFileUpload|\.default$|__maxrec$)/;
+
+chrome.webRequest.onBeforeRequest.addListener(
+  function (details) {
+    if (details.method !== 'POST') return;
+    const raw = details.requestBody?.formData;
+    if (!raw) return;
+
+    const fields = {};
+    for (const [key, values] of Object.entries(raw)) {
+      fields[key] = values[0] ?? '';
+    }
+
+    // objectcode/lisnr identificeert de woning; sla grid- en deelcalls over.
+    if (!fields.objectcode && !fields.lisnr) return;
+
+    // Cache voor eventuele write-back taken (key op _systemid).
+    if (fields._systemid) {
+      chrome.storage.local.set({
+        [`rw_woning_form_${fields._systemid}`]: {
+          fields,
+          isMultipart: true,
+          url: '/servlets/objects/broker.brokerobject/save',
+        },
+      });
+      console.log(`[RW Woning Cache] Gecached via webRequest: ${fields._systemid} (${fields.objectcode || fields.lisnr})`);
+    }
+
+    // Bouw payload: filter interne velden weg en decodeer __MASK-enums naar labels.
+    const woning = { source: 'realworks' };
+    for (const [k, v] of Object.entries(fields)) {
+      if (WONING_SKIP.test(k) || v === '') continue;
+      woning[k] = v;
+      const mask = fields[`${k}__MASK`];
+      if (mask) woning[`${k}_label`] = decodeMask(v, mask);
+    }
+
+    fetch(WONING_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(woning),
+    }).then(res => {
+      if (res.ok) console.log('[RW Woning Sync] ✓ Verstuurd:', fields.objectcode || fields.lisnr);
+      else console.warn('[RW Woning Sync] Fout:', res.status);
+    }).catch(err => console.warn('[RW Woning Sync] Netwerkfout:', err));
+  },
+  {
+    urls: ['https://crm.realworks.nl/servlets/objects/broker.brokerobject/save'],
+    types: ['sub_frame', 'main_frame'],
+  },
+  ['requestBody']
+);
+
 // ─── Berichten van content script ────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -123,8 +194,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'POLL_REALWORKS_TASKS') {
-    Promise.all([pollAndExecute(), pollAndExecuteTaxatie()])
-      .then(([rel, tax]) => sendResponse({ rel, tax }));
+    Promise.all([pollAndExecute(), pollAndExecuteTaxatie(), pollAndExecuteWoning()])
+      .then(([rel, tax, won]) => sendResponse({ rel, tax, won }));
     return true; // async response
   }
 });
@@ -137,6 +208,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'realworks-poll') {
     pollAndExecute();
     pollAndExecuteTaxatie();
+    pollAndExecuteWoning();
   }
 });
 
@@ -180,6 +252,26 @@ async function pollAndExecuteTaxatie() {
   return { ok: true, count: tasks.length };
 }
 
+async function pollAndExecuteWoning() {
+  let tasks;
+  try {
+    const res = await fetch(WONING_QUEUE_URL, {
+      headers: { 'x-webhook-secret': WEBHOOK_SECRET },
+    });
+    if (!res.ok) { console.warn('[RW Woning Tasks] Poll mislukt:', res.status); return { ok: false }; }
+    ({ tasks } = await res.json());
+  } catch (err) {
+    console.warn('[RW Woning Tasks] Netwerkfout bij poll:', err);
+    return { ok: false };
+  }
+
+  if (!tasks?.length) return { ok: true, count: 0 };
+  console.log(`[RW Woning Tasks] ${tasks.length} taak(en) gevonden`);
+
+  for (const task of tasks) await processWoningTask(task);
+  return { ok: true, count: tasks.length };
+}
+
 // ─── Taakverwerking ──────────────────────────────────────────────────────────
 
 async function processTask(task) {
@@ -219,6 +311,25 @@ async function processTaxatieTask(task) {
     const error = err?.message || String(err);
     await patchTaxatieTask(task.id, { status: 'failed', error });
     console.warn(`[RW Taxatie Tasks] ✗ Taak ${task.id} mislukt:`, error);
+  }
+}
+
+async function processWoningTask(task) {
+  const claimed = await patchWoningTask(task.id, { status: 'processing' });
+  if (!claimed) return;
+
+  try {
+    if (task.taskType === 'write_field') {
+      await writeRealworksWoningField(task);
+    } else {
+      throw new Error(`Onbekend taskType: ${task.taskType}`);
+    }
+    await patchWoningTask(task.id, { status: 'done' });
+    console.log(`[RW Woning Tasks] ✓ Taak ${task.id} afgerond (${task.fieldName}=${task.fieldValue})`);
+  } catch (err) {
+    const error = err?.message || String(err);
+    await patchWoningTask(task.id, { status: 'failed', error });
+    console.warn(`[RW Woning Tasks] ✗ Taak ${task.id} mislukt:`, error);
   }
 }
 
@@ -361,6 +472,24 @@ async function patchTaxatieTask(id, data) {
   }
 }
 
+async function patchWoningTask(id, data) {
+  try {
+    const res = await fetch(`${WONING_QUEUE_URL}/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-webhook-secret': WEBHOOK_SECRET,
+      },
+      body: JSON.stringify(data),
+    });
+    if (res.status === 409) return false;
+    return res.ok;
+  } catch (err) {
+    console.warn('[RW Woning Tasks] Kon taakstatus niet bijwerken:', err);
+    return false;
+  }
+}
+
 /**
  * Schrijft één veld naar een Realworks taxatierapport door de gecachte form body
  * te replayen met het gewijzigde veld.
@@ -421,6 +550,79 @@ async function writeRealworksTaxatieField(task) {
   const responseText = await res.text().catch(() => '');
   console.log(`[RW Taxatie Tasks] Realworks antwoord: ${res.status} (url=${res.url})`);
   console.log(`[RW Taxatie Tasks] Response body (500 chars):`, responseText.slice(0, 500));
+
+  if (!res.ok) {
+    throw new Error(`Realworks antwoordde ${res.status}: ${responseText.slice(0, 300)}`);
+  }
+
+  const finalUrl = res.url || postUrl;
+  if (!finalUrl.includes('/servlets/') && finalUrl.includes('/login')) {
+    throw new Error(`Sessie verlopen — redirect naar login (${finalUrl})`);
+  }
+}
+
+/**
+ * Schrijft één veld naar een Realworks woning (object) door de gecachte form body
+ * te replayen met het gewijzigde veld.
+ *
+ * Realworks gebruikt een multipart GWT full-form POST naar
+ * /servlets/objects/broker.brokerobject/save. De gecachte body bevat de CSRF token
+ * die geldig is zolang de sessie actief is; de cache wordt gevuld door de
+ * webRequest-interceptie zodra de woning wordt opgeslagen in Realworks.
+ */
+async function writeRealworksWoningField(task) {
+  const cacheKey = `rw_woning_form_${task.realworksWoningId}`;
+  const stored = await chrome.storage.local.get(cacheKey);
+  const cached = stored[cacheKey];
+
+  if (!cached) {
+    throw new Error(
+      `Geen gecachede formulierdata voor woning ${task.realworksWoningId}. ` +
+      `Open en sla de woning op in Realworks zodat de extensie de data kan cachen.`
+    );
+  }
+
+  const fieldCount = cached.fields != null ? Object.keys(cached.fields).length : 0;
+  console.log(`[RW Woning Tasks] Cache '${cacheKey}': ${fieldCount} velden, url=${cached.url}`);
+
+  const postUrl = cached.url.startsWith('http')
+    ? cached.url
+    : `${REALWORKS_BASE}${cached.url}`;
+  console.log(`[RW Woning Tasks] POST naar: ${postUrl} (multipart=${cached.isMultipart})`);
+
+  const fields = { ...cached.fields, [task.fieldName]: task.fieldValue };
+  console.log(`[RW Woning Tasks] Veld '${task.fieldName}': '${cached.fields[task.fieldName]}' → '${task.fieldValue}'`);
+
+  const fetchHeaders = {
+    'Origin': REALWORKS_BASE,
+    'Referer': `${REALWORKS_BASE}/servlets/objects/broker.brokerobject/modify`,
+  };
+
+  let body;
+  if (cached.isMultipart) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    body = fd;
+  } else {
+    body = new URLSearchParams(fields).toString();
+    fetchHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+  }
+
+  let res;
+  try {
+    res = await fetch(postUrl, {
+      method: 'POST',
+      credentials: 'include',
+      headers: fetchHeaders,
+      body,
+    });
+  } catch (fetchErr) {
+    throw new Error(`Fetch mislukt (netwerk?): ${fetchErr?.message}`);
+  }
+
+  const responseText = await res.text().catch(() => '');
+  console.log(`[RW Woning Tasks] Realworks antwoord: ${res.status} (url=${res.url})`);
+  console.log(`[RW Woning Tasks] Response body (500 chars):`, responseText.slice(0, 500));
 
   if (!res.ok) {
     throw new Error(`Realworks antwoordde ${res.status}: ${responseText.slice(0, 300)}`);

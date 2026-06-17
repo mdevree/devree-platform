@@ -523,3 +523,20 @@ model RealworksTaxatieTask {
   @@index([createdAt])
   @@map("realworks_taxatie_tasks")
 }
+
+model RealworksWoningTask {
+  id                String    @id @default(cuid())
+  taskType          String    // "write_field"
+  realworksWoningId String    // Realworks object systemid (bijv. "9042120")
+  fieldName         String    // Realworks veldnaam (bijv. "lissalepr")
+  fieldValue        String    @db.Text
+  status            String    @default("pending") // pending | processing | done | failed
+  error             String?   @db.Text
+  processedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("realworks_woning_tasks")
+}
