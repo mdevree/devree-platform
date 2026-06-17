@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
-import { sendWhatsAppMessage, EvolutionError } from "@/lib/evolution";
+import { sendWhatsAppMessage, WhatsAppError } from "@/lib/whatsapp";
 
 export async function POST(
   req: NextRequest,
@@ -28,7 +28,7 @@ export async function POST(
     evolutionMsgId = await sendWhatsAppMessage(conversation.waPhone, message);
   } catch (err) {
     const detail =
-      err instanceof EvolutionError && err.detail
+      err instanceof WhatsAppError && err.detail
         ? err.detail
         : err instanceof Error
           ? err.message

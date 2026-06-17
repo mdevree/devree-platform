@@ -26,6 +26,14 @@ type EvolutionMessage = {
   messageType?: string;
 };
 
+type NormalizedWhatsAppMessage = {
+  waPhone: string;
+  waName?: string;
+  body: string;
+  providerMsgId?: string;
+  fromMe: boolean;
+};
+
 function getEvolutionMessage(data: unknown): EvolutionMessage | null {
   if (!data || typeof data !== "object") return null;
 
@@ -66,11 +74,76 @@ function getMessageText(msg: EvolutionMessage): string {
   return "[media bericht]";
 }
 
+function toStorageJid(jid: string): string {
+  if (jid.endsWith("@c.us")) return jid.replace("@c.us", "@s.whatsapp.net");
+  return jid;
+}
+
+function getWahaMessage(body: unknown): NormalizedWhatsAppMessage | null {
+  if (!body || typeof body !== "object") return null;
+  const record = body as Record<string, unknown>;
+  const payload = record.payload as Record<string, unknown> | undefined;
+  if (!payload || typeof payload !== "object") return null;
+
+  const fromMe = payload.fromMe === true;
+  const from = typeof payload.from === "string" ? payload.from : "";
+  const to = typeof payload.to === "string" ? payload.to : "";
+  const chatId =
+    typeof payload.chatId === "string" ? payload.chatId : fromMe ? to : from;
+
+  if (!chatId) return null;
+
+  return {
+    waPhone: toStorageJid(chatId),
+    waName:
+      typeof payload._data === "object" &&
+      payload._data &&
+      "notifyName" in payload._data &&
+      typeof (payload._data as Record<string, unknown>).notifyName === "string"
+        ? ((payload._data as Record<string, unknown>).notifyName as string)
+        : undefined,
+    body:
+      typeof payload.body === "string" && payload.body
+        ? payload.body
+        : payload.hasMedia
+          ? "[media bericht]"
+          : "[bericht]",
+    providerMsgId: typeof payload.id === "string" ? payload.id : undefined,
+    fromMe,
+  };
+}
+
+function normalizeWebhookMessage(
+  event: string,
+  body: unknown
+): NormalizedWhatsAppMessage | null {
+  const record = body as Record<string, unknown>;
+
+  if (event === "message") {
+    return getWahaMessage(body);
+  }
+
+  if (event !== "messages.upsert") {
+    return null;
+  }
+
+  const msg = getEvolutionMessage(record.data);
+  if (!msg) return null;
+
+  return {
+    waPhone: msg.key?.remoteJid ?? "",
+    waName: msg.pushName ?? undefined,
+    body: getMessageText(msg),
+    providerMsgId: msg.key?.id ?? undefined,
+    fromMe: msg.key?.fromMe === true,
+  };
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-webhook-secret");
-  const secretMatch =
-    !process.env.EVOLUTION_WEBHOOK_SECRET ||
-    secret === process.env.EVOLUTION_WEBHOOK_SECRET;
+  const expectedSecret =
+    process.env.WHATSAPP_WEBHOOK_SECRET || process.env.EVOLUTION_WEBHOOK_SECRET;
+  const secretMatch = !expectedSecret || secret === expectedSecret;
 
   const body = await req.json();
 
@@ -80,40 +153,39 @@ export async function POST(req: NextRequest) {
     .toLowerCase()
     .replace(/_/g, ".");
 
+  const normalized = normalizeWebhookMessage(event, body);
+
   if (DEBUG) {
     console.log("[wa-webhook]", {
       rawEvent: body?.event,
       event,
-      from: getEvolutionMessage(body?.data)?.key?.remoteJid,
-      fromMe: getEvolutionMessage(body?.data)?.key?.fromMe,
+      from: normalized?.waPhone,
+      fromMe: normalized?.fromMe,
       secretMatch,
     });
   }
 
-  if (
-    process.env.EVOLUTION_WEBHOOK_SECRET &&
-    secret !== process.env.EVOLUTION_WEBHOOK_SECRET
-  ) {
+  if (expectedSecret && secret !== expectedSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (event !== "messages.upsert") {
+  if (event !== "messages.upsert" && event !== "message") {
     return NextResponse.json({ ok: true });
   }
 
-  const msg = getEvolutionMessage(body.data);
-  if (!msg || msg.key?.fromMe) {
+  const msg = normalized;
+  if (!msg || msg.fromMe) {
     return NextResponse.json({ ok: true });
   }
 
-  const waPhone: string = msg.key?.remoteJid ?? "";
+  const waPhone = msg.waPhone;
   if (!waPhone || waPhone.includes("@g.us")) {
     return NextResponse.json({ ok: true });
   }
 
-  const waName: string | undefined = msg.pushName ?? undefined;
-  const bodyText = getMessageText(msg);
-  const evolutionMsgId: string | undefined = msg.key?.id ?? undefined;
+  const waName = msg.waName;
+  const bodyText = msg.body;
+  const providerMsgId = msg.providerMsgId;
 
   let conversation = await prisma.waConversation.findFirst({
     where: { waPhone },
@@ -153,8 +225,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const existing = evolutionMsgId
-    ? await prisma.waMessage.findUnique({ where: { evolutionMsgId } })
+  const existing = providerMsgId
+    ? await prisma.waMessage.findUnique({ where: { evolutionMsgId: providerMsgId } })
     : null;
 
   if (!existing) {
@@ -163,7 +235,7 @@ export async function POST(req: NextRequest) {
         conversationId: conversation.id,
         direction: "INBOUND",
         body: bodyText,
-        evolutionMsgId,
+        evolutionMsgId: providerMsgId,
       },
     });
 
