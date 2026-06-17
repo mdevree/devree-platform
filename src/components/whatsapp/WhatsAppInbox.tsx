@@ -99,9 +99,7 @@ export default function WhatsAppInbox() {
     const id = new URLSearchParams(window.location.search).get("conversation");
     if (id) {
       // Queryparameter selecteert het gesprek na navigatie vanuit Contacten.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveId(id);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInitialConversationId(id);
     }
     loadConversations();

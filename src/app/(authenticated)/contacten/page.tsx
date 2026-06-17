@@ -207,8 +207,6 @@ export default function ContactenPage() {
   }, [page, search]);
 
   useEffect(() => {
-    // Data-fetch synchroniseert met de externe API; setLoading hierin is bewust.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContacts();
   }, [fetchContacts]);
 
