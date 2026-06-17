@@ -5,13 +5,20 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:ci": "NEXT_TELEMETRY_DISABLED=1 next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit --incremental false",
+    "verify": "npm run lint && npm run typecheck && npm test",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "db:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "npx prisma studio",
     "postinstall": "prisma generate || true"
+  },
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=10 <11"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
@@ -32,7 +39,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
