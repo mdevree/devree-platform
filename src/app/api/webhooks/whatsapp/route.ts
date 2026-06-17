@@ -79,6 +79,11 @@ function toStorageJid(jid: string): string {
   return jid;
 }
 
+function getStringValue(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === "string" && value ? value : null;
+}
+
 function getWahaMessage(body: unknown): NormalizedWhatsAppMessage | null {
   if (!body || typeof body !== "object") return null;
   const record = body as Record<string, unknown>;
@@ -86,22 +91,26 @@ function getWahaMessage(body: unknown): NormalizedWhatsAppMessage | null {
   if (!payload || typeof payload !== "object") return null;
 
   const fromMe = payload.fromMe === true;
-  const from = typeof payload.from === "string" ? payload.from : "";
-  const to = typeof payload.to === "string" ? payload.to : "";
+  const from = getStringValue(payload, "from") ?? "";
+  const to = getStringValue(payload, "to") ?? "";
+  const data = payload._data as Record<string, unknown> | undefined;
+  const key = data?.key as Record<string, unknown> | undefined;
+  const remoteJidAlt = key ? getStringValue(key, "remoteJidAlt") : null;
   const chatId =
-    typeof payload.chatId === "string" ? payload.chatId : fromMe ? to : from;
+    remoteJidAlt ??
+    getStringValue(payload, "chatId") ??
+    (fromMe ? to : from);
 
   if (!chatId) return null;
 
   return {
     waPhone: toStorageJid(chatId),
     waName:
-      typeof payload._data === "object" &&
-      payload._data &&
-      "notifyName" in payload._data &&
-      typeof (payload._data as Record<string, unknown>).notifyName === "string"
-        ? ((payload._data as Record<string, unknown>).notifyName as string)
-        : undefined,
+      data && getStringValue(data, "pushName")
+        ? getStringValue(data, "pushName") ?? undefined
+        : data && getStringValue(data, "notifyName")
+          ? getStringValue(data, "notifyName") ?? undefined
+          : undefined,
     body:
       typeof payload.body === "string" && payload.body
         ? payload.body
