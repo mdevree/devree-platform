@@ -649,6 +649,7 @@ Alle workflows staan als importeerbare JSON in de `n8n/` map. Gebruik het `Mauti
 | `Realworks → Mautic Contact Sync.json` | `realworks-sync` | Contactpersoon opslaan in Realworks → upsert in Mautic |
 | `Realworks Agenda Sync.json` | `realworks-agenda-sync` | Agendadag ophalen in Realworks → opslaan in `AgendaAfspraak` |
 | `Realworks Lead Response → Mautic Kwalificatie.json` | `realworks-lead-response` | Bezichtigingsreactie opslaan → kijker-kwalificatievelden bijwerken in Mautic (of nieuw contact aanmaken) |
+| `Realworks Woning → WordPress Sync.json` | `realworks-woning-sync` | Woning opslaan in Realworks → ACF-velden (prijs, status, kenmerken, tekst) bijwerken op de bestaande WordPress-listing |
 | `n8n-email-verwerking.workflow.json` | — | Email-afhandeling |
 | `n8n-facebook-dm-trigger.workflow.json` | — | Facebook DM verwerking |
 
@@ -663,6 +664,23 @@ Webhook POST /realworks-lead-response
       ✓ Update: realworks_code, kijker_*, contact_type_bezichtiger  → 200
       ✗ Create: voornaam, achternaam, email, mobile + alle velden    → 201
 ```
+
+### Woning Sync workflow (gedetailleerd)
+
+Houdt de WordPress-listing in sync met Realworks: elke keer dat de makelaar een woning opslaat worden prijs, status en kenmerken op de website bijgewerkt. Gebruikt de bestaande platform-endpoints (auth via `x-webhook-secret` = `N8N_WEBHOOK_SECRET`).
+
+```
+Webhook POST /realworks-woning-sync
+  → Code: map Realworks-velden → ACF (Nederlandse getallen geparsed,
+          lisstate → WP-status, lege waarden weggelaten)
+  → HTTP GET  /api/wordpress/woning?realworksId=<objectcode>   (lookup op realworks_id)
+  → Code: woning gevonden? + wpPostId doorgeven
+  → IF staat op website?
+      ✓ HTTP PATCH /api/wordpress/woning { wpPostId, acf }       → 200 updated
+      ✗ overslaan (niet-gepubliceerd object, bv. gesprek/taxatie) → 200 skipped
+```
+
+Niet-gevonden objecten (gesprekken, taxaties, concept-woningen) worden bewust overgeslagen — de workflow maakt geen nieuwe WordPress-posts aan, hij synct alleen bestaande listings. Lege Realworks-velden worden weggelaten zodat bestaande ACF-data niet gewist wordt.
 
 ---
 

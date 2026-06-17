@@ -1,0 +1,160 @@
+{
+  "name": "Realworks Woning → WordPress Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "realworks-woning-sync",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "bb002222-0000-0000-0000-000000000001",
+      "name": "Webhook: Woning Sync",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-960, 300],
+      "webhookId": "realworks-woning-sync"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map de Realworks broker.brokerobject/save payload naar WordPress ACF-velden.\n// De extensie stuurt ruwe codes + gedecodeerde labels (<veld>_label) en _display-velden.\nconst body = $input.first().json.body;\n\nif (!body || (!body.objectcode && !body.lisnr)) {\n  throw new Error('Geen objectcode/lisnr in payload — verplicht veld');\n}\n\nconst realworksId = body.objectcode || body.lisnr;\n\n// Nederlands getal \"400.000,00\" -> 400000\nfunction num(v) {\n  if (v === undefined || v === null || v === '') return undefined;\n  const n = parseFloat(String(v).replace(/\\./g, '').replace(',', '.'));\n  return Number.isFinite(n) ? n : undefined;\n}\n\n// Realworks lisstate-label -> WordPress status-vocabulaire\nfunction mapStatus(label) {\n  if (!label) return undefined;\n  const s = label.toLowerCase();\n  if (s.includes('verkocht onder voorbehoud')) return 'Verkocht o.v.';\n  if (s.includes('verkocht')) return 'Verkocht';\n  if (s.includes('verhuurd')) return 'Verhuurd';\n  if (s.includes('onder bod') || s.includes('onder optie')) return 'Onder bod';\n  if (s.includes('beschikbaar')) return 'Beschikbaar';\n  return label;\n}\n\nconst huisnummer = [body.liststrnr, body.house_letter, body.house_number_extension]\n  .filter(Boolean).join('').trim() || undefined;\n\n// Bouw de ACF-set op; lege waarden laten we weg zodat bestaande WP-data niet gewist wordt.\nconst raw = {\n  status: mapStatus(body.lisstate_label),\n  koopsom: num(body.lissalepr),\n  koopprijs_label: body.lissalepre_label,\n  huurprijs: num(body.lisrentpr),\n  koopconditie: body.lissalecon_label,\n  aanvaarding: body.lisaccocode_label,\n  woonoppervlakte: num(body.reslivspac),\n  kadastrale_oppervlakte: num(body.ressurface),\n  inhoud: num(body.resvolume),\n  aantal_kamers: num(body.resrooms),\n  bouwjaar: body.resyearcon,\n  bouwvorm: body.lisnewexi_label,\n  woonhuissoort: body.soortwoning_label,\n  woonhuistype: body.typewoning_label,\n  energieklasse: body.energieklasse_label,\n  energielabel_datum: body.energieeinddatum,\n  postcode: body.liszipcode,\n  plaats: body.liscity,\n  provincie: body.lisprov,\n  straat: body.lisstreet,\n  huisnummer,\n  aanbiedingstekst: body.listxtalg,\n  isolatievormen: body.isolatievorm_display,\n  verwarming: body.soortenverwarmingv14_display,\n  voorzieningen: body.voorzieningwonen_display,\n  ligging: body.liggingen_display,\n};\n\nconst acf = {};\nfor (const [k, v] of Object.entries(raw)) {\n  if (v !== undefined && v !== null && v !== '') acf[k] = v;\n}\n\nreturn [{ json: { realworksId, acf } }];"
+      },
+      "id": "bb002222-0000-0000-0000-000000000002",
+      "name": "Map naar ACF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-740, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://kantoor.devreemakelaardij.nl/api/wordpress/woning?realworksId={{ $json.realworksId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bb002222-0000-0000-0000-000000000003",
+      "name": "Zoek woning in WordPress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-520, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// De lookup geeft {found:false} terug als de woning niet (gepubliceerd) op de\n// website staat, of {id, link, ...} als hij gevonden is.\nconst lookup = $input.first().json;\nconst mapped = $('Map naar ACF').first().json;\n\nconst found = lookup && lookup.id !== undefined && lookup.found !== false;\n\nreturn [{\n  json: {\n    found,\n    wpPostId: found ? lookup.id : null,\n    wpLink: found ? lookup.link : null,\n    realworksId: mapped.realworksId,\n    acf: mapped.acf,\n  }\n}];"
+      },
+      "id": "bb002222-0000-0000-0000-000000000004",
+      "name": "Woning gevonden?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-300, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-woning-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bb002222-0000-0000-0000-000000000005",
+      "name": "Staat op website?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-80, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://kantoor.devreemakelaardij.nl/api/wordpress/woning",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ wpPostId: $json.wpPostId, acf: $json.acf }) }}",
+        "options": {}
+      },
+      "id": "bb002222-0000-0000-0000-000000000006",
+      "name": "Update ACF in WordPress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [140, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, action: 'updated', realworksId: $('Woning gevonden?').first().json.realworksId, wpPostId: $('Woning gevonden?').first().json.wpPostId, velden: Object.keys($('Woning gevonden?').first().json.acf).length }) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "bb002222-0000-0000-0000-000000000007",
+      "name": "Respond: OK bijgewerkt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [380, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, action: 'skipped', reason: 'geen gepubliceerde woning met dit Realworks ID', realworksId: $('Woning gevonden?').first().json.realworksId }) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "bb002222-0000-0000-0000-000000000008",
+      "name": "Respond: Overgeslagen",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [380, 440]
+    }
+  ],
+  "connections": {
+    "Webhook: Woning Sync": {
+      "main": [[{ "node": "Map naar ACF", "type": "main", "index": 0 }]]
+    },
+    "Map naar ACF": {
+      "main": [[{ "node": "Zoek woning in WordPress", "type": "main", "index": 0 }]]
+    },
+    "Zoek woning in WordPress": {
+      "main": [[{ "node": "Woning gevonden?", "type": "main", "index": 0 }]]
+    },
+    "Woning gevonden?": {
+      "main": [[{ "node": "Staat op website?", "type": "main", "index": 0 }]]
+    },
+    "Staat op website?": {
+      "main": [
+        [{ "node": "Update ACF in WordPress", "type": "main", "index": 0 }],
+        [{ "node": "Respond: Overgeslagen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update ACF in WordPress": {
+      "main": [[{ "node": "Respond: OK bijgewerkt", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
