@@ -49,12 +49,14 @@ async function sendViaEvolution(
       `WhatsApp-configuratie ontbreekt: ${missing.join(", ")}`
     );
   }
+  const baseUrl = apiUrl!.replace(/\/$/, "");
+  const encodedInstance = encodeURIComponent(instance!);
 
   const timeout = withTimeout();
   let res: Response;
   try {
     res = await fetch(
-      `${apiUrl.replace(/\/$/, "")}/message/sendText/${encodeURIComponent(instance!)}`,
+      `${baseUrl}/message/sendText/${encodedInstance}`,
       {
         method: "POST",
         headers: {
@@ -106,11 +108,12 @@ async function sendViaWaha(
       `WhatsApp-configuratie ontbreekt: ${missing.join(", ")}`
     );
   }
+  const baseUrl = apiUrl!.replace(/\/$/, "");
 
   const timeout = withTimeout();
   let res: Response;
   try {
-    res = await fetch(`${apiUrl.replace(/\/$/, "")}/api/sendText`, {
+    res = await fetch(`${baseUrl}/api/sendText`, {
       method: "POST",
       headers: {
         "X-Api-Key": apiKey!,
