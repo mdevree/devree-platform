@@ -12,6 +12,7 @@ Chrome-extensie die data uit de Realworks CRM haalt en doorstuurt naar n8n, en o
 | Agenda | Openen van een agendadag in Realworks | `realworks-agenda-sync` |
 | Taxatierapport | Versturen van een taxatieformulier in Realworks | `realworks-taxatie-sync` |
 | Lead Response (kijker) | Opslaan van een bezichtigingsreactie (`broker.response/save`) | `realworks-lead-response` |
+| Woning (object) | Opslaan van een woning (`broker.brokerobject/save`) | `realworks-woning-sync` |
 
 De extensie onderschept form-submits en XHR-calls op `crm.realworks.nl` en stuurt de relevante velden als JSON naar de n8n webhook. Interne Realworks-velden (CSRF-tokens, grid-parameters, maskers) worden weggefilterd.
 
@@ -43,6 +44,30 @@ Bij het opslaan van een bezichtigingsreactie (`broker.response/save`) wordt de f
 
 De n8n workflow (`Realworks Lead Response → Mautic Kwalificatie`) zoekt het contact op in Mautic via e-mail, maakt het aan als het niet bestaat, en vult de kijker-kwalificatievelden in.
 
+#### Woning payload
+
+Bij het opslaan van een woning (`broker.brokerobject/save`) wordt de multipart-POST op netwerkniveau onderschept in `background.js` (net als bij taxaties, omdat GWT `form.submit()`-interceptie onbetrouwbaar is). Interne velden (CSRF-tokens, maskers, grid-parameters, `.default`-velden, file-uploads) worden weggefilterd. Voor elk veld met een `__MASK` wordt een leesbaar `<veld>_label` toegevoegd; `_display`-velden blijven behouden.
+
+```json
+{
+  "source": "realworks",
+  "objectcode": "SE11798",
+  "lisstreet": "Groede",
+  "liststrnr": "62",
+  "soortwoning": "1",
+  "typewoning": "4",
+  "typewoning_label": "Tussenwoning",
+  "lissalepr": "400.000,00",
+  "lisstate": "4",
+  "lisstate_label": "Verkocht onder voorbehoud",
+  "energieklasse": "4",
+  "energieklasse_label": "B",
+  "voorzieningwonen_display": "Mechanische ventilatie, Rolluiken, TV kabel, ..."
+}
+```
+
+De woning wordt geïdentificeerd via `objectcode`/`lisnr` (bijv. `SE11798`); de write-back cache wordt gekeyd op `_systemid` (bijv. `9042120`).
+
 ### Schrijven (n8n → Realworks)
 
 Via een taakwachtrij op de kantoorserver kan n8n opdrachten aanmaken om één veld in een Realworks-record bij te werken. De extensie pollt de wachtrij elke 30 seconden en voert openstaande taken uit via de actieve browsersessie.
@@ -51,6 +76,7 @@ Via een taakwachtrij op de kantoorserver kan n8n opdrachten aanmaken om één ve
 |-------------------|-------------|
 | `/api/realworks-tasks` | Relaties |
 | `/api/realworks-taxatie-tasks` | Taxatierapporten |
+| `/api/realworks-woning-tasks` | Woningen (objecten) |
 
 ## Hoe het technisch werkt
 
@@ -107,6 +133,23 @@ Content-Type: application/json
   "fieldValue": "325000"
 }
 ```
+
+Voor woningen:
+
+```http
+POST https://kantoor.devreemakelaardij.nl/api/realworks-woning-tasks
+x-webhook-secret: <N8N_WEBHOOK_SECRET>
+Content-Type: application/json
+
+{
+  "taskType": "write_field",
+  "realworksWoningId": "9042120",
+  "fieldName": "lissalepr",
+  "fieldValue": "395.000,00"
+}
+```
+
+> `realworksWoningId` is het `_systemid` van het object (niet de objectcode). Een terugschrijftaak werkt alleen als de woning eerder in dezelfde browsersessie is opgeslagen, zodat de extensie de multipart-body (incl. CSRF-token) kon cachen.
 
 ### Taakstatus
 
