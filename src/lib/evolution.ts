@@ -18,7 +18,7 @@ const SEND_TIMEOUT_MS = 15000;
 export async function sendWhatsAppMessage(
   waPhone: string,
   message: string
-): Promise<void> {
+): Promise<string | null> {
   const apiUrl = process.env.EVOLUTION_API_URL;
   const instance = process.env.EVOLUTION_INSTANCE;
   const apiKey = process.env.EVOLUTION_API_KEY;
@@ -35,13 +35,14 @@ export async function sendWhatsAppMessage(
   }
 
   const number = waPhone.replace("@s.whatsapp.net", "");
+  const encodedInstance = encodeURIComponent(instance!);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
 
   let res: Response;
   try {
-    res = await fetch(`${apiUrl}/message/sendText/${instance}`, {
+    res = await fetch(`${apiUrl}/message/sendText/${encodedInstance}`, {
       method: "POST",
       headers: {
         apikey: apiKey!,
@@ -69,4 +70,7 @@ export async function sendWhatsAppMessage(
       detail
     );
   }
+
+  const data = await res.json().catch(() => null);
+  return data?.key?.id ?? data?.message?.key?.id ?? data?.id ?? null;
 }

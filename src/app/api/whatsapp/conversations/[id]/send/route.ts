@@ -23,8 +23,9 @@ export async function POST(
     return NextResponse.json({ error: "Gesprek niet gevonden" }, { status: 404 });
   }
 
+  let evolutionMsgId: string | null = null;
   try {
-    await sendWhatsAppMessage(conversation.waPhone, message);
+    evolutionMsgId = await sendWhatsAppMessage(conversation.waPhone, message);
   } catch (err) {
     const detail =
       err instanceof EvolutionError && err.detail
@@ -65,6 +66,7 @@ export async function POST(
       direction: "OUTBOUND",
       body: message,
       deliveryStatus: "SENT",
+      evolutionMsgId,
     },
   });
 

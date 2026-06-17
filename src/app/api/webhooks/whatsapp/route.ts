@@ -7,6 +7,65 @@ import { normalizePhoneNumber } from "@/lib/phone";
 // (event-type, afzender, secret-match) tijdens het diagnosticeren van de inbox.
 const DEBUG = process.env.WHATSAPP_WEBHOOK_DEBUG === "1";
 
+type EvolutionMessage = {
+  key?: {
+    remoteJid?: string;
+    fromMe?: boolean;
+    id?: string;
+  };
+  pushName?: string;
+  message?: {
+    conversation?: string;
+    extendedTextMessage?: { text?: string };
+    imageMessage?: { caption?: string };
+    videoMessage?: { caption?: string };
+    documentMessage?: { caption?: string; fileName?: string };
+    audioMessage?: unknown;
+    stickerMessage?: unknown;
+  };
+  messageType?: string;
+};
+
+function getEvolutionMessage(data: unknown): EvolutionMessage | null {
+  if (!data || typeof data !== "object") return null;
+
+  const maybeRecord = data as Record<string, unknown>;
+  if (Array.isArray(maybeRecord.messages) && maybeRecord.messages[0]) {
+    return getEvolutionMessage(maybeRecord.messages[0]);
+  }
+
+  if (Array.isArray(data) && data[0]) {
+    return getEvolutionMessage(data[0]);
+  }
+
+  if (maybeRecord.message && typeof maybeRecord.message === "object" && "key" in maybeRecord.message) {
+    return maybeRecord.message as EvolutionMessage;
+  }
+
+  if (maybeRecord.key && typeof maybeRecord.key === "object") {
+    return maybeRecord as EvolutionMessage;
+  }
+
+  return null;
+}
+
+function getMessageText(msg: EvolutionMessage): string {
+  const message = msg.message;
+  const text =
+    message?.conversation ||
+    message?.extendedTextMessage?.text ||
+    message?.imageMessage?.caption ||
+    message?.videoMessage?.caption ||
+    message?.documentMessage?.caption;
+
+  if (text) return text;
+  if (message?.documentMessage?.fileName) return `[document: ${message.documentMessage.fileName}]`;
+  if (message?.audioMessage) return "[audio bericht]";
+  if (message?.stickerMessage) return "[sticker]";
+  if (msg.messageType) return `[${msg.messageType}]`;
+  return "[media bericht]";
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-webhook-secret");
   const secretMatch =
@@ -25,8 +84,8 @@ export async function POST(req: NextRequest) {
     console.log("[wa-webhook]", {
       rawEvent: body?.event,
       event,
-      from: body?.data?.key?.remoteJid,
-      fromMe: body?.data?.key?.fromMe,
+      from: getEvolutionMessage(body?.data)?.key?.remoteJid,
+      fromMe: getEvolutionMessage(body?.data)?.key?.fromMe,
       secretMatch,
     });
   }
@@ -42,7 +101,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const msg = body.data;
+  const msg = getEvolutionMessage(body.data);
   if (!msg || msg.key?.fromMe) {
     return NextResponse.json({ ok: true });
   }
@@ -53,10 +112,7 @@ export async function POST(req: NextRequest) {
   }
 
   const waName: string | undefined = msg.pushName ?? undefined;
-  const bodyText: string =
-    msg.message?.conversation ||
-    msg.message?.extendedTextMessage?.text ||
-    "[media bericht]";
+  const bodyText = getMessageText(msg);
   const evolutionMsgId: string | undefined = msg.key?.id ?? undefined;
 
   let conversation = await prisma.waConversation.findFirst({
