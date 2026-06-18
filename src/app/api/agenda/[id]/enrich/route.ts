@@ -24,10 +24,30 @@ function formatMauticDateTime(date: Date | null): string | null {
 
 function buildWoningAdres(project: {
   woningAdres: string | null;
+  woningPostcode?: string | null;
   woningPlaats: string | null;
 } | null): string | null {
   if (!project?.woningAdres) return null;
-  return [project.woningAdres, project.woningPlaats].filter(Boolean).join(" ");
+  const plaatsregel = [project.woningPostcode, project.woningPlaats].filter(Boolean).join(" ");
+  return [project.woningAdres, plaatsregel].filter(Boolean).join(", ");
+}
+
+function buildAfspraakAdres(
+  project: {
+    woningAdres: string | null;
+    woningPostcode?: string | null;
+    woningPlaats: string | null;
+  } | null,
+  afspraak: {
+    agdescr: string | null;
+    aglocation: string | null;
+  }
+): string | null {
+  return buildWoningAdres(project) ?? afspraak.agdescr ?? afspraak.aglocation ?? null;
+}
+
+function isBezichtigingType(type: string | null): boolean {
+  return /bezicht|viewing/i.test(type ?? "");
 }
 
 export async function POST(
@@ -77,7 +97,7 @@ export async function POST(
     },
     include: {
       project: {
-        select: { id: true, name: true, woningAdres: true, woningPlaats: true },
+        select: { id: true, name: true, woningAdres: true, woningPostcode: true, woningPlaats: true },
       },
     },
   });
@@ -97,22 +117,21 @@ export async function POST(
   // direct bruikbaar zijn na agenda-enrichment.
   if (updated.mauticContactId) {
     try {
-      const woningAdres = buildWoningAdres(updated.project);
-      const isBezichtiging = (updated.agtype ?? "").toLowerCase().includes("bezichtiging");
+      const afspraakAdres = buildAfspraakAdres(updated.project, updated);
+      const isBezichtiging = isBezichtigingType(updated.agtype);
       const fields: Record<string, string | number | null> = {
         afspraak_type: updated.agtype ?? null,
         volgende_afspraak_datum: formatMauticDateTime(updated.agbegin),
         volgende_afspraak_status: updated.aginactive ? "geannuleerd" : "gepland",
       };
 
-      if (woningAdres) {
-        fields.woning_adres = woningAdres;
+      if (afspraakAdres) {
+        fields.woning_adres = afspraakAdres;
       }
 
       if (isBezichtiging) {
-        fields.bezichtiging_adres = woningAdres ?? updated.agdescr ?? null;
+        fields.bezichtiging_adres = afspraakAdres;
         fields.bezichtiging_datum = formatMauticDateTime(updated.agbegin);
-        fields.bezichtiging_type = updated.agtype ?? null;
       }
 
       await updateContact(updated.mauticContactId, fields);
