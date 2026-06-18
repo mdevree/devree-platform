@@ -4,9 +4,22 @@ import { prisma } from "@/lib/prisma";
 import { searchContactByRealworksCode, updateContact } from "@/lib/mautic";
 import { koppelAfspraakAanLead } from "@/lib/kijkerKoppeling";
 
+const AMSTERDAM_TIME_ZONE = "Europe/Amsterdam";
+
 function formatMauticDateTime(date: Date | null): string | null {
   if (!date) return null;
-  return date.toISOString().slice(0, 19).replace("T", " ");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: AMSTERDAM_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${byType.year}-${byType.month}-${byType.day} ${byType.hour}:${byType.minute}:${byType.second}`;
 }
 
 function buildWoningAdres(project: {

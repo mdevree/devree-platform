@@ -5,6 +5,7 @@ services:
     image: ghcr.io/mdevree/devree-platform:latest
     container_name: devree-platform
     environment:
+      - TZ=${TZ:-Europe/Amsterdam}
       - DATABASE_URL=${DATABASE_URL}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL}

@@ -4,6 +4,86 @@ import { prisma } from "@/lib/prisma";
 import { getContactFull } from "@/lib/mautic";
 import { fetchWoningVanWordPress } from "@/lib/wordpress";
 
+const AMSTERDAM_TIME_ZONE = "Europe/Amsterdam";
+
+function formatAmsterdamDate(date: Date | null): {
+  iso: string | null;
+  label: string | null;
+  datum: string | null;
+  tijd: string | null;
+  bestandsDatum: string | null;
+} {
+  if (!date) {
+    return { iso: null, label: null, datum: null, tijd: null, bestandsDatum: null };
+  }
+
+  const label = new Intl.DateTimeFormat("nl-NL", {
+    timeZone: AMSTERDAM_TIME_ZONE,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+
+  const datum = new Intl.DateTimeFormat("nl-NL", {
+    timeZone: AMSTERDAM_TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+
+  const tijd = new Intl.DateTimeFormat("nl-NL", {
+    timeZone: AMSTERDAM_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: AMSTERDAM_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return {
+    iso: date.toISOString(),
+    label,
+    datum,
+    tijd,
+    bestandsDatum: `${byType.year}-${byType.month}-${byType.day}`,
+  };
+}
+
+function parseMaybeJson(value: string | null): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function compactValue(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string") return value.trim() || null;
+  if (Array.isArray(value)) {
+    const parts = value.map(compactValue).filter(Boolean);
+    return parts.length ? parts.join(", ") : null;
+  }
+  if (typeof value === "object") {
+    const parts = Object.entries(value as Record<string, unknown>)
+      .map(([key, entry]) => {
+        const compacted = compactValue(entry);
+        return compacted ? `${key}: ${compacted}` : null;
+      })
+      .filter(Boolean);
+    return parts.length ? parts.join(" | ") : null;
+  }
+  return String(value);
+}
+
 /**
  * GET /api/agenda/[id]/context
  *
@@ -77,11 +157,22 @@ export async function GET(
       : Promise.resolve([]),
   ]);
 
+  const beginLokaal = formatAmsterdamDate(afspraak.agbegin);
+  const eindLokaal = formatAmsterdamDate(afspraak.agend);
+  const aiProfiel = parseMaybeJson(mauticContact?.aiProfile ?? null);
+  const intakeAntwoord = parseMaybeJson(mauticContact?.afspraakIntakeAntwoord ?? null);
+  const zoekerData = parseMaybeJson(mauticContact?.zoekerData ?? null);
+  const aiFallback = compactValue(aiProfiel);
+  const intakeFallback = compactValue(intakeAntwoord);
+  const zoekerFallback = compactValue(zoekerData);
+
   return NextResponse.json({
     afspraak: {
       id: afspraak.id,
       begin: afspraak.agbegin,
+      beginLokaal,
       eind: afspraak.agend,
+      eindLokaal,
       type: afspraak.agtype,
       omschrijving: afspraak.agdescr,
       locatie: afspraak.aglocation,
@@ -108,15 +199,13 @@ export async function GET(
           tags: mauticContact.tags,
           aangemeld: mauticContact.dateAdded,
           // AI profiel — geparsed JSON of raw string indien parsefout
-          aiProfiel: mauticContact.aiProfile ? (() => {
-            try { return JSON.parse(mauticContact.aiProfile!); } catch { return mauticContact.aiProfile; }
-          })() : null,
+          aiProfiel,
           // Gestructureerde AI sub-velden (gegenereerd door AI-workflow)
           aiAnalyse: {
-            huidigeSituatie: mauticContact.aiCurrentSituation,
-            woningMotivatie: mauticContact.aiHousingMotivation,
+            huidigeSituatie: mauticContact.aiCurrentSituation || aiFallback,
+            woningMotivatie: mauticContact.aiHousingMotivation || intakeFallback,
             budgetIndicatie: mauticContact.aiBudgetIndication,
-            tijdlijn: mauticContact.aiTimeline,
+            tijdlijn: mauticContact.aiTimeline || zoekerFallback,
             gezinssituatie: mauticContact.aiFamilyStatus,
             leefstijlVoorkeur: mauticContact.aiLifestylePreference,
           },
@@ -125,12 +214,8 @@ export async function GET(
             notities: mauticContact.bezichtigingNotities,
             interesseScore: mauticContact.bezichtigingInteresse,
             contactType: mauticContact.contactTypeBezichtiger,
-            intakeAntwoord: mauticContact.afspraakIntakeAntwoord ? (() => {
-              try { return JSON.parse(mauticContact.afspraakIntakeAntwoord!); } catch { return mauticContact.afspraakIntakeAntwoord; }
-            })() : null,
-            zoekprofiel: mauticContact.zoekerData ? (() => {
-              try { return JSON.parse(mauticContact.zoekerData!); } catch { return mauticContact.zoekerData; }
-            })() : null,
+            intakeAntwoord,
+            zoekprofiel: zoekerData,
           },
           // Kwalificatiedata uit Realworks (browser extensie → n8n → Mautic)
           kwalificatie: {

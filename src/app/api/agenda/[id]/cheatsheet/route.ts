@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 
+const AMSTERDAM_TIME_ZONE = "Europe/Amsterdam";
+
+function formatAmsterdamLabel(date: Date | null): string | null {
+  if (!date) return null;
+  return new Intl.DateTimeFormat("nl-NL", {
+    timeZone: AMSTERDAM_TIME_ZONE,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 /**
  * POST /api/agenda/[id]/cheatsheet
  *
@@ -55,6 +69,7 @@ export async function POST(
         mauticContactId: afspraak.mauticContactId,
         contactNaam: afspraak.contactNaam,
         agbegin: afspraak.agbegin,
+        agbeginLokaal: formatAmsterdamLabel(afspraak.agbegin),
         contextUrl,
       }),
     });
