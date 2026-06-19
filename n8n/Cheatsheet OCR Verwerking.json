@@ -1,0 +1,485 @@
+[
+  {
+    "updatedAt": "2026-06-19T05:48:12.000Z",
+    "createdAt": "2026-06-15T07:53:57.190Z",
+    "id": "OCRverwerk0001",
+    "name": "Cheatsheet OCR → Mautic (bezichtiging-aantekeningen)",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes"
+              }
+            ]
+          }
+        },
+        "id": "n-sched",
+        "name": "Elke 5 minuten",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          224,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "folder",
+          "operation": "list",
+          "path": "/onyx/Go103/Kladblokken/Bezichtiging/"
+        },
+        "id": "n-list",
+        "name": "Lijst inbox-map",
+        "type": "n8n-nodes-base.nextCloud",
+        "typeVersion": 1,
+        "position": [
+          416,
+          304
+        ],
+        "credentials": {
+          "nextCloudApi": {
+            "id": "O1Q1l2aXVJXpfyAC",
+            "name": "NextCloud account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  const path = j.path || j.filePath || j.name || '';\n  if (typeof path !== 'string' || !/\\.pdf$/i.test(path)) continue;\n  const fileName = path.split('/').pop();\n  const afspraakId = fileName.replace(/\\.pdf$/i, '').split('_').pop();\n  if (!afspraakId) continue;\n\n  const eTag = j.eTag || j.etag || '';\n  const lastModified = j.lastModified || j.modifiedAt || '';\n  const contentLength = j.contentLength || j.size || '';\n  const processedKey = [path, eTag, lastModified, contentLength].join('|');\n\n  out.push({\n    json: {\n      filePath: path,\n      fileName,\n      afspraakId,\n      eTag,\n      lastModified,\n      contentLength,\n      processedKey,\n    },\n  });\n}\nreturn out;"
+        },
+        "id": "n-filter",
+        "name": "Filter PDFs + afspraakId",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          576,
+          176
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "download",
+          "path": "={{ $json.filePath }}"
+        },
+        "id": "n-dl",
+        "name": "Download PDF",
+        "type": "n8n-nodes-base.nextCloud",
+        "typeVersion": 1,
+        "position": [
+          1152,
+          144
+        ],
+        "credentials": {
+          "nextCloudApi": {
+            "id": "O1Q1l2aXVJXpfyAC",
+            "name": "NextCloud account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const resp = $input.first().json || {};\n\nfunction pickText(value) {\n  if (value === null || value === undefined) return '';\n  if (typeof value === 'string') return value;\n  if (Array.isArray(value)) {\n    for (const item of value) {\n      const found = pickText(item);\n      if (found) return found;\n    }\n    return '';\n  }\n  if (typeof value === 'object') {\n    if (typeof value.text === 'string') return value.text;\n    if (typeof value.output_text === 'string') return value.output_text;\n    if (value.type === 'output_text' && typeof value.text === 'string') return value.text;\n    for (const key of ['content', 'output', 'message', 'choices', 'data']) {\n      const found = pickText(value[key]);\n      if (found) return found;\n    }\n  }\n  return '';\n}\n\nlet txt =\n  pickText(resp.output) ||\n  pickText(resp.content) ||\n  pickText(resp.text) ||\n  pickText(resp);\n\ntxt = String(txt)\n  .replace(/^\\s*```json\\s*/i, '')\n  .replace(/^\\s*```\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .trim();\n\nlet parsed = {};\ntry {\n  parsed = JSON.parse(txt);\n} catch (e) {\n  parsed = {\n    interesse: null,\n    notities: '',\n    verkoopgesprekStatus: null,\n    vervolgactie: null,\n    _parseFout: txt.slice(0, 500),\n  };\n}\n\nconst ref = $('Bouw ai input').item.json;\n\nreturn [{\n  json: {\n    afspraakId: ref.afspraakId,\n    fileName: ref.fileName,\n    filePath: ref.filePath,\n    processedKey: ref.processedKey,\n    interesse: parsed.interesse ?? null,\n    notities: parsed.notities ?? '',\n    verkoopgesprekStatus: parsed.verkoopgesprekStatus ?? null,\n    vervolgactie: parsed.vervolgactie ?? null,\n    parseFout: parsed._parseFout ?? null,\n    rawModelText: txt.slice(0, 1000),\n  },\n}];"
+        },
+        "id": "n-parse",
+        "name": "Parse AI-output",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1152,
+          368
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://kantoor.devreemakelaardij.nl/api/agenda/{{ $json.afspraakId }}/cheatsheet/verwerk",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-webhook-secret",
+                "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ bevestigd: true, bezichtigingInteresse: $json.interesse, bezichtigingNotities: $json.notities, verkoopgesprekStatus: $json.verkoopgesprekStatus, vervolgactie: $json.vervolgactie }) }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "n-verwerk",
+        "name": "POST naar /cheatsheet/verwerk",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1440,
+          368
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "move",
+          "path": "={{ $('Filter PDFs + afspraakId').item.json.filePath }}",
+          "toPath": "=Bezichtigingen/verwerkt/{{ $('Filter PDFs + afspraakId').item.json.fileName }}"
+        },
+        "id": "n-move",
+        "name": "Verplaats naar _verwerkt",
+        "type": "n8n-nodes-base.nextCloud",
+        "typeVersion": 1,
+        "position": [
+          1664,
+          400
+        ],
+        "credentials": {
+          "nextCloudApi": {
+            "id": "O1Q1l2aXVJXpfyAC",
+            "name": "NextCloud account"
+          }
+        },
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "resource": "image",
+          "operation": "analyze",
+          "modelId": {
+            "__rl": true,
+            "value": "gpt-5.5",
+            "mode": "list",
+            "cachedResultName": "GPT-5.5"
+          },
+          "text": "={{ $('Bouw ai input').item.json.prompt }}",
+          "inputType": "base64",
+          "options": {
+            "detail": "high",
+            "maxTokens": 1000
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 2.1,
+        "position": [
+          2000,
+          144
+        ],
+        "id": "40a8f724-9898-41bf-b4f2-096888a8621d",
+        "name": "Analyze image",
+        "credentials": {
+          "openAiApi": {
+            "id": "UdiNlc10HwLGX8Uz",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const input = $input.first();\nconst bin = input.binary?.data;\nif (!bin) throw new Error('Geen binaire PDF op binary.data');\n\nconst ref = $('Filter PDFs + afspraakId').item.json;\n\nconst prompt = [\n  'Je leest een PNG-afbeelding van handgeschreven aantekeningen van een makelaar op een bezichtigings-cheatsheet.',\n  'Geef UITSLUITEND geldige JSON terug, zonder extra tekst en zonder codeblokken.',\n  'Gebruik exact deze velden:',\n  '{\"interesse\": <geheel getal 0-100 of null>, \"notities\": <string of \"\">, \"verkoopgesprekStatus\": <string of null>, \"vervolgactie\": <string of null>}',\n  'Lees alleen de handgeschreven invulling in de aantekenvakken. Laat een veld leeg (\"\") of null als er niets handgeschreven bij staat.'\n].join('\\n');\n\nreturn [{\n  json: {\n    afspraakId: ref.afspraakId,\n    fileName: ref.fileName || bin.fileName || 'cheatsheet.pdf',\n    filePath: ref.filePath,\n    processedKey: ref.processedKey,\n    prompt,\n  },\n  binary: {\n    data: bin,\n  },\n}];"
+        },
+        "id": "n-build",
+        "name": "Bouw ai input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1440,
+          144
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://127.0.0.1:3115/render",
+          "sendBody": true,
+          "contentType": "binaryData",
+          "inputDataFieldName": "data",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file"
+              }
+            }
+          }
+        },
+        "id": "ocr-render-pdf-to-png",
+        "name": "Render PDF naar PNG",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1712,
+          144
+        ]
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          880,
+          64
+        ],
+        "id": "5fed9951-199d-49d7-ac19-159ad213766a",
+        "name": "Loop Over Items"
+      },
+      {
+        "parameters": {
+          "jsCode": "const staticData = $getWorkflowStaticData('global');\nstaticData.processedCheatsheets ??= {};\n\nconst processed = staticData.processedCheatsheets;\nconst entries = Object.entries(processed);\nif (entries.length > 5000) {\n  entries\n    .sort((a, b) => String(a[1]?.processedAt || '').localeCompare(String(b[1]?.processedAt || '')))\n    .slice(0, entries.length - 5000)\n    .forEach(([key]) => delete processed[key]);\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const key = item.json.processedKey;\n  if (!key) {\n    out.push(item);\n    continue;\n  }\n  if (processed[key]) continue;\n  out.push(item);\n}\n\nreturn out;"
+        },
+        "id": "ocr-filter-al-verwerkt",
+        "name": "Filter al verwerkt",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          704,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const staticData = $getWorkflowStaticData('global');\nstaticData.processedCheatsheets ??= {};\n\nconst ref = $('Parse AI-output').item.json;\nconst key = ref.processedKey;\nif (!key) throw new Error('Geen processedKey gevonden op Parse AI-output');\n\nstaticData.processedCheatsheets[key] = {\n  processedAt: new Date().toISOString(),\n  afspraakId: ref.afspraakId,\n  fileName: ref.fileName,\n  filePath: ref.filePath,\n  interesse: ref.interesse ?? null,\n  notities: ref.notities ?? '',\n};\n\nreturn [{\n  json: {\n    ...$input.first().json,\n    processedKey: key,\n    processedFile: ref.fileName,\n  },\n}];"
+        },
+        "id": "ocr-markeer-als-verwerkt",
+        "name": "Markeer als verwerkt",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1872,
+          544
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const parsed = $(\"Parse AI-output\").item.json || {};\nconst pdfItem = $(\"Download PDF\").item;\nconst pdf = pdfItem.binary?.data;\nif (!pdf) throw new Error(\"Geen PDF-bijlage gevonden op Download PDF\");\n\nconst value = (v, fallback = \"-\") => {\n  if (v === null || v === undefined || v === \"\") return fallback;\n  return String(v);\n};\n\nconst fileName = parsed.fileName || pdf.fileName || \"bezichtiging-cheatsheet.pdf\";\nconst interesse = value(parsed.interesse);\nconst notities = value(parsed.notities);\nconst verkoopgesprekStatus = value(parsed.verkoopgesprekStatus);\nconst vervolgactie = value(parsed.vervolgactie);\nconst afspraakId = value(parsed.afspraakId);\n\nconst subject = `Bezichtiging aantekeningen verwerkt - ${fileName}`;\nconst text = [\n  \"De bezichtigings-aantekeningen zijn verwerkt.\",\n  \"\",\n  `Afspraak ID: ${afspraakId}`,\n  `Bestand: ${fileName}`,\n  `Interesse: ${interesse}`,\n  `Notities: ${notities}`,\n  `Verkoopgesprek-status: ${verkoopgesprekStatus}`,\n  `Vervolgactie: ${vervolgactie}`,\n  \"\",\n  \"De originele PDF staat als bijlage bij deze e-mail.\",\n].join(\"\\n\");\n\nconst esc = (v) =>\n  value(v, \"\").replace(/[&<>\"']/g, (c) => ({\n    \"&\": \"&amp;\",\n    \"<\": \"&lt;\",\n    \">\": \"&gt;\",\n    '\"': \"&quot;\",\n    \"'\": \"&#39;\",\n  })[c]);\n\nconst html = `\n  <p>De bezichtigings-aantekeningen zijn verwerkt.</p>\n  <table cellpadding=\"6\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px\">\n    <tr><td><strong>Afspraak ID</strong></td><td>${esc(afspraakId)}</td></tr>\n    <tr><td><strong>Bestand</strong></td><td>${esc(fileName)}</td></tr>\n    <tr><td><strong>Interesse</strong></td><td>${esc(interesse)}</td></tr>\n    <tr><td><strong>Notities</strong></td><td>${esc(notities)}</td></tr>\n    <tr><td><strong>Verkoopgesprek-status</strong></td><td>${esc(verkoopgesprekStatus)}</td></tr>\n    <tr><td><strong>Vervolgactie</strong></td><td>${esc(vervolgactie)}</td></tr>\n  </table>\n  <p>De originele PDF staat als bijlage bij deze e-mail.</p>\n`;\n\nreturn [\n  {\n    json: {\n      ...parsed,\n      subject,\n      text,\n      html,\n    },\n    binary: {\n      data: {\n        ...pdf,\n        fileName,\n        mimeType: pdf.mimeType || \"application/pdf\",\n      },\n    },\n  },\n];\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2520,
+          520
+        ],
+        "id": "9d8b9da5-6d69-4a61-9998-56f138f70222",
+        "name": "Bouw interne terugkoppelmail"
+      },
+      {
+        "parameters": {
+          "resource": "email",
+          "operation": "send",
+          "fromEmail": "workflow@devreemakelaardij.nl",
+          "toEmail": "info@devreemakelaardij.nl",
+          "subject": "={{ $json.subject }}",
+          "emailFormat": "html",
+          "html": "={{ $json.html }}",
+          "options": {
+            "attachments": "data"
+          }
+        },
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          2740,
+          520
+        ],
+        "id": "54f8d56f-7c3f-4355-9e6f-b9463d4e5b3cf",
+        "name": "Mail terugkoppeling naar info",
+        "webhookId": "cheatsheet-ocr-mail-info",
+        "credentials": {
+          "smtp": {
+            "id": "QUfuDm83tmCATdw8",
+            "name": "Email versturen met workflow"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Elke 5 minuten": {
+        "main": [
+          [
+            {
+              "node": "Lijst inbox-map",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lijst inbox-map": {
+        "main": [
+          [
+            {
+              "node": "Filter PDFs + afspraakId",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter PDFs + afspraakId": {
+        "main": [
+          [
+            {
+              "node": "Filter al verwerkt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download PDF": {
+        "main": [
+          [
+            {
+              "node": "Bouw ai input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "POST naar /cheatsheet/verwerk": {
+        "main": [
+          [
+            {
+              "node": "Bouw interne terugkoppelmail",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Bouw ai input": {
+        "main": [
+          [
+            {
+              "node": "Render PDF naar PNG",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse AI-output": {
+        "main": [
+          [
+            {
+              "node": "POST naar /cheatsheet/verwerk",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Render PDF naar PNG": {
+        "main": [
+          [
+            {
+              "node": "Analyze image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Analyze image": {
+        "main": [
+          [
+            {
+              "node": "Parse AI-output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Over Items": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Download PDF",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter al verwerkt": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Markeer als verwerkt": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verplaats naar _verwerkt": {
+        "main": [
+          [
+            {
+              "node": "Markeer als verwerkt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Bouw interne terugkoppelmail": {
+        "main": [
+          [
+            {
+              "node": "Mail terugkoppeling naar info",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mail terugkoppeling naar info": {
+        "main": [
+          [
+            {
+              "node": "Verplaats naar _verwerkt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate"
+    },
+    "staticData": {
+      "node:Elke 5 minuten": {
+        "recurrenceRules": []
+      }
+    },
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "versionId": "564b3c91-2aa1-47b6-98f3-8324d11edc2c",
+    "activeVersionId": "564b3c91-2aa1-47b6-98f3-8324d11edc2c",
+    "versionCounter": 124,
+    "triggerCount": 1,
+    "tags": []
+  }
+]
