@@ -19,8 +19,8 @@ interface RealworksItem {
   medewerker_fullname?: string;
   agmemo?: string;
   agintratext?: string;
-  agallday?: boolean;
-  aginactive?: boolean;
+  agallday?: boolean | number | string | null;
+  aginactive?: boolean | number | string | null;
   alastupd?: string;
 }
 
@@ -31,6 +31,16 @@ function parseRwDate(s?: string): Date | null {
   if (!datePart || !timePart) return null;
   const [day, month, year] = datePart.split("-");
   return new Date(`${year}-${month}-${day}T${timePart}+02:00`);
+}
+
+function boolOrNull(value: boolean | number | string | null | undefined): boolean | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const normalized = value.toLowerCase().trim();
+  if (["1", "true", "ja", "yes"].includes(normalized)) return true;
+  if (["0", "false", "nee", "no"].includes(normalized)) return false;
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -79,8 +89,8 @@ export async function POST(req: NextRequest) {
         medewerkerFullname: item.medewerker_fullname,
         agmemo: item.agmemo,
         agintratext: item.agintratext,
-        agallday: item.agallday,
-        aginactive: item.aginactive,
+        agallday: boolOrNull(item.agallday),
+        aginactive: boolOrNull(item.aginactive),
         alastupd: item.alastupd,
       },
       update: {
@@ -99,8 +109,8 @@ export async function POST(req: NextRequest) {
         medewerkerFullname: item.medewerker_fullname,
         agmemo: item.agmemo,
         agintratext: item.agintratext,
-        agallday: item.agallday,
-        aginactive: item.aginactive,
+        agallday: boolOrNull(item.agallday),
+        aginactive: boolOrNull(item.aginactive),
         alastupd: item.alastupd,
       },
     });
