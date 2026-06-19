@@ -153,13 +153,13 @@ export default function BezichtigingDetailPaneel({
       const res = await fetch(`/api/agenda/${afspraakId}/cheatsheet`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setPdfMelding("PDF aangevraagd — n8n genereert en slaat op in Nextcloud.");
+        setPdfMelding("PDF gegenereerd en opgeslagen in Nextcloud.");
         laad();
       } else {
         setPdfMelding(data.error || "Genereren mislukt.");
       }
     } catch {
-      setPdfMelding("Kon n8n niet bereiken.");
+      setPdfMelding("Kon PDF niet genereren.");
     } finally {
       setPdfBezig(false);
     }
