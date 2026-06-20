@@ -51,6 +51,16 @@ export async function POST(
     );
   }
 
+  // Boox kan hetzelfde bestand opnieuw synchroniseren. Verwerk een afspraak
+  // daarom maximaal één keer, onafhankelijk van n8n-bestandsmetadata.
+  if (afspraak.cheatsheetStatus === "verwerkt") {
+    return NextResponse.json({
+      ok: true,
+      status: "al_verwerkt",
+      bericht: "Deze bezichtigingsaantekeningen waren al verwerkt.",
+    });
+  }
+
   const bevestigd = body.bevestigd === true;
 
   // Bouw een leesbare samenvatting van de herkende aantekeningen.
@@ -68,7 +78,8 @@ export async function POST(
   // Altijd een notitie loggen (concept of definitief) zodat niets verloren gaat.
   await addMauticNote(
     mauticContactId,
-    `${bevestigd ? "Bezichtiging-aantekeningen" : "Concept bezichtiging-aantekeningen (OCR, te bevestigen)"}:\n${samenvatting}`
+    `${bevestigd ? "Bezichtiging-aantekeningen" : "Concept bezichtiging-aantekeningen (OCR, te bevestigen)"}:\n${samenvatting}`,
+    afspraak.agbegin
   );
 
   if (!bevestigd) {

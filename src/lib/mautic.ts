@@ -651,10 +651,24 @@ export async function addContactPoints(
 /**
  * Voeg een notitie toe aan een Mautic contact
  */
-export async function addMauticNote(contactId: number, text: string): Promise<void> {
+export async function addMauticNote(
+  contactId: number,
+  text: string,
+  dateTime?: Date | string | null
+): Promise<void> {
+  const parsedDate = dateTime ? new Date(dateTime) : null;
+  const validDateTime =
+    parsedDate && !Number.isNaN(parsedDate.getTime())
+      ? parsedDate.toISOString()
+      : undefined;
   const response = await mauticFetch("/api/notes/new", {
     method: "POST",
-    body: JSON.stringify({ lead: contactId, text, type: "general" }),
+    body: JSON.stringify({
+      lead: contactId,
+      text,
+      type: "general",
+      ...(validDateTime ? { dateTime: validDateTime } : {}),
+    }),
   });
   if (!response.ok) {
     console.error("Mautic notitie fout:", response.status, await response.text());
