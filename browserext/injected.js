@@ -81,6 +81,27 @@
     return '';
   }
 
+  function formFieldsPreview(form) {
+    const fields = {};
+    try {
+      for (const element of Array.from(form.elements || [])) {
+        const name = element?.name;
+        if (!name) continue;
+
+        const type = String(element.type || '').toLowerCase();
+        if (type === 'password' || type === 'file') {
+          fields[name] = `[${type}]`;
+          continue;
+        }
+        if ((type === 'checkbox' || type === 'radio') && !element.checked) continue;
+
+        fields[name] = element.value ?? '';
+      }
+    } catch {}
+
+    return JSON.stringify(fields).slice(0, BACKUP_CAPTURE_MAX_CHARS);
+  }
+
   function postNetworkCapture(capture) {
     const parsed = absoluteUrl(capture.url);
     if (!parsed) return;
@@ -115,6 +136,33 @@
         ...capture,
       },
     }, '*');
+  }
+
+  function postFormCapture(form, trigger) {
+    if (!form) return;
+
+    const action = form.getAttribute('action');
+    const url = action && action !== 'null'
+      ? (absoluteUrl(action)?.href || action)
+      : window.location.href;
+
+    if (!shouldCaptureRealworksNetwork(url, 'application/x-www-form-urlencoded')) return;
+
+    postPopupCapture({
+      source: 'realworks_form_capture',
+      transport: 'form_submit',
+      method: String(form.method || 'GET').toUpperCase(),
+      url,
+      status: null,
+      content_type: form.enctype || 'application/x-www-form-urlencoded',
+      form_target: form.target || '',
+      form_name: form.getAttribute('name') || '',
+      form_id: form.id || '',
+      form_trigger: trigger,
+      request_body_preview: formFieldsPreview(form),
+      response_truncated: false,
+      response_body: '',
+    });
   }
 
   // Extraheert kwalificatiedata uit broker.response formuliervelden
@@ -161,6 +209,8 @@
 
     let actionPath;
     try { actionPath = new URL(form.action).pathname; } catch { return; }
+
+    postFormCapture(form, 'submit_event');
 
     if (actionPath.includes(CONTACT_SAVE_PATH)) {
       try {
@@ -260,6 +310,8 @@
     if (this.action) {
       let actionPath;
       try { actionPath = new URL(this.action).pathname; } catch { return origFormSubmit.call(this); }
+
+      postFormCapture(this, 'prototype_submit');
 
       if (actionPath.includes(LEAD_RESPONSE_PATH)) {
         try {

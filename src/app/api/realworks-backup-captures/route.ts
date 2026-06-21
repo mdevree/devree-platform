@@ -30,6 +30,10 @@ type RealworksNetworkCapture = {
   onclick_preview?: string;
   popup_target?: string;
   popup_features?: string;
+  form_target?: string;
+  form_name?: string;
+  form_id?: string;
+  form_trigger?: string;
 };
 
 export async function OPTIONS() {
@@ -88,6 +92,11 @@ export async function POST(request: NextRequest) {
     linkTarget: "link_target" in normalizedCapture ? normalizedCapture.link_target : undefined,
     popupTarget: "popup_target" in normalizedCapture ? normalizedCapture.popup_target : undefined,
     onclickPreview: "onclick_preview" in normalizedCapture ? normalizedCapture.onclick_preview : undefined,
+    formTarget: "form_target" in normalizedCapture ? normalizedCapture.form_target : undefined,
+    formName: "form_name" in normalizedCapture ? normalizedCapture.form_name : undefined,
+    formId: "form_id" in normalizedCapture ? normalizedCapture.form_id : undefined,
+    formTrigger: "form_trigger" in normalizedCapture ? normalizedCapture.form_trigger : undefined,
+    requestBodyPreview: normalizedCapture.request_body_preview?.slice(0, 4000),
   });
 
   const configuredWebhookUrl = process.env.REALWORKS_BACKUP_CAPTURE_WEBHOOK_URL;
