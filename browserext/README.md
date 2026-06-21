@@ -13,8 +13,26 @@ Chrome-extensie die data uit de Realworks CRM haalt en doorstuurt naar n8n, en o
 | Taxatierapport | Versturen van een taxatieformulier in Realworks | `realworks-taxatie-sync` |
 | Lead Response (kijker) | Opslaan van een bezichtigingsreactie (`broker.response/save`) | `realworks-lead-response` |
 | Woning (object) | Opslaan van een woning (`broker.brokerobject/save`) | `realworks-woning-sync` |
+| Backup/discovery | XHR/fetch-verkeer op `backup.realworks.nl` en relevante historie/correspondentie-calls op `crm.realworks.nl` | Platform API `/api/realworks-backup-captures` → optioneel n8n `realworks-backup-capture` |
 
 De extensie onderschept form-submits en XHR-calls op `crm.realworks.nl` en stuurt de relevante velden als JSON naar de n8n webhook. Interne Realworks-velden (CSRF-tokens, grid-parameters, maskers) worden weggefilterd.
+
+#### Backup/discovery capture
+
+Voor Realworks-onderdelen waarvan de endpointstructuur nog onbekend is, injecteert de extensie ook op `backup.realworks.nl`. Het injected script onderschept `fetch` en XHR responses met tekst/JSON/HTML-achtige content, kapt de response af op 200.000 tekens en stuurt metadata + body-preview via de background worker naar:
+
+```http
+POST https://kantoor.devreemakelaardij.nl/api/realworks-backup-captures
+x-webhook-secret: <N8N_WEBHOOK_SECRET>
+```
+
+De platform-API accepteert alleen `backup.realworks.nl` en `crm.realworks.nl` captures. Als `REALWORKS_BACKUP_CAPTURE_WEBHOOK_URL` is gezet, wordt daarnaar doorgestuurd; anders gebruikt de API standaard:
+
+```text
+<N8N_URL>/webhook/realworks-backup-capture
+```
+
+Op `backup.realworks.nl` is de capture relatief breed zodat we kunnen ontdekken waar correspondentie/historie zit. Op `crm.realworks.nl` filtert de capture op hints zoals `correspond`, `histor`, `mail`, `bericht`, `dossier`, `memo`, `rela.` en `broker.` zodat bestaande syncs niet overspoeld worden.
 
 #### Lead Response payload
 
@@ -169,6 +187,6 @@ De extensie is actief zodra je ingelogd bent op `crm.realworks.nl`.
 | Bestand | Rol |
 |---------|-----|
 | `manifest.json` | Extensieconfiguratie (permissions, content scripts) |
-| `injected.js` | Draait in de paginacontext; onderschept XHR en form-submits |
-| `content.js` | Brug tussen pagina en background worker; stuurt webhooks aan |
-| `background.js` | Service worker; cachet formulierdata en verwerkt schrijftaken |
+| `injected.js` | Draait in de paginacontext; onderschept XHR, fetch en form-submits |
+| `content.js` | Brug tussen pagina en background worker; stuurt webhooks/captures aan |
+| `background.js` | Service worker; cachet formulierdata, verwerkt schrijftaken en verstuurt backup-captures |

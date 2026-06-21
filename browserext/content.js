@@ -134,5 +134,20 @@ window.addEventListener('message', (event) => {
   }).catch(() => {});
 });
 
+// Ontvang discovery-data van backup.realworks.nl. De background worker stuurt
+// dit door naar het platform met het ingestelde webhook-secret.
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'REALWORKS_BACKUP_NETWORK') return;
+
+  safeSendMessage({
+    type: 'CAPTURE_REALWORKS_BACKUP',
+    capture: {
+      ...event.data.capture,
+      page_url: window.location.href,
+    },
+  });
+});
+
 // REALWORKS_TAXATIE sync wordt afgehandeld door background.js via webRequest
 // (onderschept op netwerkniveau bij POST naar /broker.taxatie/save).

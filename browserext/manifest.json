@@ -10,6 +10,7 @@
   ],
   "host_permissions": [
     "https://crm.realworks.nl/*",
+    "https://backup.realworks.nl/*",
     "https://automation.devreemakelaardij.nl/*",
     "https://kantoor.devreemakelaardij.nl/*"
   ],
@@ -22,7 +23,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://crm.realworks.nl/*"],
+      "matches": ["https://crm.realworks.nl/*", "https://backup.realworks.nl/*"],
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
@@ -31,7 +32,7 @@
   "web_accessible_resources": [
     {
       "resources": ["injected.js"],
-      "matches": ["https://crm.realworks.nl/*"]
+      "matches": ["https://crm.realworks.nl/*", "https://backup.realworks.nl/*"]
     }
   ]
 }

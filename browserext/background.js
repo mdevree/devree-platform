@@ -10,6 +10,7 @@
 const QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-tasks';
 const TAXATIE_QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-taxatie-tasks';
 const WONING_QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-woning-tasks';
+const BACKUP_CAPTURE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-backup-captures';
 const REALWORKS_BASE = 'https://crm.realworks.nl';
 
 // Decodeert een __MASK-waarde naar een leesbaar label.
@@ -193,12 +194,40 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return;
   }
 
+  if (message.type === 'CAPTURE_REALWORKS_BACKUP') {
+    captureRealworksBackup(message.capture);
+    return;
+  }
+
   if (message.type === 'POLL_REALWORKS_TASKS') {
     Promise.all([pollAndExecute(), pollAndExecuteTaxatie(), pollAndExecuteWoning()])
       .then(([rel, tax, won]) => sendResponse({ rel, tax, won }));
     return true; // async response
   }
 });
+
+async function captureRealworksBackup(capture) {
+  if (!capture?.url) return;
+
+  try {
+    const res = await fetch(BACKUP_CAPTURE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-webhook-secret': WEBHOOK_SECRET,
+      },
+      body: JSON.stringify(capture),
+    });
+
+    if (res.ok) {
+      console.log('[RW Backup Capture] ✓ Verstuurd:', capture.method, capture.url);
+    } else {
+      console.warn('[RW Backup Capture] Fout:', res.status, capture.url);
+    }
+  } catch (err) {
+    console.warn('[RW Backup Capture] Netwerkfout:', err);
+  }
+}
 
 // ─── Polling ─────────────────────────────────────────────────────────────────
 
