@@ -271,6 +271,146 @@ model MauticEvent {
   @@map("mautic_events")
 }
 
+model RealworksObjectMutation {
+  id               String    @id @default(cuid())
+  sourceMessageId  String
+  sourceSubject    String?
+  sourceDate       DateTime?
+  receivedAt       DateTime  @default(now())
+  mutationType     String    // new | removed | price_changed | withdrawn
+  mutationLabel    String
+  mutationDate     DateTime?
+  exchangeObjectId String
+  moveUrl          String?   @db.Text
+  addressRaw       String?   @db.Text
+  street           String?
+  houseNumber      String?
+  postcode         String?
+  city             String?
+  objectKind       String?
+  objectSubType    String?
+  askingPrice      Int?
+  transactionPrice Int?
+  rooms            Int?
+  bedrooms         Int?
+  livingArea       Int?
+  plotArea         Int?
+  buildYear        Int?
+  brokerName       String?
+  brokerEmail      String?
+  imageUrl         String?   @db.Text
+  features         Json?
+  rawText          String    @db.Text
+  rawHtml          String?   @db.Text
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([sourceMessageId, exchangeObjectId, mutationType], map: "rw_mutation_message_object_type_key")
+  @@index([exchangeObjectId], map: "rw_mutation_object_idx")
+  @@index([mutationType], map: "rw_mutation_type_idx")
+  @@index([mutationDate], map: "rw_mutation_date_idx")
+  @@map("realworks_object_mutations")
+}
+
+model RealworksSearcher {
+  id               String   @id @default(cuid())
+  searcherId       String   @unique
+  type             String?
+  status           String?
+  reference        String?
+  objectKind       String?
+  relationSystemId String?
+  clientName       String?
+  clientEmail      String?
+  clientPhone      String?
+  mauticContactId  Int?
+  priceMin         Int?
+  priceMax         Int?
+  locations        Json?
+  criteria         Json?
+  notes            String?  @db.Text
+  raw              Json?
+  lastSyncedAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status], map: "rw_searcher_status_idx")
+  @@index([type], map: "rw_searcher_type_idx")
+  @@index([relationSystemId], map: "rw_searcher_relation_idx")
+  @@index([mauticContactId], map: "rw_searcher_mautic_idx")
+  @@map("realworks_searchers")
+}
+
+model RealworksSearchResult {
+  id                       String    @id @default(cuid())
+  searcherId               String
+  searchResultsId          String?
+  exchangeObjectId         String
+  exchangeObjectEntityType String?
+  searchResultStatus       String?
+  matchingPercentage       Float?
+  dateFound                DateTime?
+  dateSent                 DateTime?
+  dateViewed               DateTime?
+  dateContactFormClicked   DateTime?
+  isLiked                  Boolean?
+  objectAddress            String?
+  objectCity               String?
+  objectPrice              Int?
+  objectUrl                String?   @db.Text
+  matchedCriteria          Json?
+  nonMatchedCriteria       Json?
+  raw                      Json?
+  lastSyncedAt             DateTime  @default(now())
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@unique([searcherId, exchangeObjectId], map: "rw_result_searcher_object_key")
+  @@index([searcherId], map: "rw_result_searcher_idx")
+  @@index([exchangeObjectId], map: "rw_result_object_idx")
+  @@index([dateSent], map: "rw_result_sent_idx")
+  @@index([dateViewed], map: "rw_result_viewed_idx")
+  @@map("realworks_search_results")
+}
+
+model ActionOpportunity {
+  id                 String    @id @default(cuid())
+  sourceType         String    // realworks_object_match | mautic_activity | manual
+  sourceKey          String    @unique
+  status             String    @default("open") // open | picked_up | dismissed | done
+  priority           String    @default("normal") // low | normal | high | urgent
+  title              String
+  reason             String    @db.Text
+  suggestedAction    String?
+  contactName        String?
+  contactEmail       String?
+  contactPhone       String?
+  mauticContactId    Int?
+  realworksSearcherId String?
+  exchangeObjectId   String?
+  objectAddress      String?
+  objectCity         String?
+  objectPrice        Int?
+  draftStatus        String?   // requested | ready | failed
+  draftChannel       String?   // email | whatsapp
+  draftText          String?   @db.Text
+  draftRequestedAt   DateTime?
+  draftCompletedAt   DateTime?
+  taskId             String?
+  pickedUpAt         DateTime?
+  dismissedAt        DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([status], map: "action_opp_status_idx")
+  @@index([priority], map: "action_opp_priority_idx")
+  @@index([mauticContactId], map: "action_opp_mautic_idx")
+  @@index([exchangeObjectId], map: "action_opp_object_idx")
+  @@index([createdAt], map: "action_opp_created_idx")
+  @@map("action_opportunities")
+}
+
 model AppSetting {
   id        String   @id @default(cuid())
   key       String   @unique  // bijv. "defaults_VERKOOP"

@@ -1,0 +1,105 @@
+{
+  "id": "KansenConceptPlatform01",
+  "name": "Kansen Concept → Platform",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kansen-concept",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook kansen-concept",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "kansen-concept"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst opportunity = body.opportunity || {};\nconst context = body.context || {};\nconst contact = context.contact || {};\nconst object = context.object || {};\nconst channel = body.channel || 'email';\nconst naam = contact.name || 'daar';\nconst adres = [object.address, object.city].filter(Boolean).join(', ') || 'dit object';\nconst reason = context.reason || opportunity.reason || '';\nlet draftText;\nif (channel === 'whatsapp') {\n  draftText = `Hallo ${naam}, ik zag een woning voorbij komen die mogelijk goed aansluit op je zoekprofiel: ${adres}. ${reason ? `De aanleiding: ${reason}. ` : ''}Zal ik even met je meekijken of dit interessant voor je is?`;\n} else {\n  draftText = `Beste ${naam},\\n\\nIk zag een woning voorbij komen die mogelijk goed aansluit op je zoekprofiel: ${adres}.\\n\\nWaarom ik aan je dacht:\\n${reason || '- passend bij het zoekprofiel'}\\n\\nAls je wilt kijk ik graag even persoonlijk met je mee of dit object de moeite waard is.\\n\\nMet vriendelijke groet,\\nDe Vree Makelaardij`;\n}\nreturn [{ json: { opportunityId: opportunity.id, channel, draftText } }];"
+      },
+      "id": "make-draft",
+      "name": "Maak eenvoudig concept",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.KANTOOR_URL || 'https://kantoor.devreemakelaardij.nl').replace(/\\/$/, '') + '/api/kansen/actions/draft-result' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "post-platform",
+      "name": "Schrijf concept terug",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, opportunityId: $('Maak eenvoudig concept').first().json.opportunityId } }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [780, 0]
+    }
+  ],
+  "connections": {
+    "Webhook kansen-concept": {
+      "main": [
+        [
+          {
+            "node": "Maak eenvoudig concept",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maak eenvoudig concept": {
+      "main": [
+        [
+          {
+            "node": "Schrijf concept terug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schrijf concept terug": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

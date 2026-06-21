@@ -21,6 +21,7 @@
     /memo/i,
     /rela\./i,
     /broker\./i,
+    /api\/aankoop\/graphql/i,
     /servlets\/objects/i,
   ];
   const BACKUP_CAPTURE_STATIC = /\.(?:css|js|map|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot)(?:[?#]|$)/i;
@@ -79,6 +80,129 @@
       return JSON.stringify(fields).slice(0, BACKUP_CAPTURE_MAX_CHARS);
     }
     return '';
+  }
+
+  function decodeHtml(value) {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = value || '';
+    return textarea.value;
+  }
+
+  function stripHtml(value) {
+    const div = document.createElement('div');
+    div.innerHTML = value || '';
+    return (div.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function parseRelationEntityFromGridRow(row) {
+    const html = (row.columns || []).map((column) => column.content || '').join('\n');
+    const decoded = decodeHtml(html);
+    const entityMatch = decoded.match(/new Entity\("rela\.(?:relation|person)",\s*\d+,\s*(\{.*?\})\),\s*event/s);
+    let entity = null;
+
+    if (entityMatch) {
+      try { entity = JSON.parse(entityMatch[1]); } catch {}
+    }
+
+    const nameMatch = decoded.match(/<a[^>]+onclick="openRelation\((\d+)\);"[^>]*>(.*?)<\/a>/s);
+    const emailMatch = decoded.match(/GridUtils\.newMailUsingAddress\("([^"]+)"/);
+
+    return {
+      systemid: String(entity?.systemid || row.rowAttributes?.systemid || nameMatch?.[1] || ''),
+      rcode: String(entity?.rcode || ''),
+      rtype: String(entity?.rtype || row.rowAttributes?.rtype || ''),
+      entityKey: row.rowAttributes?._entity_key || '',
+      name: entity?.company
+        || [entity?.title, entity?.firstname, entity?.middlename, entity?.lastname].filter(Boolean).join(' ')
+        || stripHtml(nameMatch?.[2] || ''),
+      email: entity?.email || emailMatch?.[1] || '',
+      phone: entity?.tel1 || '',
+      mobile: entity?.mobile || '',
+      address: {
+        street: entity?.hstreet || entity?.mstreet || entity?.ostreet || '',
+        houseNumber: entity?.hhouseno || entity?.mhouseno || entity?.ohouseno || '',
+        houseNumberAddition: entity?.hhousenoext || entity?.mhousenoext || entity?.ohousenoext || '',
+        zipcode: entity?.hzipcode || entity?.mzipcode || entity?.ozipcode || '',
+        city: entity?.hcity || entity?.mcity || entity?.ocity || '',
+      },
+      lastUpdated: entity?.rlastup || '',
+      inactive: entity?.rinactive === true,
+      alertnote: entity?.alertnote || '',
+    };
+  }
+
+  function parseRelationGrid(responseText) {
+    let rows;
+    try { rows = JSON.parse(responseText); } catch { return null; }
+    if (!Array.isArray(rows)) return null;
+
+    return rows
+      .map(parseRelationEntityFromGridRow)
+      .filter((row) => row.systemid || row.rcode || row.email || row.name);
+  }
+
+  function postRelationGridCapture(capture, responseText) {
+    if (!capture.url?.includes('/rela.relation/grid')) return;
+
+    const relationGridRows = parseRelationGrid(responseText);
+    if (!relationGridRows?.length) return;
+
+    postNetworkCapture({
+      source: 'realworks_relation_grid',
+      transport: capture.transport,
+      method: capture.method,
+      url: capture.url,
+      status: capture.status,
+      content_type: capture.content_type,
+      request_body_preview: JSON.stringify({
+        request: capture.request_body_preview || '',
+        count: relationGridRows.length,
+        rows: relationGridRows,
+      }).slice(0, BACKUP_CAPTURE_MAX_CHARS),
+      response_truncated: false,
+      response_body: '',
+    });
+  }
+
+  function postSearchersGraphqlCapture(capture, responseText) {
+    if (!capture.url?.includes('/api/aankoop/graphql')) return;
+    if (!capture.request_body_preview?.match(/"operationName":"(GetSearchers|GetSearcherById|GetSearchResults)"/)) return;
+
+    let response = null;
+    try { response = JSON.parse(responseText); } catch { return; }
+    let request = capture.request_body_preview || '';
+    try { request = JSON.parse(capture.request_body_preview); } catch {}
+    const operationName = request?.operationName || 'UnknownGraphqlOperation';
+
+    const searchers = response?.data?.searchers;
+    const searcher = response?.data?.searcher || response?.data?.searcherById;
+    const searchResults = response?.data?.searchResults;
+    const searcherEdges = Array.isArray(searchers?.edges) ? searchers.edges : [];
+    const resultEdges = Array.isArray(searchResults?.edges) ? searchResults.edges : [];
+    if (!searcherEdges.length && !resultEdges.length && !searcher && searchers?.totalCount == null) return;
+
+    postNetworkCapture({
+      source: operationName === 'GetSearchResults'
+        ? 'realworks_search_results_graphql_original'
+        : operationName === 'GetSearcherById'
+          ? 'realworks_searcher_detail_graphql_original'
+          : 'realworks_searchers_graphql_original',
+      transport: capture.transport,
+      method: capture.method,
+      url: capture.url,
+      status: capture.status,
+      content_type: capture.content_type,
+      request_body_preview: JSON.stringify({
+        totalCount: searchers?.totalCount ?? null,
+        resultTotalCount: searchResults?.totalCount ?? null,
+        count: searcherEdges.length || resultEdges.length || (searcher ? 1 : 0),
+        searchers: searcher ? [searcher] : searcherEdges,
+        results: resultEdges,
+        request,
+      }).slice(0, BACKUP_CAPTURE_MAX_CHARS),
+      response_truncated: responseText.length > BACKUP_CAPTURE_MAX_CHARS,
+      response_body: '',
+    });
   }
 
   function formFieldsPreview(form) {
@@ -372,9 +496,32 @@
 
       xhr.addEventListener('load', function () {
         const contentType = xhr.getResponseHeader?.('content-type') || '';
+
+        let responseText = '';
+        try {
+          responseText = typeof xhr.responseText === 'string' ? xhr.responseText : '';
+        } catch {}
+
+        postRelationGridCapture({
+          transport: 'xhr_grid_parse',
+          method: _method,
+          url: _url,
+          status: xhr.status,
+          content_type: contentType,
+          request_body_preview: bodyPreview(_body),
+        }, responseText);
+
+        postSearchersGraphqlCapture({
+          transport: 'xhr_graphql_parse',
+          method: _method,
+          url: _url,
+          status: xhr.status,
+          content_type: contentType,
+          request_body_preview: bodyPreview(_body),
+        }, responseText);
+
         if (!shouldCaptureRealworksNetwork(_url, contentType)) return;
 
-        const responseText = typeof xhr.responseText === 'string' ? xhr.responseText : '';
         postNetworkCapture({
           transport: 'xhr',
           method: _method,
@@ -477,20 +624,44 @@
       const request = input instanceof Request ? input : null;
       const url = request ? request.url : String(input);
       const method = (init?.method || request?.method || 'GET').toUpperCase();
-      const requestBody = init?.body || null;
+      let requestBody = init?.body || null;
+      if (!requestBody && request) {
+        try { requestBody = await request.clone().text(); } catch {}
+      }
 
       const response = await origFetch.apply(this, arguments);
       const contentType = response.headers?.get('content-type') || '';
 
-      if (shouldCaptureRealworksNetwork(url, contentType)) {
+      if (shouldCaptureRealworksNetwork(url, contentType) || url.includes('/rela.relation/grid')) {
         response.clone().text().then((text) => {
+          const requestBodyPreview = bodyPreview(requestBody);
+          postRelationGridCapture({
+            transport: 'fetch_grid_parse',
+            method,
+            url,
+            status: response.status,
+            content_type: contentType,
+            request_body_preview: requestBodyPreview,
+          }, text);
+
+          postSearchersGraphqlCapture({
+            transport: 'fetch_graphql_parse',
+            method,
+            url,
+            status: response.status,
+            content_type: contentType,
+            request_body_preview: requestBodyPreview,
+          }, text);
+
+          if (!shouldCaptureRealworksNetwork(url, contentType)) return;
+
           postNetworkCapture({
             transport: 'fetch',
             method,
             url,
             status: response.status,
             content_type: contentType,
-            request_body_preview: bodyPreview(requestBody),
+            request_body_preview: requestBodyPreview,
             response_truncated: text.length > BACKUP_CAPTURE_MAX_CHARS,
             response_body: text.slice(0, BACKUP_CAPTURE_MAX_CHARS),
           });

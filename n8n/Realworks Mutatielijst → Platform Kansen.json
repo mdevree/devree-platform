@@ -1,0 +1,76 @@
+{
+  "id": "RealworksMutKansen01",
+  "name": "Realworks Mutatielijst → Platform Kansen",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst rawEmail = input.rawEmail || input;\nconst htmlBody = rawEmail.textHtml || rawEmail.htmlBody || input.htmlBody || input.textHtml || '';\nconst subject = rawEmail.subject || input.subject || '';\nconst messageId = rawEmail.metadata?.['message-id'] || rawEmail.messageId || input.emailId || input.messageId || `${subject}-${rawEmail.date || input.receivedDate || Date.now()}`;\nreturn [{ json: { messageId, subject, date: rawEmail.date || input.receivedDate || input.date || new Date().toISOString(), htmlBody } }];"
+      },
+      "id": "prepare",
+      "name": "Prepare platform payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.KANTOOR_URL || 'https://kantoor.devreemakelaardij.nl').replace(/\\/$/, '') + '/api/realworks/object-mutations/ingest' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "post-platform",
+      "name": "Post naar platform",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Prepare platform payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare platform payload": {
+      "main": [
+        [
+          {
+            "node": "Post naar platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
