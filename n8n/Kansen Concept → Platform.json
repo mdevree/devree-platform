@@ -6,7 +6,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "kansen-concept",
-        "responseMode": "lastNode",
+        "responseMode": "responseNode",
         "options": {}
       },
       "id": "webhook",
@@ -18,7 +18,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst opportunity = body.opportunity || {};\nconst context = body.context || {};\nconst contact = context.contact || {};\nconst object = context.object || {};\nconst channel = body.channel || 'email';\nconst naam = contact.name || 'daar';\nconst adres = [object.address, object.city].filter(Boolean).join(', ') || 'dit object';\nconst reason = context.reason || opportunity.reason || '';\nlet draftText;\nif (channel === 'whatsapp') {\n  draftText = `Hallo ${naam}, ik zag een woning voorbij komen die mogelijk goed aansluit op je zoekprofiel: ${adres}. ${reason ? `De aanleiding: ${reason}. ` : ''}Zal ik even met je meekijken of dit interessant voor je is?`;\n} else {\n  draftText = `Beste ${naam},\\n\\nIk zag een woning voorbij komen die mogelijk goed aansluit op je zoekprofiel: ${adres}.\\n\\nWaarom ik aan je dacht:\\n${reason || '- passend bij het zoekprofiel'}\\n\\nAls je wilt kijk ik graag even persoonlijk met je mee of dit object de moeite waard is.\\n\\nMet vriendelijke groet,\\nDe Vree Makelaardij`;\n}\nreturn [{ json: { opportunityId: opportunity.id, channel, draftText } }];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\nconst headers = input.headers || {};\nconst opportunity = body.opportunity || {};\nconst context = body.context || {};\nconst contact = context.contact || {};\nconst object = context.object || {};\nconst channel = body.channel || 'email';\nconst naam = contact.name || 'daar';\nconst adres = [object.address, object.city].filter(Boolean).join(', ') || 'dit object';\nconst reason = context.reason || opportunity.reason || '';\nconst webhookSecret = headers['x-webhook-secret'] || headers['X-Webhook-Secret'] || '';\nlet draftText;\nif (channel === 'whatsapp') {\n  draftText = `Hallo ${naam}, ik zag een woning voorbij komen die mogelijk goed aansluit op je zoekprofiel: ${adres}. ${reason ? `De aanleiding: ${reason}. ` : ''}Zal ik even met je meekijken of dit interessant voor je is?`;\n} else {\n  draftText = `Beste ${naam},\\n\\nIk zag een woning voorbij komen die mogelijk goed aansluit op je zoekprofiel: ${adres}.\\n\\nWaarom ik aan je dacht:\\n${reason || '- passend bij het zoekprofiel'}\\n\\nAls je wilt kijk ik graag even persoonlijk met je mee of dit object de moeite waard is.\\n\\nMet vriendelijke groet,\\nDe Vree Makelaardij`;\n}\nreturn [{ json: { opportunityId: opportunity.id, channel, draftText, webhookSecret } }];"
       },
       "id": "make-draft",
       "name": "Maak eenvoudig concept",
@@ -29,13 +29,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.KANTOOR_URL || 'https://kantoor.devreemakelaardij.nl').replace(/\\/$/, '') + '/api/kansen/actions/draft-result' }}",
+        "url": "https://kantoor.devreemakelaardij.nl/api/kansen/actions/draft-result",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-webhook-secret",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "={{ $json.webhookSecret }}"
             }
           ]
         },
