@@ -5,6 +5,7 @@ Deze map bevat de reproduceerbare versie van de bridge die op de PBX draait.
 ## Doel
 
 - Ontvangt goedgekeurde belkaarten vanuit het platform op `POST /start`.
+- Weigert startverzoeken zonder expliciet approval-blok met `humanApproved: true`, `approvalText: "BEL"` en `reviewedBy`.
 - Maakt een eenmalige outbound campaign/lead aan in de Asterisk AI Voice Agent database.
 - Pollt afgeronde outbound attempts.
 - Schrijft gesprekresultaten terug naar `https://kantoor.devreemakelaardij.nl/api/ai/call-results`.

@@ -68,6 +68,17 @@ def clean_phone(phone):
     return keep
 
 
+def validate_approval(approval):
+    if not isinstance(approval, dict):
+        raise ValueError('approval ontbreekt')
+    if approval.get('humanApproved') is not True:
+        raise ValueError('menselijke goedkeuring ontbreekt')
+    if approval.get('approvalText') != 'BEL':
+        raise ValueError('approvalText moet exact BEL zijn')
+    if not approval.get('reviewedBy'):
+        raise ValueError('reviewedBy ontbreekt')
+
+
 def make_summary(job, attempt, record, transcript):
     name = job.get('contactName') or 'Onbekende klant'
     prop = job.get('propertyTitle') or job.get('propertyAddress') or 'onbekende woning'
@@ -274,6 +285,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get('content-length') or '0')
             body = json.loads(self.rfile.read(length).decode('utf-8')) if length else {}
+            validate_approval(body.get('approval'))
             job = body.get('job') or body
             result = create_one_call_campaign(job)
             return self._json(200, result)

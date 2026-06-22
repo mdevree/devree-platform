@@ -28,10 +28,12 @@ export async function POST(
 
   const reviewer = body.reviewedBy || body.startedBy || "platform";
   const starter = body.startedBy || null;
+  const approvedAt = new Date();
   const approvalNote = buildAiCallApprovalNote({
     currentReviewNotes: job.reviewNotes,
     reviewNotes: body.reviewNotes,
     reviewer,
+    approvedAt,
   });
 
   const webhookUrl = process.env.AI_CALL_START_WEBHOOK_URL;
@@ -69,7 +71,16 @@ export async function POST(
       "Content-Type": "application/json",
       ...(process.env.N8N_WEBHOOK_SECRET ? { "x-webhook-secret": process.env.N8N_WEBHOOK_SECRET } : {}),
     },
-    body: JSON.stringify({ job: started }),
+    body: JSON.stringify({
+      job: started,
+      approval: {
+        humanApproved: true,
+        approvalText: "BEL",
+        reviewedBy: reviewer,
+        startedBy: starter,
+        approvedAt: approvedAt.toISOString(),
+      },
+    }),
   });
 
   if (!response.ok) {
