@@ -168,12 +168,27 @@ export default function AiBelassistentDashboard() {
   }
 
   async function startJob(job: AiCallJob) {
+    const target = [job.contactName, job.contactPhone, job.propertyTitle || job.propertyAddress]
+      .filter(Boolean)
+      .join(" - ");
+    const confirmation = window.prompt(`Typ BEL om deze AI-call handmatig goed te keuren en direct te starten:\n\n${target}`);
+    if (confirmation !== "BEL") {
+      setMessage(null);
+      setError("Start geannuleerd. Typ exact BEL om een AI-call te starten.");
+      return;
+    }
+
     await runAction(
       `start-${job.id}`,
       () =>
         jsonFetch(`/api/ai/call-jobs/${job.id}/start`, {
           method: "POST",
-          body: JSON.stringify({ startedBy: "platform", reviewedBy: "platform", humanApproved: true }),
+          body: JSON.stringify({
+            startedBy: "platform",
+            reviewedBy: "platform",
+            humanApproved: true,
+            approvalText: confirmation,
+          }),
         }),
       "Belkaart doorgestuurd naar de caller."
     );
