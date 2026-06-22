@@ -1,0 +1,116 @@
+{
+  "id": "AiBelassistentInfoEmail01",
+  "name": "AI Belassistent - Info Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-belassistent/info-email",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-info-email",
+      "name": "Webhook info email",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "ai-belassistent-info-email"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\nconst headers = input.headers || {};\nconst body = input.body || input;\nconst secret = headers['x-webhook-secret'] || headers['X-Webhook-Secret'] || '';\nif ($env.N8N_WEBHOOK_SECRET && secret !== $env.N8N_WEBHOOK_SECRET) {\n  throw new Error('Niet geautoriseerd');\n}\n\nfunction esc(value) {\n  return String(value ?? '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;')\n    .replace(/'/g, '&#39;');\n}\nfunction nl2br(value) {\n  return esc(value).replace(/\\n/g, '<br>');\n}\nfunction list(value) {\n  if (!Array.isArray(value) || value.length === 0) return '<em>Geen</em>';\n  return '<ul>' + value.map((item) => `<li>${esc(typeof item === 'string' ? item : JSON.stringify(item))}</li>`).join('') + '</ul>';\n}\n\nconst job = body.job || {};\nconst result = body.result || {};\nconst contact = job.contactName || job.context?.contact?.name || 'Onbekende kijker';\nconst property = job.propertyTitle || job.context?.property?.title || 'onbekende woning';\nconst subject = body.subject || `AI-belgesprek: ${contact} - ${property}`;\nconst requestedFollowUp = result.requestedFollowUp ? JSON.stringify(result.requestedFollowUp, null, 2) : '';\nconst links = Array.isArray(result.proposedLinks) ? result.proposedLinks : [];\nconst questions = Array.isArray(result.customerQuestions) ? result.customerQuestions : [];\nconst opportunities = Array.isArray(result.detectedOpportunities) ? result.detectedOpportunities : [];\n\nconst html = `\n<h2>AI-belgesprek afgerond</h2>\n<p><strong>Contact:</strong> ${esc(contact)}<br>\n<strong>Telefoon:</strong> ${esc(job.contactPhone || job.context?.contact?.phone || '')}<br>\n<strong>Woning:</strong> ${esc(property)}<br>\n<strong>Uitkomst:</strong> ${esc(result.outcome || 'onbekend')}<br>\n<strong>Duur:</strong> ${esc(result.durationSeconds || '')} seconden</p>\n\n<h3>Samenvatting</h3>\n<p>${nl2br(result.summary || 'Geen samenvatting ontvangen.')}</p>\n\n<h3>Klantvragen</h3>\n${list(questions)}\n\n<h3>Kansen/signalen</h3>\n${list(opportunities)}\n\n<h3>Gewenste opvolging</h3>\n<pre>${esc(requestedFollowUp || 'Geen specifieke opvolging')}</pre>\n\n<h3>Voorgestelde links</h3>\n${links.length ? '<ul>' + links.map((link) => `<li><a href=\"${esc(link.url || '')}\">${esc(link.title || link.url || 'Link')}</a> ${link.purpose ? `- ${esc(link.purpose)}` : ''}</li>`).join('') + '</ul>' : '<em>Geen</em>'}\n\n${result.transcript ? `<h3>Transcript</h3><p>${nl2br(result.transcript)}</p>` : ''}\n`;\n\nreturn [{ json: { to: body.to || 'info@devreemakelaardij.nl', subject, html } }];"
+      },
+      "id": "build-info-email",
+      "name": "Bouw info-mail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "fromEmail": "workflow@devreemakelaardij.nl",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "send-info-email",
+      "name": "Stuur mail naar info",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        540,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "QUfuDm83tmCATdw8",
+          "name": "Email versturen met workflow"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { queued: true, to: $('Bouw info-mail').first().json.to, subject: $('Bouw info-mail').first().json.subject } }}",
+        "options": {}
+      },
+      "id": "respond-info-email",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook info email": {
+      "main": [
+        [
+          {
+            "node": "Bouw info-mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bouw info-mail": {
+      "main": [
+        [
+          {
+            "node": "Stuur mail naar info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stuur mail naar info": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": true
+}

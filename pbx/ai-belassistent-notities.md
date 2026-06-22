@@ -29,19 +29,46 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 
 ## Productiestatus 2026-06-22
 
-- Platform draait op `ghcr.io/mdevree/devree-platform:32f32df`.
+- Platform draait op `ghcr.io/mdevree/devree-platform:07cd554`.
 - Database-migratie `20260622_ai_belassistent` is toegepast.
 - `/ai-belassistent` is bereikbaar achter login.
 - `/api/ai/link-catalog` is bereikbaar met `x-webhook-secret`.
 - Linkcatalogus-sync is getest: 6 woningen, 14 FAQ's, 5 handmatige links.
 - Menselijke goedkeuring is technisch verplicht op `POST /api/ai/call-jobs/[id]/start`.
 - Zonder `humanApproved` geeft start-call HTTP 400.
-- Omdat `AI_CALL_START_WEBHOOK_URL` nog niet op productie staat, zet een goedgekeurde start de belkaart op `approved` en belt nog niet uit.
+- `AI_CALL_START_WEBHOOK_URL` staat op de PBX bridge: `http://136.144.249.189:3099/start`.
+- `AI_INFO_EMAIL_WEBHOOK_URL` staat op de n8n workflow: `https://automation.devreemakelaardij.nl/webhook/ai-belassistent/info-email`.
+- `/api/ai/caller-status` geeft `status: ready`, met caller, start-webhook en info-mail actief.
+
+## PBX bridge
+
+- Server: `136.144.249.189`.
+- Service: `devree-ai-bridge.service`.
+- Scriptpad op de PBX: `/opt/devree-ai-bridge/app.py`.
+- Luistert op `0.0.0.0:3099`.
+- Healthcheck: `http://136.144.249.189:3099/health`.
+- De bridge maakt per goedgekeurde platform-belkaart een eenmalige outbound campaign/lead in de AI Voice Agent database.
+- De bridge pollt afgeronde outbound attempts en post resultaten terug naar `https://kantoor.devreemakelaardij.nl/api/ai/call-results`.
+- De bridge gebruikt dezelfde webhook-secret als het platform/n8n, maar die staat bewust niet in dit bestand.
+
+## AI Voice Agent context
+
+- Contextnaam: `devree_bezichtiging_followup`.
+- Provider: `google_live`, omdat `openai_realtime` op deze installatie uitgeschakeld staat.
+- Profiel: `telephony_ulaw_8k`.
+- Tooling: `hangup_call` is beschikbaar en de prompt verplicht samenvatten, verificatie vragen en daarna zelf ophangen.
+- De engine-log bevestigt dat `devree_bezichtiging_followup` geladen is en dat `google_live` ready is.
+
+## Geteste keten
+
+- Platform readiness: caller/start/result/info-mail allemaal `ready`.
+- n8n info-mail webhook getest met proefpayload: HTTP 200.
+- Platform resultaatverwerking getest met dummy job: `POST /api/ai/call-results` gaf HTTP 201, job werd `completed`, WhatsApp-concept werd aangemaakt, info-mail werd queued.
+- PBX bridge poller getest met synthetische afgeronde outbound attempt: bridge stuurde resultaat naar platform en markeerde de attempt als `sent`.
+- Dummy testdata is na de tests opgeruimd.
 
 ## Nog nodig voor volledige PBX-koppeling
 
-- SSH/PBX-toegang herstellen naar `136.144.249.189:22`, of de bestaande AI-caller webhook/config via TransIP/PBX-console aanpassen.
-- Productie-env `AI_CALL_START_WEBHOOK_URL` instellen op de echte n8n/caller start-webhook.
-- Productie-env `AI_INFO_EMAIL_WEBHOOK_URL` instellen op de n8n info-mail workflow.
-- n8n/caller moet na gesprek `POST /api/ai/call-results` aanroepen.
-- Daarna pas end-to-end testen met een bewust goedgekeurde testbelkaart.
+- Een echte live outbound test uitvoeren via de menselijke goedkeuringsknop.
+- Na de live test controleren: belt hij uit, spreekt hij direct, gebruikt hij de juiste context, hangt hij zelf op, komt de samenvatting terug in platform/Mautic/info-mail.
+- Als de live audio aan het einde opnieuw versnelt of vervormt: AI Voice Agent audio/provider-log bewaren en sample-rate/streaming-instellingen nalopen.
