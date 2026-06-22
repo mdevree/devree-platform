@@ -1,0 +1,16 @@
+[Unit]
+Description=De Vree AI Belassistent PBX Bridge
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/devree-ai-bridge/.env
+ExecStart=/usr/bin/python3 /opt/devree-ai-bridge/app.py
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory=/opt/devree-ai-bridge
+
+[Install]
+WantedBy=multi-user.target
