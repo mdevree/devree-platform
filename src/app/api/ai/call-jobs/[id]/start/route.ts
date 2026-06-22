@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
+import { buildAiCallApprovalNote, validateAiCallStartApproval } from "@/lib/aiCallApproval";
 import { prisma } from "@/lib/prisma";
 
 function appendReviewNote(current: string | null, note: string) {
@@ -19,24 +20,19 @@ export async function POST(
   const job = await prisma.aiCallJob.findUnique({ where: { id } });
   if (!job) return NextResponse.json({ error: "Belkaart niet gevonden" }, { status: 404 });
   if (!job.contactPhone) return NextResponse.json({ error: "Geen telefoonnummer op belkaart" }, { status: 400 });
-  if (!body.humanApproved) {
-    return NextResponse.json({ error: "Menselijke goedkeuring is verplicht voordat de caller mag starten" }, { status: 400 });
-  }
-  if (body.approvalText !== "BEL") {
-    return NextResponse.json({ error: "Typ exact BEL om deze AI-call bewust te starten" }, { status: 400 });
-  }
+  const approvalError = validateAiCallStartApproval(body);
+  if (approvalError) return NextResponse.json({ error: approvalError }, { status: 400 });
   if (!["ready", "approved"].includes(job.status)) {
     return NextResponse.json({ error: `Belkaart heeft status '${job.status}' en kan nog niet worden gestart` }, { status: 400 });
   }
 
   const reviewer = body.reviewedBy || body.startedBy || "platform";
   const starter = body.startedBy || null;
-  const approvalNote = [
-    body.reviewNotes || job.reviewNotes || null,
-    `AI-call handmatig goedgekeurd met bevestiging BEL door ${reviewer} op ${new Date().toISOString()}.`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const approvalNote = buildAiCallApprovalNote({
+    currentReviewNotes: job.reviewNotes,
+    reviewNotes: body.reviewNotes,
+    reviewer,
+  });
 
   const webhookUrl = process.env.AI_CALL_START_WEBHOOK_URL;
   if (!webhookUrl) {
