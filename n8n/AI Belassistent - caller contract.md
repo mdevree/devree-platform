@@ -10,6 +10,16 @@ Het platform blijft leidend: een medewerker keurt eerst de belkaart goed en klik
 - `AI_INFO_EMAIL_WEBHOOK_URL`: n8n webhook die na afloop een interne info-mail verstuurt.
 - `N8N_WEBHOOK_SECRET`: gedeeld secret; het platform stuurt dit mee als `x-webhook-secret`.
 
+## Benodigde n8n env vars
+
+- `AI_CALLER_API_URL`: endpoint van de echte AI/PBX-caller.
+- `AI_CALLER_API_KEY`: bearer token of API-key voor de echte AI/PBX-caller.
+- `AI_CALL_MAX_DURATION_SECONDS`: maximale gespreksduur, bijvoorbeeld `900`.
+- `AI_CALL_VOICEMAIL_MODE`: bijvoorbeeld `short_message_or_hangup`.
+
+Er staat een importeerbare workflow klaar in `n8n/AI Belassistent Start Caller.workflow.json`.
+Die workflow blijft inactive totdat de echte caller endpoint en credentials bekend zijn.
+
 ## Start caller webhook
 
 Endpointvoorbeeld:
@@ -153,3 +163,5 @@ SSH naar `136.144.249.189:22` time-out vanaf:
 - platformserver: `136.144.253.219`
 
 Voor echte PBX-configuratie moet een van deze IP's tijdelijk in de trusted zone, of moet de callerconfig via TransIP-console worden aangepast.
+
+Aanvullende poortscan vanaf lokaal en vanaf de platformserver: `22`, `80`, `443`, `5038`, `8088`, `8089`, `5060` en `5160` zijn dicht. Daarmee zijn SSH, HTTP-beheer, Asterisk AMI, Asterisk ARI en directe SIP-aansturing niet bereikbaar vanaf deze omgeving.

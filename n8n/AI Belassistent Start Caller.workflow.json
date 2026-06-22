@@ -1,0 +1,123 @@
+{
+  "id": "AiBelassistentStartCaller01",
+  "name": "AI Belassistent - Start Caller",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-belassistent/start",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-start",
+      "name": "Webhook start caller",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "ai-belassistent-start"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\nconst headers = input.headers || {};\nconst job = body.job || {};\nconst secret = headers['x-webhook-secret'] || headers['X-Webhook-Secret'] || headers['x-webhook-secret'.toLowerCase()] || '';\nif (!job.id) throw new Error('job.id ontbreekt');\nif (!job.contactPhone) throw new Error('job.contactPhone ontbreekt');\nif (!job.scriptPreview) throw new Error('scriptPreview ontbreekt');\nconst callerPayload = {\n  externalJobId: job.id,\n  phoneNumber: job.contactPhone,\n  language: job.language || 'nl',\n  callerName: 'De Vree Makelaardij',\n  maxDurationSeconds: Number($env.AI_CALL_MAX_DURATION_SECONDS || 900),\n  mustHangUpAfterSummary: true,\n  voicemailMode: $env.AI_CALL_VOICEMAIL_MODE || 'short_message_or_hangup',\n  script: job.scriptPreview,\n  context: job.context || {},\n  resultWebhookUrl: `${$env.PLATFORM_BASE_URL || 'https://kantoor.devreemakelaardij.nl'}/api/ai/call-results`,\n  resultWebhookSecret: secret\n};\nreturn [{ json: { job, callerPayload, webhookSecret: secret } }];"
+      },
+      "id": "validate-build",
+      "name": "Valideer en bouw caller payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AI_CALLER_API_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.AI_CALLER_API_KEY ? `Bearer ${$env.AI_CALLER_API_KEY}` : '' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.callerPayload }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "start-caller",
+      "name": "Start echte AI/PBX caller",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { queued: true, jobId: $('Valideer en bouw caller payload').first().json.job.id, callerResponse: $json } }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook start caller": {
+      "main": [
+        [
+          {
+            "node": "Valideer en bouw caller payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valideer en bouw caller payload": {
+      "main": [
+        [
+          {
+            "node": "Start echte AI/PBX caller",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start echte AI/PBX caller": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
