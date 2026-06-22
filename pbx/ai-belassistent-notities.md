@@ -29,13 +29,14 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 
 ## Productiestatus 2026-06-22
 
-- Platform draait op `ghcr.io/mdevree/devree-platform:07cd554`.
+- Platform draait op `ghcr.io/mdevree/devree-platform:20a05cb`.
 - Database-migratie `20260622_ai_belassistent` is toegepast.
 - `/ai-belassistent` is bereikbaar achter login.
 - `/api/ai/link-catalog` is bereikbaar met `x-webhook-secret`.
 - Linkcatalogus-sync is getest: 6 woningen, 14 FAQ's, 5 handmatige links.
 - Menselijke goedkeuring is technisch verplicht op `POST /api/ai/call-jobs/[id]/start`.
-- Zonder `humanApproved` geeft start-call HTTP 400.
+- Zonder `humanApproved` en exacte bevestiging `approvalText: "BEL"` geeft start-call HTTP 400.
+- De PBX bridge weigert startverzoeken zonder approval-blok met `humanApproved: true`, `approvalText: "BEL"` en `reviewedBy`.
 - `AI_CALL_START_WEBHOOK_URL` staat op de PBX bridge: `http://136.144.249.189:3099/start`.
 - `AI_INFO_EMAIL_WEBHOOK_URL` staat op de n8n workflow: `https://automation.devreemakelaardij.nl/webhook/ai-belassistent/info-email`.
 - `/api/ai/caller-status` geeft `status: ready`, met caller, start-webhook en info-mail actief.
@@ -50,6 +51,8 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 - De bridge maakt per goedgekeurde platform-belkaart een eenmalige outbound campaign/lead in de AI Voice Agent database.
 - De bridge pollt afgeronde outbound attempts en post resultaten terug naar `https://kantoor.devreemakelaardij.nl/api/ai/call-results`.
 - De bridge gebruikt dezelfde webhook-secret als het platform/n8n, maar die staat bewust niet in dit bestand.
+- Asterisk context `aava-outbound-amd` is nodig voor outbound calls: de AI-engine springt na opnemen eerst naar deze AMD-context en keert daarna terug naar `Stasis(...,outbound_amd,...)`.
+- De context staat op productie in `/etc/asterisk/extensions_custom.conf` en is als snippet vastgelegd in `pbx/asterisk/aava-outbound-amd.conf`.
 
 ## AI Voice Agent context
 
@@ -65,6 +68,7 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 - n8n info-mail webhook getest met proefpayload: HTTP 200.
 - Platform resultaatverwerking getest met dummy job: `POST /api/ai/call-results` gaf HTTP 201, job werd `completed`, WhatsApp-concept werd aangemaakt, info-mail werd queued.
 - PBX bridge poller getest met synthetische afgeronde outbound attempt: bridge stuurde resultaat naar platform en markeerde de attempt als `sent`.
+- Live test op 2026-06-22 belde wel uit, maar eindigde direct omdat `aava-outbound-amd` ontbrak. Deze Asterisk context is daarna toegevoegd en met `dialplan show aava-outbound-amd` bevestigd.
 - Dummy testdata is na de tests opgeruimd.
 
 ## Nog nodig voor volledige PBX-koppeling
