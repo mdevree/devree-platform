@@ -7,6 +7,7 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 - **Agenda** — Realworks agendakoppeling: dag- en weekweergave per medewerker, auto-koppeling van woningprojecten via `agobjcode`, enrichment van kijkersgegevens via Mautic, PDF-contextendpoint voor bezichtigingsvoorbereiding
 - **Dashboard** — Tijdsgebonden begroeting, overzicht van openstaande taken en recente activiteit
 - **Telefonie** — Live call popups, call history, Mautic CRM koppeling, notities per gesprek, contact detail panel met AI data profiel
+- **AI-belassistent** — Goedgekeurde outbound AI-belkaarten voor bezichtigingsopvolging, gekoppeld aan PBX/Asterisk AI Voice Agent, Mautic, n8n info-mail en concept follow-up
 - **Taken** — Kanban + tabeloverzicht, per makelaar en centraal voor binnendienst, met tijdregistratie per taak
 - **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info en kosten. Projecten kunnen worden samengevoegd
 - **Contacten** — Mautic CRM overzicht met zoekfunctie, contactdetails bewerken, AI data profiel en email activiteit. Nieuw contact aanmaken direct vanuit de pagina
@@ -19,6 +20,65 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 ## Tech Stack
 
 Next.js · TypeScript · Tailwind CSS · Prisma · MySQL · NextAuth.js · Docker
+
+---
+
+## AI-belassistent en PBX
+
+Het platform kan AI-belkaarten klaarzetten voor opvolging na bezichtigingen. Een medewerker moet elke call handmatig vrijgeven door exact `BEL` te bevestigen. Daarna start het platform via n8n en de PBX bridge een outbound call op de aparte PBX-server.
+
+### Architectuur
+
+```mermaid
+flowchart LR
+  Platform["Kantoor Platform<br>/api/ai/call-jobs"] --> N8NStart["n8n<br>Start Caller workflow"]
+  N8NStart --> Bridge["PBX bridge<br>136.144.249.189:3099"]
+  Bridge --> Asterisk["Asterisk / FreePBX"]
+  Asterisk --> AI["Asterisk AI Voice Agent<br>Google Live"]
+  AI --> Bridge
+  Bridge --> Results["Platform<br>/api/ai/call-results"]
+  Results --> N8NMail["n8n<br>Info-mail workflow"]
+  Results --> FollowUp["Mautic / concept follow-up"]
+```
+
+### Belkaart-flow
+
+1. Het platform maakt een `AiCallJob` aan vanuit agenda/context of als handmatige testkaart.
+2. De kaart staat op `ready` totdat een medewerker hem expliciet goedkeurt met `BEL`.
+3. `POST /api/ai/call-jobs/[id]/start` stuurt de kaart naar de n8n start-workflow.
+4. n8n roept de PBX bridge aan op `POST /start`.
+5. De bridge weigert calls zonder approval-blok en maakt daarna een eenmalige outbound campaign/lead in Asterisk AI Voice Agent.
+6. Na afloop post de bridge transcript, samenvatting, klantvragen, opvolging en links terug naar `/api/ai/call-results`.
+7. Het platform zet de job op `completed`, queued de info-mail naar `info@` via n8n en maakt follow-up concepten klaar.
+
+### Productiecomponenten
+
+| Component | Locatie |
+|-----------|---------|
+| Platform | `ghcr.io/mdevree/devree-platform` op `136.144.253.219` |
+| PBX server | `136.144.249.189` |
+| PBX bridge | `/opt/devree-ai-bridge/app.py`, service `devree-ai-bridge.service` |
+| Bridge health | `http://127.0.0.1:3099/health` op de PBX |
+| AI engine | Docker container `ai_engine` op de PBX |
+| AI context | `devree_bezichtiging_followup` |
+| Admin UI | `http://pbx.devreemakelaardij.nl:3003/`, alleen via trusted firewall IP's |
+| Info-mail | n8n workflow `AI Belassistent - Info Email` |
+
+### Gespreksregels
+
+- Altijd de volledige naam **De Vree Makelaardij** gebruiken.
+- Kort openen, reden noemen en vragen of het uitkomt.
+- Concreet vragen naar algemene indruk, interesse, twijfels en klantvragen.
+- Geen technische woninginformatie, documenten of links beloven tenzij die expliciet in de belkaart/linkcontext staan.
+- Technische of objectspecifieke vragen letterlijk noteren en doorzetten naar een collega.
+- Maximaal vier punten samenvatten, vragen of dit klopt, correcties verwerken en daarna zelf ophangen.
+
+### Operationele aandachtspunten
+
+- Live tests moeten direct na opnemen met een korte begroeting starten; stilte kan door AMD terecht als voicemail/initial silence worden gezien.
+- De PBX-firewall is streng. Voor de admin UI op poort `3003` moet het actuele publieke IP in de trusted-zone staan.
+- De huidige PBX heeft beperkte RAM-capaciteit. Voor stabiele realtime audio is minimaal 2 GB RAM wenselijk, liever 4 GB.
+- Details, herstelcommando's en testbevindingen staan in `pbx/ai-belassistent-notities.md` en `pbx/devree-ai-bridge/README.md`.
 
 ---
 
@@ -42,6 +102,57 @@ Webhooks (POST naar `/webhook`) gebruiken uitsluitend de `x-webhook-secret` head
 | Methode | Endpoint | Omschrijving |
 |---------|----------|--------------|
 | `GET / POST` | `/api/auth/[...nextauth]` | NextAuth.js sessie afhandeling (login, logout, session check) |
+
+---
+
+### AI-belassistent `/api/ai`
+
+Alle server-to-server calls gebruiken `x-webhook-secret`.
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/ai/caller-status` | Controleert of caller, start-webhook en info-mail zijn geconfigureerd |
+| `GET` | `/api/ai/call-jobs` | Laat de laatste belkaarten zien, optioneel gefilterd op status |
+| `POST` | `/api/ai/call-jobs` | Maakt een belkaart aan vanuit `agendaAfspraakId` of handmatige payload |
+| `PATCH` | `/api/ai/call-jobs/[id]` | Werkt een belkaart bij |
+| `POST` | `/api/ai/call-jobs/[id]/start` | Start alleen na menselijke goedkeuring met `approvalText: "BEL"` |
+| `POST` | `/api/ai/call-results` | Ontvangt resultaten van de PBX bridge en queued opvolging |
+| `GET` | `/api/ai/link-catalog` | Geeft toegestane links voor AI/follow-up: aanbod, vragen, verkoop, aankoop en taxatie |
+
+#### Handmatige testkaart
+
+```json
+{
+  "source": "manual_test",
+  "contactName": "Sanne de Jong",
+  "contactPhone": "0612636255",
+  "language": "nl",
+  "propertyTitle": "Kikkerven 255",
+  "propertyAddress": "Kikkerven 255",
+  "propertyUrl": "https://www.devreemakelaardij.nl/aanbod/",
+  "context": {
+    "test": true,
+    "callGoals": [
+      "vraag of het uitkomt",
+      "vraag naar algemene indruk",
+      "vraag of de woning nog interessant is",
+      "noteer technische vragen letterlijk"
+    ]
+  },
+  "scriptPreview": "Opening: Goedemiddag Sanne, met de digitale assistent van De Vree Makelaardij. Komt het uit?"
+}
+```
+
+#### Start-call approval
+
+```json
+{
+  "startedBy": "medewerker",
+  "reviewedBy": "medewerker",
+  "humanApproved": true,
+  "approvalText": "BEL"
+}
+```
 
 ---
 
