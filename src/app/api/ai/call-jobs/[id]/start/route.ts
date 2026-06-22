@@ -18,6 +18,9 @@ export async function POST(
   if (!body.humanApproved) {
     return NextResponse.json({ error: "Menselijke goedkeuring is verplicht voordat de caller mag starten" }, { status: 400 });
   }
+  if (body.approvalText !== "BEL") {
+    return NextResponse.json({ error: "Typ exact BEL om deze AI-call bewust te starten" }, { status: 400 });
+  }
   if (!["ready", "approved"].includes(job.status)) {
     return NextResponse.json({ error: `Belkaart heeft status '${job.status}' en kan nog niet worden gestart` }, { status: 400 });
   }
