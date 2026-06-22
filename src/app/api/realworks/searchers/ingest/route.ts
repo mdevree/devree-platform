@@ -109,10 +109,11 @@ function normalizeResult(input: unknown) {
     objectAddress: firstString(
       exchangeObject.addressLine,
       exchangeObject.displayAddress,
-      [address.street, address.houseNumber, address.houseNumberAddition].filter(Boolean).join(" ")
+      address.description,
+      [address.street ?? address.streetName, address.houseNumber, address.houseNumberAddition ?? address.houseNumberExtension].filter(Boolean).join(" ")
     ),
     objectCity: firstString(address.city, exchangeObject.city),
-    objectPrice: asNumber(price.amount ?? price.value ?? exchangeObject.price),
+    objectPrice: asNumber(price.amount ?? price.value ?? price.sellingPrice ?? price.rentingPrice ?? exchangeObject.price),
     objectUrl: firstString(exchangeObject.url, exchangeObject.moveUrl),
     matchedCriteria: result.matchedSearchCriteria ?? null,
     nonMatchedCriteria: result.nonMatchedSearchCriteria ?? null,

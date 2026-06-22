@@ -171,9 +171,14 @@ async function ingestSearchersCapture(capture: RealworksNetworkCapture) {
         dateViewed: asDate(result.dateViewed),
         dateContactFormClicked: asDate(result.dateContactFormClicked),
         isLiked: typeof result.isLiked === "boolean" ? result.isLiked : null,
-        objectAddress: firstString(exchangeObject.addressLine, exchangeObject.displayAddress, [address.street, address.houseNumber, address.houseNumberAddition].filter(Boolean).join(" ")),
+        objectAddress: firstString(
+          exchangeObject.addressLine,
+          exchangeObject.displayAddress,
+          address.description,
+          [address.street ?? address.streetName, address.houseNumber, address.houseNumberAddition ?? address.houseNumberExtension].filter(Boolean).join(" ")
+        ),
         objectCity: firstString(address.city, exchangeObject.city),
-        objectPrice: asNumber(price.amount ?? price.value ?? exchangeObject.price),
+        objectPrice: asNumber(price.amount ?? price.value ?? price.sellingPrice ?? price.rentingPrice ?? exchangeObject.price),
         objectUrl: firstString(exchangeObject.url, exchangeObject.moveUrl),
         matchedCriteria: jsonValue(result.matchedSearchCriteria ?? null),
         nonMatchedCriteria: jsonValue(result.nonMatchedSearchCriteria ?? null),
@@ -192,9 +197,14 @@ async function ingestSearchersCapture(capture: RealworksNetworkCapture) {
         dateViewed: asDate(result.dateViewed),
         dateContactFormClicked: asDate(result.dateContactFormClicked),
         isLiked: typeof result.isLiked === "boolean" ? result.isLiked : null,
-        objectAddress: firstString(exchangeObject.addressLine, exchangeObject.displayAddress, [address.street, address.houseNumber, address.houseNumberAddition].filter(Boolean).join(" ")),
+        objectAddress: firstString(
+          exchangeObject.addressLine,
+          exchangeObject.displayAddress,
+          address.description,
+          [address.street ?? address.streetName, address.houseNumber, address.houseNumberAddition ?? address.houseNumberExtension].filter(Boolean).join(" ")
+        ),
         objectCity: firstString(address.city, exchangeObject.city),
-        objectPrice: asNumber(price.amount ?? price.value ?? exchangeObject.price),
+        objectPrice: asNumber(price.amount ?? price.value ?? price.sellingPrice ?? price.rentingPrice ?? exchangeObject.price),
         objectUrl: firstString(exchangeObject.url, exchangeObject.moveUrl),
         matchedCriteria: jsonValue(result.matchedSearchCriteria ?? null),
         nonMatchedCriteria: jsonValue(result.nonMatchedSearchCriteria ?? null),

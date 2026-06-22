@@ -26,6 +26,173 @@
   ];
   const BACKUP_CAPTURE_STATIC = /\.(?:css|js|map|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot)(?:[?#]|$)/i;
   const BACKUP_CAPTURE_TEXT = /(?:json|text|html|xml|javascript|x-www-form-urlencoded)/i;
+  const SEARCHER_BULK_PAGE_SIZE = 100;
+  const SEARCHER_BULK_MAX_SEARCHERS = 1000;
+  const searcherBulkRuns = new Set();
+  let origFetchForBulk = null;
+
+  const GET_SEARCHER_BY_ID_QUERY = `query GetSearcherById($id: ID!, $locationPagination: InputPagination) {
+  searchers(filters: {ids: [$id]}) {
+    totalCount
+    edges {
+      id
+      additionalEmail
+      type
+      projectCode
+      status
+      objectKind
+      notes
+      constructionType
+      constructionYearFrom
+      constructionYearTo
+      houseTypes
+      apartmentTypes
+      energyLabelType
+      outdoorAmenities
+      gardenPositions
+      objectTypes
+      locationTypes
+      parkingOption
+      matchOnOwnObjects
+      matchOnOtherObjects
+      freqeuentieType
+      departmentCode
+      dateIn
+      dateEnd
+      dateLastChanged
+      maintenanceLevelOutside
+      maintenanceLevelInside
+      doubleOccupancyPossible
+      doubleOccupancy
+      minimumMatchingPercentage
+      sourceType
+      reference
+      suitableForDisabled
+      suitableForElderly
+      needsWorkHouse
+      swimmingPool
+      jacuzzi
+      solarPanels
+      groundOwnershipStatusTypes
+      searchResultsFromDate
+      department { id name __typename }
+      accountManager { id name code type __typename }
+      clients {
+        id
+        code
+        name
+        type
+        notes
+        privateNotes
+        phoneNumbers { work home mobile __typename }
+        emailAddresses
+        moveAccountDetails { lastUpdate moveId relationSystemId __typename }
+        addresses {
+          home { street street2 houseNumber houseNumberExtension city __typename }
+          __typename
+        }
+        __typename
+      }
+      hardSoftCriteria { criteriaName criteriaType __typename }
+      locationFilters(pagination: $locationPagination) {
+        totalCount
+        edges { id displayName geometryRd type __typename }
+        __typename
+      }
+      allLocInfo {
+        areasLegacy { id name __typename }
+        citiesLegacy { id name __typename }
+        workingArea
+        zipcodes { from to __typename }
+        __typename
+      }
+      price { min max __typename }
+      destination { permanentLiving recreationalLiving __typename }
+      properties { livingSpaceFrom plotAreaFrom numOfRoomsFrom numOfBedroomsFrom __typename }
+      accessibility { groundFloorBedroom groundFloorBathroom __typename }
+      facilities { lift __typename }
+      particulars { partiallyFurnished furnished upholstered __typename }
+      courtage { amount payingClient percentage __typename }
+      __typename
+    }
+    __typename
+  }
+}`;
+
+  const GET_SEARCH_RESULTS_QUERY = `query GetSearchResults($filters: InputSearchResultFilters, $sort: InputSearchResultSort, $pagination: InputPagination) {
+  searchResults(filters: $filters, sort: $sort, pagination: $pagination) {
+    totalCount
+    facets {
+      status { name count __typename }
+      moveActivities { name count __typename }
+      __typename
+    }
+    edges {
+      dateFound
+      dateSent
+      searchResultStatus
+      matchingPercentage
+      matchedSearchCriteria
+      nonMatchedSearchCriteria
+      dateViewed
+      dateContactFormClicked
+      isLiked
+      exchangeObjectEntityType
+      exchangeObjectId
+      searchResultsId
+      searcherId
+      exchangeObject {
+        description
+        dateIn
+        objectKind
+        id
+        sizeLivingSpace
+        roomsTotal
+        __typename
+        ... on ExchangeObject {
+          daysOnMarket
+          exchangeOffice { id name number email phone __typename }
+          objectStatus
+          tiaraCode
+          constructionYear
+          energyLabel
+          roomsBedroom
+          sizePlotArea
+          type
+          viewingPlannerLink
+          media { id mediaGroup url __typename }
+          price {
+            rentingPrice
+            priceType
+            rentingSuffix
+            sellingSuffix
+            rentingPrefix
+            sellingPrefix
+            sellingPrice
+            serviceCosts
+            __typename
+          }
+          __typename
+        }
+        address {
+          description
+          streetName
+          houseNumber
+          houseNumberExtension
+          postCode
+          neighbourhood
+          district
+          city
+          municipality
+          province
+          __typename
+        }
+      }
+      __typename
+    }
+    __typename
+  }
+}`;
 
   // Decoodeert een __MASK-waarde naar een leesbaar label
   // bv. maskString = "0;|1;Handmatig|2;Funda|6;Funda Lead", value = "6" → "Funda Lead"
@@ -203,6 +370,167 @@
       response_truncated: responseText.length > BACKUP_CAPTURE_MAX_CHARS,
       response_body: '',
     });
+
+    if (operationName === 'GetSearchers' && searchers?.totalCount > 0 && searcherEdges.length) {
+      queueBulkSearchers(capture.url, request, response);
+    }
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function searcherIdFromItem(item) {
+    const searcher = item?.node || item || {};
+    return searcher.id ? String(searcher.id) : '';
+  }
+
+  async function getPageApiToken() {
+    if (!origFetchForBulk) throw new Error('Originele fetch niet beschikbaar');
+    const res = await origFetchForBulk('/apitoken/', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json, text/plain, */*' },
+    });
+    const text = (await res.text()).trim();
+    let token = text.replace(/^"|"$/g, '');
+    try {
+      const json = JSON.parse(text);
+      token = json.token || json.accessToken || json.apiToken || json.jwt || token;
+    } catch {}
+    if (!token || token.length < 20) throw new Error('/apitoken/ gaf geen bruikbaar token');
+    return token;
+  }
+
+  async function bulkGraphql(url, payload, token) {
+    if (!origFetchForBulk) throw new Error('Originele fetch niet beschikbaar');
+    const res = await origFetchForBulk(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/graphql-response+json,application/json;q=0.9',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch {}
+    return {
+      status: res.status,
+      contentType: res.headers?.get('content-type') || '',
+      text,
+      data,
+    };
+  }
+
+  function postBulkGraphqlCapture(url, operationName, request, result) {
+    const data = result.data;
+    const searchers = data?.data?.searchers;
+    const searcher = data?.data?.searcher || data?.data?.searcherById;
+    const searchResults = data?.data?.searchResults;
+    const searcherEdges = Array.isArray(searchers?.edges) ? searchers.edges : [];
+    const resultEdges = Array.isArray(searchResults?.edges) ? searchResults.edges : [];
+
+    postNetworkCapture({
+      source: operationName === 'GetSearchResults'
+        ? 'realworks_search_results_graphql_bulk'
+        : operationName === 'GetSearcherById'
+          ? 'realworks_searcher_detail_graphql_bulk'
+          : 'realworks_searchers_graphql_bulk',
+      transport: 'page_bulk_graphql',
+      method: 'POST',
+      url,
+      status: result.status,
+      content_type: result.contentType,
+      request_body_preview: JSON.stringify({
+        totalCount: searchers?.totalCount ?? null,
+        resultTotalCount: searchResults?.totalCount ?? null,
+        count: searcherEdges.length || resultEdges.length || (searcher ? 1 : 0),
+        searchers: searcher ? [searcher] : searcherEdges,
+        results: resultEdges,
+        request,
+      }).slice(0, BACKUP_CAPTURE_MAX_CHARS),
+      response_truncated: result.text.length > BACKUP_CAPTURE_MAX_CHARS,
+      response_body: searcherEdges.length || resultEdges.length || searcher ? '' : result.text.slice(0, BACKUP_CAPTURE_MAX_CHARS),
+    });
+  }
+
+  function queueBulkSearchers(url, originalRequest, originalResponse) {
+    const filters = originalRequest?.variables?.filters || {};
+    const sort = originalRequest?.variables?.sort || {};
+    const key = JSON.stringify({ filters, sort });
+    if (searcherBulkRuns.has(key)) return;
+    searcherBulkRuns.add(key);
+    setTimeout(() => searcherBulkRuns.delete(key), 15 * 60_000);
+
+    runBulkSearchers(url, originalRequest, originalResponse).catch((error) => {
+      console.warn('[RW Searchers Bulk] Mislukt:', error);
+    });
+  }
+
+  async function runBulkSearchers(url, originalRequest, originalResponse) {
+    const token = await getPageApiToken();
+    const total = Number(originalResponse?.data?.searchers?.totalCount || 0);
+    const maxSearchers = Math.min(total || SEARCHER_BULK_PAGE_SIZE, SEARCHER_BULK_MAX_SEARCHERS);
+    const totalPages = Math.max(1, Math.ceil(maxSearchers / SEARCHER_BULK_PAGE_SIZE));
+    const ids = [];
+
+    console.log(`[RW Searchers Bulk] Start: ${maxSearchers}/${total || '?'} zoekers`);
+
+    for (let page = 1; page <= totalPages; page += 1) {
+      const listRequest = {
+        ...originalRequest,
+        variables: {
+          ...(originalRequest.variables || {}),
+          pagination: { page, size: SEARCHER_BULK_PAGE_SIZE },
+        },
+      };
+      const listResult = await bulkGraphql(url, listRequest, token);
+      postBulkGraphqlCapture(url, 'GetSearchers', listRequest, listResult);
+      const edges = listResult.data?.data?.searchers?.edges || [];
+      for (const edge of edges) {
+        const id = searcherIdFromItem(edge);
+        if (id && !ids.includes(id)) ids.push(id);
+      }
+      await sleep(250);
+    }
+
+    for (const id of ids.slice(0, SEARCHER_BULK_MAX_SEARCHERS)) {
+      const detailRequest = {
+        operationName: 'GetSearcherById',
+        variables: { id, locationPagination: { page: 1, size: 100 } },
+        extensions: originalRequest.extensions,
+        query: GET_SEARCHER_BY_ID_QUERY,
+      };
+      const detailResult = await bulkGraphql(url, detailRequest, token);
+      postBulkGraphqlCapture(url, 'GetSearcherById', detailRequest, detailResult);
+      await sleep(200);
+
+      let resultPage = 1;
+      let resultTotalPages = 1;
+      do {
+        const resultsRequest = {
+          operationName: 'GetSearchResults',
+          variables: {
+            filters: { dateRange: null, dateSent: null, searcherId: Number(id) || id },
+            sort: { field: 'DATE_FOUND', order: 'DESC' },
+            pagination: { page: resultPage, size: SEARCHER_BULK_PAGE_SIZE },
+          },
+          extensions: originalRequest.extensions,
+          query: GET_SEARCH_RESULTS_QUERY,
+        };
+        const resultsResult = await bulkGraphql(url, resultsRequest, token);
+        postBulkGraphqlCapture(url, 'GetSearchResults', resultsRequest, resultsResult);
+        const resultTotal = Number(resultsResult.data?.data?.searchResults?.totalCount || 0);
+        resultTotalPages = Math.max(1, Math.ceil(Math.min(resultTotal, 500) / SEARCHER_BULK_PAGE_SIZE));
+        resultPage += 1;
+        await sleep(250);
+      } while (resultPage <= resultTotalPages);
+    }
+
+    console.log(`[RW Searchers Bulk] Klaar: ${ids.length} zoekers verwerkt`);
   }
 
   function formFieldsPreview(form) {
@@ -619,6 +947,7 @@
   };
 
   const origFetch = window.fetch;
+  origFetchForBulk = origFetch?.bind(window);
   if (typeof origFetch === 'function') {
     window.fetch = async function (input, init) {
       const request = input instanceof Request ? input : null;
