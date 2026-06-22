@@ -72,10 +72,14 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 - Live test op 2026-06-22 belde wel uit, maar eindigde direct omdat `aava-outbound-amd` ontbrak. Deze Asterisk context is daarna toegevoegd en met `dialplan show aava-outbound-amd` bevestigd.
 - Live hertest op 2026-06-22 met job `cmqphez0t000hhq010kw662z0` gaf een piep en hing op. Oorzaak: AMD classificeerde als `MACHINE` met `INITIALSILENCE-2500-2500`, omdat de ontvanger stil bleef na opnemen. Voor handmatige tests dus direct iets zeggen na opnemen.
 - Nieuwe testkaart klaar op 2026-06-22: `cmqphrzau000ohq01zakprhkx`, status `ready`, nog niet gestart.
+- Live test op 2026-06-22 met job `cmqphrzau000ohq01zakprhkx` werkte end-to-end: AMD gaf `HUMAN`, AI nam het gesprek over, duur ongeveer 104-106 seconden, resultaat kwam terug in het platform als `answered`.
+- Audio haperde/vertraagde soms. In de AI-engine log stond Google Live als `bursty`, met streaming drift rond `-43.6%`, en aan het einde sloot Google Live met websocket code `1008` (`Operation is not implemented, or supported, or enabled`). Achtergrondgeluid leek ook invloed te hebben op barge-in/VAD: er werd een lokale barge-in fallback getriggerd.
+- De actieve PBX prompt bevat nog oude hardcoded testcontext voor Kikkerven 255 en moet voor productie vervangen worden door dynamische belkaartcontext. In de transcriptie kwam ook een Engelstalige meta-zin voorbij (`Confirming Next Steps`), dus de taal/promptregels moeten strakker.
 - Dummy testdata is na de tests opgeruimd.
 
 ## Nog nodig voor volledige PBX-koppeling
 
-- Een echte live outbound test uitvoeren via de menselijke goedkeuringsknop.
-- Na de live test controleren: belt hij uit, spreekt hij direct, gebruikt hij de juiste context, hangt hij zelf op, komt de samenvatting terug in platform/Mautic/info-mail.
+- Audio tuning testen: Google Live streaming-buffer/jitter-buffer verhogen, barge-in/VAD minder gevoelig maken voor achtergrondgeluid, en opnieuw live testen.
+- Actieve PBX-context productiegeschikt maken: geen hardcoded Kikkerven/testpersoon meer, maar dynamische belkaartcontext gebruiken.
+- Na de volgende live test controleren: spreekt hij vloeiend, gebruikt hij de juiste context, hangt hij zelf op, komt de samenvatting terug in platform/Mautic/info-mail.
 - Als de live audio aan het einde opnieuw versnelt of vervormt: AI Voice Agent audio/provider-log bewaren en sample-rate/streaming-instellingen nalopen.
