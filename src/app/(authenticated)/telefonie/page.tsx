@@ -168,11 +168,27 @@ export default function TelefoniePage() {
   const [contactEditSaving, setContactEditSaving] = useState(false);
   const [contactEditMessage, setContactEditMessage] = useState("");
 
-  // Check of er een 'nieuw' parameter is (van call notification)
+  // Check URL parameters van de call notification
   useEffect(() => {
     // Synchroniseert een URL-parameter (externe bron) eenmalig naar state.
     /* eslint-disable react-hooks/set-state-in-effect */
     const nieuwNummer = searchParams.get("nieuw");
+    const searchQuery = searchParams.get("search");
+    const projectCallId = searchParams.get("projectCall");
+    const currentProjectId = searchParams.get("projectId");
+
+    if (searchQuery) {
+      setSearch(searchQuery);
+      setPage(1);
+    }
+
+    if (projectCallId) {
+      setLinkCallId(projectCallId);
+      setLinkProjectId(currentProjectId || "");
+      setLinkProjectType(null);
+      setShowLinkProject(true);
+    }
+
     if (nieuwNummer) {
       setNewContactPhone(nieuwNummer);
       setNewContactData((prev) => ({

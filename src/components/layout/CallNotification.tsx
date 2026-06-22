@@ -7,9 +7,12 @@ import {
   XMarkIcon,
   UserPlusIcon,
   UserIcon,
+  FolderIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 
 interface CallEventData {
+  id?: string;
   callId: string;
   timestamp: string;
   status: string;
@@ -22,6 +25,24 @@ interface CallEventData {
   mauticContactId?: number;
   contactName?: string;
   contactFound: boolean;
+  projectId?: string;
+  projectName?: string;
+  projectStatus?: string;
+}
+
+function formatCallTime(timestamp: string) {
+  return new Intl.DateTimeFormat("nl-NL", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function buildProjectLink(call: CallEventData, displayNumber: string) {
+  const params = new URLSearchParams();
+  if (call.id) params.set("projectCall", call.id);
+  if (call.projectId) params.set("projectId", call.projectId);
+  params.set("search", displayNumber);
+  return `/telefonie?${params.toString()}`;
 }
 
 export default function CallNotification() {
@@ -81,6 +102,16 @@ export default function CallNotification() {
   const displayNumber = isInbound
     ? activeCall.callerNumber
     : activeCall.destinationNumber;
+  const projectLink = buildProjectLink(activeCall, displayNumber);
+  const callStatusText = isRinging
+    ? isInbound
+      ? "Inkomend gesprek..."
+      : "Uitgaand gesprek..."
+    : activeCall.reason === "completed" || activeCall.reason === "answered"
+    ? "Gesprek beëindigd"
+    : isInbound
+    ? "Gemist gesprek"
+    : "Niet opgenomen";
 
   return (
     <div
@@ -110,13 +141,7 @@ export default function CallNotification() {
               <PhoneArrowUpRightIcon className="h-5 w-5" />
             )}
             <span className="text-sm font-medium">
-              {isRinging
-                ? isInbound
-                  ? "Inkomend gesprek..."
-                  : "Uitgaand gesprek..."
-                : activeCall.reason === "completed"
-                ? "Gesprek beëindigd"
-                : "Gemist gesprek"}
+              {callStatusText}
             </span>
           </div>
           <button
@@ -136,6 +161,18 @@ export default function CallNotification() {
           {activeCall.callerName && (
             <p className="text-sm text-gray-500">{displayNumber}</p>
           )}
+
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-1.5">
+              <ClockIcon className="h-3.5 w-3.5" />
+              {formatCallTime(activeCall.timestamp)}
+            </div>
+            {activeCall.destinationUser && (
+              <div className="truncate text-right" title={activeCall.destinationUser}>
+                {activeCall.destinationUser}
+              </div>
+            )}
+          </div>
 
           {/* Contact info */}
           {activeCall.contactFound ? (
@@ -165,14 +202,53 @@ export default function CallNotification() {
                   Onbekend contact
                 </span>
               </div>
-              <a
-                href={`/telefonie?nieuw=${encodeURIComponent(displayNumber)}`}
-                className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-200"
-              >
-                <UserPlusIcon className="h-3 w-3" />
-                Contact aanmaken
-              </a>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a
+                  href={`/telefonie?nieuw=${encodeURIComponent(displayNumber)}`}
+                  className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-200"
+                >
+                  <UserPlusIcon className="h-3 w-3" />
+                  Contact aanmaken
+                </a>
+                <a
+                  href={`/telefonie?search=${encodeURIComponent(displayNumber)}`}
+                  className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                >
+                  Later oppakken
+                </a>
+              </div>
             </div>
+          )}
+
+          {activeCall.projectId && activeCall.projectName && (
+            <div className="mt-3 rounded-lg bg-gray-50 p-3">
+              <a
+                href={`/projecten/${activeCall.projectId}`}
+                className="flex items-center gap-2 text-sm font-medium text-gray-800 transition-colors hover:text-primary"
+              >
+                <FolderIcon className="h-4 w-4 text-gray-500" />
+                <span className="min-w-0 flex-1 truncate">{activeCall.projectName}</span>
+                <span className="text-xs font-normal text-gray-500">Project</span>
+              </a>
+              {activeCall.id && (
+                <a
+                  href={projectLink}
+                  className="mt-2 inline-flex text-xs font-medium text-primary hover:underline"
+                >
+                  Ander project kiezen
+                </a>
+              )}
+            </div>
+          )}
+
+          {!activeCall.projectId && activeCall.id && (
+            <a
+              href={projectLink}
+              className="mt-3 flex items-center gap-2 rounded-lg bg-gray-50 p-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-primary"
+            >
+              <FolderIcon className="h-4 w-4 text-gray-500" />
+              Project kiezen
+            </a>
           )}
         </div>
       </div>

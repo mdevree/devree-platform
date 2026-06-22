@@ -6,6 +6,7 @@ import {
   calculateCallPoints,
 } from "@/lib/phone";
 import { callEmitter, type CallEvent } from "@/lib/callStream";
+import { findAutoProjectForCall } from "@/lib/callProjects";
 
 /**
  * POST /api/calls/webhook
@@ -82,6 +83,9 @@ export async function POST(request: NextRequest) {
     // Bestond deze call al? Bepaalt of we de Mautic-punten al toegekend hebben,
     // zodat herhaalde webhooks voor dezelfde call geen dubbele punten geven.
     const previous = await prisma.call.findUnique({ where: { callId } });
+    const autoProject = previous?.projectId
+      ? null
+      : await findAutoProjectForCall({ mauticContactId, contactNumber });
 
     // Opslaan of bijwerken in database
     const call = await prisma.call.upsert({
@@ -91,6 +95,7 @@ export async function POST(request: NextRequest) {
         reason,
         mauticContactId,
         contactName,
+        ...(autoProject ? { projectId: autoProject.id } : {}),
         points,
         updatedAt: new Date(),
       },
@@ -106,7 +111,11 @@ export async function POST(request: NextRequest) {
         destinationUser,
         mauticContactId,
         contactName,
+        projectId: autoProject?.id,
         points,
+      },
+      include: {
+        project: { select: { id: true, name: true, status: true } },
       },
     });
 
@@ -128,6 +137,7 @@ export async function POST(request: NextRequest) {
     const callEvent: CallEvent = {
       type: eventType as CallEvent["type"],
       data: {
+        id: call.id,
         callId,
         timestamp: timestamp.toISOString(),
         status,
@@ -140,6 +150,9 @@ export async function POST(request: NextRequest) {
         mauticContactId: mauticContactId || undefined,
         contactName: contactName || undefined,
         contactFound,
+        projectId: call.project?.id,
+        projectName: call.project?.name,
+        projectStatus: call.project?.status,
       },
     };
 
@@ -150,6 +163,8 @@ export async function POST(request: NextRequest) {
       callId: call.id,
       contactFound,
       contactName,
+      projectId: call.project?.id || null,
+      projectName: call.project?.name || null,
       eventType,
       connections: callEmitter.connectionCount,
     });

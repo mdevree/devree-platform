@@ -6,6 +6,7 @@
 export interface CallEvent {
   type: "call-ringing" | "call-ended" | "call-update";
   data: {
+    id?: string;
     callId: string;
     timestamp: string;
     status: string;
@@ -18,6 +19,9 @@ export interface CallEvent {
     mauticContactId?: number;
     contactName?: string;
     contactFound: boolean;
+    projectId?: string;
+    projectName?: string;
+    projectStatus?: string;
   };
 }
 
