@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 
+function appendReviewNote(current: string | null, note: string) {
+  return [current, note].filter(Boolean).join("\n");
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -25,15 +29,24 @@ export async function POST(
     return NextResponse.json({ error: `Belkaart heeft status '${job.status}' en kan nog niet worden gestart` }, { status: 400 });
   }
 
+  const reviewer = body.reviewedBy || body.startedBy || "platform";
+  const starter = body.startedBy || null;
+  const approvalNote = [
+    body.reviewNotes || job.reviewNotes || null,
+    `AI-call handmatig goedgekeurd met bevestiging BEL door ${reviewer} op ${new Date().toISOString()}.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const webhookUrl = process.env.AI_CALL_START_WEBHOOK_URL;
   if (!webhookUrl) {
     const approved = await prisma.aiCallJob.update({
       where: { id },
       data: {
         status: "approved",
-        reviewedBy: body.reviewedBy || body.startedBy || "platform",
-        startedBy: body.startedBy || null,
-        reviewNotes: body.reviewNotes || job.reviewNotes,
+        reviewedBy: reviewer,
+        startedBy: starter,
+        reviewNotes: approvalNote,
       },
     });
     return NextResponse.json({
@@ -48,9 +61,9 @@ export async function POST(
     data: {
       status: "calling",
       startedAt: new Date(),
-      reviewedBy: body.reviewedBy || body.startedBy || "platform",
-      startedBy: body.startedBy || null,
-      reviewNotes: body.reviewNotes || job.reviewNotes,
+      reviewedBy: reviewer,
+      startedBy: starter,
+      reviewNotes: approvalNote,
     },
   });
 
@@ -67,7 +80,7 @@ export async function POST(
     const text = await response.text().catch(() => "");
     const failed = await prisma.aiCallJob.update({
       where: { id },
-      data: { status: "failed", reviewNotes: [started.reviewNotes, `Caller start mislukt: ${response.status} ${text}`].filter(Boolean).join("\n") },
+      data: { status: "failed", reviewNotes: appendReviewNote(started.reviewNotes, `Caller start mislukt: ${response.status} ${text}`) },
     });
     return NextResponse.json({ error: "Caller webhook mislukt", job: failed }, { status: 502 });
   }
