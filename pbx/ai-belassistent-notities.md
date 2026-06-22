@@ -18,6 +18,7 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 - Zet naast de AI-instructie ook een technische maximale gespreksduur als vangnet.
 - Log per gesprek minimaal: provider call id, starttijd, eindtijd, duur, outcome, transcript, samenvatting en audio/probleemnotities.
 - Bij voicemail: geen lang gesprek voeren, kort bericht achterlaten of ophangen afhankelijk van campagne-instelling.
+- AMD/voicemaildetectie blijft in de route. Let op bij live tests: als de ontvanger stil blijft na opnemen, kan AMD dit terecht als voicemail/initial silence beoordelen en hangt de caller op.
 - Bij stilte of geen TTS-audio: gesprek afbreken en als failed/no_audio markeren.
 
 ## Platformkoppeling
@@ -69,6 +70,8 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 - Platform resultaatverwerking getest met dummy job: `POST /api/ai/call-results` gaf HTTP 201, job werd `completed`, WhatsApp-concept werd aangemaakt, info-mail werd queued.
 - PBX bridge poller getest met synthetische afgeronde outbound attempt: bridge stuurde resultaat naar platform en markeerde de attempt als `sent`.
 - Live test op 2026-06-22 belde wel uit, maar eindigde direct omdat `aava-outbound-amd` ontbrak. Deze Asterisk context is daarna toegevoegd en met `dialplan show aava-outbound-amd` bevestigd.
+- Live hertest op 2026-06-22 met job `cmqphez0t000hhq010kw662z0` gaf een piep en hing op. Oorzaak: AMD classificeerde als `MACHINE` met `INITIALSILENCE-2500-2500`, omdat de ontvanger stil bleef na opnemen. Voor handmatige tests dus direct iets zeggen na opnemen.
+- Nieuwe testkaart klaar op 2026-06-22: `cmqphrzau000ohq01zakprhkx`, status `ready`, nog niet gestart.
 - Dummy testdata is na de tests opgeruimd.
 
 ## Nog nodig voor volledige PBX-koppeling
