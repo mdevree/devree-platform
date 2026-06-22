@@ -680,3 +680,37 @@ model RealworksWoningTask {
   @@index([createdAt])
   @@map("realworks_woning_tasks")
 }
+
+model RealworksBackupCapture {
+  id                 String   @id @default(cuid())
+  source             String?
+  capturedAt         DateTime?
+  receivedAt         DateTime @default(now())
+  host               String
+  path               String
+  query              String?  @db.Text
+  url                String   @db.Text
+  pageUrl            String?  @db.Text
+  method             String?
+  status             Int?
+  contentType        String?
+  transport          String?
+  hints              Json?
+  requestBodyPreview String?  @db.LongText
+  responseBody       String?  @db.LongText
+  responseTruncated  Boolean  @default(false)
+  linkText           String?  @db.Text
+  linkTarget         String?  @db.Text
+  onclickPreview     String?  @db.Text
+  popupTarget        String?
+  formTarget         String?  @db.Text
+  formName           String?
+  formId             String?
+  formTrigger        String?
+  createdAt          DateTime @default(now())
+
+  @@index([source])
+  @@index([host, path])
+  @@index([receivedAt])
+  @@map("realworks_backup_captures")
+}

@@ -209,6 +209,50 @@ async function ingestSearchersCapture(capture: RealworksNetworkCapture) {
   return { searchers: searchersUpserted, results: resultsUpserted, opportunities };
 }
 
+function parseOptionalDate(value: unknown) {
+  if (!value) return null;
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function storeBackupCapture(capture: RealworksNetworkCapture & {
+  received_at?: string;
+  response_body: string;
+}) {
+  try {
+    await prisma.realworksBackupCapture.create({
+      data: {
+        source: firstString(capture.source),
+        capturedAt: parseOptionalDate(capture.captured_at),
+        receivedAt: parseOptionalDate(capture.received_at) || new Date(),
+        host: firstString(capture.host) || "",
+        path: firstString(capture.path) || "",
+        query: firstString(capture.query),
+        url: firstString(capture.url) || "",
+        pageUrl: firstString(capture.page_url),
+        method: firstString(capture.method),
+        status: typeof capture.status === "number" ? capture.status : null,
+        contentType: firstString(capture.content_type),
+        transport: firstString(capture.transport),
+        hints: jsonValue(capture.hints ?? null),
+        requestBodyPreview: firstString(capture.request_body_preview),
+        responseBody: firstString(capture.response_body),
+        responseTruncated: Boolean(capture.response_truncated),
+        linkText: firstString(capture.link_text),
+        linkTarget: firstString(capture.link_target),
+        onclickPreview: firstString(capture.onclick_preview),
+        popupTarget: firstString(capture.popup_target),
+        formTarget: firstString(capture.form_target),
+        formName: firstString(capture.form_name),
+        formId: firstString(capture.form_id),
+        formTrigger: firstString(capture.form_trigger),
+      },
+    });
+  } catch (error) {
+    console.warn("[realworks-backup-capture] opslaan mislukt:", error);
+  }
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
@@ -272,6 +316,7 @@ export async function POST(request: NextRequest) {
     requestBodyPreview: normalizedCapture.request_body_preview?.slice(0, 4000),
   });
 
+  await storeBackupCapture(normalizedCapture);
   const ingestResult = await ingestSearchersCapture(normalizedCapture);
 
   const configuredWebhookUrl = process.env.REALWORKS_BACKUP_CAPTURE_WEBHOOK_URL;
