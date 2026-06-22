@@ -671,7 +671,21 @@ export default function TelefoniePage() {
     });
   }
 
-  function getReasonBadge(reason: string | null) {
+  function getReasonBadge(status: string, reason: string | null) {
+    if (status === "ringing") {
+      return (
+        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+          Gaat over
+        </span>
+      );
+    }
+    if (status === "in-progress") {
+      return (
+        <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+          Bezig
+        </span>
+      );
+    }
     if (reason === "completed" || reason === "answered") {
       return (
         <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
@@ -769,6 +783,7 @@ export default function TelefoniePage() {
             <option value="completed">Beantwoord</option>
             <option value="no-answer">Gemist</option>
             <option value="busy">In gesprek</option>
+            <option value="cancelled">Geannuleerd</option>
           </select>
         </div>
       </div>
@@ -884,7 +899,7 @@ export default function TelefoniePage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {getReasonBadge(call.reason)}
+                    {getReasonBadge(call.status, call.reason)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">

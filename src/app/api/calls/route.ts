@@ -24,7 +24,14 @@ export async function GET(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
 
-  where.status = "ended";
+  const recentActiveCutoff = new Date(Date.now() - 30 * 60 * 1000);
+  where.OR = [
+    { status: "ended" },
+    {
+      status: { in: ["ringing", "in-progress"] },
+      updatedAt: { gte: recentActiveCutoff },
+    },
+  ];
 
   if (direction) where.direction = direction;
   if (reason) where.reason = reason;
@@ -37,11 +44,16 @@ export async function GET(request: NextRequest) {
   }
 
   if (search) {
-    where.OR = [
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
       { callerNumber: { contains: search } },
       { callerName: { contains: search } },
       { contactName: { contains: search } },
       { destinationNumber: { contains: search } },
+        ],
+      },
     ];
   }
 
