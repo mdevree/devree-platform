@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
-import { buildAiCallApprovalNote, validateAiCallStartApproval } from "@/lib/aiCallApproval";
+import { buildAiCallApprovalNote, buildAiCallBridgeApproval, validateAiCallStartApproval } from "@/lib/aiCallApproval";
 import { prisma } from "@/lib/prisma";
 
 function appendReviewNote(current: string | null, note: string) {
@@ -35,6 +35,7 @@ export async function POST(
     reviewer,
     approvedAt,
   });
+  const bridgeApproval = buildAiCallBridgeApproval({ reviewer, starter, approvedAt });
 
   const webhookUrl = process.env.AI_CALL_START_WEBHOOK_URL;
   if (!webhookUrl) {
@@ -73,13 +74,7 @@ export async function POST(
     },
     body: JSON.stringify({
       job: started,
-      approval: {
-        humanApproved: true,
-        approvalText: "BEL",
-        reviewedBy: reviewer,
-        startedBy: starter,
-        approvedAt: approvedAt.toISOString(),
-      },
+      approval: bridgeApproval,
     }),
   });
 

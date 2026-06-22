@@ -25,3 +25,18 @@ export function buildAiCallApprovalNote(input: {
     .filter(Boolean)
     .join("\n");
 }
+
+export function buildAiCallBridgeApproval(input: {
+  reviewer: string;
+  starter?: string | null;
+  approvedAt?: Date;
+}) {
+  const approvedAt = input.approvedAt || new Date();
+  return {
+    humanApproved: true,
+    approvalText: "BEL",
+    reviewedBy: input.reviewer,
+    startedBy: input.starter || null,
+    approvedAt: approvedAt.toISOString(),
+  };
+}

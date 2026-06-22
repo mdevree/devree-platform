@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildAiCallApprovalNote, validateAiCallStartApproval } from "./aiCallApproval";
+import { buildAiCallApprovalNote, buildAiCallBridgeApproval, validateAiCallStartApproval } from "./aiCallApproval";
 
 test("weigert AI-call start zonder menselijke goedkeuring", () => {
   assert.equal(
@@ -34,5 +34,22 @@ test("bouwt auditnotitie met reviewer en tijdstip", () => {
   assert.equal(
     note,
     "Bestaande notitie\nAI-call handmatig goedgekeurd met bevestiging BEL door platform op 2026-06-22T17:05:00.000Z."
+  );
+});
+
+test("bouwt approval-payload die de PBX-bridge verplicht stelt", () => {
+  assert.deepEqual(
+    buildAiCallBridgeApproval({
+      reviewer: "platform",
+      starter: "melvin",
+      approvedAt: new Date("2026-06-22T17:15:00.000Z"),
+    }),
+    {
+      humanApproved: true,
+      approvalText: "BEL",
+      reviewedBy: "platform",
+      startedBy: "melvin",
+      approvedAt: "2026-06-22T17:15:00.000Z",
+    }
   );
 });
