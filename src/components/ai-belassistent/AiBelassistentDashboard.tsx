@@ -8,6 +8,7 @@ import {
   PaperAirplaneIcon,
   PhoneArrowUpRightIcon,
   PlusIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 
 type AiCallJob = {
@@ -45,6 +46,15 @@ type LinkItem = {
   active: boolean;
   intents: unknown;
   lastSyncedAt: string | null;
+};
+
+type CallerStatus = {
+  callerConfigured: boolean;
+  startWebhookConfigured: boolean;
+  infoEmailWebhookConfigured: boolean;
+  humanApprovalRequired: boolean;
+  canPlaceCalls: boolean;
+  status: string;
 };
 
 function statusStyle(status: string) {
@@ -86,6 +96,7 @@ export default function AiBelassistentDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [draftBodies, setDraftBodies] = useState<Record<string, string>>({});
+  const [callerStatus, setCallerStatus] = useState<CallerStatus | null>(null);
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === selectedJobId) || jobs[0] || null,
@@ -94,14 +105,16 @@ export default function AiBelassistentDashboard() {
 
   const loadAll = useCallback(async () => {
     setError(null);
-    const [loadedJobs, loadedDrafts, loadedLinks] = await Promise.all([
+    const [loadedJobs, loadedDrafts, loadedLinks, loadedCallerStatus] = await Promise.all([
       jsonFetch<AiCallJob[]>("/api/ai/call-jobs"),
       jsonFetch<FollowUpDraft[]>("/api/ai/follow-up-drafts"),
       jsonFetch<LinkItem[]>("/api/ai/link-catalog"),
+      jsonFetch<CallerStatus>("/api/ai/caller-status"),
     ]);
     setJobs(loadedJobs);
     setDrafts(loadedDrafts);
     setLinks(loadedLinks);
+    setCallerStatus(loadedCallerStatus);
     setDraftBodies(Object.fromEntries(loadedDrafts.map((draft) => [draft.id, draft.body])));
     setSelectedJobId((current) => current || loadedJobs[0]?.id || null);
   }, []);
@@ -210,6 +223,37 @@ export default function AiBelassistentDashboard() {
           Links syncen
         </button>
       </div>
+
+      {callerStatus && (
+        <div
+          className={`rounded-lg border px-4 py-3 ${
+            callerStatus.canPlaceCalls
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-amber-200 bg-amber-50 text-amber-800"
+          }`}
+        >
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <ShieldCheckIcon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium">
+                  {callerStatus.canPlaceCalls ? "Caller is gekoppeld" : "Caller nog niet gekoppeld"}
+                </p>
+                <p className="mt-1 text-sm">
+                  Menselijke goedkeuring is verplicht.{" "}
+                  {callerStatus.canPlaceCalls
+                    ? "Goedgekeurde belkaarten worden doorgestuurd naar de AI/PBX-caller."
+                    : "Goedgekeurde belkaarten worden nu alleen klaargezet; stel AI_CALL_START_WEBHOOK_URL in om echt te bellen."}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <StatusPill value={callerStatus.startWebhookConfigured ? "start-webhook actief" : "start-webhook mist"} />
+              <StatusPill value={callerStatus.infoEmailWebhookConfigured ? "info-mail actief" : "info-mail mist"} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {(message || error) && (
         <div className={`rounded-md border px-4 py-3 text-sm ${error ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-700"}`}>
