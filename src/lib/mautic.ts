@@ -675,6 +675,23 @@ export async function addMauticNote(
   }
 }
 
+export async function addMauticTags(
+  contactId: number,
+  tags: string[]
+): Promise<void> {
+  const cleanTags = tags.map((tag) => tag.trim()).filter(Boolean);
+  if (!cleanTags.length) return;
+
+  const response = await mauticFetch(`/api/contacts/${contactId}/tags/add`, {
+    method: "POST",
+    body: JSON.stringify({ tags: cleanTags }),
+  });
+
+  if (!response.ok) {
+    console.error("Mautic tags toevoegen mislukt:", response.status, await response.text());
+  }
+}
+
 /**
  * Maak een buurtdata lead aan of update een bestaand contact in Mautic.
  * Zoekt op e-mailadres, maakt nieuw aan als niet gevonden.

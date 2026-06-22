@@ -86,28 +86,28 @@ model User {
 }
 
 model Project {
-  id              String           @id @default(cuid())
-  name            String
-  description     String?          @db.Text
+  id          String  @id @default(cuid())
+  name        String
+  description String? @db.Text
 
   // Type en status
-  type            ProjectType      @default(VERKOOP)
-  projectStatus   ProjectStatus?   // tijdelijk nullable voor migratie; wordt na data-migratie gevuld
-  status          String           @default("lead") // legacy — blijft staan totdat migratie compleet is
+  type          ProjectType    @default(VERKOOP)
+  projectStatus ProjectStatus? // tijdelijk nullable voor migratie; wordt na data-migratie gevuld
+  status        String         @default("lead") // legacy — blijft staan totdat migratie compleet is
 
   // Verkoopstart (alleen relevant bij type=VERKOOP)
-  verkoopstart    Verkoopstart?
-  startdatum      DateTime?
-  startReden      String?
+  verkoopstart Verkoopstart?
+  startdatum   DateTime?
+  startReden   String?
 
   // Legacy velden (bewaren voor backward-compat)
   address         String?
-  notionPageId    String?          @unique
-  mauticContactId Int?             // Fallback voor backward-compat (legacy)
-  realworksId     String?          // Koppeling met woning op WordPress via Realworks ID
-  contactName     String?          // Fallback contactnaam (legacy)
-  contactPhone    String?          // Fallback telefoonnummer (legacy)
-  contactEmail    String?          // Fallback emailadres (legacy)
+  notionPageId    String? @unique
+  mauticContactId Int? // Fallback voor backward-compat (legacy)
+  realworksId     String? // Koppeling met woning op WordPress via Realworks ID
+  contactName     String? // Fallback contactnaam (legacy)
+  contactPhone    String? // Fallback telefoonnummer (legacy)
+  contactEmail    String? // Fallback emailadres (legacy)
 
   // Woning velden
   woningAdres       String?
@@ -122,15 +122,15 @@ model Project {
   vraagprijs          Int?
   courtagePercentage  Float?
   verkoopmethode      Verkoopmethode?
-  bijzondereAfspraken String?          @db.Text
+  bijzondereAfspraken String?         @db.Text
 
   // Kosten
-  kostenPubliciteit   Int?
-  kostenEnergielabel  Int?
-  kostenJuridisch     Int?
-  kostenBouwkundig    Int?
-  kostenIntrekking    Int?
-  kostenBedenktijd    Int?
+  kostenPubliciteit  Int?
+  kostenEnergielabel Int?
+  kostenJuridisch    Int?
+  kostenBouwkundig   Int?
+  kostenIntrekking   Int?
+  kostenBedenktijd   Int?
 
   // Relaties
   contacts            ProjectContact[]
@@ -171,24 +171,24 @@ model ProjectContact {
 }
 
 model Call {
-  id                String   @id @default(cuid())
-  callId            String   @unique
+  id                String     @id @default(cuid())
+  callId            String     @unique
   timestamp         DateTime
-  status            String   // ringing, in-progress, ended
-  reason            String?  // completed, no-answer, busy, cancelled
-  direction         String   // inbound, outbound
+  status            String // ringing, in-progress, ended
+  reason            String? // completed, no-answer, busy, cancelled
+  direction         String // inbound, outbound
   callerNumber      String
   callerName        String?
   destinationNumber String
   destinationUser   String?
   mauticContactId   Int?
   contactName       String?
-  points            Int      @default(0)
-  project           Project? @relation(fields: [projectId], references: [id])
+  points            Int        @default(0)
+  project           Project?   @relation(fields: [projectId], references: [id])
   projectId         String?
   notes             CallNote[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   @@index([timestamp])
   @@index([callerNumber])
@@ -210,28 +210,153 @@ model CallNote {
   @@map("call_notes")
 }
 
-model Task {
-  id               String      @id @default(cuid())
-  title            String
-  description      String?     @db.Text
-  status           String      @default("open") // open, bezig, afgerond
-  priority         String      @default("normaal") // laag, normaal, hoog, urgent
-  dueDate          DateTime?
-  category         String?     // binnendienst, verkoop, aankoop, taxatie, administratie
-  assignee         User        @relation("assignee", fields: [assigneeId], references: [id])
-  assigneeId       String
-  creator          User        @relation("creator", fields: [creatorId], references: [id])
-  creatorId        String
-  project          Project?    @relation(fields: [projectId], references: [id])
+model AiCallJob {
+  id               String    @id @default(cuid())
+  source           String    @default("bezichtiging") // bezichtiging | kans | zoeker | manual
+  agendaAfspraakId String?
   projectId        String?
-  notionPageId     String?
+  mauticContactId  Int?
+  leadId           String?
+  contactName      String?
+  contactPhone     String?
+  contactEmail     String?
+  language         String    @default("nl")
+  propertyTitle    String?
+  propertyAddress  String?
+  propertyUrl      String?   @db.Text
+  viewingDate      DateTime?
+  context          Json?
+  scriptPreview    String?   @db.LongText
+  status           String    @default("draft") // draft | ready | approved | calling | completed | failed | cancelled
+  reviewNotes      String?   @db.Text
+  reviewedBy       String?
+  startedBy        String?
+  startedAt        DateTime?
   completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status])
+  @@index([source])
+  @@index([agendaAfspraakId])
+  @@index([projectId])
+  @@index([mauticContactId])
+  @@index([leadId])
+  @@index([createdAt])
+  @@map("ai_call_jobs")
+}
+
+model AiCallResult {
+  id                    String    @id @default(cuid())
+  aiCallJobId           String
+  pbxCallId             String?
+  provider              String?
+  contextName           String?
+  durationSeconds       Int?
+  outcome               String    @default("answered") // answered | voicemail | no_answer | failed
+  summary               String    @db.Text
+  transcript            String?   @db.LongText
+  customerQuestions     Json?
+  detectedOpportunities Json?
+  requestedFollowUp     Json?
+  proposedLinks         Json?
+  audioNotes            String?   @db.Text
+  qualityScore          Int?
+  mauticWrittenAt       DateTime?
+  infoEmailQueuedAt     DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([aiCallJobId])
+  @@index([pbxCallId])
+  @@index([outcome])
+  @@index([createdAt])
+  @@map("ai_call_results")
+}
+
+model FollowUpDraft {
+  id               String    @id @default(cuid())
+  channel          String // whatsapp | email
+  purpose          String // woning_link | afspraak_link | verkoop | aankoop | taxatie | faq | terugbelverzoek
+  aiCallJobId      String?
+  aiCallResultId   String?
+  mauticContactId  Int?
+  projectId        String?
+  recipientName    String?
+  recipientPhone   String?
+  recipientEmail   String?
+  subject          String?
+  body             String    @db.Text
+  links            Json?
+  status           String    @default("draft") // draft | approved | sent | rejected | failed
+  createdBy        String    @default("ai")
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  sentAt           DateTime?
+  deliveryError    String?   @db.Text
+  waConversationId String?
+  waMessageId      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status])
+  @@index([channel])
+  @@index([purpose])
+  @@index([aiCallJobId])
+  @@index([aiCallResultId])
+  @@index([mauticContactId])
+  @@index([createdAt])
+  @@map("follow_up_drafts")
+}
+
+model AiLinkCatalogItem {
+  id               String    @id @default(cuid())
+  title            String
+  url              String    @db.Text
+  type             String // woning | dienst | faq | afspraak | aanbod
+  source           String    @default("manual") // wordpress | manual
+  language         String    @default("nl")
+  intents          Json?
+  active           Boolean   @default(true)
+  wordpressId      Int?
+  wordpressSlug    String?
+  wordpressStatus  String?
+  aiDescription    String?   @db.Text
+  whatsappTemplate String?   @db.Text
+  lastSyncedAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([type, wordpressId])
+  @@index([type])
+  @@index([source])
+  @@index([active])
+  @@index([wordpressSlug])
+  @@map("ai_link_catalog")
+}
+
+model Task {
+  id             String      @id @default(cuid())
+  title          String
+  description    String?     @db.Text
+  status         String      @default("open") // open, bezig, afgerond
+  priority       String      @default("normaal") // laag, normaal, hoog, urgent
+  dueDate        DateTime?
+  category       String? // binnendienst, verkoop, aankoop, taxatie, administratie
+  assignee       User        @relation("assignee", fields: [assigneeId], references: [id])
+  assigneeId     String
+  creator        User        @relation("creator", fields: [creatorId], references: [id])
+  creatorId      String
+  project        Project?    @relation(fields: [projectId], references: [id])
+  projectId      String?
+  notionPageId   String?
+  completedAt    DateTime?
   // Tijdregistratie
-  timerStartedAt   DateTime?   // null = timer gestopt, gevuld = timer loopt
-  totalTimeSpent   Int         @default(0) // opgetelde seconden van afgesloten sessies
-  timeEntries      TimeEntry[]
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  timerStartedAt DateTime? // null = timer gestopt, gevuld = timer loopt
+  totalTimeSpent Int         @default(0) // opgetelde seconden van afgesloten sessies
+  timeEntries    TimeEntry[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@index([assigneeId])
   @@index([status])
@@ -245,7 +370,7 @@ model TimeEntry {
   task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId    String
   startedAt DateTime
-  stoppedAt DateTime?  // null = sessie nog actief
+  stoppedAt DateTime? // null = sessie nog actief
   duration  Int       @default(0) // seconden, ingevuld bij stoppen
   createdAt DateTime  @default(now())
 
@@ -256,7 +381,7 @@ model TimeEntry {
 model MauticEvent {
   id              String   @id @default(cuid())
   mauticContactId Int
-  eventType       String   // "email.click", "email.open", "page.hit", "form.submit"
+  eventType       String // "email.click", "email.open", "page.hit", "form.submit"
   emailName       String?
   emailId         Int?
   clickedUrl      String?  @db.Text
@@ -277,7 +402,7 @@ model RealworksObjectMutation {
   sourceSubject    String?
   sourceDate       DateTime?
   receivedAt       DateTime  @default(now())
-  mutationType     String    // new | removed | price_changed | withdrawn
+  mutationType     String // new | removed | price_changed | withdrawn
   mutationLabel    String
   mutationDate     DateTime?
   exchangeObjectId String
@@ -374,34 +499,34 @@ model RealworksSearchResult {
 }
 
 model ActionOpportunity {
-  id                 String    @id @default(cuid())
-  sourceType         String    // realworks_object_match | mautic_activity | manual
-  sourceKey          String    @unique
-  status             String    @default("open") // open | picked_up | dismissed | done
-  priority           String    @default("normal") // low | normal | high | urgent
-  title              String
-  reason             String    @db.Text
-  suggestedAction    String?
-  contactName        String?
-  contactEmail       String?
-  contactPhone       String?
-  mauticContactId    Int?
+  id                  String    @id @default(cuid())
+  sourceType          String // realworks_object_match | mautic_activity | manual
+  sourceKey           String    @unique
+  status              String    @default("open") // open | picked_up | dismissed | done
+  priority            String    @default("normal") // low | normal | high | urgent
+  title               String
+  reason              String    @db.Text
+  suggestedAction     String?
+  contactName         String?
+  contactEmail        String?
+  contactPhone        String?
+  mauticContactId     Int?
   realworksSearcherId String?
-  exchangeObjectId   String?
-  objectAddress      String?
-  objectCity         String?
-  objectPrice        Int?
-  draftStatus        String?   // requested | ready | failed
-  draftChannel       String?   // email | whatsapp
-  draftText          String?   @db.Text
-  draftRequestedAt   DateTime?
-  draftCompletedAt   DateTime?
-  taskId             String?
-  pickedUpAt         DateTime?
-  dismissedAt        DateTime?
-  completedAt        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  exchangeObjectId    String?
+  objectAddress       String?
+  objectCity          String?
+  objectPrice         Int?
+  draftStatus         String? // requested | ready | failed
+  draftChannel        String? // email | whatsapp
+  draftText           String?   @db.Text
+  draftRequestedAt    DateTime?
+  draftCompletedAt    DateTime?
+  taskId              String?
+  pickedUpAt          DateTime?
+  dismissedAt         DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([status], map: "action_opp_status_idx")
   @@index([priority], map: "action_opp_priority_idx")
@@ -413,21 +538,21 @@ model ActionOpportunity {
 
 model AppSetting {
   id        String   @id @default(cuid())
-  key       String   @unique  // bijv. "defaults_VERKOOP"
-  value     Json               // flexibele JSON waarde
+  key       String   @unique // bijv. "defaults_VERKOOP"
+  value     Json // flexibele JSON waarde
   updatedAt DateTime @updatedAt
 
   @@map("app_settings")
 }
 
 model HypotheekAdviseur {
-  id        String    @id @default(cuid())
-  naam      String
-  bedrijf   String?
-  email     String?
-  telefoon  String?
-  notities  String?   @db.Text
-  actief    Boolean   @default(true)
+  id            String       @id @default(cuid())
+  naam          String
+  bedrijf       String?
+  email         String?
+  telefoon      String?
+  notities      String?      @db.Text
+  actief        Boolean      @default(true)
   leads         Lead[]
   projecten     Project[]
   vveGesprekken VveGesprek[]
@@ -446,7 +571,7 @@ model Lead {
   status                 LeadStatus         @default(KIJKER)
   prioriteit             LeadPrioriteit     @default(NORMAAL)
   source                 LeadSource?
-  tags                   Json?              // string[]
+  tags                   Json? // string[]
   notities               String?            @db.Text
   hypotheekAdviseur      HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
   hypotheekAdviseurId    String?
@@ -470,7 +595,7 @@ model LeadRoute {
   id            String   @id @default(cuid())
   lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   leadId        String
-  routeType     String   // "hypotheekadviseur" | "makelaar" | "extern"
+  routeType     String // "hypotheekadviseur" | "makelaar" | "extern"
   targetId      String?
   targetNaam    String?
   targetBedrijf String?
@@ -513,47 +638,47 @@ model VveGesprek {
 }
 
 model AgendaAfspraak {
-  id                  String    @id @default(cuid())
-  systemid            Int       @unique
-  agowner             String?
-  agcode              String?
-  agdescr             String?
-  agtype              String?
-  agstatus            String?
-  agbegin             DateTime?
-  agend               DateTime?
-  aglocation          String?
-  agobjcode           String?
-  agrcode             String?
-  relationRelationid  String?
-  employeeEmployeeid  Int?
-  medewerkerFullname  String?
-  agmemo              String?   @db.Text
-  agintratext         String?   @db.Text
-  agallday            Boolean?
-  aginactive          Boolean?
-  alastupd            String?   // raw Realworks waarde, gebruikt voor wijzigingsdetectie
-  gcalEventId         String?   // Google Calendar event ID
-  gcalSyncedAt        DateTime?
+  id                    String    @id @default(cuid())
+  systemid              Int       @unique
+  agowner               String?
+  agcode                String?
+  agdescr               String?
+  agtype                String?
+  agstatus              String?
+  agbegin               DateTime?
+  agend                 DateTime?
+  aglocation            String?
+  agobjcode             String?
+  agrcode               String?
+  relationRelationid    String?
+  employeeEmployeeid    Int?
+  medewerkerFullname    String?
+  agmemo                String?   @db.Text
+  agintratext           String?   @db.Text
+  agallday              Boolean?
+  aginactive            Boolean?
+  alastupd              String? // raw Realworks waarde, gebruikt voor wijzigingsdetectie
+  gcalEventId           String? // Google Calendar event ID
+  gcalSyncedAt          DateTime?
   // Enrichment velden (gevuld via "Meer info" knop)
-  contactNaam         String?
-  contactEmail        String?
-  contactTelefoon     String?
-  mauticContactId     Int?
-  project             Project?  @relation(fields: [projectId], references: [id])
-  projectId           String?
-  enrichedAt          DateTime?
-  enrichmentStatus    String?   // "ok" | "partial" | "no_contact" | "no_project" | "error"
+  contactNaam           String?
+  contactEmail          String?
+  contactTelefoon       String?
+  mauticContactId       Int?
+  project               Project?  @relation(fields: [projectId], references: [id])
+  projectId             String?
+  enrichedAt            DateTime?
+  enrichmentStatus      String? // "ok" | "partial" | "no_contact" | "no_project" | "error"
   // Brug naar het kijker-systeem: gekoppelde Lead (kijker)
-  lead                Lead?     @relation(fields: [leadId], references: [id])
-  leadId              String?
+  lead                  Lead?     @relation(fields: [leadId], references: [id])
+  leadId                String?
   // Cheatsheet/PDF tracking (n8n → Nextcloud)
-  cheatsheetStatus      String?   // "gevraagd" | "gegenereerd" | "mislukt" | "verwerkt"
-  cheatsheetPath        String?   // Nextcloud WebDAV-pad
-  cheatsheetUrl         String?   // optionele directe (share)link
+  cheatsheetStatus      String? // "gevraagd" | "gegenereerd" | "mislukt" | "verwerkt"
+  cheatsheetPath        String? // Nextcloud WebDAV-pad
+  cheatsheetUrl         String? // optionele directe (share)link
   cheatsheetGeneratedAt DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@index([agbegin])
   @@index([agobjcode])
@@ -597,14 +722,14 @@ enum WaDeliveryStatus {
 }
 
 model WaConversation {
-  id              String       @id @default(cuid())
+  id              String      @id @default(cuid())
   waPhone         String
   waName          String?
   mauticContactId Int?
-  status          WaStatus     @default(OPEN)
-  lastMessageAt   DateTime     @default(now())
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  status          WaStatus    @default(OPEN)
+  lastMessageAt   DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   messages        WaMessage[]
 
   @@index([waPhone])
@@ -613,18 +738,18 @@ model WaConversation {
 }
 
 model WaMessage {
-  id             String         @id @default(cuid())
+  id             String            @id @default(cuid())
   conversationId String
-  conversation   WaConversation @relation(fields: [conversationId], references: [id])
+  conversation   WaConversation    @relation(fields: [conversationId], references: [id])
   direction      WaDirection
-  body           String         @db.Text
+  body           String            @db.Text
   mediaUrl       String?
   mediaType      String?
-  evolutionMsgId String?        @unique
+  evolutionMsgId String?           @unique
   deliveryStatus WaDeliveryStatus?
-  deliveryError  String?        @db.Text
+  deliveryError  String?           @db.Text
   readAt         DateTime?
-  createdAt      DateTime       @default(now())
+  createdAt      DateTime          @default(now())
 
   @@index([conversationId])
   @@map("wa_messages")
@@ -632,9 +757,9 @@ model WaMessage {
 
 model RealworksTask {
   id                  String    @id @default(cuid())
-  taskType            String    // "write_field"
-  realworksRelationId String    // Realworks relatie ID (bijv. "12345")
-  fieldName           String    // Realworks veldnaam (bijv. "vrij_veld_1")
+  taskType            String // "write_field"
+  realworksRelationId String // Realworks relatie ID (bijv. "12345")
+  fieldName           String // Realworks veldnaam (bijv. "vrij_veld_1")
   fieldValue          String    @db.Text
   status              String    @default("pending") // pending | processing | done | failed
   error               String?   @db.Text
@@ -648,16 +773,16 @@ model RealworksTask {
 }
 
 model RealworksTaxatieTask {
-  id                  String    @id @default(cuid())
-  taskType            String    // "write_field"
-  realworksTaxatieId  String    // Realworks taxatie systemid (bijv. "2849636")
-  fieldName           String    // Realworks veldnaam (bijv. "taxverkoopvrij")
-  fieldValue          String    @db.Text
-  status              String    @default("pending") // pending | processing | done | failed
-  error               String?   @db.Text
-  processedAt         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  taskType           String // "write_field"
+  realworksTaxatieId String // Realworks taxatie systemid (bijv. "2849636")
+  fieldName          String // Realworks veldnaam (bijv. "taxverkoopvrij")
+  fieldValue         String    @db.Text
+  status             String    @default("pending") // pending | processing | done | failed
+  error              String?   @db.Text
+  processedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([status])
   @@index([createdAt])
@@ -666,9 +791,9 @@ model RealworksTaxatieTask {
 
 model RealworksWoningTask {
   id                String    @id @default(cuid())
-  taskType          String    // "write_field"
-  realworksWoningId String    // Realworks object systemid (bijv. "9042120")
-  fieldName         String    // Realworks veldnaam (bijv. "lissalepr")
+  taskType          String // "write_field"
+  realworksWoningId String // Realworks object systemid (bijv. "9042120")
+  fieldName         String // Realworks veldnaam (bijv. "lissalepr")
   fieldValue        String    @db.Text
   status            String    @default("pending") // pending | processing | done | failed
   error             String?   @db.Text
@@ -682,32 +807,32 @@ model RealworksWoningTask {
 }
 
 model RealworksBackupCapture {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   source             String?
   capturedAt         DateTime?
-  receivedAt         DateTime @default(now())
+  receivedAt         DateTime  @default(now())
   host               String
   path               String
-  query              String?  @db.Text
-  url                String   @db.Text
-  pageUrl            String?  @db.Text
+  query              String?   @db.Text
+  url                String    @db.Text
+  pageUrl            String?   @db.Text
   method             String?
   status             Int?
   contentType        String?
   transport          String?
   hints              Json?
-  requestBodyPreview String?  @db.LongText
-  responseBody       String?  @db.LongText
-  responseTruncated  Boolean  @default(false)
-  linkText           String?  @db.Text
-  linkTarget         String?  @db.Text
-  onclickPreview     String?  @db.Text
+  requestBodyPreview String?   @db.LongText
+  responseBody       String?   @db.LongText
+  responseTruncated  Boolean   @default(false)
+  linkText           String?   @db.Text
+  linkTarget         String?   @db.Text
+  onclickPreview     String?   @db.Text
   popupTarget        String?
-  formTarget         String?  @db.Text
+  formTarget         String?   @db.Text
   formName           String?
   formId             String?
   formTrigger        String?
-  createdAt          DateTime @default(now())
+  createdAt          DateTime  @default(now())
 
   @@index([source])
   @@index([host, path])
