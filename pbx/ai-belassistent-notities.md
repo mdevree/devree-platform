@@ -75,11 +75,14 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 - Live test op 2026-06-22 met job `cmqphrzau000ohq01zakprhkx` werkte end-to-end: AMD gaf `HUMAN`, AI nam het gesprek over, duur ongeveer 104-106 seconden, resultaat kwam terug in het platform als `answered`.
 - Audio haperde/vertraagde soms. In de AI-engine log stond Google Live als `bursty`, met streaming drift rond `-43.6%`, en aan het einde sloot Google Live met websocket code `1008` (`Operation is not implemented, or supported, or enabled`). Achtergrondgeluid leek ook invloed te hebben op barge-in/VAD: er werd een lokale barge-in fallback getriggerd.
 - De actieve PBX prompt bevat nog oude hardcoded testcontext voor Kikkerven 255 en moet voor productie vervangen worden door dynamische belkaartcontext. In de transcriptie kwam ook een Engelstalige meta-zin voorbij (`Confirming Next Steps`), dus de taal/promptregels moeten strakker.
+- Info-mail kwam niet aan omdat n8n execution `62403` faalde in `Bouw info-mail`: `$env` access is in Code-nodes geblokkeerd. De workflow is op productie aangepast zodat hij geen `$env.N8N_WEBHOOK_SECRET` meer leest. Hertest/resend execution `62406` liep succesvol door `Stuur mail naar info` en gaf `queued: true` terug.
+- In de test beloofde de AI informatie toe te sturen over een technische vraag die niet als bron/link beschikbaar was. De productieprompt is aangescherpt: alleen toezeggen als de link/informatie expliciet in de Lead Context staat; anders letterlijk noteren en doorzetten naar een collega.
 - Dummy testdata is na de tests opgeruimd.
 
 ## Nog nodig voor volledige PBX-koppeling
 
 - Audio tuning testen: Google Live streaming-buffer/jitter-buffer verhogen, barge-in/VAD minder gevoelig maken voor achtergrondgeluid, en opnieuw live testen.
-- Actieve PBX-context productiegeschikt maken: geen hardcoded Kikkerven/testpersoon meer, maar dynamische belkaartcontext gebruiken.
+- Actieve PBX-context verder productiegeschikt maken: geen hardcoded Kikkerven/testpersoon meer in testcontexts, maar dynamische belkaartcontext gebruiken.
+- Resultaatparser uitbreiden zodat klantvragen, gewenste opvolging en voorgestelde links niet leeg blijven wanneer ze duidelijk uit het transcript blijken.
 - Na de volgende live test controleren: spreekt hij vloeiend, gebruikt hij de juiste context, hangt hij zelf op, komt de samenvatting terug in platform/Mautic/info-mail.
 - Als de live audio aan het einde opnieuw versnelt of vervormt: AI Voice Agent audio/provider-log bewaren en sample-rate/streaming-instellingen nalopen.

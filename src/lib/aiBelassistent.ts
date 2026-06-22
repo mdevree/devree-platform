@@ -409,6 +409,11 @@ export async function queueInfoEmailForCallResult(resultId: string) {
     throw new Error(`Info-mail webhook mislukt: ${response.status}`);
   }
 
+  const webhookResult = await response.json().catch(() => null);
+  if (!webhookResult || webhookResult.queued !== true) {
+    throw new Error("Info-mail webhook gaf geen queued=true terug");
+  }
+
   return prisma.aiCallResult.update({
     where: { id: resultId },
     data: { infoEmailQueuedAt: new Date() },
