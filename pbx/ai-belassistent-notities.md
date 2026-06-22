@@ -77,12 +77,13 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 - De actieve PBX prompt bevat nog oude hardcoded testcontext voor Kikkerven 255 en moet voor productie vervangen worden door dynamische belkaartcontext. In de transcriptie kwam ook een Engelstalige meta-zin voorbij (`Confirming Next Steps`), dus de taal/promptregels moeten strakker.
 - Info-mail kwam niet aan omdat n8n execution `62403` faalde in `Bouw info-mail`: `$env` access is in Code-nodes geblokkeerd. De workflow is op productie aangepast zodat hij geen `$env.N8N_WEBHOOK_SECRET` meer leest. Hertest/resend execution `62406` liep succesvol door `Stuur mail naar info` en gaf `queued: true` terug.
 - In de test beloofde de AI informatie toe te sturen over een technische vraag die niet als bron/link beschikbaar was. De productieprompt is aangescherpt: alleen toezeggen als de link/informatie expliciet in de Lead Context staat; anders letterlijk noteren en doorzetten naar een collega.
+- De bridge-parser is uitgebreid zodat `customerQuestions`, `requestedFollowUp` en `proposedLinks` niet standaard leeg blijven. Het bestaande testresultaat is gecorrigeerd met de Kwaaitaalvloer/vloerconstructie-vraag en als gecorrigeerde info-mail opnieuw verzonden. n8n execution `62409` liep succesvol door de mail-node.
 - Dummy testdata is na de tests opgeruimd.
 
 ## Nog nodig voor volledige PBX-koppeling
 
 - Audio tuning testen: Google Live streaming-buffer/jitter-buffer verhogen, barge-in/VAD minder gevoelig maken voor achtergrondgeluid, en opnieuw live testen.
 - Actieve PBX-context verder productiegeschikt maken: geen hardcoded Kikkerven/testpersoon meer in testcontexts, maar dynamische belkaartcontext gebruiken.
-- Resultaatparser uitbreiden zodat klantvragen, gewenste opvolging en voorgestelde links niet leeg blijven wanneer ze duidelijk uit het transcript blijken.
+- Resultaatparser verder verfijnen: de huidige parser herkent basisvragen/opvolging, maar voor productie is een expliciete LLM- of schema-extractiestap beter.
 - Na de volgende live test controleren: spreekt hij vloeiend, gebruikt hij de juiste context, hangt hij zelf op, komt de samenvatting terug in platform/Mautic/info-mail.
 - Als de live audio aan het einde opnieuw versnelt of vervormt: AI Voice Agent audio/provider-log bewaren en sample-rate/streaming-instellingen nalopen.

@@ -116,6 +116,75 @@ def conversation_to_transcript(raw):
     return '\n'.join(lines)
 
 
+def transcript_lines(transcript):
+    lines = []
+    for raw in (transcript or '').splitlines():
+        if ':' not in raw:
+            continue
+        role, text = raw.split(':', 1)
+        lines.append((role.strip().lower(), text.strip()))
+    return lines
+
+
+def extract_call_insights(transcript, custom):
+    questions = []
+    follow_up = {}
+    links = []
+    user_requested_info = False
+    assistant_promised_info = False
+    technical_topic = None
+
+    technical_terms = (
+        'kwaaitaal', 'kwijtaal', 'vloer', 'kruipruimte', 'asbest', 'fundering',
+        'bouwkundig', 'vve', 'vergunning', 'dak', 'constructie',
+    )
+    info_terms = ('stuur', 'link', 'informatie', 'details', 'opsturen', 'nasturen')
+
+    for role, text in transcript_lines(transcript):
+        lower = text.lower()
+        if role == 'user':
+            is_question = '?' in text or any(term in lower for term in ('weten of', 'was dat', 'is dat', 'vraag', 'vragen'))
+            if is_question or any(term in lower for term in technical_terms):
+                if text not in questions:
+                    questions.append(text)
+            if any(term in lower for term in info_terms):
+                user_requested_info = True
+            for term in technical_terms:
+                if term in lower:
+                    technical_topic = term
+                    break
+        elif role == 'assistant':
+            if any(phrase in lower for phrase in ('ik stuur', 'ik zal', 'meesturen', 'nasturen')):
+                assistant_promised_info = True
+
+    property_url = (custom or {}).get('propertyUrl')
+    if property_url:
+        links.append({
+            'title': (custom or {}).get('propertyTitle') or (custom or {}).get('propertyAddress') or 'Woningpagina',
+            'url': property_url,
+            'purpose': 'woninginformatie',
+        })
+
+    if user_requested_info or assistant_promised_info or questions:
+        description = 'Klantvraag opvolgen'
+        if technical_topic:
+            description = f'Technische/objectspecifieke vraag opvolgen: {technical_topic}'
+        elif questions:
+            description = questions[0]
+        follow_up = {
+            'type': 'collega_opvolging',
+            'requiresHuman': True,
+            'description': description,
+            'note': 'Alleen concrete links toesturen als ze beschikbaar en gecontroleerd zijn.',
+        }
+
+    return {
+        'customerQuestions': questions[:8],
+        'requestedFollowUp': follow_up,
+        'proposedLinks': links,
+    }
+
+
 def map_outcome(attempt, record):
     raw = ((attempt or {}).get('outcome') or (record or {}).get('outcome') or '').lower()
     amd = ((attempt or {}).get('amd_status') or '').lower()
@@ -233,6 +302,7 @@ def poll_results_once():
             if not job_id:
                 continue
             transcript = conversation_to_transcript(d.get('conversation_history'))
+            insights = extract_call_insights(transcript, custom)
             payload = {
                 'aiCallJobId': job_id,
                 'pbxCallId': d.get('call_id') or d.get('ari_channel_id') or d.get('id'),
@@ -242,10 +312,10 @@ def poll_results_once():
                 'outcome': map_outcome(d, {'outcome': d.get('record_outcome')}),
                 'summary': make_summary(custom, d, {'outcome': d.get('record_outcome')}, transcript),
                 'transcript': transcript or None,
-                'customerQuestions': [],
+                'customerQuestions': insights['customerQuestions'],
                 'detectedOpportunities': [],
-                'requestedFollowUp': {},
-                'proposedLinks': [],
+                'requestedFollowUp': insights['requestedFollowUp'],
+                'proposedLinks': insights['proposedLinks'],
                 'audioNotes': d.get('error_message') or d.get('record_error_message') or None,
                 'qualityScore': None,
             }
