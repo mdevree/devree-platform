@@ -28,11 +28,16 @@ jobs:
 
       # 3. Inloggen bij GitHub Container Registry
       - name: Login bij GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if echo "${{ secrets.GITHUB_TOKEN }}" | docker login "${{ env.REGISTRY }}" -u "${{ github.actor }}" --password-stdin; then
+              exit 0
+            fi
+            echo "GHCR login mislukt, poging ${attempt}/3. Opnieuw proberen..."
+            sleep $((attempt * 10))
+          done
+          exit 1
 
       # 4. Image metadata (tags + labels)
       - name: Docker metadata
