@@ -9,6 +9,7 @@ import {
   PhoneArrowUpRightIcon,
   PlusIcon,
   ShieldCheckIcon,
+  CursorArrowRaysIcon,
 } from "@heroicons/react/24/outline";
 
 type AiCallJob = {
@@ -28,6 +29,7 @@ type FollowUpDraft = {
   id: string;
   channel: string;
   purpose: string;
+  mauticContactId: number | null;
   recipientName: string | null;
   recipientPhone: string | null;
   recipientEmail: string | null;
@@ -35,6 +37,14 @@ type FollowUpDraft = {
   status: string;
   deliveryError: string | null;
   createdAt: string;
+  sentAt: string | null;
+  activity?: {
+    trackedUrls: string[];
+    clickCount: number;
+    lastClickedAt: string | null;
+    lastClickedUrl: string | null;
+    eventTypes: string[];
+  };
 };
 
 type LinkItem = {
@@ -73,6 +83,25 @@ function StatusPill({ value }: { value: string }) {
   );
 }
 
+const draftFilters = [
+  { value: "active", label: "Actief" },
+  { value: "draft", label: "Concept" },
+  { value: "approved", label: "Goedgekeurd" },
+  { value: "sent", label: "Verzonden" },
+  { value: "rejected", label: "Afgewezen" },
+  { value: "alle", label: "Alles" },
+];
+
+function formatDateTime(value: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 async function jsonFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -97,6 +126,7 @@ export default function AiBelassistentDashboard() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [draftBodies, setDraftBodies] = useState<Record<string, string>>({});
   const [callerStatus, setCallerStatus] = useState<CallerStatus | null>(null);
+  const [draftStatusFilter, setDraftStatusFilter] = useState("active");
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === selectedJobId) || jobs[0] || null,
@@ -107,7 +137,7 @@ export default function AiBelassistentDashboard() {
     setError(null);
     const [loadedJobs, loadedDrafts, loadedLinks, loadedCallerStatus] = await Promise.all([
       jsonFetch<AiCallJob[]>("/api/ai/call-jobs"),
-      jsonFetch<FollowUpDraft[]>("/api/ai/follow-up-drafts"),
+      jsonFetch<FollowUpDraft[]>(`/api/ai/follow-up-drafts?status=${draftStatusFilter}`),
       jsonFetch<LinkItem[]>("/api/ai/link-catalog"),
       jsonFetch<CallerStatus>("/api/ai/caller-status"),
     ]);
@@ -117,7 +147,7 @@ export default function AiBelassistentDashboard() {
     setCallerStatus(loadedCallerStatus);
     setDraftBodies(Object.fromEntries(loadedDrafts.map((draft) => [draft.id, draft.body])));
     setSelectedJobId((current) => current || loadedJobs[0]?.id || null);
-  }, []);
+  }, [draftStatusFilter]);
 
   useEffect(() => {
     void loadAll().catch((err) => setError(err instanceof Error ? err.message : "Laden mislukt"));
@@ -371,8 +401,27 @@ export default function AiBelassistentDashboard() {
 
       <section className="rounded-lg border border-gray-200 bg-white">
         <div className="border-b border-gray-200 p-4">
-          <h2 className="text-base font-semibold text-gray-900">WhatsApp-concepten</h2>
-          <p className="text-sm text-gray-500">Hier blijft menselijke goedkeuring tussen de AI en de klant.</p>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">WhatsApp-concepten</h2>
+              <p className="text-sm text-gray-500">Standaard zie je alleen concepten die nog aandacht nodig hebben.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {draftFilters.map((filter) => (
+                <button
+                  key={filter.value}
+                  onClick={() => setDraftStatusFilter(filter.value)}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    draftStatusFilter === filter.value
+                      ? "border-primary bg-primary text-white"
+                      : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="divide-y divide-gray-100">
           {drafts.length === 0 ? (
@@ -383,10 +432,35 @@ export default function AiBelassistentDashboard() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{draft.recipientName || draft.recipientPhone || draft.recipientEmail || "Ontvanger onbekend"}</p>
-                    <p className="text-sm text-gray-500">{draft.channel} · {draft.purpose}</p>
+                    <p className="text-sm text-gray-500">
+                      {draft.channel} · {draft.purpose}
+                      {draft.sentAt ? ` · verzonden ${formatDateTime(draft.sentAt)}` : ""}
+                    </p>
                   </div>
                   <StatusPill value={draft.status} />
                 </div>
+                {draft.activity && draft.activity.trackedUrls.length > 0 && (
+                  <div
+                    className={`flex flex-wrap items-center gap-2 rounded-md px-3 py-2 text-xs ${
+                      draft.activity.clickCount > 0
+                        ? "bg-green-50 text-green-700"
+                        : "bg-gray-50 text-gray-500"
+                    }`}
+                  >
+                    <CursorArrowRaysIcon className="h-4 w-4" />
+                    {draft.activity.clickCount > 0 ? (
+                      <span>
+                        Link bezocht
+                        {draft.activity.lastClickedAt ? ` · ${formatDateTime(draft.activity.lastClickedAt)}` : ""}
+                      </span>
+                    ) : (
+                      <span>Nog geen linkbezoek gezien in Mautic</span>
+                    )}
+                    {draft.activity.lastClickedUrl && (
+                      <span className="min-w-0 truncate text-gray-400">{draft.activity.lastClickedUrl}</span>
+                    )}
+                  </div>
+                )}
                 <textarea
                   value={draftBodies[draft.id] ?? draft.body}
                   onChange={(event) => setDraftBodies((current) => ({ ...current, [draft.id]: event.target.value }))}
@@ -396,7 +470,7 @@ export default function AiBelassistentDashboard() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => saveDraft(draft)}
-                    disabled={busy === `draft-${draft.id}`}
+                    disabled={busy === `draft-${draft.id}` || draft.status === "sent"}
                     className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                   >
                     <CheckCircleIcon className="h-4 w-4" />
@@ -404,7 +478,7 @@ export default function AiBelassistentDashboard() {
                   </button>
                   <button
                     onClick={() => sendDraft(draft)}
-                    disabled={busy === `send-${draft.id}` || draft.channel !== "whatsapp"}
+                    disabled={busy === `send-${draft.id}` || draft.channel !== "whatsapp" || draft.status === "sent"}
                     className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60"
                   >
                     <PaperAirplaneIcon className="h-4 w-4" />
