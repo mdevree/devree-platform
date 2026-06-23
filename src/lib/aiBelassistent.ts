@@ -72,6 +72,11 @@ function asArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
 }
 
+function isGenericAanbodUrl(url: string) {
+  const normalized = url.trim().replace(/\/+$/, "").toLowerCase();
+  return normalized === "https://www.devreemakelaardij.nl/aanbod";
+}
+
 function activeWoningStatus(acf: JsonRecord) {
   const status = String(acf.status || acf.woning_status || acf.object_status || "").toLowerCase();
   return status.includes("te koop") || status.includes("beschikbaar") || status === "actief";
@@ -269,7 +274,7 @@ export async function createAiCallJobFromAgenda(agendaAfspraakId: string) {
     where: {
       active: true,
       OR: [
-        { type: { in: ["dienst", "afspraak", "aanbod"] } },
+        { type: { in: ["dienst", "afspraak"] } },
         woning?.wpId ? { wordpressId: woning.wpId, type: "woning" } : { id: "__never__" },
       ],
     },
@@ -446,11 +451,13 @@ export async function createDraftsFromCallResult(resultId: string) {
     const url = String(link.url || "");
     if (!url) continue;
     const title = String(link.title || "de besproken link");
+    const purpose = String(link.purpose || link.type || "faq");
+    if (isGenericAanbodUrl(url) && purpose !== "aanbod") continue;
     drafts.push(
       await prisma.followUpDraft.create({
         data: {
           channel: "whatsapp",
-          purpose: String(link.purpose || link.type || "faq"),
+          purpose,
           aiCallJobId: job.id,
           aiCallResultId: result.id,
           mauticContactId: job.mauticContactId,
