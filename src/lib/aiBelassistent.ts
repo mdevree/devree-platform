@@ -274,11 +274,11 @@ export async function createAiCallJobFromAgenda(agendaAfspraakId: string) {
     where: {
       active: true,
       OR: [
-        { type: { in: ["dienst", "afspraak"] } },
+        { type: { in: ["dienst", "afspraak", "faq"] } },
         woning?.wpId ? { wordpressId: woning.wpId, type: "woning" } : { id: "__never__" },
       ],
     },
-    take: 8,
+    take: 30,
     orderBy: [{ type: "asc" }, { title: "asc" }],
   });
 
