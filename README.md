@@ -12,7 +12,13 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 - **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info en kosten. Projecten kunnen worden samengevoegd
 - **Contacten** — Mautic CRM overzicht met zoekfunctie, contactdetails bewerken, AI data profiel en email activiteit. Nieuw contact aanmaken direct vanuit de pagina
 - **Pipeline** — Kanban-board op basis van `verkoopgesprek_status` uit Mautic, met interesse-scores en AI profielen
+- **Kansen** — Actielijst op basis van Realworks-objectmutaties, zoekprofielen en Mautic websitegedrag. Signaleert o.a. actieve interesse en nieuwe woningmatches
+- **Kijkers / Leads** — Leadregistratie met routehistorie, projectkoppelingen, adviseurkoppeling, prioriteit, tags en export
+- **Samenwerkingen** — Hypotheekadviseurs en VvE-gesprekken met statistieken per adviseur
+- **WhatsApp** — Inbox/conversaties via Evolution/WAHA, plus conceptberichten vanuit AI-belassistent en afspraakherinneringen
+- **Facebook Triggers** — Beheer van keyword- en DM-antwoorden voor de Facebook/n8n workflow
 - **Buurtdata** — Opzoeken van wijkdata op basis van postcode + huisnummer via n8n. Genereert een printbaar rapport met: BAG-gegevens, leefbaarheidsscore, bevolkingssamenstelling, huishoudens, woningmarkt, inkomen, bereikbaarheid, klimaat, geluidsbelasting, luchtkwaliteit en optionele Fridu Radar-omgevingssignalen. Beschikbaar als interne tool (authenticated) én als publieke lead generator via `/buurtdata-rapport` (WordPress shortcode `[buurtdata_rapport]`)
+- **Realworks Browser Extensie** — Chrome-extensie voor Realworks → n8n/platform sync, backup/discovery captures en terugschrijftaken naar Realworks
 - **Tijdregistratie** — Timer per taak (start/pauze/stop) + handmatig tijd toevoegen, logboek van sessies, beschikbaar via API
 - **Mautic** — CRM contacten opzoeken, aanmaken en bijwerken (inclusief AI data profiel en email activiteit)
 - **Notion** — Bidirectionele sync via n8n webhooks
@@ -117,7 +123,12 @@ Alle server-to-server calls gebruiken `x-webhook-secret`.
 | `PATCH` | `/api/ai/call-jobs/[id]` | Werkt een belkaart bij |
 | `POST` | `/api/ai/call-jobs/[id]/start` | Start alleen na menselijke goedkeuring met `approvalText: "BEL"` |
 | `POST` | `/api/ai/call-results` | Ontvangt resultaten van de PBX bridge en queued opvolging |
+| `GET` | `/api/ai/follow-up-drafts` | Conceptopvolging, standaard alleen actief: `draft`, `approved`, `failed` |
+| `POST` | `/api/ai/follow-up-drafts` | Maak een concept voor WhatsApp of e-mail; verzendt nog niets |
+| `PATCH` | `/api/ai/follow-up-drafts/[id]` | Werk status/body/metadata van een concept bij |
+| `POST` | `/api/ai/follow-up-drafts/[id]/send` | Verzend een goedgekeurd concept via de ingestelde provider |
 | `GET` | `/api/ai/link-catalog` | Geeft toegestane links voor AI/follow-up: aanbod, vragen, verkoop, aankoop en taxatie |
+| `POST` | `/api/ai/link-catalog/sync` | Synchroniseert linkcatalogus vanuit WordPress en vaste dienstlinks |
 
 #### Handmatige testkaart
 
@@ -153,6 +164,12 @@ Alle server-to-server calls gebruiken `x-webhook-secret`.
   "approvalText": "BEL"
 }
 ```
+
+#### Follow-up concepten en linkactiviteit
+
+`GET /api/ai/follow-up-drafts` accepteert `status=active|draft|approved|sent|rejected|alle`. De AI-belassistent toont standaard alleen actieve concepten, zodat oude verzonden of afgewezen concepten de interface niet vervuilen.
+
+Drafts worden verrijkt met `activity` uit `MauticEvent` op basis van `mauticContactId`, meegestuurde URL's en `rcode`. Daardoor kan de UI laten zien of een woninglink of andere opvolg-link al is bezocht. Voor WhatsApp-links naar de eigen website is `page.hit` het belangrijkst; voor Mautic-mails is `email.click` relevant.
 
 ---
 
@@ -495,7 +512,7 @@ Verwerkt alle call statussen: `ringing`, `in-progress`, `ended`. Zoekt automatis
 | `GET` | `/api/mautic/contacts/pipeline` | Haal pipeline-contacten op (gefilterd op `verkoopgesprek_status`) |
 | `GET` | `/api/mautic/events` | Haal email events op per contact (clicks en opens) |
 | `GET` | `/api/mautic/events/summary` | Samenvatting van email activiteit per contact |
-| `POST` | `/api/mautic/events/webhook` | Verwerk inkomende Mautic email events (click/open) |
+| `POST` | `/api/mautic/events/webhook` | Verwerk inkomende Mautic events: onder meer `email.click`, `email.open` en websitebezoeken |
 
 #### `POST /api/mautic/contact` — Body
 
@@ -534,13 +551,14 @@ Kan elk Mautic contactveld bijwerken, inclusief het custom veld `ai_profiel_data
 | Parameter | Type | Omschrijving |
 |-----------|------|--------------|
 | `contactId` | `number` | ✅ Mautic contact ID |
+| `type` | `string` | Optioneel eventtype, bijv. `email.click` of `page.hit` |
 | `limit` | `number` | Aantal events (standaard: `20`) |
 
 #### `POST /api/mautic/events/webhook` — Body
 
 Header: `x-webhook-secret`
 
-Verwacht een Mautic webhook payload met `email.click` of `email.open` events. Events worden opgeslagen in de lokale `MauticEvent` tabel.
+Verwacht een Mautic webhook payload met tracking-events. Events worden opgeslagen in de lokale `MauticEvent` tabel en gebruikt in contactpanelen, pipeline, kansen en follow-up concepten.
 
 #### AI Data Profiel
 
@@ -598,8 +616,13 @@ Gevuld door de browser extensie via `broker.response/save` in Realworks → n8n 
 | Methode | Endpoint | Omschrijving |
 |---------|----------|--------------|
 | `GET` | `/api/agenda` | Haal afspraken op per week of dag, gefilterd op medewerker |
+| `POST` | `/api/agenda/sync` | Upsert Realworks agenda-afspraken vanuit n8n/browser-extensie |
 | `POST` | `/api/agenda/[id]/enrich` | Koppel Mautic contact (via `agrcode`) en project (via `agobjcode`) aan afspraak |
 | `GET` | `/api/agenda/[id]/context` | Volledige context voor PDF-generatie: afspraak + kijker + woning + historie |
+| `GET` | `/api/agenda/[id]/cheatsheet/status` | Status van de bezichtigingscheatsheet voor een afspraak |
+| `POST` | `/api/agenda/[id]/cheatsheet` | Start/registreert cheatsheet-generatie via n8n/Gotenberg/Nextcloud |
+| `POST` | `/api/agenda/[id]/cheatsheet/verwerk` | Verwerkt het gegenereerde cheatsheet-resultaat |
+| `POST` | `/api/agenda/[id]/lead` | Koppel of registreer leadinformatie bij een afspraak |
 
 #### `GET /api/agenda` — Query parameters
 
@@ -628,6 +651,109 @@ Gebruikt door n8n voor het genereren van een bezichtigings-PDF. Geeft terug:
 - **`woning`** — WordPress ACF-data: foto, prijs, kenmerken, locatie, teksten (AI), media
 - **`contactHistorie`** — eerdere afspraken van dezelfde kijker (op `agrcode`)
 - **`project`** — gekoppeld verkoopproject
+
+---
+
+### Kansen `/api/kansen`
+
+De kansenmodule combineert Realworks objectmutaties, zoekprofielen en Mautic websitegedrag tot concrete opvolgacties.
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/kansen` | Overzicht voor de kansenpagina |
+| `GET` | `/api/kansen/actions` | Actielijst uit `ActionOpportunity`, inclusief tellingen per status |
+| `PATCH` | `/api/kansen/actions/[id]/dismiss` | Zet een kans op genegeerd/afgehandeld |
+| `POST` | `/api/kansen/actions/draft-result` | Sla resultaat of concepttekst bij een kans op |
+| `POST` | `/api/kansen/draft` | Maak een conceptactie vanuit kansdata |
+| `POST` | `/api/kansen/pickup` | Markeer een kans als opgepakt |
+| `POST` | `/api/kansen/recalculate` | Herbereken kansen uit Realworks en Mautic data |
+| `GET` | `/api/kansen/actieve-interesse` | Groepeert recente `page.hit` events per contact en woning |
+
+`ActionOpportunity` wordt vooral gevoed door `/api/realworks/object-mutations/ingest` en `/api/realworks/searchers/ingest`. De recalculatie gebruikt een cooldown zodat dezelfde match niet voortdurend opnieuw als nieuwe actie verschijnt.
+
+---
+
+### Kijkers / Leads `/api/leads`
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/leads` | Leads zoeken/filteren met paginering |
+| `POST` | `/api/leads` | Lead aanmaken |
+| `GET` | `/api/leads/[id]` | Leaddetail |
+| `PATCH` | `/api/leads/[id]` | Lead bijwerken |
+| `DELETE` | `/api/leads/[id]` | Lead verwijderen |
+| `POST` | `/api/leads/bulk` | Bulkmutaties |
+| `GET` | `/api/leads/export` | Export voor analyse of opvolging |
+| `GET` | `/api/leads/stats` | Leadstatistieken |
+| `GET` / `POST` | `/api/leads/[id]/routes` | Routehistorie per lead |
+| `GET` / `POST` | `/api/leads/[id]/projecten` | Projectkoppelingen per lead |
+
+Belangrijke filters: `status`, `source`, `prioriteit`, `tags`, `search`, `dateFrom`, `dateTo`, `sort`, `page` en `limit`.
+
+---
+
+### WhatsApp `/api/whatsapp`
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/whatsapp/conversations` | Conversaties ophalen, standaard open gesprekken |
+| `POST` | `/api/whatsapp/conversations` | Conversatie openen/upserten op telefoonnummer/JID |
+| `GET` | `/api/whatsapp/conversations/[id]/messages` | Berichten bij een conversatie |
+| `POST` | `/api/whatsapp/conversations/[id]/messages` | Bericht verzenden via provider en lokaal opslaan |
+| `PATCH` | `/api/whatsapp/conversations/[id]` | Conversatie bijwerken, bijvoorbeeld sluiten/heropenen |
+| `POST` | `/api/webhooks/whatsapp` | Inkomende Evolution/WAHA events verwerken |
+
+Het webhook-endpoint normaliseert telefoonnummers/JID's, zoekt of maakt een Mautic-contact op telefoonnummer en slaat `WaConversation` en `WaMessage` lokaal op. Providerinstellingen staan in de `WHATSAPP_*` en `EVOLUTION_*` env vars.
+
+---
+
+### Realworks extensie en ingest
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` / `POST` | `/api/realworks-tasks` | Wachtrij voor terugschrijven naar Realworks relaties |
+| `GET` / `PATCH` | `/api/realworks-tasks/[id]` | Claim/update een relatietaak |
+| `GET` / `POST` | `/api/realworks-taxatie-tasks` | Wachtrij voor terugschrijven naar taxatierapporten |
+| `GET` / `POST` | `/api/realworks-woning-tasks` | Wachtrij voor terugschrijven naar woningen/objecten |
+| `POST` | `/api/realworks-backup-captures` | Ontvang backup/discovery captures uit de browser-extensie |
+| `POST` | `/api/realworks/object-mutations/ingest` | Verwerk objectmutaties uit Realworks mails/captures |
+| `POST` | `/api/realworks/searchers/ingest` | Verwerk zoekprofielen en matches uit Realworks |
+
+De Chrome-extensie in `browserext/` onderschept Realworks-formulieren en XHR/fetch-verkeer. Lezen gaat naar n8n of direct naar het platform; schrijven werkt via wachtrijen die de extensie pollt vanuit een ingelogde Realworks-browsersessie. Voor woning write-back is het `_systemid` nodig, niet alleen de objectcode.
+
+---
+
+### Samenwerkingen `/api/hypotheekadviseurs`
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` / `POST` | `/api/hypotheekadviseurs` | Adviseurs beheren |
+| `GET` / `PATCH` / `DELETE` | `/api/hypotheekadviseurs/[id]` | Adviseurdetail bijwerken of verwijderen |
+| `GET` | `/api/hypotheekadviseurs/[id]/stats` | Statistieken per adviseur |
+| `GET` / `POST` | `/api/hypotheekadviseurs/[id]/vve-gesprekken` | VvE-gesprekken bij een adviseur |
+
+---
+
+### Facebook Triggers `/api/facebook-triggers`
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/facebook-triggers` | Triggers beheren in de interface |
+| `POST` | `/api/facebook-triggers` | Trigger aanmaken of n8n-lookup doen op `post_id` |
+| `PATCH` | `/api/facebook-triggers/[id]` | Trigger bijwerken |
+| `DELETE` | `/api/facebook-triggers/[id]` | Trigger verwijderen |
+
+De n8n Facebook DM workflow kan op basis van `post_id` de juiste keyword- en DM-tekst ophalen.
+
+---
+
+### WordPress `/api/wordpress`
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/wordpress/woning?realworksId=SE12345` | Haal de specifieke woningpagina en ACF-data op via Realworks ID |
+
+Gebruik dit endpoint voor exacte woninglinks in AI-belkaarten, WhatsApp-herinneringen en follow-up. Voeg bij klantlinks waar mogelijk `rcode=<agrcode>` toe, zodat Mautic/WordPress tracking het contact kan herkennen.
 
 ---
 
@@ -760,6 +886,9 @@ Alle workflows staan als importeerbare JSON in de `n8n/` map. Gebruik het `Mauti
 | `Realworks → Mautic Contact Sync.json` | `realworks-sync` | Contactpersoon opslaan in Realworks → upsert in Mautic |
 | `Realworks Agenda Sync.json` | `realworks-agenda-sync` | Agendadag ophalen in Realworks → opslaan in `AgendaAfspraak` |
 | `Realworks Lead Response → Mautic Kwalificatie.json` | `realworks-lead-response` | Bezichtigingsreactie opslaan → kijker-kwalificatievelden bijwerken in Mautic (of nieuw contact aanmaken) |
+| `AI Belassistent - caller contract.md` | — | Contract tussen platform, n8n en PBX bridge |
+| `Kansen Concept → Platform` | — | Conceptresultaten vanuit kansenmodule terugschrijven naar het platform |
+| `realworks-backup-capture` | `realworks-backup-capture` | Optionele verwerking van backup/discovery captures uit de browser-extensie |
 | `n8n-email-verwerking.workflow.json` | — | Email-afhandeling |
 | `n8n-facebook-dm-trigger.workflow.json` | — | Facebook DM verwerking |
 
@@ -814,15 +943,41 @@ Unieke constraint op `(projectId, mauticContactId)`.
 
 ### MauticEvent
 
-Lokale opslag van Mautic email activiteit (clicks en opens) voor weergave in contactpanels.
+Lokale opslag van Mautic activiteit voor contactpanels, kansen en follow-up drafts.
 
 | Veld | Type | Omschrijving |
 |------|------|--------------|
 | `mauticContactId` | `Int` | Mautic contact ID |
-| `eventType` | `String` | `email.click` of `email.open` |
+| `eventType` | `String` | Bijvoorbeeld `email.click`, `email.open` of `page.hit` |
 | `emailName` | `String?` | Naam van de e-mailcampagne |
 | `clickedUrl` | `String?` | Aangeklikte URL (bij `email.click`) |
 | `occurredAt` | `DateTime` | Tijdstip van het event |
+
+---
+
+### FollowUpDraft
+
+Conceptopvolging voor AI-belassistent en handmatige afspraakherinneringen. Statussen zijn o.a. `draft`, `approved`, `sent`, `failed` en `rejected`. Oude verzonden/afgewezen drafts blijven bewaard, maar worden standaard niet getoond in de AI-belassistent.
+
+### RealworksTask / RealworksTaxatieTask / RealworksWoningTask
+
+Wachtrijen waarmee n8n of het platform schrijftaken klaarzetten voor de browser-extensie. De extensie claimt taken atomisch en voert ze uit in een actieve Realworks-sessie. Statussen: `pending`, `processing`, `done`, `failed`.
+
+### RealworksObjectMutation / RealworksSearcher / RealworksSearchResult / ActionOpportunity
+
+Datamodel voor de kansenmodule. Objectmutaties en zoekprofielen worden ingelezen vanuit Realworks, gekoppeld aan matches en omgezet naar `ActionOpportunity` records voor opvolging.
+
+### Lead / LeadRoute / LeadProject / HypotheekAdviseur / VveGesprek
+
+Datamodel voor de Kijkers- en Samenwerkingen-modules. Leads kunnen routes, projectkoppelingen, adviseurkoppelingen, prioriteit en tags krijgen.
+
+### WaConversation / WaMessage
+
+Lokale WhatsApp-inbox. Inkomende provider-events worden opgeslagen als conversaties en berichten, met optionele koppeling aan Mautic-contacten.
+
+### AgendaAfspraak
+
+Lokale opslag van Realworks agenda-afspraken. `agrcode` koppelt naar Realworks/Mautic-contact, `agobjcode` koppelt naar woning/project en `mauticContactId`/`projectId` worden gevuld via enrichment.
 
 ---
 
@@ -861,6 +1016,17 @@ CREATE TABLE time_entries (
 | `NEXT_PUBLIC_PLATFORM_URL` | Publieke URL van dit platform — gebruikt in de WordPress shortcode plugin als `iframe src` (bijv. `https://platform.devreemakelaardij.nl`) |
 | `CALL_NOTE_WEBHOOK_URL` | Optionele webhook URL die wordt aangeroepen bij het opslaan van een gespreksnotitie |
 | `NEXT_PUBLIC_DEBITEUREN_URL` | Externe link naar het debiteuren/facturatie systeem (zichtbaar in sidebar) |
+| `N8N_URL` | Basis-URL voor n8n webhooks, gebruikt als fallback door sommige integraties |
+| `AI_CALL_START_WEBHOOK_URL` | n8n start-webhook voor AI-belassistent calls |
+| `AI_INFO_EMAIL_WEBHOOK_URL` | n8n webhook voor interne info-mail na AI-callresultaat |
+| `WHATSAPP_PROVIDER` | WhatsApp provider, bijvoorbeeld `evolution` |
+| `WHATSAPP_WEBHOOK_SECRET` / `EVOLUTION_WEBHOOK_SECRET` | Secret voor inkomende WhatsApp provider-webhooks |
+| `EVOLUTION_API_URL` / `EVOLUTION_API_KEY` / `EVOLUTION_INSTANCE` | Evolution API-configuratie voor WhatsApp-verzending en ontvangst |
+| `N8N_WEBHOOK_WHATSAPP_SUMMARY_URL` | Optionele n8n webhook voor WhatsApp-samenvattingen |
+| `REALWORKS_BACKUP_CAPTURE_WEBHOOK_URL` | Optionele n8n forward-url voor Realworks backup/discovery captures |
+| `GOTENBERG_URL` | HTML-naar-PDF service voor agenda-cheatsheets |
+| `NEXTCLOUD_URL` / `NEXTCLOUD_USER` / `NEXTCLOUD_APP_PASSWORD` / `NEXTCLOUD_BASE_PATH` | Nextcloud-opslag voor gegenereerde cheatsheets |
+| `FRIDU_RADAR_API_URL` / `FRIDU_RADAR_API_KEY` / `FRIDU_RADAR_TIMEOUT_MS` | Optionele Fridu Radar-verrijking voor buurtdata |
 
 ---
 
@@ -875,6 +1041,15 @@ npm run dev
 
 ## Deployment
 
-Automatisch via GitHub Actions → GHCR → Portainer. Push naar `main` triggert een build en deploy.
+Push naar `main` triggert GitHub Actions: build met Docker Buildx en push naar GHCR met tags `latest` en korte commit-sha. De live server draait image `ghcr.io/mdevree/devree-platform:<sha>` vanuit `/home/DeVreeMakelaardij/stacks/devree-platform`.
+
+Belangrijke productiepunten:
+
+- Het platform luistert op poort `3100`; de live compose gebruikt `network_mode: host`.
+- Server gebruikt `docker-compose` v1, niet `docker compose`.
+- De server trekt niet altijd automatisch de nieuwste image. Controleer na een push welke sha live draait en deploy expliciet als app-code moet veranderen.
+- Snelle healthcheck: `curl -I http://127.0.0.1:3100/ai-belassistent` hoort een `307` naar `/login` te geven.
+- Bekende compose v1 bug bij sommige GHCR images: `KeyError: 'ContainerConfig'`. Workaround: verwijder alleen de oude `devree-platform` container en start daarna `docker-compose up -d --no-deps devree-platform`.
+- De GitHub Actions workflow negeert cache-export fouten (`ignore-error=true`) en retryt GHCR login, omdat tijdelijke GitHub/GHCR timeouts eerder rode runs gaven terwijl de image soms wel gepusht was.
 
 > **Let op:** database migraties worden handmatig uitgevoerd via SQL of `npx prisma db push`. De container draait geen automatische migraties bij opstarten.
