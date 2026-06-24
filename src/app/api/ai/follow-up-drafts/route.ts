@@ -13,6 +13,11 @@ type DraftForActivity = {
   createdAt: Date;
 };
 
+type ActivityEvent = {
+  clickedUrl: string | null;
+  rawPayload: unknown;
+};
+
 function urlsFromDraft(draft: DraftForActivity) {
   const urls = new Set<string>();
   for (const match of draft.body.matchAll(URL_PATTERN)) {
@@ -50,7 +55,21 @@ function normalizeUrl(url: string) {
   }
 }
 
-function eventMatchesDraft(eventUrl: string | null, draft: DraftForActivity) {
+function valueHasRcode(value: unknown, rcode: string): boolean {
+  if (value == null) return false;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const text = String(value);
+    return text === rcode || text.includes(`rcode=${encodeURIComponent(rcode)}`) || text.includes(`realworks_code";s:${rcode.length}:"${rcode}"`);
+  }
+  if (Array.isArray(value)) return value.some((item) => valueHasRcode(item, rcode));
+  if (typeof value === "object") return Object.values(value as Record<string, unknown>).some((item) => valueHasRcode(item, rcode));
+  return false;
+}
+
+function eventMatchesDraft(event: ActivityEvent, draft: DraftForActivity) {
+  const eventUrl = event.clickedUrl;
+  const rcode = rcodeFromDraft(draft);
+  if (rcode && valueHasRcode(event.rawPayload, rcode)) return true;
   if (!eventUrl) return false;
   const normalizedEventUrl = normalizeUrl(eventUrl);
   const urls = urlsFromDraft(draft).map(normalizeUrl);
@@ -58,8 +77,44 @@ function eventMatchesDraft(eventUrl: string | null, draft: DraftForActivity) {
     return true;
   }
 
-  const rcode = rcodeFromDraft(draft);
   return Boolean(rcode && normalizedEventUrl.includes(`rcode=${encodeURIComponent(rcode)}`));
+}
+
+function activityUrlFilters(drafts: DraftForActivity[]) {
+  const filters: { clickedUrl: { contains: string } }[] = [];
+  const seen = new Set<string>();
+
+  for (const draft of drafts) {
+    for (const url of urlsFromDraft(draft)) {
+      if (!seen.has(url)) {
+        filters.push({ clickedUrl: { contains: url } });
+        seen.add(url);
+      }
+      try {
+        const cleanUrl = new URL(url);
+        cleanUrl.search = "";
+        cleanUrl.hash = "";
+        const clean = cleanUrl.toString();
+        if (!seen.has(clean)) {
+          filters.push({ clickedUrl: { contains: clean } });
+          seen.add(clean);
+        }
+      } catch {
+        // Keep the raw URL filter above for non-standard values.
+      }
+    }
+
+    const rcode = rcodeFromDraft(draft);
+    if (rcode) {
+      const needle = `rcode=${encodeURIComponent(rcode)}`;
+      if (!seen.has(needle)) {
+        filters.push({ clickedUrl: { contains: needle } });
+        seen.add(needle);
+      }
+    }
+  }
+
+  return filters;
 }
 
 export async function GET(req: NextRequest) {
@@ -83,13 +138,17 @@ export async function GET(req: NextRequest) {
 
   const contactIds = [...new Set(drafts.map((draft) => draft.mauticContactId).filter((id): id is number => id != null))];
   const oldestDraftDate = drafts.length ? drafts.reduce((oldest, draft) => (draft.createdAt < oldest ? draft.createdAt : oldest), drafts[0].createdAt) : null;
+  const urlFilters = activityUrlFilters(drafts);
   const events =
-    contactIds.length > 0 && oldestDraftDate
+    oldestDraftDate && (contactIds.length > 0 || urlFilters.length > 0)
       ? await prisma.mauticEvent.findMany({
           where: {
-            mauticContactId: { in: contactIds },
             eventType: { in: ["page.hit", "email.click"] },
             occurredAt: { gte: oldestDraftDate },
+            OR: [
+              ...(contactIds.length > 0 ? [{ mauticContactId: { in: contactIds } }] : []),
+              ...urlFilters,
+            ],
           },
           orderBy: { occurredAt: "desc" },
           take: 500,
@@ -97,7 +156,7 @@ export async function GET(req: NextRequest) {
       : [];
 
   const draftsWithActivity = drafts.map((draft) => {
-    const matchedEvents = events.filter((event) => event.mauticContactId === draft.mauticContactId && eventMatchesDraft(event.clickedUrl, draft));
+    const matchedEvents = events.filter((event) => eventMatchesDraft(event, draft));
     return {
       ...draft,
       activity: {
