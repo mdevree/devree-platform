@@ -335,6 +335,47 @@ model AiLinkCatalogItem {
   @@map("ai_link_catalog")
 }
 
+model AiAgentProfile {
+  id                   String   @id @default(cuid())
+  slug                 String   @unique
+  displayName          String
+  roleDescription      String   @db.Text
+  toneOfVoice          String?  @db.Text
+  basePrompt           String   @db.LongText
+  rules                Json?
+  forbiddenCommitments Json?
+  domainVocabulary     Json?
+  active               Boolean  @default(true)
+  isDefault            Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([active])
+  @@index([isDefault])
+  @@map("ai_agent_profiles")
+}
+
+model AiAgentTask {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  displayName    String
+  description    String   @db.Text
+  goal           String   @db.Text
+  channel        String   @default("call") // call | whatsapp | email | internal
+  questions      Json?
+  allowedActions Json?
+  followUpPolicy Json?
+  active         Boolean  @default(true)
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([active])
+  @@index([channel])
+  @@index([isDefault])
+  @@map("ai_agent_tasks")
+}
+
 model Task {
   id             String      @id @default(cuid())
   title          String

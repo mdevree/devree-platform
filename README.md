@@ -7,7 +7,7 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 - **Agenda** — Realworks agendakoppeling: dag- en weekweergave per medewerker, auto-koppeling van woningprojecten via `agobjcode`, enrichment van kijkersgegevens via Mautic, PDF-contextendpoint voor bezichtigingsvoorbereiding
 - **Dashboard** — Tijdsgebonden begroeting, overzicht van openstaande taken en recente activiteit
 - **Telefonie** — Live call popups, call history, Mautic CRM koppeling, notities per gesprek, contact detail panel met AI data profiel
-- **AI-belassistent** — Goedgekeurde outbound AI-belkaarten voor bezichtigingsopvolging, gekoppeld aan PBX/Asterisk AI Voice Agent, Mautic, n8n info-mail en concept follow-up
+- **Digitale medewerker** — Beheerbare agentprofielen, taakprofielen, outbound AI-belkaarten voor bezichtigingsopvolging, Mautic, n8n info-mail en concept follow-up
 - **Taken** — Kanban + tabeloverzicht, per makelaar en centraal voor binnendienst, met tijdregistratie per taak
 - **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info en kosten. Projecten kunnen worden samengevoegd
 - **Contacten** — Mautic CRM overzicht met zoekfunctie, contactdetails bewerken, AI data profiel en email activiteit. Nieuw contact aanmaken direct vanuit de pagina
@@ -15,7 +15,7 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 - **Kansen** — Actielijst op basis van Realworks-objectmutaties, zoekprofielen en Mautic websitegedrag. Signaleert o.a. actieve interesse en nieuwe woningmatches
 - **Kijkers / Leads** — Leadregistratie met routehistorie, projectkoppelingen, adviseurkoppeling, prioriteit, tags en export
 - **Samenwerkingen** — Hypotheekadviseurs en VvE-gesprekken met statistieken per adviseur
-- **WhatsApp** — Inbox/conversaties via Evolution/WAHA, plus conceptberichten vanuit AI-belassistent en afspraakherinneringen
+- **WhatsApp** — Inbox/conversaties via Evolution/WAHA, plus conceptberichten vanuit de digitale medewerker en afspraakherinneringen
 - **Facebook Triggers** — Beheer van keyword- en DM-antwoorden voor de Facebook/n8n workflow
 - **Buurtdata** — Opzoeken van wijkdata op basis van postcode + huisnummer via n8n. Genereert een printbaar rapport met: BAG-gegevens, leefbaarheidsscore, bevolkingssamenstelling, huishoudens, woningmarkt, inkomen, bereikbaarheid, klimaat, geluidsbelasting, luchtkwaliteit en optionele Fridu Radar-omgevingssignalen. Beschikbaar als interne tool (authenticated) én als publieke lead generator via `/buurtdata-rapport` (WordPress shortcode `[buurtdata_rapport]`)
 - **Realworks Browser Extensie** — Chrome-extensie voor Realworks → n8n/platform sync, backup/discovery captures en terugschrijftaken naar Realworks
@@ -29,9 +29,9 @@ Next.js · TypeScript · Tailwind CSS · Prisma · MySQL · NextAuth.js · Docke
 
 ---
 
-## AI-belassistent en PBX
+## Digitale medewerker en PBX
 
-Het platform kan AI-belkaarten klaarzetten voor opvolging na bezichtigingen. Een medewerker moet elke call handmatig vrijgeven door exact `BEL` te bevestigen. Daarna start het platform via n8n en de PBX bridge een outbound call op de aparte PBX-server.
+Het platform kan digitale medewerker-profielen, taakprofielen en AI-belkaarten beheren voor opvolging na bezichtigingen. Een medewerker moet elke call handmatig vrijgeven door exact `BEL` te bevestigen. Daarna start het platform via n8n en de PBX bridge een outbound call op de aparte PBX-server.
 
 ### Architectuur
 
@@ -111,12 +111,14 @@ Webhooks (POST naar `/webhook`) gebruiken uitsluitend de `x-webhook-secret` head
 
 ---
 
-### AI-belassistent `/api/ai`
+### Digitale medewerker `/api/ai`
 
 Alle server-to-server calls gebruiken `x-webhook-secret`.
 
 | Methode | Endpoint | Omschrijving |
 |---------|----------|--------------|
+| `GET/PATCH` | `/api/ai/agent-profile` | Beheer het standaardprofiel van de digitale medewerker |
+| `GET/PATCH` | `/api/ai/tasks` | Beheer taakprofielen zoals `bezichtiging_nabellen` |
 | `GET` | `/api/ai/caller-status` | Controleert of caller, start-webhook en info-mail zijn geconfigureerd |
 | `GET` | `/api/ai/call-jobs` | Laat de laatste belkaarten zien, optioneel gefilterd op status |
 | `POST` | `/api/ai/call-jobs` | Maakt een belkaart aan vanuit `agendaAfspraakId` of handmatige payload |
@@ -167,7 +169,7 @@ Alle server-to-server calls gebruiken `x-webhook-secret`.
 
 #### Follow-up concepten en linkactiviteit
 
-`GET /api/ai/follow-up-drafts` accepteert `status=active|draft|approved|sent|rejected|alle`. De AI-belassistent toont standaard alleen actieve concepten, zodat oude verzonden of afgewezen concepten de interface niet vervuilen.
+`GET /api/ai/follow-up-drafts` accepteert `status=active|draft|approved|sent|rejected|alle`. De digitale medewerker toont standaard alleen actieve concepten, zodat oude verzonden of afgewezen concepten de interface niet vervuilen.
 
 Drafts worden verrijkt met `activity` uit `MauticEvent` op basis van `mauticContactId`, meegestuurde URL's en `rcode`. Daardoor kan de UI laten zien of een woninglink of andere opvolg-link al is bezocht. Voor WhatsApp-links naar de eigen website is `page.hit` het belangrijkst; voor Mautic-mails is `email.click` relevant.
 
@@ -957,7 +959,7 @@ Lokale opslag van Mautic activiteit voor contactpanels, kansen en follow-up draf
 
 ### FollowUpDraft
 
-Conceptopvolging voor AI-belassistent en handmatige afspraakherinneringen. Statussen zijn o.a. `draft`, `approved`, `sent`, `failed` en `rejected`. Oude verzonden/afgewezen drafts blijven bewaard, maar worden standaard niet getoond in de AI-belassistent.
+Conceptopvolging voor de digitale medewerker en handmatige afspraakherinneringen. Statussen zijn o.a. `draft`, `approved`, `sent`, `failed` en `rejected`. Oude verzonden/afgewezen drafts blijven bewaard, maar worden standaard niet getoond in de digitale medewerker.
 
 ### RealworksTask / RealworksTaxatieTask / RealworksWoningTask
 
@@ -1017,7 +1019,7 @@ CREATE TABLE time_entries (
 | `CALL_NOTE_WEBHOOK_URL` | Optionele webhook URL die wordt aangeroepen bij het opslaan van een gespreksnotitie |
 | `NEXT_PUBLIC_DEBITEUREN_URL` | Externe link naar het debiteuren/facturatie systeem (zichtbaar in sidebar) |
 | `N8N_URL` | Basis-URL voor n8n webhooks, gebruikt als fallback door sommige integraties |
-| `AI_CALL_START_WEBHOOK_URL` | n8n start-webhook voor AI-belassistent calls |
+| `AI_CALL_START_WEBHOOK_URL` | n8n start-webhook voor digitale medewerker calls |
 | `AI_INFO_EMAIL_WEBHOOK_URL` | n8n webhook voor interne info-mail na AI-callresultaat |
 | `WHATSAPP_PROVIDER` | WhatsApp provider, bijvoorbeeld `evolution` |
 | `WHATSAPP_WEBHOOK_SECRET` / `EVOLUTION_WEBHOOK_SECRET` | Secret voor inkomende WhatsApp provider-webhooks |
@@ -1048,7 +1050,7 @@ Belangrijke productiepunten:
 - Het platform luistert op poort `3100`; de live compose gebruikt `network_mode: host`.
 - Server gebruikt `docker-compose` v1, niet `docker compose`.
 - De server trekt niet altijd automatisch de nieuwste image. Controleer na een push welke sha live draait en deploy expliciet als app-code moet veranderen.
-- Snelle healthcheck: `curl -I http://127.0.0.1:3100/ai-belassistent` hoort een `307` naar `/login` te geven.
+- Snelle healthcheck: `curl -I http://127.0.0.1:3100/digitale-medewerker` hoort een `307` naar `/login` te geven. Legacy `/ai-belassistent` redirectt naar deze route.
 - Bekende compose v1 bug bij sommige GHCR images: `KeyError: 'ContainerConfig'`. Workaround: verwijder alleen de oude `devree-platform` container en start daarna `docker-compose up -d --no-deps devree-platform`.
 - De GitHub Actions workflow negeert cache-export fouten (`ignore-error=true`) en retryt GHCR login, omdat tijdelijke GitHub/GHCR timeouts eerder rode runs gaven terwijl de image soms wel gepusht was.
 

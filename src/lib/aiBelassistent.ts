@@ -13,6 +13,78 @@ const WP_BASE_URL = "https://www.devreemakelaardij.nl/wp-json/wp/v2";
 
 type JsonRecord = Record<string, unknown>;
 
+const DEFAULT_AGENT_PROFILE_SLUG = "digitale-medewerker-devree";
+const DEFAULT_AGENT_TASK_SLUG = "bezichtiging_nabellen";
+
+const DEFAULT_AGENT_PROFILE = {
+  slug: DEFAULT_AGENT_PROFILE_SLUG,
+  displayName: "Digitale medewerker De Vree Makelaardij",
+  roleDescription:
+    "Digitale assistent van De Vree Makelaardij die namens het kantoor opvolging doet, klantvragen inventariseert en concept-opvolging klaarzet.",
+  toneOfVoice:
+    "Rustig, vriendelijk, concreet, transparant digitaal en professioneel. Altijd spreken namens De Vree Makelaardij.",
+  basePrompt: [
+    "Je bent de digitale medewerker van De Vree Makelaardij in Spijkenisse.",
+    "Je helpt namens het kantoor met korte opvolging, vragen inventariseren en juiste informatie klaarzetten.",
+    "Je bent transparant dat je digitaal bent en doet niet alsof je een menselijke medewerker bent.",
+    "Je doet geen harde toezeggingen, technische adviezen, juridische adviezen of afspraken zonder menselijke bevestiging.",
+    "Je gebruikt alleen links en kennis die expliciet in de context of linkcatalogus staan.",
+    "Als iets onzeker is, noteer je het concreet voor een collega.",
+  ].join("\n"),
+  rules: [
+    "Zeg altijd De Vree Makelaardij, nooit alleen De Vree.",
+    "Stel maximaal een vraag tegelijk.",
+    "Vat aan het einde maximaal vier concrete punten samen en vraag: Klopt dit zo?",
+    "Verwerk correcties voordat je afsluit.",
+    "Gebruik geen algemene aanbodlink als specifieke woninglink.",
+  ],
+  forbiddenCommitments: [
+    "Ik stuur u dit direct toe.",
+    "Wij bellen u op een exact tijdstip terug.",
+    "Deze technische of juridische beoordeling klopt zeker.",
+    "Er is een afspraak ingepland.",
+  ],
+  domainVocabulary: [
+    "Kwaaitaalvloer",
+    "kwijtaalvloer",
+    "betonrot",
+    "biedtermijn",
+    "inschrijving",
+    "VvE",
+    "MJOP",
+    "taxatie",
+    "waardebepaling",
+  ],
+};
+
+const DEFAULT_AGENT_TASK = {
+  slug: DEFAULT_AGENT_TASK_SLUG,
+  displayName: "Bezichtiging nabellen",
+  description: "Korte telefonische opvolging na een bezichtiging.",
+  goal:
+    "Achterhaal de algemene indruk, interesse, belangrijkste twijfel of vraag, en zet concrete opvolging klaar voor een collega.",
+  channel: "call",
+  questions: [
+    "Komt het uit dat ik kort bel?",
+    "Wat was uw algemene indruk van de woning?",
+    "Is de woning nog interessant voor u: ja, nee of misschien?",
+    "Wat is op dit moment uw belangrijkste twijfel of vraag?",
+    "Klopt mijn samenvatting zo?",
+  ],
+  allowedActions: [
+    "klantvraag noteren",
+    "terugbelverzoek noteren",
+    "goedgekeurde link signaleren",
+    "WhatsApp-concept laten maken",
+    "info-mail naar kantoor laten sturen",
+  ],
+  followUpPolicy: {
+    callsRequireBelApproval: true,
+    outboundMessagesAreDrafts: true,
+    noAutomaticSending: true,
+  },
+};
+
 const SERVICE_LINKS = [
   {
     title: "Actueel woningaanbod",
@@ -216,7 +288,78 @@ function inferFaqIntents(title: string) {
   return [...new Set(intents)];
 }
 
+export async function ensureDefaultDigitalEmployeeConfig() {
+  await prisma.aiAgentProfile.upsert({
+    where: { slug: DEFAULT_AGENT_PROFILE.slug },
+    update: {
+      displayName: DEFAULT_AGENT_PROFILE.displayName,
+      roleDescription: DEFAULT_AGENT_PROFILE.roleDescription,
+      toneOfVoice: DEFAULT_AGENT_PROFILE.toneOfVoice,
+      active: true,
+      isDefault: true,
+    },
+    create: {
+      ...DEFAULT_AGENT_PROFILE,
+      active: true,
+      isDefault: true,
+    },
+  });
+
+  await prisma.aiAgentTask.upsert({
+    where: { slug: DEFAULT_AGENT_TASK.slug },
+    update: {
+      displayName: DEFAULT_AGENT_TASK.displayName,
+      description: DEFAULT_AGENT_TASK.description,
+      goal: DEFAULT_AGENT_TASK.goal,
+      channel: DEFAULT_AGENT_TASK.channel,
+      active: true,
+      isDefault: true,
+    },
+    create: {
+      ...DEFAULT_AGENT_TASK,
+      active: true,
+      isDefault: true,
+    },
+  });
+}
+
+export async function getDefaultDigitalEmployeeConfig() {
+  await ensureDefaultDigitalEmployeeConfig();
+  const [profile, task] = await Promise.all([
+    prisma.aiAgentProfile.findFirst({
+      where: { active: true, isDefault: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.aiAgentTask.findFirst({
+      where: { active: true, slug: DEFAULT_AGENT_TASK_SLUG },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
+  if (!profile || !task) throw new Error("Digitale medewerker configuratie ontbreekt");
+  return { profile, task };
+}
+
+function linesFromJson(value: unknown) {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+}
+
 function buildScriptPreview(input: {
+  agentProfile: {
+    displayName: string;
+    roleDescription: string;
+    toneOfVoice: string | null;
+    basePrompt: string;
+    rules: unknown;
+    forbiddenCommitments: unknown;
+    domainVocabulary: unknown;
+  };
+  agentTask: {
+    displayName: string;
+    goal: string;
+    questions: unknown;
+    allowedActions: unknown;
+    followUpPolicy: unknown;
+  };
   contactName: string;
   propertyTitle: string;
   viewingDate?: Date | null;
@@ -237,13 +380,34 @@ function buildScriptPreview(input: {
       : null,
   ].filter(Boolean);
 
+  const profileRules = linesFromJson(input.agentProfile.rules);
+  const forbidden = linesFromJson(input.agentProfile.forbiddenCommitments);
+  const vocabulary = linesFromJson(input.agentProfile.domainVocabulary);
+  const questions = linesFromJson(input.agentTask.questions);
+  const actions = linesFromJson(input.agentTask.allowedActions);
+
   return [
-    `Opening: Goedemiddag ${input.contactName || "mevrouw/meneer"}, u spreekt met de digitale assistent van De Vree Makelaardij. Ik bel kort omdat u ${dateLabel} ${input.propertyTitle} heeft bekeken. Heeft u een minuutje?`,
+    `Agent: ${input.agentProfile.displayName}`,
+    input.agentProfile.roleDescription,
+    input.agentProfile.toneOfVoice ? `Toon: ${input.agentProfile.toneOfVoice}` : "",
+    "",
+    "Basisinstructie:",
+    input.agentProfile.basePrompt,
+    "",
+    `Taak: ${input.agentTask.displayName}`,
+    `Doel: ${input.agentTask.goal}`,
+    questions.length ? `Vragen: ${questions.join(" | ")}` : "",
+    actions.length ? `Toegestane acties: ${actions.join(", ")}.` : "",
+    "",
+    `Opening: Goedemiddag ${input.contactName || "mevrouw/meneer"}, u spreekt met de digitale medewerker van De Vree Makelaardij. Ik bel kort omdat u ${dateLabel} ${input.propertyTitle} heeft bekeken. Komt het uit?`,
     "",
     "Vragen: algemene indruk, interesse ja/nee/misschien, concrete twijfels, vragen, gewenste vervolgstap.",
     "Bij relevante signalen zacht aanbieden: terugbelverzoek, woninglink, afspraaklink, verkoop/aankoop/taxatie-informatie.",
     "Afronden: maximaal vier korte punten samenvatten, vragen 'Klopt dit zo?', correctie verwerken en doorzetten naar collega.",
     signals.length ? `Bekende signalen: ${signals.join("; ")}.` : "",
+    profileRules.length ? `Regels: ${profileRules.join(" | ")}` : "",
+    forbidden.length ? `Verboden toezeggingen: ${forbidden.join(" | ")}` : "",
+    vocabulary.length ? `Domeinwoorden: ${vocabulary.join(", ")}.` : "",
     input.links.length
       ? `Beschikbare links: ${input.links.map((link) => `${link.title} (${link.type})`).join(", ")}.`
       : "",
@@ -253,6 +417,7 @@ function buildScriptPreview(input: {
 }
 
 export async function createAiCallJobFromAgenda(agendaAfspraakId: string) {
+  const { profile, task } = await getDefaultDigitalEmployeeConfig();
   const afspraak = await prisma.agendaAfspraak.findUnique({
     where: { id: agendaAfspraakId },
     include: {
@@ -332,6 +497,13 @@ export async function createAiCallJobFromAgenda(agendaAfspraakId: string) {
       type: link.type,
       intents: link.intents,
     })),
+    agent: {
+      profileSlug: profile.slug,
+      profileName: profile.displayName,
+      taskSlug: task.slug,
+      taskName: task.displayName,
+      sourceOfTruth: "platform",
+    },
   };
 
   return prisma.aiCallJob.create({
@@ -351,6 +523,8 @@ export async function createAiCallJobFromAgenda(agendaAfspraakId: string) {
       viewingDate: afspraak.agbegin,
       context,
       scriptPreview: buildScriptPreview({
+        agentProfile: profile,
+        agentTask: task,
         contactName,
         propertyTitle,
         viewingDate: afspraak.agbegin,

@@ -28,7 +28,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
   { name: "Kansen", href: "/kansen", icon: FireIcon },
   { name: "Telefonie", href: "/telefonie", icon: PhoneIcon },
-  { name: "AI Belassistent", href: "/ai-belassistent", icon: SparklesIcon },
+  { name: "Digitale medewerker", href: "/digitale-medewerker", icon: SparklesIcon },
   { name: "Projecten", href: "/projecten", icon: FolderIcon },
   { name: "Contacten", href: "/contacten", icon: UsersIcon },
   { name: "Pipeline", href: "/pipeline", icon: ChartBarIcon },

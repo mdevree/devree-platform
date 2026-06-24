@@ -1,0 +1,40 @@
+CREATE TABLE `ai_agent_profiles` (
+  `id` VARCHAR(191) NOT NULL,
+  `slug` VARCHAR(191) NOT NULL,
+  `displayName` VARCHAR(191) NOT NULL,
+  `roleDescription` TEXT NOT NULL,
+  `toneOfVoice` TEXT NULL,
+  `basePrompt` LONGTEXT NOT NULL,
+  `rules` JSON NULL,
+  `forbiddenCommitments` JSON NULL,
+  `domainVocabulary` JSON NULL,
+  `active` BOOLEAN NOT NULL DEFAULT true,
+  `isDefault` BOOLEAN NOT NULL DEFAULT false,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `ai_agent_profiles_slug_key` (`slug`),
+  INDEX `ai_agent_profiles_active_idx` (`active`),
+  INDEX `ai_agent_profiles_isDefault_idx` (`isDefault`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `ai_agent_tasks` (
+  `id` VARCHAR(191) NOT NULL,
+  `slug` VARCHAR(191) NOT NULL,
+  `displayName` VARCHAR(191) NOT NULL,
+  `description` TEXT NOT NULL,
+  `goal` TEXT NOT NULL,
+  `channel` VARCHAR(191) NOT NULL DEFAULT 'call',
+  `questions` JSON NULL,
+  `allowedActions` JSON NULL,
+  `followUpPolicy` JSON NULL,
+  `active` BOOLEAN NOT NULL DEFAULT true,
+  `isDefault` BOOLEAN NOT NULL DEFAULT false,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `ai_agent_tasks_slug_key` (`slug`),
+  INDEX `ai_agent_tasks_active_idx` (`active`),
+  INDEX `ai_agent_tasks_channel_idx` (`channel`),
+  INDEX `ai_agent_tasks_isDefault_idx` (`isDefault`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

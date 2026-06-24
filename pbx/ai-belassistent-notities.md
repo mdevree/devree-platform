@@ -32,7 +32,7 @@ De AI-belassistent belt namens De Vree Makelaardij na een bezichtiging, vat het 
 
 - Platform draait handmatig op `ghcr.io/mdevree/devree-platform:91dda11` op de platformserver.
 - Database-migratie `20260622_ai_belassistent` is toegepast.
-- `/ai-belassistent` is bereikbaar achter login.
+- `/digitale-medewerker` is de nieuwe platformroute achter login; legacy `/ai-belassistent` redirectt hierheen.
 - `/api/ai/link-catalog` is bereikbaar met `x-webhook-secret`.
 - Linkcatalogus-sync is getest: 6 woningen, 14 FAQ's, 5 handmatige links.
 - Menselijke goedkeuring is technisch verplicht op `POST /api/ai/call-jobs/[id]/start`.

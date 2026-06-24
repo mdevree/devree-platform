@@ -1,5 +1,5 @@
-import AiBelassistentDashboard from "@/components/ai-belassistent/AiBelassistentDashboard";
+import { redirect } from "next/navigation";
 
 export default function AiBelassistentPage() {
-  return <AiBelassistentDashboard />;
+  redirect("/digitale-medewerker");
 }

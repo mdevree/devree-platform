@@ -67,6 +67,32 @@ type CallerStatus = {
   status: string;
 };
 
+type AgentProfile = {
+  id: string;
+  displayName: string;
+  roleDescription: string;
+  toneOfVoice: string | null;
+  basePrompt: string;
+  rules: unknown;
+  forbiddenCommitments: unknown;
+  domainVocabulary: unknown;
+};
+
+type AgentTask = {
+  id: string;
+  slug: string;
+  displayName: string;
+  description: string;
+  goal: string;
+  channel: string;
+  questions: unknown;
+  allowedActions: unknown;
+  followUpPolicy: unknown;
+  active: boolean;
+};
+
+type TabKey = "overzicht" | "bellen" | "concepten" | "kennis" | "profiel";
+
 function statusStyle(status: string) {
   if (["ready", "approved"].includes(status)) return "bg-blue-50 text-blue-700 ring-blue-200";
   if (["calling"].includes(status)) return "bg-amber-50 text-amber-700 ring-amber-200";
@@ -92,6 +118,14 @@ const draftFilters = [
   { value: "alle", label: "Alles" },
 ];
 
+const tabs: { key: TabKey; label: string }[] = [
+  { key: "overzicht", label: "Overzicht" },
+  { key: "bellen", label: "Bellen" },
+  { key: "concepten", label: "Concepten" },
+  { key: "kennis", label: "Kennis & links" },
+  { key: "profiel", label: "Profiel & taken" },
+];
+
 function formatDateTime(value: string | null) {
   if (!value) return null;
   return new Intl.DateTimeFormat("nl-NL", {
@@ -100,6 +134,17 @@ function formatDateTime(value: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function jsonArrayToText(value: unknown) {
+  return Array.isArray(value) ? value.map(String).join("\n") : "";
+}
+
+function textToLines(value: string) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 async function jsonFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -119,6 +164,17 @@ export default function AiBelassistentDashboard() {
   const [jobs, setJobs] = useState<AiCallJob[]>([]);
   const [drafts, setDrafts] = useState<FollowUpDraft[]>([]);
   const [links, setLinks] = useState<LinkItem[]>([]);
+  const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
+  const [agentTasks, setAgentTasks] = useState<AgentTask[]>([]);
+  const [profileDraft, setProfileDraft] = useState<Partial<AgentProfile> & {
+    rulesText?: string;
+    forbiddenText?: string;
+    vocabularyText?: string;
+  }>({});
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<AgentTask> & {
+    questionsText?: string;
+    actionsText?: string;
+  }>>({});
   const [agendaAfspraakId, setAgendaAfspraakId] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -127,6 +183,7 @@ export default function AiBelassistentDashboard() {
   const [draftBodies, setDraftBodies] = useState<Record<string, string>>({});
   const [callerStatus, setCallerStatus] = useState<CallerStatus | null>(null);
   const [draftStatusFilter, setDraftStatusFilter] = useState("active");
+  const [activeTab, setActiveTab] = useState<TabKey>("overzicht");
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === selectedJobId) || jobs[0] || null,
@@ -135,16 +192,34 @@ export default function AiBelassistentDashboard() {
 
   const loadAll = useCallback(async () => {
     setError(null);
-    const [loadedJobs, loadedDrafts, loadedLinks, loadedCallerStatus] = await Promise.all([
+    const [loadedJobs, loadedDrafts, loadedLinks, loadedCallerStatus, loadedProfile, loadedTasks] = await Promise.all([
       jsonFetch<AiCallJob[]>("/api/ai/call-jobs"),
       jsonFetch<FollowUpDraft[]>(`/api/ai/follow-up-drafts?status=${draftStatusFilter}`),
       jsonFetch<LinkItem[]>("/api/ai/link-catalog"),
       jsonFetch<CallerStatus>("/api/ai/caller-status"),
+      jsonFetch<AgentProfile>("/api/ai/agent-profile"),
+      jsonFetch<AgentTask[]>("/api/ai/tasks"),
     ]);
     setJobs(loadedJobs);
     setDrafts(loadedDrafts);
     setLinks(loadedLinks);
     setCallerStatus(loadedCallerStatus);
+    setAgentProfile(loadedProfile);
+    setAgentTasks(loadedTasks);
+    setProfileDraft({
+      ...loadedProfile,
+      rulesText: jsonArrayToText(loadedProfile.rules),
+      forbiddenText: jsonArrayToText(loadedProfile.forbiddenCommitments),
+      vocabularyText: jsonArrayToText(loadedProfile.domainVocabulary),
+    });
+    setTaskDrafts(Object.fromEntries(loadedTasks.map((task) => [
+      task.id,
+      {
+        ...task,
+        questionsText: jsonArrayToText(task.questions),
+        actionsText: jsonArrayToText(task.allowedActions),
+      },
+    ])));
     setDraftBodies(Object.fromEntries(loadedDrafts.map((draft) => [draft.id, draft.body])));
     setSelectedJobId((current) => current || loadedJobs[0]?.id || null);
   }, [draftStatusFilter]);
@@ -248,13 +323,54 @@ export default function AiBelassistentDashboard() {
     );
   }
 
+  async function saveProfile() {
+    await runAction(
+      "agent-profile",
+      () =>
+        jsonFetch("/api/ai/agent-profile", {
+          method: "PATCH",
+          body: JSON.stringify({
+            displayName: profileDraft.displayName,
+            roleDescription: profileDraft.roleDescription,
+            toneOfVoice: profileDraft.toneOfVoice,
+            basePrompt: profileDraft.basePrompt,
+            rules: textToLines(profileDraft.rulesText || ""),
+            forbiddenCommitments: textToLines(profileDraft.forbiddenText || ""),
+            domainVocabulary: textToLines(profileDraft.vocabularyText || ""),
+          }),
+        }),
+      "Agentprofiel opgeslagen."
+    );
+  }
+
+  async function saveTask(task: AgentTask) {
+    const draft = taskDrafts[task.id] || {};
+    await runAction(
+      `agent-task-${task.id}`,
+      () =>
+        jsonFetch("/api/ai/tasks", {
+          method: "PATCH",
+          body: JSON.stringify({
+            id: task.id,
+            displayName: draft.displayName,
+            description: draft.description,
+            goal: draft.goal,
+            channel: draft.channel,
+            questions: textToLines(draft.questionsText || ""),
+            allowedActions: textToLines(draft.actionsText || ""),
+          }),
+        }),
+      "Taakprofiel opgeslagen."
+    );
+  }
+
   return (
     <main className="space-y-6 p-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">AI Belassistent</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Digitale medewerker</h1>
           <p className="mt-1 max-w-3xl text-sm text-gray-600">
-            Bereid belkaarten voor, beheer de toegestane links en keur follow-up berichten goed voordat ze naar WhatsApp gaan.
+            Beheer de digitale medewerker, belkaarten, kennislinks en follow-up concepten voordat er iets naar klanten gaat.
           </p>
         </div>
         <button
@@ -306,6 +422,43 @@ export default function AiBelassistentDashboard() {
         </div>
       )}
 
+      <nav className="flex flex-wrap gap-2 border-b border-gray-200">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`border-b-2 px-3 py-2 text-sm font-medium ${
+              activeTab === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-800"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === "overzicht" && (
+        <section className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <p className="text-sm font-medium text-gray-500">Belkaarten</p>
+            <p className="mt-2 text-3xl font-semibold text-gray-900">{jobs.length}</p>
+            <p className="mt-1 text-sm text-gray-500">Laatste kaarten en status via tab Bellen.</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <p className="text-sm font-medium text-gray-500">Concepten actief</p>
+            <p className="mt-2 text-3xl font-semibold text-gray-900">{drafts.length}</p>
+            <p className="mt-1 text-sm text-gray-500">WhatsApp/e-mail blijft handmatig te reviewen.</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <p className="text-sm font-medium text-gray-500">Kennislinks</p>
+            <p className="mt-2 text-3xl font-semibold text-gray-900">{links.filter((link) => link.active).length}</p>
+            <p className="mt-1 text-sm text-gray-500">Actieve diensten, vragen en woninglinks.</p>
+          </div>
+        </section>
+      )}
+
+      {activeTab === "bellen" && (
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(360px,0.8fr)]">
         <div className="rounded-lg border border-gray-200 bg-white">
           <div className="flex flex-col gap-3 border-b border-gray-200 p-4 md:flex-row md:items-center md:justify-between">
@@ -398,7 +551,9 @@ export default function AiBelassistentDashboard() {
           )}
         </div>
       </section>
+      )}
 
+      {activeTab === "concepten" && (
       <section className="rounded-lg border border-gray-200 bg-white">
         <div className="border-b border-gray-200 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -490,7 +645,9 @@ export default function AiBelassistentDashboard() {
           )}
         </div>
       </section>
+      )}
 
+      {activeTab === "kennis" && (
       <section className="rounded-lg border border-gray-200 bg-white">
         <div className="border-b border-gray-200 p-4">
           <h2 className="text-base font-semibold text-gray-900">Linkcatalogus</h2>
@@ -526,6 +683,137 @@ export default function AiBelassistentDashboard() {
           </table>
         </div>
       </section>
+      )}
+
+      {activeTab === "profiel" && (
+        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="border-b border-gray-200 p-4">
+              <h2 className="text-base font-semibold text-gray-900">Agentprofiel</h2>
+              <p className="text-sm text-gray-500">Basisidentiteit, toon en regels van de digitale medewerker.</p>
+            </div>
+            {agentProfile ? (
+              <div className="space-y-4 p-4">
+                <label className="block text-sm font-medium text-gray-700">
+                  Naam
+                  <input
+                    value={profileDraft.displayName || ""}
+                    onChange={(event) => setProfileDraft((current) => ({ ...current, displayName: event.target.value }))}
+                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Rol
+                  <textarea
+                    value={profileDraft.roleDescription || ""}
+                    onChange={(event) => setProfileDraft((current) => ({ ...current, roleDescription: event.target.value }))}
+                    className="mt-1 min-h-20 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Basisprompt
+                  <textarea
+                    value={profileDraft.basePrompt || ""}
+                    onChange={(event) => setProfileDraft((current) => ({ ...current, basePrompt: event.target.value }))}
+                    className="mt-1 min-h-40 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Domeinwoorden
+                  <textarea
+                    value={profileDraft.vocabularyText || ""}
+                    onChange={(event) => setProfileDraft((current) => ({ ...current, vocabularyText: event.target.value }))}
+                    className="mt-1 min-h-28 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Regels
+                    <textarea
+                      value={profileDraft.rulesText || ""}
+                      onChange={(event) => setProfileDraft((current) => ({ ...current, rulesText: event.target.value }))}
+                      className="mt-1 min-h-32 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Verboden toezeggingen
+                    <textarea
+                      value={profileDraft.forbiddenText || ""}
+                      onChange={(event) => setProfileDraft((current) => ({ ...current, forbiddenText: event.target.value }))}
+                      className="mt-1 min-h-32 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </label>
+                </div>
+                <button
+                  onClick={saveProfile}
+                  disabled={busy === "agent-profile"}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60"
+                >
+                  <CheckCircleIcon className="h-4 w-4" />
+                  Profiel opslaan
+                </button>
+              </div>
+            ) : (
+              <p className="p-4 text-sm text-gray-500">Profiel wordt geladen.</p>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="border-b border-gray-200 p-4">
+              <h2 className="text-base font-semibold text-gray-900">Taken</h2>
+              <p className="text-sm text-gray-500">V1 gebruikt bezichtiging nabellen als standaardtaak.</p>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {agentTasks.map((task) => {
+                const draft = taskDrafts[task.id] || {};
+                return (
+                  <div key={task.id} className="space-y-3 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{task.displayName}</p>
+                        <p className="text-xs text-gray-500">{task.slug} · {task.channel}</p>
+                      </div>
+                      <StatusPill value={task.active ? "actief" : "inactief"} />
+                    </div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Doel
+                      <textarea
+                        value={String(draft.goal || "")}
+                        onChange={(event) => setTaskDrafts((current) => ({ ...current, [task.id]: { ...draft, goal: event.target.value } }))}
+                        className="mt-1 min-h-24 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Vragen
+                      <textarea
+                        value={draft.questionsText || ""}
+                        onChange={(event) => setTaskDrafts((current) => ({ ...current, [task.id]: { ...draft, questionsText: event.target.value } }))}
+                        className="mt-1 min-h-28 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Toegestane acties
+                      <textarea
+                        value={draft.actionsText || ""}
+                        onChange={(event) => setTaskDrafts((current) => ({ ...current, [task.id]: { ...draft, actionsText: event.target.value } }))}
+                        className="mt-1 min-h-28 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </label>
+                    <button
+                      onClick={() => saveTask(task)}
+                      disabled={busy === `agent-task-${task.id}`}
+                      className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      <CheckCircleIcon className="h-4 w-4" />
+                      Taak opslaan
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
 }
