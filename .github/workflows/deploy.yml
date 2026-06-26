@@ -61,3 +61,26 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max,ignore-error=true
+
+      # 6. Productie automatisch bijwerken als de deploy key als secret is ingesteld
+      - name: Deploy naar productie
+        shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEVREE_DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "${DEPLOY_SSH_KEY}" ]; then
+            echo "DEVREE_DEPLOY_SSH_KEY ontbreekt; image is gepusht maar productie is niet bijgewerkt."
+            exit 0
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/devree_deploy_key
+          chmod 600 ~/.ssh/devree_deploy_key
+
+          cat > ~/.ssh/known_hosts <<'EOF'
+          136.144.253.219 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhFdBDekKfME88LavZowIReZKzzpWf+0Oepz/Qymlmi
+          EOF
+
+          DEPLOY_TAG="${GITHUB_SHA::7}"
+          ssh -i ~/.ssh/devree_deploy_key root@136.144.253.219 \
+            "/usr/local/sbin/deploy-devree-platform ${DEPLOY_TAG}"

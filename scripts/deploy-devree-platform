@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+TAG="${1:-}"
+IMAGE_REPO="ghcr.io/mdevree/devree-platform"
+STACK_DIR="/home/DeVreeMakelaardij/stacks/devree-platform"
+COMPOSE_FILE="$STACK_DIR/docker-compose.yml"
+SERVICE="devree-platform"
+HEALTH_URL="http://127.0.0.1:3100/digitale-medewerker"
+LOG_FILE="/home/DeVreeMakelaardij/logs/devree-platform-deploy.log"
+
+log() {
+  printf "%s %s\n" "$(date -Is)" "$*" | tee -a "$LOG_FILE"
+}
+
+if [[ -z "$TAG" ]]; then
+  echo "Usage: deploy-devree-platform <ghcr-tag-or-sha>" >&2
+  exit 64
+fi
+
+if [[ ! "$TAG" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
+  echo "Invalid tag: $TAG" >&2
+  exit 64
+fi
+
+cd "$STACK_DIR"
+mkdir -p "$(dirname "$LOG_FILE")"
+
+CURRENT_IMAGE="$(awk '/image:[[:space:]]*ghcr.io\/mdevree\/devree-platform:/ {print $2; exit}' "$COMPOSE_FILE")"
+CURRENT_TAG="${CURRENT_IMAGE##*:}"
+BACKUP_FILE="$COMPOSE_FILE.bak.$(date +%Y%m%d%H%M%S)"
+
+log "Starting deploy: current=${CURRENT_TAG:-unknown} target=$TAG"
+cp "$COMPOSE_FILE" "$BACKUP_FILE"
+
+log "Pulling $IMAGE_REPO:$TAG"
+docker pull "$IMAGE_REPO:$TAG" | tee -a "$LOG_FILE"
+
+perl -0pi -e "s#image:\s*ghcr\.io/mdevree/devree-platform:[^\n]+#image: $IMAGE_REPO:$TAG#" "$COMPOSE_FILE"
+
+log "Recreating $SERVICE"
+set +e
+COMPOSE_OUTPUT="$(docker-compose up -d --no-deps "$SERVICE" 2>&1)"
+COMPOSE_STATUS=$?
+set -e
+printf "%s\n" "$COMPOSE_OUTPUT" | tee -a "$LOG_FILE"
+
+if [[ $COMPOSE_STATUS -ne 0 && "$COMPOSE_OUTPUT" == *"ContainerConfig"* ]]; then
+  log "docker-compose ContainerConfig bug hit; removing old container and retrying"
+  docker rm -f "$SERVICE" 2>&1 | tee -a "$LOG_FILE" || true
+  docker-compose up -d --no-deps "$SERVICE" 2>&1 | tee -a "$LOG_FILE"
+elif [[ $COMPOSE_STATUS -ne 0 ]]; then
+  log "Compose failed; restoring previous compose file"
+  cp "$BACKUP_FILE" "$COMPOSE_FILE"
+  docker-compose up -d --no-deps "$SERVICE" 2>&1 | tee -a "$LOG_FILE" || true
+  exit "$COMPOSE_STATUS"
+fi
+
+log "Healthcheck $HEALTH_URL"
+HEALTH_OK=0
+for _attempt in {1..30}; do
+  STATUS="$(curl -sS -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+  if [[ "$STATUS" =~ ^(200|301|302|307|308)$ ]]; then
+    HEALTH_OK=1
+    break
+  fi
+  sleep 2
+done
+
+if [[ "$HEALTH_OK" -ne 1 ]]; then
+  log "Healthcheck failed; rolling back to $CURRENT_TAG"
+  cp "$BACKUP_FILE" "$COMPOSE_FILE"
+  docker pull "$IMAGE_REPO:$CURRENT_TAG" 2>&1 | tee -a "$LOG_FILE" || true
+  docker-compose up -d --no-deps "$SERVICE" 2>&1 | tee -a "$LOG_FILE" || true
+  exit 1
+fi
+
+log "Deploy succeeded: $TAG"
+docker ps --filter "name=$SERVICE" --format "{{.Names}} {{.Image}} {{.Status}}" | tee -a "$LOG_FILE"
