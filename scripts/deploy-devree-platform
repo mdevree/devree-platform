@@ -46,8 +46,11 @@ set -e
 printf "%s\n" "$COMPOSE_OUTPUT" | tee -a "$LOG_FILE"
 
 if [[ $COMPOSE_STATUS -ne 0 && "$COMPOSE_OUTPUT" == *"ContainerConfig"* ]]; then
-  log "docker-compose ContainerConfig bug hit; removing old container and retrying"
-  docker rm -f "$SERVICE" 2>&1 | tee -a "$LOG_FILE" || true
+  log "docker-compose ContainerConfig bug hit; removing platform containers and retrying"
+  CONTAINER_IDS="$(docker ps -aq --filter "name=$SERVICE" || true)"
+  if [[ -n "$CONTAINER_IDS" ]]; then
+    docker rm -f $CONTAINER_IDS 2>&1 | tee -a "$LOG_FILE" || true
+  fi
   docker-compose up -d --no-deps "$SERVICE" 2>&1 | tee -a "$LOG_FILE"
 elif [[ $COMPOSE_STATUS -ne 0 ]]; then
   log "Compose failed; restoring previous compose file"
