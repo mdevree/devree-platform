@@ -1018,6 +1018,8 @@ CREATE TABLE time_entries (
 | `NEXT_PUBLIC_PLATFORM_URL` | Publieke URL van dit platform — gebruikt in de WordPress shortcode plugin als `iframe src` (bijv. `https://platform.devreemakelaardij.nl`) |
 | `CALL_NOTE_WEBHOOK_URL` | Optionele webhook URL die wordt aangeroepen bij het opslaan van een gespreksnotitie |
 | `NEXT_PUBLIC_DEBITEUREN_URL` | Externe link naar het debiteuren/facturatie systeem (zichtbaar in sidebar) |
+| `DEBITEUREN_API_URL` | Server-side basis-URL van debiteuren voor de interne facturatie API |
+| `DEBITEUREN_API_TOKEN` | Gedeeld geheim voor de interne debiteuren API (`X-Debiteuren-Api-Token`) |
 | `N8N_URL` | Basis-URL voor n8n webhooks, gebruikt als fallback door sommige integraties |
 | `AI_CALL_START_WEBHOOK_URL` | n8n start-webhook voor digitale medewerker calls |
 | `AI_INFO_EMAIL_WEBHOOK_URL` | n8n webhook voor interne info-mail na AI-callresultaat |

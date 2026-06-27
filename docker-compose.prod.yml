@@ -7,6 +7,8 @@ services:
     environment:
       - TZ=${TZ:-Europe/Amsterdam}
       - DATABASE_URL=${DATABASE_URL}
+      - DEBITEUREN_API_URL=${DEBITEUREN_API_URL}
+      - DEBITEUREN_API_TOKEN=${DEBITEUREN_API_TOKEN}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
       - AUTH_TRUST_HOST=true

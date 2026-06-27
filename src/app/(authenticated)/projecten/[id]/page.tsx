@@ -29,6 +29,7 @@ import {
   LinkSlashIcon,
   ArrowPathIcon,
   DocumentTextIcon,
+  BanknotesIcon,
   ChevronDownIcon,
   UserGroupIcon,
   EyeIcon,
@@ -45,6 +46,8 @@ import {
 
 const MAUTIC_URL =
   process.env.NEXT_PUBLIC_MAUTIC_URL || "https://connect.devreemakelaardij.nl";
+const DEBITEUREN_URL =
+  process.env.NEXT_PUBLIC_DEBITEUREN_URL || "https://debiteuren.devreemakelaardij.nl";
 
 interface User {
   id: string;
@@ -207,6 +210,52 @@ interface Project {
   calls: Call[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface DebiteurenKlant {
+  id: number;
+  naam: string;
+  email: string | null;
+  telefoon: string | null;
+  adres: string | null;
+  postcode: string | null;
+  plaats: string | null;
+}
+
+interface DebiteurenFactuur {
+  id: number;
+  factuurnummer: number;
+  betreft: string;
+  datum: string | null;
+  vervaldatum: string | null;
+  betaaldOp: string | null;
+  bedragIncl: number;
+  betaald: boolean;
+  verlopen: boolean;
+  hash: string | null;
+}
+
+interface DebiteurenData {
+  link: {
+    id: string;
+    debiteurenKlantId: number;
+    klantNaam: string | null;
+    klantEmail: string | null;
+    klantAdres: string | null;
+    lastCheckedAt: string | null;
+  } | null;
+  summary: {
+    klant: DebiteurenKlant;
+    samenvatting: {
+      openstaandBedrag: number;
+      verlopenBedrag: number;
+      openFacturen: number;
+      verlopenFacturen: number;
+      laatsteFacturen: DebiteurenFactuur[];
+    };
+  } | null;
+  debiteurenUrl?: string;
+  error?: string;
 }
 
 type ActiveTab = "taken" | "telefonie" | "woning" | "kijkers" | "dossier";
@@ -478,6 +527,16 @@ export default function ProjectDetailPage() {
   const [inlineNewContactSaving, setInlineNewContactSaving] = useState(false);
   const [inlineNewContactError, setInlineNewContactError] = useState("");
 
+  // Debiteuren koppeling
+  const [debiteurenData, setDebiteurenData] = useState<DebiteurenData | null>(null);
+  const [debiteurenLoading, setDebiteurenLoading] = useState(false);
+  const [debiteurenError, setDebiteurenError] = useState("");
+  const [showDebiteurenSearch, setShowDebiteurenSearch] = useState(false);
+  const [debiteurenSearch, setDebiteurenSearch] = useState("");
+  const [debiteurenSearchResults, setDebiteurenSearchResults] = useState<DebiteurenKlant[]>([]);
+  const [debiteurenSearchLoading, setDebiteurenSearchLoading] = useState(false);
+  const [debiteurenLinkSaving, setDebiteurenLinkSaving] = useState(false);
+
   // Samenvoegen (merge) modal
   const [showMerge, setShowMerge] = useState(false);
   const [mergeSearch, setMergeSearch] = useState("");
@@ -529,6 +588,22 @@ export default function ProjectDetailPage() {
     } catch { console.error("Fout bij ophalen gebruikers"); }
   }, []);
 
+  const fetchDebiteuren = useCallback(async () => {
+    setDebiteurenLoading(true);
+    setDebiteurenError("");
+    try {
+      const response = await fetch(`/api/projecten/${projectId}/debiteuren`);
+      const data = await response.json();
+      setDebiteurenData(data);
+      if (!response.ok) {
+        setDebiteurenError(data.error || "Facturatiegegevens niet beschikbaar");
+      }
+    } catch {
+      setDebiteurenError("Kan debiteuren niet bereiken");
+    }
+    setDebiteurenLoading(false);
+  }, [projectId]);
+
   const fetchWoning = useCallback(async (realworksId: string) => {
     setWoningLoading(true);
     setWoningError(null);
@@ -548,6 +623,12 @@ export default function ProjectDetailPage() {
   }, []);
 
   useEffect(() => { fetchProject(); fetchUsers(); }, [fetchProject, fetchUsers]);
+
+  useEffect(() => {
+    if (project?.id) {
+      fetchDebiteuren();
+    }
+  }, [project?.id, fetchDebiteuren]);
 
   // Laad hypotheekadviseurs zodra project TAXATIE is of een adviseur heeft
   useEffect(() => {
@@ -928,6 +1009,66 @@ export default function ProjectDetailPage() {
     } catch { console.error("Fout bij ontkoppelen contact"); }
   }
 
+  async function handleDebiteurenSearch(query: string) {
+    setDebiteurenSearch(query);
+    if (query.trim().length < 2) {
+      setDebiteurenSearchResults([]);
+      return;
+    }
+    setDebiteurenSearchLoading(true);
+    try {
+      const res = await fetch(`/api/projecten/${projectId}/debiteuren/search?q=${encodeURIComponent(query)}&limit=8`);
+      const data = await res.json();
+      setDebiteurenSearchResults(data.klanten || []);
+      if (!res.ok) setDebiteurenError(data.error || "Zoeken in debiteuren mislukt");
+    } catch {
+      setDebiteurenSearchResults([]);
+      setDebiteurenError("Kan debiteuren niet bereiken");
+    }
+    setDebiteurenSearchLoading(false);
+  }
+
+  async function handleLinkDebiteurenKlant(klantId: number) {
+    setDebiteurenLinkSaving(true);
+    setDebiteurenError("");
+    try {
+      const res = await fetch(`/api/projecten/${projectId}/debiteuren`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ debiteurenKlantId: klantId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDebiteurenData(data);
+        setShowDebiteurenSearch(false);
+        setDebiteurenSearch("");
+        setDebiteurenSearchResults([]);
+      } else {
+        setDebiteurenError(data.error || "Koppelen mislukt");
+      }
+    } catch {
+      setDebiteurenError("Kan debiteuren niet bereiken");
+    }
+    setDebiteurenLinkSaving(false);
+  }
+
+  async function handleUnlinkDebiteurenKlant() {
+    setDebiteurenLinkSaving(true);
+    setDebiteurenError("");
+    try {
+      const res = await fetch(`/api/projecten/${projectId}/debiteuren`, { method: "DELETE" });
+      if (res.ok) {
+        setDebiteurenData({ link: null, summary: null });
+      } else {
+        const data = await res.json();
+        setDebiteurenError(data.error || "Ontkoppelen mislukt");
+      }
+    } catch {
+      setDebiteurenError("Kan debiteuren niet bereiken");
+    }
+    setDebiteurenLinkSaving(false);
+  }
+
   // --- Samenvoegen ---
   async function handleMergeSearch(query: string) {
     setMergeSearch(query);
@@ -1033,6 +1174,10 @@ export default function ProjectDetailPage() {
   function formatDateFull(dateStr: string | null) {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  function formatCurrency(amount: number) {
+    return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(amount);
   }
 
   function isOverdue(dateStr: string | null) {
@@ -1227,6 +1372,190 @@ export default function ProjectDetailPage() {
               )}
             </div>
           )}
+
+          {/* Facturatie */}
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <BanknotesIcon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Facturatie</p>
+                  <p className="text-xs text-gray-500">
+                    {debiteurenData?.summary?.klant.naam || debiteurenData?.link?.klantNaam || "Geen debiteurenklant gekoppeld"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {debiteurenData?.debiteurenUrl && (
+                  <a
+                    href={debiteurenData.debiteurenUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                    Open
+                  </a>
+                )}
+                <button
+                  onClick={fetchDebiteuren}
+                  disabled={debiteurenLoading}
+                  className="rounded-md border border-gray-300 bg-white p-1.5 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  title="Ververs facturatie"
+                >
+                  <ArrowPathIcon className={`h-4 w-4 ${debiteurenLoading ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            </div>
+
+            {debiteurenLoading && !debiteurenData && (
+              <p className="text-sm text-gray-400">Facturatie laden...</p>
+            )}
+
+            {(debiteurenError || debiteurenData?.error) && (
+              <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                {debiteurenError || debiteurenData?.error}
+              </div>
+            )}
+
+            {debiteurenData?.link && debiteurenData.summary ? (
+              <div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-md bg-white px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase text-gray-400">Openstaand</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(debiteurenData.summary.samenvatting.openstaandBedrag)}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-white px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase text-gray-400">Verlopen</p>
+                    <p className={`text-sm font-semibold ${debiteurenData.summary.samenvatting.verlopenBedrag > 0 ? "text-red-600" : "text-gray-900"}`}>
+                      {formatCurrency(debiteurenData.summary.samenvatting.verlopenBedrag)}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-white px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase text-gray-400">Facturen</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {debiteurenData.summary.samenvatting.openFacturen} open
+                    </p>
+                  </div>
+                </div>
+
+                {debiteurenData.summary.samenvatting.laatsteFacturen.length > 0 && (
+                  <div className="mt-3 divide-y divide-gray-100 rounded-md border border-gray-200 bg-white">
+                    {debiteurenData.summary.samenvatting.laatsteFacturen.slice(0, 4).map((factuur) => (
+                      <div key={factuur.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900">#{factuur.factuurnummer}</span>
+                            <span className={`rounded-full px-1.5 py-0.5 font-medium ${
+                              factuur.betaald ? "bg-green-100 text-green-700" :
+                              factuur.verlopen ? "bg-red-100 text-red-700" :
+                              "bg-amber-100 text-amber-700"
+                            }`}>
+                              {factuur.betaald ? "Betaald" : factuur.verlopen ? "Verlopen" : "Open"}
+                            </span>
+                          </div>
+                          <p className="truncate text-gray-500">{factuur.betreft || "Factuur"} · {formatDateFull(factuur.datum)}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="font-medium text-gray-900">{formatCurrency(factuur.bedragIncl)}</span>
+                          {factuur.hash && (
+                            <a
+                              href={`${DEBITEUREN_URL}/?page=factuur-print&hash=${factuur.hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                              title="Open factuur"
+                            >
+                              <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
+                  <span>Laatst gecontroleerd: {formatDateFull(debiteurenData.link.lastCheckedAt)}</span>
+                  <button
+                    onClick={handleUnlinkDebiteurenKlant}
+                    disabled={debiteurenLinkSaving}
+                    className="font-medium text-gray-500 hover:text-red-600 disabled:opacity-50"
+                  >
+                    Ontkoppelen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {!showDebiteurenSearch ? (
+                  <button
+                    onClick={() => {
+                      const defaultSearch = project.contactName || project.contactEmail || project.woningAdres || project.name;
+                      setShowDebiteurenSearch(true);
+                      handleDebiteurenSearch(defaultSearch);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-dark"
+                  >
+                    <PlusIcon className="h-3.5 w-3.5" />
+                    Debiteurenklant koppelen
+                  </button>
+                ) : (
+                  <div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={debiteurenSearch}
+                        onChange={(e) => handleDebiteurenSearch(e.target.value)}
+                        placeholder="Zoek in debiteuren op naam, e-mail of adres..."
+                        className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => {
+                          setShowDebiteurenSearch(false);
+                          setDebiteurenSearch("");
+                          setDebiteurenSearchResults([]);
+                        }}
+                        className="rounded-md border border-gray-300 bg-white p-2 text-gray-500 hover:bg-gray-50"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {debiteurenSearchLoading && <p className="mt-2 text-xs text-gray-400">Zoeken...</p>}
+                    {debiteurenSearchResults.length > 0 && (
+                      <ul className="mt-2 divide-y divide-gray-100 rounded-md border border-gray-200 bg-white">
+                        {debiteurenSearchResults.map((klant) => (
+                          <li key={klant.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-gray-900">{klant.naam}</p>
+                              <p className="truncate text-xs text-gray-400">
+                                {[klant.email, klant.adres, klant.plaats].filter(Boolean).join(" · ")}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleLinkDebiteurenKlant(klant.id)}
+                              disabled={debiteurenLinkSaving}
+                              className="shrink-0 rounded-md bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-50"
+                            >
+                              Koppelen
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {debiteurenSearch.length >= 2 && !debiteurenSearchLoading && debiteurenSearchResults.length === 0 && (
+                      <p className="mt-2 text-xs text-gray-400">Geen debiteurenklanten gevonden</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Stats */}
           <div className="mt-3 text-xs text-gray-400">

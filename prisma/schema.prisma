@@ -135,6 +135,7 @@ model Project {
 
   // Relaties
   contacts            ProjectContact[]
+  debiteurenLink      ProjectDebiteurenLink?
   tasks               Task[]
   calls               Call[]
   leadProjecten       LeadProject[]
@@ -169,6 +170,22 @@ model ProjectContact {
   @@index([projectId])
   @@index([mauticContactId])
   @@map("project_contacts")
+}
+
+model ProjectDebiteurenLink {
+  id                String   @id @default(cuid())
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId         String   @unique
+  debiteurenKlantId Int
+  klantNaam         String?
+  klantEmail        String?
+  klantAdres        String?
+  linkedBy          String?
+  linkedAt          DateTime @default(now())
+  lastCheckedAt     DateTime?
+
+  @@index([debiteurenKlantId])
+  @@map("project_debiteuren_links")
 }
 
 model Call {
