@@ -79,6 +79,7 @@ model User {
   active        Boolean  @default(true)
   assignedTasks Task[]   @relation("assignee")
   createdTasks  Task[]   @relation("creator")
+  feedbackItems PlatformFeedback[] @relation("feedbackReporter")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -584,6 +585,33 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+model PlatformFeedback {
+  id            String   @id @default(cuid())
+  kind          String   @default("probleem") // probleem | verbetering | idee
+  title         String?
+  message       String   @db.Text
+  expected      String?  @db.Text
+  status        String   @default("open") // open | in_behandeling | opgelost | afgewezen
+  priority      String   @default("normaal") // laag | normaal | hoog | urgent
+  pageUrl       String   @db.Text
+  path          String?
+  browserInfo   Json?
+  reporter      User?    @relation("feedbackReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reporterId    String?
+  reporterName  String?
+  reporterEmail String?
+  internalNotes String?  @db.Text
+  resolvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([reporterId])
+  @@index([createdAt])
+  @@map("platform_feedback")
 }
 
 model HypotheekAdviseur {

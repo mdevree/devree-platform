@@ -20,6 +20,7 @@ import {
   MegaphoneIcon,
   CalendarDaysIcon,
   ChatBubbleLeftRightIcon,
+  ChatBubbleBottomCenterTextIcon,
   FireIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
@@ -40,6 +41,7 @@ const navigation = [
   { name: "Realiteitscan", href: "/realiteitscan", icon: MagnifyingGlassCircleIcon },
   { name: "Facebook Triggers", href: "/facebook-triggers", icon: MegaphoneIcon },
   { name: "WhatsApp", href: "/whatsapp", icon: ChatBubbleLeftRightIcon },
+  { name: "Feedback", href: "/feedback", icon: ChatBubbleBottomCenterTextIcon },
 ];
 
 
