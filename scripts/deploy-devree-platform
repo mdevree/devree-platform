@@ -13,6 +13,32 @@ log() {
   printf "%s %s\n" "$(date -Is)" "$*" | tee -a "$LOG_FILE"
 }
 
+compose_up_service() {
+  local output status
+
+  set +e
+  output="$(docker-compose up -d --no-deps "$SERVICE" 2>&1)"
+  status=$?
+  set -e
+  printf "%s\n" "$output" | tee -a "$LOG_FILE"
+
+  if [[ $status -ne 0 && "$output" == *"ContainerConfig"* ]]; then
+    log "docker-compose ContainerConfig bug hit; removing platform containers and retrying"
+    local container_ids
+    container_ids="$(docker ps -aq --filter "name=$SERVICE" || true)"
+    if [[ -n "$container_ids" ]]; then
+      docker rm -f $container_ids 2>&1 | tee -a "$LOG_FILE" || true
+    fi
+    set +e
+    docker-compose up -d --no-deps "$SERVICE" 2>&1 | tee -a "$LOG_FILE"
+    status="${PIPESTATUS[0]}"
+    set -e
+    return "$status"
+  fi
+
+  return "$status"
+}
+
 if [[ -z "$TAG" ]]; then
   echo "Usage: deploy-devree-platform <ghcr-tag-or-sha>" >&2
   exit 64
@@ -39,24 +65,11 @@ docker pull "$IMAGE_REPO:$TAG" | tee -a "$LOG_FILE"
 perl -0pi -e "s#image:\s*ghcr\.io/mdevree/devree-platform:[^\n]+#image: $IMAGE_REPO:$TAG#" "$COMPOSE_FILE"
 
 log "Recreating $SERVICE"
-set +e
-COMPOSE_OUTPUT="$(docker-compose up -d --no-deps "$SERVICE" 2>&1)"
-COMPOSE_STATUS=$?
-set -e
-printf "%s\n" "$COMPOSE_OUTPUT" | tee -a "$LOG_FILE"
-
-if [[ $COMPOSE_STATUS -ne 0 && "$COMPOSE_OUTPUT" == *"ContainerConfig"* ]]; then
-  log "docker-compose ContainerConfig bug hit; removing platform containers and retrying"
-  CONTAINER_IDS="$(docker ps -aq --filter "name=$SERVICE" || true)"
-  if [[ -n "$CONTAINER_IDS" ]]; then
-    docker rm -f $CONTAINER_IDS 2>&1 | tee -a "$LOG_FILE" || true
-  fi
-  docker-compose up -d --no-deps "$SERVICE" 2>&1 | tee -a "$LOG_FILE"
-elif [[ $COMPOSE_STATUS -ne 0 ]]; then
+if ! compose_up_service; then
   log "Compose failed; restoring previous compose file"
   cp "$BACKUP_FILE" "$COMPOSE_FILE"
-  docker-compose up -d --no-deps "$SERVICE" 2>&1 | tee -a "$LOG_FILE" || true
-  exit "$COMPOSE_STATUS"
+  compose_up_service || true
+  exit 1
 fi
 
 log "Healthcheck $HEALTH_URL"
@@ -74,7 +87,7 @@ if [[ "$HEALTH_OK" -ne 1 ]]; then
   log "Healthcheck failed; rolling back to $CURRENT_TAG"
   cp "$BACKUP_FILE" "$COMPOSE_FILE"
   docker pull "$IMAGE_REPO:$CURRENT_TAG" 2>&1 | tee -a "$LOG_FILE" || true
-  docker-compose up -d --no-deps "$SERVICE" 2>&1 | tee -a "$LOG_FILE" || true
+  compose_up_service || true
   exit 1
 fi
 
