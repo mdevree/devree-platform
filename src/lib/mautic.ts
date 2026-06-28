@@ -752,16 +752,36 @@ export async function listSegments(): Promise<MauticSegment[]> {
     .filter((segment) => segment.id > 0);
 }
 
-export async function getSegmentSubscriberCount(segmentId: number): Promise<number | null> {
-  const response = await mauticFetch(`/api/segments/${segmentId}/contacts?limit=1`);
-
-  if (!response.ok) {
-    console.error("Mautic segment-contacten ophalen mislukt:", response.status, await response.text());
+async function fetchWithTimeout(path: string, timeoutMs: number): Promise<Response | null> {
+  try {
+    return await mauticFetch(path, { signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    if (error instanceof Error && error.name !== "TimeoutError" && error.name !== "AbortError") {
+      console.error("Mautic request mislukt:", error.message);
+    }
     return null;
   }
+}
 
-  const data = await response.json();
-  return parseNumberField(data.total) ?? parseNumberField(data.totalCount) ?? null;
+export async function getSegmentSubscriberCount(segmentId: number, alias?: string | null): Promise<number | null> {
+  const response = await fetchWithTimeout(`/api/segments/${segmentId}/contacts?limit=1`, 5000);
+
+  if (response?.ok) {
+    const data = await response.json();
+    const count = parseNumberField(data.total) ?? parseNumberField(data.totalCount);
+    if (count !== null) return count;
+  } else if (response) {
+    console.error("Mautic segment-contacten ophalen mislukt:", response.status, await response.text());
+  }
+
+  if (!alias) return null;
+
+  const search = encodeURIComponent(`segment:${alias}`);
+  const fallbackResponse = await fetchWithTimeout(`/api/contacts?search=${search}&limit=1&minimal=1`, 8000);
+  if (!fallbackResponse?.ok) return null;
+
+  const fallbackData = await fallbackResponse.json();
+  return parseNumberField(fallbackData.total) ?? null;
 }
 
 export async function createNewsletterEmail(data: {

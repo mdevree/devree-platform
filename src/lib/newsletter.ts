@@ -167,9 +167,14 @@ export function normalizeSegmentIds(value: unknown): number[] {
   return value.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
 }
 
-async function getSubscriberCount(segmentIds: number[]): Promise<number | null> {
+async function getSubscriberCount(segmentIds: number[], segments: MauticSegment[]): Promise<number | null> {
   if (!segmentIds.length) return null;
-  const counts = await Promise.all(segmentIds.map((id) => getSegmentSubscriberCount(id)));
+  const counts = await Promise.all(
+    segmentIds.map((id) => {
+      const segment = segments.find((entry) => entry.id === id);
+      return getSegmentSubscriberCount(id, segment?.alias);
+    })
+  );
   const knownCounts = counts.filter((count): count is number => count !== null);
   if (!knownCounts.length) return null;
   return knownCounts.reduce((sum, count) => sum + count, 0);
@@ -198,7 +203,7 @@ export async function getNewsletterDashboard(): Promise<NewsletterDashboard> {
   const metricSegmentIds = issueSegmentIds.length > 0 ? issueSegmentIds : newsletterSegmentIds;
   const subscriberCount =
     metricSegmentIds.length > 0
-      ? await getSubscriberCount(metricSegmentIds)
+      ? await getSubscriberCount(metricSegmentIds, segments)
       : segments.reduce<number | null>((sum, segment) => {
           if (segment.subscriberCount === null) return sum;
           return (sum ?? 0) + segment.subscriberCount;
