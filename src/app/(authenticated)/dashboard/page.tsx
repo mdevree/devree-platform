@@ -102,7 +102,7 @@ export default async function DashboardPage() {
         </Link>
 
         <a
-          href={process.env.NEXT_PUBLIC_DEBITEUREN_URL || "#"}
+          href="/api/debiteuren/login"
           target="_blank"
           rel="noopener noreferrer"
           className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"

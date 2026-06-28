@@ -48,7 +48,7 @@ const navigation = [
 const externalLinks = [
   {
     name: "Facturatie",
-    href: process.env.NEXT_PUBLIC_DEBITEUREN_URL || "#",
+    href: "/api/debiteuren/login",
     icon: DocumentTextIcon,
   },
 ];

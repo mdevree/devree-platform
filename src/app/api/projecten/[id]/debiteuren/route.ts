@@ -4,7 +4,7 @@ import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import {
   getDebiteurenFactuurSamenvatting,
-  getDebiteurenPublicUrl,
+  getDebiteurenSharedLoginPath,
   isDebiteurenApiError,
 } from "@/lib/debiteuren";
 
@@ -40,7 +40,7 @@ export async function GET(
     return NextResponse.json({
       link: updatedLink,
       summary,
-      debiteurenUrl: getDebiteurenPublicUrl(`/?page=klanten&action=bewerk&id=${link.debiteurenKlantId}`),
+      debiteurenUrl: getDebiteurenSharedLoginPath(`/?page=klanten&action=bewerk&id=${link.debiteurenKlantId}`),
     });
   } catch (error) {
     const status = isDebiteurenApiError(error) ? error.status : 502;
@@ -94,7 +94,7 @@ export async function POST(
       success: true,
       link,
       summary,
-      debiteurenUrl: getDebiteurenPublicUrl(`/?page=klanten&action=bewerk&id=${debiteurenKlantId}`),
+      debiteurenUrl: getDebiteurenSharedLoginPath(`/?page=klanten&action=bewerk&id=${debiteurenKlantId}`),
     });
   } catch (error) {
     const status = isDebiteurenApiError(error) ? error.status : 502;
