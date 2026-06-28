@@ -23,6 +23,7 @@ import {
   ChatBubbleBottomCenterTextIcon,
   FireIcon,
   SparklesIcon,
+  NewspaperIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -32,6 +33,7 @@ const navigation = [
   { name: "Digitale medewerker", href: "/digitale-medewerker", icon: SparklesIcon },
   { name: "Projecten", href: "/projecten", icon: FolderIcon },
   { name: "Contacten", href: "/contacten", icon: UsersIcon },
+  { name: "Nieuwsbrief", href: "/nieuwsbrief", icon: NewspaperIcon },
   { name: "Pipeline", href: "/pipeline", icon: ChartBarIcon },
   { name: "Agenda", href: "/agenda", icon: CalendarDaysIcon },
   { name: "Taken", href: "/taken", icon: ClipboardDocumentListIcon },

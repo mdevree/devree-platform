@@ -692,6 +692,144 @@ export async function addMauticTags(
   }
 }
 
+export interface MauticSegment {
+  id: number;
+  name: string;
+  alias: string | null;
+  isPublished: boolean;
+  subscriberCount: number | null;
+}
+
+export interface MauticEmailSummary {
+  id: number;
+  name: string;
+  subject: string | null;
+  isPublished: boolean;
+  sentCount: number | null;
+  readCount: number | null;
+  clickCount: number | null;
+  dateSent: string | null;
+}
+
+function parseNumberField(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function readFirstNumber(source: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const parsed = parseNumberField(source[key]);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function mapSegment(raw: Record<string, unknown>, idFallback?: number): MauticSegment {
+  const id = parseNumberField(raw.id) ?? idFallback ?? 0;
+  return {
+    id,
+    name: String(raw.name || raw.title || raw.alias || `Segment ${id}`),
+    alias: typeof raw.alias === "string" ? raw.alias : null,
+    isPublished: raw.isPublished === undefined ? true : Boolean(raw.isPublished),
+    subscriberCount: readFirstNumber(raw, ["subscriberCount", "leadCount", "contactCount", "count", "leads"]),
+  };
+}
+
+export async function listSegments(): Promise<MauticSegment[]> {
+  const response = await mauticFetch("/api/segments?limit=200&orderBy=name&orderByDir=asc");
+
+  if (!response.ok) {
+    console.error("Mautic segmenten ophalen mislukt:", response.status, await response.text());
+    return [];
+  }
+
+  const data = await response.json();
+  const rawSegments = data.lists || data.segments || {};
+
+  return Object.entries(rawSegments)
+    .map(([id, segment]) => mapSegment(segment as Record<string, unknown>, Number(id)))
+    .filter((segment) => segment.id > 0);
+}
+
+export async function getSegmentSubscriberCount(segmentId: number): Promise<number | null> {
+  const response = await mauticFetch(`/api/segments/${segmentId}/contacts?limit=1`);
+
+  if (!response.ok) {
+    console.error("Mautic segment-contacten ophalen mislukt:", response.status, await response.text());
+    return null;
+  }
+
+  const data = await response.json();
+  return parseNumberField(data.total) ?? parseNumberField(data.totalCount) ?? null;
+}
+
+export async function createNewsletterEmail(data: {
+  name: string;
+  subject: string;
+  preheader?: string | null;
+  segmentIds: number[];
+  html: string;
+  plainText: string;
+}): Promise<{ id: number; url: string | null }> {
+  const response = await mauticFetch("/api/emails/new", {
+    method: "POST",
+    body: JSON.stringify({
+      name: data.name,
+      subject: data.subject,
+      preheaderText: data.preheader || "",
+      emailType: "list",
+      isPublished: false,
+      lists: data.segmentIds,
+      customHtml: data.html,
+      plainText: data.plainText,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Mautic nieuwsbriefconcept aanmaken mislukt: ${response.status} ${await response.text()}`);
+  }
+
+  const result = await response.json();
+  const email = result.email || result;
+  const id = parseNumberField(email.id) ?? parseNumberField(result.id);
+  if (!id) throw new Error("Mautic gaf geen email-id terug voor het nieuwsbriefconcept");
+
+  return {
+    id,
+    url: `${MAUTIC_URL.replace(/\/$/, "")}/s/emails/view/${id}`,
+  };
+}
+
+export async function getEmailSummary(emailId: number): Promise<MauticEmailSummary | null> {
+  const response = await mauticFetch(`/api/emails/${emailId}`);
+
+  if (!response.ok) {
+    console.error("Mautic email ophalen mislukt:", response.status, await response.text());
+    return null;
+  }
+
+  const data = await response.json();
+  const email = (data.email || data) as Record<string, unknown>;
+  const stats = ((email.stats || email.stat || {}) as Record<string, unknown>) || {};
+
+  return {
+    id: emailId,
+    name: String(email.name || email.internalName || `Email ${emailId}`),
+    subject: typeof email.subject === "string" ? email.subject : null,
+    isPublished: Boolean(email.isPublished),
+    sentCount: readFirstNumber({ ...email, ...stats }, ["sentCount", "sent", "sent_count", "emailsSent"]),
+    readCount: readFirstNumber({ ...email, ...stats }, ["readCount", "read", "reads", "openCount", "opened"]),
+    clickCount: readFirstNumber({ ...email, ...stats }, ["clickCount", "clicks", "hitCount", "hits"]),
+    dateSent:
+      typeof email.dateSent === "string"
+        ? email.dateSent
+        : typeof email.sentDate === "string"
+          ? email.sentDate
+          : null,
+  };
+}
+
 /**
  * Maak een buurtdata lead aan of update een bestaand contact in Mautic.
  * Zoekt op e-mailadres, maakt nieuw aan als niet gevonden.

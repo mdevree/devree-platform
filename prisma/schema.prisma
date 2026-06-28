@@ -68,20 +68,40 @@ enum LeadPrioriteit {
   URGENT
 }
 
+enum NewsletterItemStatus {
+  INBOX
+  GEPLAND
+  GEBRUIKT
+  GEARCHIVEERD
+}
+
+enum NewsletterIssueStatus {
+  DRAFT
+  READY
+  EXPORTED
+}
+
+enum NewsletterBlockType {
+  HERO
+  TEXT
+  LINK_LIST
+  CTA
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
-  id            String   @id @default(cuid())
+  id            String             @id @default(cuid())
   name          String
-  email         String   @unique
+  email         String             @unique
   password      String
-  role          String   @default("makelaar") // manager, makelaar, binnendienst
-  active        Boolean  @default(true)
-  assignedTasks Task[]   @relation("assignee")
-  createdTasks  Task[]   @relation("creator")
+  role          String             @default("makelaar") // manager, makelaar, binnendienst
+  active        Boolean            @default(true)
+  assignedTasks Task[]             @relation("assignee")
+  createdTasks  Task[]             @relation("creator")
   feedbackItems PlatformFeedback[] @relation("feedbackReporter")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@map("users")
 }
@@ -141,10 +161,10 @@ model Project {
   leadProjecten       LeadProject[]
   facebookTriggers    FacebookTrigger[]
   agendaAfspraken     AgendaAfspraak[]
-  hypotheekAdviseur   HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
+  hypotheekAdviseur   HypotheekAdviseur?     @relation(fields: [hypotheekAdviseurId], references: [id])
   hypotheekAdviseurId String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   @@index([status])
   @@index([projectStatus])
@@ -173,15 +193,15 @@ model ProjectContact {
 }
 
 model ProjectDebiteurenLink {
-  id                String   @id @default(cuid())
-  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId         String   @unique
+  id                String    @id @default(cuid())
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId         String    @unique
   debiteurenKlantId Int
   klantNaam         String?
   klantEmail        String?
   klantAdres        String?
   linkedBy          String?
-  linkedAt          DateTime @default(now())
+  linkedAt          DateTime  @default(now())
   lastCheckedAt     DateTime?
 
   @@index([debiteurenKlantId])
@@ -455,6 +475,69 @@ model MauticEvent {
   @@map("mautic_events")
 }
 
+model NewsletterItem {
+  id          String               @id @default(cuid())
+  title       String
+  url         String?              @db.Text
+  description String?              @db.Text
+  category    String?
+  audience    String?
+  status      NewsletterItemStatus @default(INBOX)
+  sourceTitle String?
+  sourceHost  String?
+  createdBy   String?
+  blocks      NewsletterBlock[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@map("newsletter_items")
+}
+
+model NewsletterIssue {
+  id             String                @id @default(cuid())
+  name           String
+  subject        String
+  preheader      String?
+  status         NewsletterIssueStatus @default(DRAFT)
+  segmentIds     Json?
+  mauticEmailId  Int?
+  mauticEmailUrl String?               @db.Text
+  exportedAt     DateTime?
+  blocks         NewsletterBlock[]
+  createdBy      String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([status])
+  @@index([mauticEmailId])
+  @@index([createdAt])
+  @@map("newsletter_issues")
+}
+
+model NewsletterBlock {
+  id        String              @id @default(cuid())
+  issue     NewsletterIssue     @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issueId   String
+  item      NewsletterItem?     @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  itemId    String?
+  type      NewsletterBlockType @default(TEXT)
+  position  Int                 @default(0)
+  title     String?
+  body      String?             @db.Text
+  url       String?             @db.Text
+  ctaLabel  String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([issueId])
+  @@index([itemId])
+  @@index([position])
+  @@map("newsletter_blocks")
+}
+
 model RealworksObjectMutation {
   id               String    @id @default(cuid())
   sourceMessageId  String
@@ -605,24 +688,24 @@ model AppSetting {
 }
 
 model PlatformFeedback {
-  id            String   @id @default(cuid())
-  kind          String   @default("probleem") // probleem | verbetering | idee
+  id            String    @id @default(cuid())
+  kind          String    @default("probleem") // probleem | verbetering | idee
   title         String?
-  message       String   @db.Text
-  expected      String?  @db.Text
-  status        String   @default("open") // open | in_behandeling | opgelost | afgewezen
-  priority      String   @default("normaal") // laag | normaal | hoog | urgent
-  pageUrl       String   @db.Text
+  message       String    @db.Text
+  expected      String?   @db.Text
+  status        String    @default("open") // open | in_behandeling | opgelost | afgewezen
+  priority      String    @default("normaal") // laag | normaal | hoog | urgent
+  pageUrl       String    @db.Text
   path          String?
   browserInfo   Json?
-  reporter      User?    @relation("feedbackReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reporter      User?     @relation("feedbackReporter", fields: [reporterId], references: [id], onDelete: SetNull)
   reporterId    String?
   reporterName  String?
   reporterEmail String?
-  internalNotes String?  @db.Text
+  internalNotes String?   @db.Text
   resolvedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([status])
   @@index([priority])
