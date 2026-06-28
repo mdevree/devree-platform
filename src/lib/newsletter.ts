@@ -175,6 +175,16 @@ async function getSubscriberCount(segmentIds: number[]): Promise<number | null> 
   return knownCounts.reduce((sum, count) => sum + count, 0);
 }
 
+function findNewsletterSegmentIds(segments: MauticSegment[]): number[] {
+  const newsletterSegments = segments.filter((segment) => {
+    const name = segment.name.toLowerCase();
+    const alias = segment.alias?.toLowerCase() || "";
+    return name === "nieuwsbrief" || alias === "nieuwsbrief" || name.includes("newsletter") || alias.includes("newsletter");
+  });
+
+  return newsletterSegments.map((segment) => segment.id);
+}
+
 export async function getNewsletterDashboard(): Promise<NewsletterDashboard> {
   const [segments, latestIssue] = await Promise.all([
     listSegments(),
@@ -183,10 +193,12 @@ export async function getNewsletterDashboard(): Promise<NewsletterDashboard> {
     }),
   ]);
 
-  const segmentIds = normalizeSegmentIds(latestIssue?.segmentIds);
+  const issueSegmentIds = normalizeSegmentIds(latestIssue?.segmentIds);
+  const newsletterSegmentIds = findNewsletterSegmentIds(segments);
+  const metricSegmentIds = issueSegmentIds.length > 0 ? issueSegmentIds : newsletterSegmentIds;
   const subscriberCount =
-    segmentIds.length > 0
-      ? await getSubscriberCount(segmentIds)
+    metricSegmentIds.length > 0
+      ? await getSubscriberCount(metricSegmentIds)
       : segments.reduce<number | null>((sum, segment) => {
           if (segment.subscriberCount === null) return sum;
           return (sum ?? 0) + segment.subscriberCount;
@@ -195,7 +207,7 @@ export async function getNewsletterDashboard(): Promise<NewsletterDashboard> {
   if (!latestIssue) {
     return {
       subscriberCount,
-      subscriberLabel: segmentIds.length ? "Abonnees in gekozen segmenten" : "Abonnees in Mautic segmenten",
+      subscriberLabel: newsletterSegmentIds.length ? "Abonnees nieuwsbrief" : "Abonnees in Mautic segmenten",
       segments,
       latestIssue: null,
     };
@@ -218,7 +230,7 @@ export async function getNewsletterDashboard(): Promise<NewsletterDashboard> {
 
   return {
     subscriberCount,
-    subscriberLabel: segmentIds.length ? "Abonnees in laatste editie" : "Abonnees in Mautic segmenten",
+    subscriberLabel: issueSegmentIds.length ? "Abonnees in laatste editie" : "Abonnees nieuwsbrief",
     segments,
     latestIssue: {
       id: latestIssue.id,
