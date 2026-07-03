@@ -72,6 +72,67 @@ function fmtDistance(value: number | null): string {
   return `${(value / 1000).toLocaleString("nl-NL", { maximumFractionDigits: 1 })} km`;
 }
 
+type PremiumBuurtdata = NonNullable<BuurtdataResult["premium_buurtdata"]>;
+type PremiumPlace = NonNullable<PremiumBuurtdata["places"]>[number];
+type PremiumRoute = NonNullable<PremiumBuurtdata["routes"]>[number];
+
+function fmtMinutes(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  if (value < 1) return "< 1 min.";
+  return `${Math.round(value).toLocaleString("nl-NL")} min.`;
+}
+
+function fmtPremiumDistance(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  return fmtDistance(value);
+}
+
+function premiumPlaceLabel(place: PremiumPlace): string {
+  return [
+    fmtPremiumDistance(place.distanceMeters),
+    place.walkMinutes !== null && place.walkMinutes !== undefined ? `${fmtMinutes(place.walkMinutes)} lopen` : "",
+    place.bikeMinutes !== null && place.bikeMinutes !== undefined ? `${fmtMinutes(place.bikeMinutes)} fietsen` : "",
+    place.driveMinutes !== null && place.driveMinutes !== undefined ? `${fmtMinutes(place.driveMinutes)} auto` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+function premiumRouteValue(route: PremiumRoute): string {
+  return [
+    route.mode,
+    fmtMinutes(route.durationMinutes),
+    fmtPremiumDistance(route.distanceMeters),
+  ].filter(Boolean).join(" · ");
+}
+
+function hasPremiumBuurtdata(premium: PremiumBuurtdata | null | undefined): premium is PremiumBuurtdata {
+  if (!premium) return false;
+  return Boolean(
+    premium.summaryText ||
+      premium.salesText ||
+      premium.taxatieText ||
+      (premium.facts?.length ?? 0) > 0 ||
+      (premium.places?.length ?? 0) > 0 ||
+      (premium.routes?.length ?? 0) > 0 ||
+      (premium.signals?.length ?? 0) > 0
+  );
+}
+
+function premiumFactItems(premium: PremiumBuurtdata): { label: string; value: string }[] {
+  const explicitFacts = premium.facts ?? [];
+  const placeFacts = (premium.places ?? []).slice(0, 4).map((place) => ({
+    label: place.category || "Voorziening",
+    value: [place.name, premiumPlaceLabel(place)].filter(Boolean).join(" · "),
+  }));
+  const routeFacts = (premium.routes ?? []).slice(0, 3).map((route) => ({
+    label: route.label || "Reistijd",
+    value: premiumRouteValue(route),
+  }));
+
+  return [...explicitFacts, ...placeFacts, ...routeFacts]
+    .filter((item) => item.label && item.value)
+    .slice(0, 8);
+}
+
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 function Section({
@@ -179,6 +240,8 @@ export function BuurtdataReport({ data, showLogo = false }: { data: BuurtdataRes
   const gel = data.geluid;
   const lk = data.luchtkwaliteit;
   const radar = data.radar?.available ? data.radar : null;
+  const premium = hasPremiumBuurtdata(data.premium_buurtdata) ? data.premium_buurtdata : null;
+  const premiumFacts = premium ? premiumFactItems(premium) : [];
   const lfColors = lf ? leefbaarheidColors(lf.klasse_score) : null;
   const radarColors = radar ? radarRiskClasses(radar.riskLevel) : null;
 
@@ -353,6 +416,72 @@ export function BuurtdataReport({ data, showLogo = false }: { data: BuurtdataRes
             <p className="mt-3 text-[10px] text-gray-500">
               Gebaseerd op openbare bronnen via Fridu Radar.
             </p>
+          </div>
+        </Section>
+      )}
+
+      {/* ── Premium Buurtdata ── */}
+      {premium && (
+        <Section
+          title={premium.title || "Premium Buurtdata"}
+          source={[...(premium.sources ?? []), premium.attribution].filter(Boolean).join(" / ") || "De Vree pilot"}
+        >
+          <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50/60 p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-indigo-200 bg-white px-2.5 py-1 text-xs font-bold text-indigo-700">
+                {premium.status || "pilot"}
+              </span>
+              {premium.attribution && (
+                <span className="rounded-full bg-white/75 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                  {premium.attribution}
+                </span>
+              )}
+            </div>
+
+            {premium.summaryText && (
+              <p className="mt-3 text-sm leading-6 text-gray-800">{premium.summaryText}</p>
+            )}
+
+            {premiumFacts.length > 0 && (
+              <div className="mt-4">
+                <StatGrid items={premiumFacts} />
+              </div>
+            )}
+
+            {(premium.taxatieText || premium.salesText) && (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {premium.taxatieText && (
+                  <div className="rounded-lg bg-white/80 p-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-700">
+                      Taxatie
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-gray-700">{premium.taxatieText}</p>
+                  </div>
+                )}
+                {premium.salesText && (
+                  <div className="rounded-lg bg-white/80 p-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-700">
+                      Verkoop
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-gray-700">{premium.salesText}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(premium.signals?.length ?? 0) > 0 && (
+              <ul className="mt-4 grid gap-2 text-sm text-gray-700">
+                {premium.signals?.slice(0, 6).map((signal, index) => (
+                  <li key={`${signal}-${index}`} className="rounded-lg bg-white/75 px-3 py-2">
+                    {signal}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {premium.storagePolicy && (
+              <p className="mt-3 text-[10px] leading-5 text-gray-500">{premium.storagePolicy}</p>
+            )}
           </div>
         </Section>
       )}

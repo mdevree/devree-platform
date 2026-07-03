@@ -1,3 +1,38 @@
+export interface PremiumBuurtdataPlace {
+  category?: string;
+  name?: string;
+  distanceMeters?: number | null;
+  walkMinutes?: number | null;
+  bikeMinutes?: number | null;
+  driveMinutes?: number | null;
+  source?: string;
+  placeId?: string;
+}
+
+export interface PremiumBuurtdataRoute {
+  label?: string;
+  mode?: string;
+  durationMinutes?: number | null;
+  distanceMeters?: number | null;
+  source?: string;
+}
+
+export interface PremiumBuurtdataResult {
+  status?: string;
+  title?: string;
+  summaryText?: string;
+  salesText?: string;
+  taxatieText?: string;
+  facts?: { label: string; value: string }[];
+  places?: PremiumBuurtdataPlace[];
+  routes?: PremiumBuurtdataRoute[];
+  signals?: string[];
+  sources?: string[];
+  attribution?: string;
+  storagePolicy?: string;
+  generatedAt?: string;
+}
+
 export interface BuurtdataResult {
   meta: {
     gegenereerd_op: string;
@@ -156,6 +191,7 @@ export interface BuurtdataResult {
     };
     bron: string;
   } | null;
+  premium_buurtdata?: PremiumBuurtdataResult | null;
   radar?: {
     available: boolean;
     headline: string;
