@@ -38,6 +38,14 @@ function percent(value: number | null | undefined): string {
   }).format(value)}% inclusief btw`;
 }
 
+function percentLegal(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "________";
+  return `${new Intl.NumberFormat("nl-NL", {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(value)} % incl. BTW`;
+}
+
 function line(label: string, value: unknown) {
   return `
     <div class="field">
@@ -67,14 +75,20 @@ async function renderPdf(html: string): Promise<Buffer> {
 
 type Opdrachtgever = {
   naam: string;
+  voornamen?: string | null;
+  geboorteplaats?: string | null;
   email?: string | null;
   telefoon?: string | null;
   adres?: string | null;
+  woonplaats?: string | null;
+  postcode?: string | null;
+  straat?: string | null;
   postcodePlaats?: string | null;
+  burgerlijkeStaat?: string | null;
   rol?: string | null;
 };
 
-function renderOpdrachtgevers(opdrachtgevers: Opdrachtgever[]) {
+function renderOpdrachtgeverSamenvatting(opdrachtgevers: Opdrachtgever[]) {
   return opdrachtgevers.map((opdrachtgever, index) => `
     <tr>
       <td>${index + 1}</td>
@@ -92,21 +106,59 @@ function renderOpdrachtgevers(opdrachtgevers: Opdrachtgever[]) {
   `).join("");
 }
 
+function renderPartyField(label: string, value: unknown) {
+  return `
+    <div class="party-row">
+      <div>${escapeHtml(label)}</div>
+      <div>:</div>
+      <div>${escapeHtml(value || "……………………………………")}</div>
+    </div>
+  `;
+}
+
+function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
+  return opdrachtgevers.map((opdrachtgever, index) => {
+    const woonplaats = opdrachtgever.woonplaats || opdrachtgever.postcodePlaats?.replace(/^\d{4}\s?[A-Z]{2}\s*/i, "") || null;
+    const postcode = opdrachtgever.postcode || opdrachtgever.postcodePlaats?.match(/^\d{4}\s?[A-Z]{2}/i)?.[0] || null;
+    const straat = opdrachtgever.straat || opdrachtgever.adres;
+
+    return `
+      <section class="party-block">
+        <p><strong>${opdrachtgevers.length === 1 ? "De opdrachtgever" : `De opdrachtgever ${index + 1}`}</strong></p>
+        ${renderPartyField("Naam", opdrachtgever.naam)}
+        ${renderPartyField("Voornamen", opdrachtgever.voornamen)}
+        ${renderPartyField("Geboorteplaats", opdrachtgever.geboorteplaats)}
+        ${renderPartyField("Woonplaats", woonplaats)}
+        ${renderPartyField("Postcode", postcode)}
+        ${renderPartyField("Straat", straat)}
+        ${renderPartyField("E-mailadres", opdrachtgever.email)}
+        ${renderPartyField("Telefoon", opdrachtgever.telefoon)}
+        ${renderPartyField("Burgerlijke staat", opdrachtgever.burgerlijkeStaat)}
+      </section>
+    `;
+  }).join("");
+}
+
 function renderHandtekeningen(opdrachtgevers: Opdrachtgever[]) {
-  return [
-    ...opdrachtgevers.map((opdrachtgever, index) => ({
-      title: opdrachtgevers.length === 1 ? "De opdrachtgever" : `Opdrachtgever ${index + 1}`,
-      name: opdrachtgever.naam,
-    })),
-    { title: "Het NVM-lid", name: "De heer M. de Vree" },
-  ].map((block) => `
+  const opdrachtgeverBlocks = opdrachtgevers.map((opdrachtgever, index) => `
     <div class="signature">
-      <p class="signature-title">${escapeHtml(block.title)}</p>
+      <p class="signature-title">${escapeHtml(opdrachtgevers.length === 1 ? "De opdrachtgever(s)," : `De opdrachtgever ${index + 1},`)}</p>
       <div class="signature-line"></div>
-      <p>${escapeHtml(block.name)}</p>
-      <p>Plaats/datum: ______________________________</p>
+      <p>naam: ${escapeHtml(opdrachtgever.naam || "……………………………………")}</p>
+      <p>plaats: ……………………………………</p>
+      <p>datum: ……………………………………</p>
     </div>
   `).join("");
+
+  return `${opdrachtgeverBlocks}
+    <div class="signature">
+      <p class="signature-title">Het NVM-lid,</p>
+      <div class="signature-line"></div>
+      <p>naam: De heer M. de Vree</p>
+      <p>plaats: ……………………………………</p>
+      <p>datum: ……………………………………</p>
+    </div>
+  `;
 }
 
 function buildHtml({
@@ -117,32 +169,21 @@ function buildHtml({
   opdrachtgevers: Opdrachtgever[];
 }) {
   if (!project) throw new Error("Project ontbreekt");
-  const directCosts = [
-    { label: "Publiciteitskosten", value: project.kostenPubliciteit },
-    { label: "Energielabel definitief maken", value: project.kostenEnergielabel },
-    { label: "Juridisch", value: project.kostenJuridisch },
-    { label: "Bouwkundig", value: project.kostenBouwkundig },
-  ].filter((row) => row.value !== null && row.value !== undefined);
-  const directTotal = directCosts.reduce((sum, row) => sum + (row.value || 0), 0);
   const verkoopmethode = project.verkoopmethode
     ? VERKOOPMETHODE_LABELS[project.verkoopmethode] || project.verkoopmethode
-    : "________";
+    : "……………………………………";
   const objectAdres = [project.woningAdres || project.address, project.woningPostcode, project.woningPlaats]
     .filter(Boolean)
     .join(", ");
-  const kadastraal = [
-    project.kadGemeente && `gemeente ${project.kadGemeente}`,
-    project.kadSectie && `sectie ${project.kadSectie}`,
-    project.kadNummer && `nummer ${project.kadNummer}`,
-  ].filter(Boolean).join(", ");
+  const kadastraal = `gemeente ${project.kadGemeente || "…………………"}, sectie ${project.kadSectie || "……"}, no. ${project.kadNummer || "…………"}, groot ……… m²`;
   const vandaag = new Intl.DateTimeFormat("nl-NL").format(new Date());
   const aanvaarding = project.aanvaarding || "________";
   const vraagprijs = project.vraagprijs ? `${euro(project.vraagprijs)} k.k.` : "________";
-  const courtage = percent(project.courtagePercentage);
+  const courtage = percentLegal(project.courtagePercentage);
   const publiciteitskosten = project.kostenPubliciteit ?? 650;
   const intrekkingskosten = project.kostenIntrekking ?? 600;
   const bedenktijdkosten = project.kostenBedenktijd ?? 350;
-  const aanvullendeAfspraken = project.bijzondereAfspraken?.trim() || "……………………………………………………………………";
+  const bijzondereAfspraken = project.bijzondereAfspraken?.trim() || "……………………………………………………………………";
 
   return `<!doctype html>
 <html lang="nl">
@@ -242,6 +283,21 @@ function buildHtml({
       break-inside: avoid;
       margin-bottom: 3px;
     }
+    .party-block {
+      border-bottom: 1px solid #edf1ef;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      page-break-inside: avoid;
+    }
+    .party-block p {
+      margin: 0 0 5px;
+    }
+    .party-row {
+      display: grid;
+      gap: 7px;
+      grid-template-columns: 34mm 3mm 1fr;
+      margin-bottom: 2px;
+    }
     .signatures {
       display: grid;
       gap: 14px;
@@ -286,12 +342,15 @@ function buildHtml({
     <h1>Opdracht tot dienstverlening bij verkoop</h1>
   </header>
 
-  <h2>Opdrachtgever(s)</h2>
+  <h2>De ondergetekende(n)</h2>
+  ${renderOpdrachtgeverBlokken(opdrachtgevers)}
+
+  <h2>Contactoverzicht</h2>
   <table>
     <thead>
       <tr><th>#</th><th>Naam</th><th>E-mail</th><th>Telefoon</th><th>Adres</th></tr>
     </thead>
-    <tbody>${renderOpdrachtgevers(opdrachtgevers)}</tbody>
+    <tbody>${renderOpdrachtgeverSamenvatting(opdrachtgevers)}</tbody>
   </table>
 
   <h2>Object</h2>
@@ -315,65 +374,48 @@ function buildHtml({
     <div class="section-note"><strong>Aanvullende afspraken</strong><br>${escapeHtml(project.bijzondereAfspraken)}</div>
   ` : ""}
 
-  <h2>Kosten en voorwaarden</h2>
-  <table>
-    <tbody>
-      ${directCosts.map((row) => `
-        <tr>
-          <td>${escapeHtml(row.label)}</td>
-          <td style="text-align:right">${row.value === 0 ? "Niet nodig" : euro(row.value)}</td>
-        </tr>
-      `).join("")}
-      <tr>
-        <td><strong>Totaal directe kosten</strong></td>
-        <td style="text-align:right"><strong>${euro(directTotal)}</strong></td>
-      </tr>
-    </tbody>
-  </table>
-  <table style="margin-top:10px">
-    <tbody>
-      <tr><td>Bij intrekking van de opdracht</td><td style="text-align:right">${euro(project.kostenIntrekking)}</td></tr>
-      <tr><td>Bij ontbinding binnen bedenktijd</td><td style="text-align:right">${euro(project.kostenBedenktijd)}</td></tr>
-    </tbody>
-  </table>
-
   <h2>Opdrachttekst</h2>
   <div class="article">
-    <p>Het NVM-lid: Makelaarskantoor De Vree Makelaardij B.V. te Spijkenisse.</p>
+    <p><strong>Het NVM-lid</strong></p>
+    <p>Makelaarskantoor De Vree Makelaardij B.V. te Spijkenisse.</p>
     <p>De opdrachtgever heeft op ${escapeHtml(vandaag)} aan het NVM-lid een door deze aanvaarde opdracht verstrekt tot het verlenen van diensten bij de verkoop van de onroerende zaak:</p>
-    <p class="indent">- plaatselijk bekend (incl. postcode): ${escapeHtml(objectAdres || "________")}</p>
-    <p class="indent">- kadastraal bekend ${escapeHtml(kadastraal || "gemeente …………………, sectie ……, no. …………, groot ……… m²")}</p>
+    <p class="indent">• plaatselijk bekend (incl. postcode): ${escapeHtml(objectAdres || "________")}</p>
+    <p class="indent">• kadastraal bekend ${escapeHtml(kadastraal)}</p>
     <p>Met betrekking tot de hoogte van de tarieven zijn de opdrachtgever en het NVM-lid het volgende overeengekomen: Courtage over de gerealiseerde transactieprijs van de woning: ${escapeHtml(courtage)}.</p>
-    <p>Op deze opdracht zijn van toepassing de Algemene Consumentenvoorwaarden Makelaardij, d.d. 1 september 2018 (ACV). Hierin zijn de rechten en verplichtingen van de opdrachtgever en het NVM-lid omschreven. De opdrachtgever verklaart dat de tekst van de ACV voor of bij het verstrekken van deze opdracht aan hem ter hand is gesteld.</p>
+    <p>Op deze opdracht zijn van toepassing de Algemene Consumentenvoorwaarden Makelaardij, d.d. 1 september 2018 (ACV). Hierin zijn de rechten en verplichtingen van de opdrachtgever en het NVM-lid omschreven. De opdrachtgever verklaart dat de tekst van de ACV voor of bij het verstrekken van deze opdracht aan hem ter hand is gesteld. De opdrachtgever heeft zich verbonden tot het betalen van loon voor zover dit uit de met het NVM-lid gemaakte afspraken en de van toepassing verklaarde ACV voortvloeit.</p>
     <p>Tenzij partijen schriftelijk anders afspreken is het de opdrachtgever niet toegestaan activiteiten te ontplooien die de makelaar bij het vervullen van zijn opdracht kunnen hinderen. Indien in strijd met het voorgaande een overeenkomst tot stand komt heeft het NVM-lid recht op loon.</p>
-    <p>Op deze opdracht is ook de Erecode NVM van toepassing. Klachten worden behandeld volgens de aangehechte NVM Klachtenprocedure.</p>
+    <p>Op deze opdracht is ook de Erecode NVM van toepassing. Hierin is de gedragscode voor NVM-leden beschreven.</p>
+    <p>Klachten worden behandeld volgens de aangehechte NVM Klachtenprocedure.</p>
     <p>Alle uit hoofde van deze opdracht verschuldigde vergoedingen, zullen door opdrachtgever worden overgemaakt op bankrekeningnummer: NL02 RABO 0380 8057 23 ten name van De Vree Makelaardij B.V..</p>
+    <p>De opdrachtgever en het NVM-lid zijn verder overeengekomen:</p>
     <p><strong>1.</strong> Tenzij uit doorhalingen anders blijkt, stemt de opdrachtgever ermee in dat:</p>
     <p class="indent"><strong>1.1</strong> Het NVM-lid de opdracht, eventueel met foto's, tekeningen e.d. ter kennis brengt van collega's en derden en dat deze gegevens worden opgenomen in gidsen en andere overzichten waaronder Funda.</p>
-    <p class="indent"><strong>1.2</strong> Het NVM-lid kosten maakt zoals hieronder vermeld, die door hem aan de opdrachtgever in rekening worden gebracht, tot in totaal niet meer dan de aangegeven bedragen:</p>
-    <p class="indent">- publiciteitskosten (Funda plaatsing compleet, fotopresentatie inclusief 360 graden foto's, video, plattegronden etc.): max. ${escapeHtml(euro(publiciteitskosten))} incl. BTW;</p>
+    <p class="indent"><strong>1.2</strong> Het NVM-lid kosten maakt zoals hieronder vermeld, die door hem, desgewenst telkens nadat hij deze heeft voldaan, aan de opdrachtgever in rekening worden gebracht en wel, behoudens nadere afspraken, tot in totaal niet meer dan de aangegeven bedragen:</p>
+    <p class="indent">– publiciteitskosten (Funda plaatsing compleet, fotopresentatie inclusief 360 graden foto's, video, plattegronden etc.): max. ${escapeHtml(euro(publiciteitskosten))} incl. BTW;</p>
     ${project.kostenEnergielabel && project.kostenEnergielabel > 0 ? `<p class="indent">- energielabel definitief maken: max. ${escapeHtml(euro(project.kostenEnergielabel))} incl. BTW;</p>` : ""}
     <p class="indent"><strong>1.3</strong> De notaris vóór het verlijden van de akte van levering aan het NVM-lid een exemplaar van het concept van die notariële akte en de nota van afrekening ter inzage verstrekt en, indien en voor zover de opdrachtgever op dat moment nog loon, verschotten of andere kosten verschuldigd is, deze bij het passeren van de akte van levering verrekent.</p>
-    <p class="indent"><strong>1.4</strong> Voor zover eigendomspapieren aan het NVM-lid ter hand zijn gesteld, worden deze bij het tot stand komen van de overeenkomst via de notaris aan de koper ter beschikking gesteld.</p>
+    <p class="indent"><strong>1.4</strong> Voor zover hij zijn eigendomspapieren aan het NVM-lid ter hand heeft gesteld deze bij het tot stand komen van de overeenkomst via de notaris aan de koper ter beschikking worden gesteld.</p>
     <p><strong>2.</strong> Het object is te aanvaarden per ${escapeHtml(aanvaarding)}.</p>
-    <p><strong>3.</strong> De vraagprijs is bepaald op ${escapeHtml(vraagprijs)}</p>
+    <p><strong>3.</strong> De vraagprijs is bepaald op ${escapeHtml(vraagprijs)}.</p>
     <p><strong>4.</strong> Met betrekking tot het intrekken van de opdracht door de opdrachtgever zijn partijen overeengekomen dat de opdrachtgever het volgende bedrag is verschuldigd: ${escapeHtml(euro(intrekkingskosten))} incl. BTW, onverminderd het bepaalde in artikel 19 van de op deze opdracht van toepassing zijnde Algemene Consumentenvoorwaarden Makelaardij 2018.</p>
-    <p><strong>5.</strong> Wettelijke bedenktijd. Indien deze opdracht op afstand of buiten het kantoor van de makelaar tot stand is gekomen, heeft de opdrachtgever gedurende veertien dagen na de totstandkoming van de opdracht het recht deze zonder opgaaf van redenen te ontbinden.</p>
+    <p><strong>5.</strong> Wettelijke bedenktijd. Indien deze opdracht op afstand of buiten het kantoor van de makelaar tot stand is gekomen, heeft de opdrachtgever (consument) gedurende veertien dagen na de totstandkoming van de opdracht het recht deze zonder opgaaf van redenen te ontbinden. De opdrachtgever roept dit recht in via het door de makelaar verstrekte formulier of een schriftelijke of elektronische mededeling. Bij ontbinding zijn uitsluitend de daadwerkelijk gemaakte kosten verschuldigd, vermeerderd met het onder 5b genoemde bedrag. Het risico en de bewijslast voor de juiste en tijdige uitoefening van dit recht liggen bij de opdrachtgever. De begrippen "op afstand" en "buiten het kantoor van de makelaar" hebben de betekenis die de wet en de toepasselijke ACV daaraan geven.</p>
     <p><strong>5b.</strong> Bij ontbinding van de opdracht binnen de bedenktijd is de opdrachtgever een bedrag van ${escapeHtml(euro(bedenktijdkosten))} incl. BTW verschuldigd.</p>
-    <p><strong>5c.</strong> De opdrachtgever verzoekt de makelaar uitdrukkelijk direct met de dienstverlening te beginnen en stemt ermee in dat bij het inroepen van de bedenktijd de daadwerkelijk gemaakte kosten verschuldigd zijn.</p>
+    <p><strong>5c.</strong> De opdrachtgever verzoekt de makelaar uitdrukkelijk direct met de dienstverlening te beginnen en stemt ermee in dat bij het inroepen van de bedenktijd de daadwerkelijk gemaakte kosten verschuldigd zijn. Zodra de opdracht binnen de bedenktijd volledig is uitgevoerd, doet de opdrachtgever afstand van het recht op ontbinding.</p>
     <p>Voor akkoord geparafeerd: ……………</p>
     <p><strong>6.</strong> De bijzonderheden die opdrachtgever bekend zijn zullen worden ingevuld in de "Vragenlijst voor de verkoop van een woning".</p>
-    <p><strong>7.</strong> Het NVM-lid aanvaardt geen nieuwe opdracht van een derde voor een activiteit die direct of indirect verband houdt met het belang van de opdrachtgever, tenzij dit vooraf met opdrachtgever is besproken.</p>
-    <p><strong>8.</strong> Op deze opdracht is het NVM Protocol Transparant Bieden Woonruimte van toepassing. De opdracht wordt uitgevoerd overeenkomstig de procedures, regels en uitgangspunten die in het protocol zijn vermeld. Het protocol is als bijlage opgenomen.</p>
+    <p><strong>7.</strong> Het NVM-lid aanvaardt geen nieuwe opdracht (van een derde) voor een activiteit die direct of indirect verband houdt met het belang van de opdrachtgever, tenzij het NVM-lid de opdrachtgever op de hoogte heeft gesteld van die nieuwe opdracht en samen met de opdrachtgever tot de conclusie is gekomen dat het aanvaarden van die nieuwe opdracht niet strijdig is met het belang van de opdrachtgever.</p>
+    <p><strong>8.</strong> Op deze opdracht is het NVM Protocol Transparant Bieden Woonruimte (hierna te noemen "het Protocol") van toepassing, omdat de verkoop van de woning valt binnen het toepassingsgebied van het protocol zoals daarin omschreven. De opdracht wordt uitgevoerd overeenkomstig de procedures, regels en uitgangspunten die in het protocol zijn vermeld. Het protocol is als bijlage opgenomen en verkoper verklaart hiervan kennis te hebben genomen en in te stemmen met het protocol.</p>
     <p>Het protocol kent vier mogelijke verkoopmethoden. Partijen spreken af dat de verkoop wordt opgestart met de verkoopmethode ${escapeHtml(verkoopmethode)}.</p>
-    <p>Tijdens het verkoopproces kan blijken dat een andere verkoopmethode beter aansluit bij het behalen van een zo goed mogelijk verkoopresultaat. Partijen kunnen dan in onderling overleg besluiten de gekozen verkoopmethode te wijzigen.</p>
-    <p><strong>9.</strong> Verwerking van persoonsgegevens. De gegevens van opdrachtgever worden door het NVM-lid en de NVM veilig opgeslagen en gebruikt in overeenstemming met de privacyverklaring die opdrachtgever als bijlage bij deze opdracht heeft ontvangen.</p>
-    <p>Daarnaast geeft de opdrachtgever het NVM-lid toestemming om gegevens, documenten en stukken uit deze opdracht - waar mogelijk geanonimiseerd - te gebruiken en te delen in het kader van educatie, opleiding, certificering en kwaliteitsborging.</p>
-    <p><strong>10.</strong> Aansprakelijkheid en exoneraties. Iedere aansprakelijkheid van het NVM-lid is beperkt tot het bedrag dat in het desbetreffende geval op basis van een door het NVM-lid gesloten beroepsaansprakelijkheidsverzekering daadwerkelijk wordt uitbetaald, vermeerderd met het eigen risico onder die verzekering.</p>
+    <p>Tijdens het verkoopproces kan blijken dat een andere verkoopmethode beter aansluit bij het behalen van een zo goed mogelijk verkoopresultaat. Partijen kunnen dan in onderling overleg besluiten de gekozen verkoopmethode te wijzigen en over te stappen op een andere verkoopmethode zoals opgenomen in het protocol. Indien partijen hiertoe besluiten, bevestigt de makelaar deze wijziging – inclusief de reden daarvoor – schriftelijk (bijvoorbeeld per e-mail) aan de verkoper. De makelaar informeert tevens alle (potentiële) bieders schriftelijk over de gewijzigde verkoopmethode en de daarbij behorende reden.</p>
+    <p><strong>9.</strong> Verwerking van persoonsgegevens. De gegevens van opdrachtgever worden door het NVM-lid en de Nederlandse Coöperatieve Vereniging van Makelaars & Taxateurs in onroerende goederen NVM U.A. veilig opgeslagen en gebruikt in overeenstemming met de privacyverklaring die opdrachtgever als bijlage bij deze opdracht tot dienstverlening heeft ontvangen.</p>
+    <p>Daarnaast geeft de opdrachtgever het NVM-lid toestemming om gegevens, documenten en stukken uit deze opdracht – waar mogelijk geanonimiseerd – te gebruiken en te delen in het kader van (permanente) educatie, opleiding, certificering en kwaliteitsborging. Hieronder valt onder meer het beschikbaar stellen van daadwerkelijke gegevens uit de dagelijkse beroepspraktijk aan een certificerende instantie (zoals VastgoedCert) en/of een door deze ingeschakelde exameninstelling ten behoeve van de (her)certificering van de makelaar. Op die verwerking is het privacy statement van de betreffende instantie van toepassing. Deze organisaties is het niet toegestaan de gegevens voor andere doeleinden te gebruiken.</p>
+    <p><strong>10.</strong> Aansprakelijkheid en exoneraties. Iedere aansprakelijkheid van het NVM-lid is beperkt tot het bedrag dat in het desbetreffende geval op basis van een door het NVM-lid gesloten beroepsaansprakelijkheidsverzekering daadwerkelijk wordt uitbetaald, vermeerderd met het eigen risico onder die verzekering. Daarnaast geldt:</p>
     <p class="indent">a. Iedere aansprakelijkheid is beperkt tot uitsluitend de opdrachtgever en het doel van de opdracht;</p>
-    <p class="indent">b. De hoogte van onze aansprakelijkheid is beperkt tot maximaal het bedrag waartoe wij op branche gebruikelijke voorwaarden verplicht verzekerd zijn tegen beroepsaansprakelijkheid;</p>
-    <p class="indent">c. Onze aansprakelijkheid eindigt uiterlijk één jaar na de juridische levering van het verkochte.</p>
-    <p><strong>11. Aanvullende afspraken:</strong> ${escapeHtml(aanvullendeAfspraken)}</p>
+    <p class="indent">b. De hoogte van onze aansprakelijkheid is beperkt tot maximaal het bedrag waartoe wij (op grond van ons lidmaatschap van de NVM) op branche gebruikelijke voorwaarden verplicht verzekerd zijn tegen beroepsaansprakelijkheid;</p>
+    <p class="indent">c. Onze aansprakelijkheid eindigt uiterlijk één (1) jaar na de juridische levering van het verkochte.</p>
+    <p><strong>11. Bijzondere afspraken:</strong> ${escapeHtml(bijzondereAfspraken)}</p>
+    <p>……………………………………………………………………</p>
+    <p>……………………………………………………………………</p>
     <p><strong>Bijlagen:</strong></p>
     <div class="appendices">
       <p>1. De Algemene Consumentenvoorwaarden Makelaardij, d.d. 1 september 2018</p>
@@ -390,6 +432,7 @@ function buildHtml({
     <div class="signatures">
       ${renderHandtekeningen(opdrachtgevers)}
     </div>
+    <p class="muted">* doorhalen wat niet van toepassing is.</p>
   </div>
 
   <footer>
