@@ -14,6 +14,11 @@ type DocumensoField = {
   height: number;
 };
 
+type DocumensoAttachmentLink = {
+  label: string;
+  data: string;
+};
+
 export type DocumensoConceptResult = {
   documentId: number;
   envelopeId: string;
@@ -69,6 +74,41 @@ function templateAttachmentItemIds() {
     .filter(Boolean);
 }
 
+export function allowedOtdAttachmentItemIds() {
+  return templateAttachmentItemIds();
+}
+
+function publicPlatformBaseUrl() {
+  const url = process.env.DOCUMENSO_ATTACHMENT_PUBLIC_BASE_URL
+    || process.env.NEXT_PUBLIC_PLATFORM_URL
+    || process.env.PLATFORM_BASE_URL
+    || process.env.NEXTAUTH_URL;
+
+  if (!url) {
+    throw new DocumensoApiError("Publieke platform-URL ontbreekt voor Documenso-bijlagen");
+  }
+
+  return url.replace(/\/$/, "");
+}
+
+function signingRedirectUrl() {
+  return process.env.DOCUMENSO_REDIRECT_URL || "https://www.devreemakelaardij.nl/bedankt-voor-uw-akkoord/";
+}
+
+function attachmentLabel(itemId: string) {
+  if (itemId === "envelope_item_voenxhxtymcfmfti") return "Algemene consumentenvoorwaarden";
+  if (itemId === "envelope_item_ckdzuncvzlhmnahm") return "NVM Protocol Transparant Bieden Woonruimte";
+  return itemId;
+}
+
+function attachmentLinks(): DocumensoAttachmentLink[] {
+  const platformUrl = publicPlatformBaseUrl();
+  return templateAttachmentItemIds().map((itemId) => ({
+    label: attachmentLabel(itemId),
+    data: `${platformUrl}/api/public/documenso/otd-attachment/${encodeURIComponent(itemId)}`,
+  }));
+}
+
 function blobPart(buffer: Buffer) {
   return new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
 }
@@ -97,7 +137,7 @@ function signatureSlotFields(slotIndex: number): Pick<DocumensoField, "pageX" | 
   const row = Math.floor(slotIndex / 2);
   return {
     pageX: column === 0 ? 9 : 54,
-    pageY: 28 + row * 24,
+    pageY: 15 + row * 24,
     width: 34,
     height: 5,
   };
@@ -130,7 +170,7 @@ function buildSigningFields(recipient: DocumensoRecipient, slotIndex: number, pa
     type: "DATE",
     pageNumber: pageCount,
     pageX: signature.pageX + 6,
-    pageY: signature.pageY + 7,
+    pageY: signature.pageY + 11,
     width: 24,
     height: 3,
   });
@@ -163,7 +203,11 @@ function withSigningFields(recipients: DocumensoRecipient[], pageCount: number) 
   }));
 }
 
-async function downloadEnvelopeItem(itemId: string) {
+export async function downloadOtdAttachmentItem(itemId: string) {
+  if (!allowedOtdAttachmentItemIds().includes(itemId)) {
+    throw new DocumensoApiError("Onbekende OTD-bijlage", 404);
+  }
+
   const res = await documensoFetch(`/api/v2/envelope/item/${encodeURIComponent(itemId)}/download?version=original`);
   const contentDisposition = res.headers.get("content-disposition") || "";
   const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
@@ -172,19 +216,6 @@ async function downloadEnvelopeItem(itemId: string) {
     filename,
     bytes: Buffer.from(await res.arrayBuffer()),
   };
-}
-
-async function addEnvelopeItems(envelopeId: string, files: Array<{ filename: string; bytes: Buffer }>) {
-  for (const file of files) {
-    const form = new FormData();
-    form.append("payload", JSON.stringify({ envelopeId }));
-    form.append("files", new Blob([blobPart(file.bytes)], { type: "application/pdf" }), file.filename);
-
-    await documensoFetch("/api/v2/envelope/item/create-many", {
-      method: "POST",
-      body: form,
-    });
-  }
 }
 
 export async function createDocumensoOtdConcept({
@@ -207,11 +238,13 @@ export async function createDocumensoOtdConcept({
     title,
     externalId,
     recipients: withSigningFields(recipients, pageCount),
+    attachments: attachmentLinks(),
     meta: {
       timezone: "Europe/Amsterdam",
       dateFormat: "dd/MM/yyyy HH:mm",
       language: "nl",
       distributionMethod: "NONE",
+      redirectUrl: signingRedirectUrl(),
       signingOrder: "SEQUENTIAL",
       subject: title,
       message: "",
@@ -224,21 +257,6 @@ export async function createDocumensoOtdConcept({
     body: form,
   });
   const created = await createRes.json() as { id: number; envelopeId: string };
-
-  const attachmentFiles: Array<{ filename: string; bytes: Buffer }> = [];
-  for (const itemId of templateAttachmentItemIds()) {
-    try {
-      attachmentFiles.push(await downloadEnvelopeItem(itemId));
-    } catch (error) {
-      warnings.push(error instanceof Error ? error.message : `Bijlage ${itemId} kon niet worden opgehaald`);
-    }
-  }
-
-  try {
-    await addEnvelopeItems(created.envelopeId, attachmentFiles);
-  } catch (error) {
-    warnings.push(error instanceof Error ? error.message : "Documenso-bijlagen konden niet worden toegevoegd");
-  }
 
   const url = baseUrl();
   return {
