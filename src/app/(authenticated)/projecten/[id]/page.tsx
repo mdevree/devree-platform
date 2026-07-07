@@ -50,6 +50,24 @@ const MAUTIC_URL =
 const DEBITEUREN_URL =
   process.env.NEXT_PUBLIC_DEBITEUREN_URL || "https://debiteuren.devreemakelaardij.nl";
 
+const OTD_PROPOSAL_OPTIONS = [
+  {
+    value: "DIRECT",
+    label: "Direct starten",
+    description: "Akkoord betekent opdracht tekenen en starten.",
+  },
+  {
+    value: "SLAPEND",
+    label: "Stille verkoop",
+    description: "Wel akkoord, nog niet breed zichtbaar.",
+  },
+  {
+    value: "UITGESTELD",
+    label: "Toekomstig aanbod",
+    description: "Akkoord vastleggen met latere start.",
+  },
+];
+
 interface User {
   id: string;
   name: string;
@@ -578,6 +596,14 @@ export default function ProjectDetailPage() {
     editUrl: string;
     warnings: string[];
   } | null>(null);
+  const [proposalData, setProposalData] = useState({
+    verkoopstart: "DIRECT",
+    startdatum: "",
+    startReden: "",
+  });
+  const [proposalSaving, setProposalSaving] = useState(false);
+  const [proposalError, setProposalError] = useState("");
+  const [proposalMessage, setProposalMessage] = useState("");
 
   const categories = ["binnendienst", "verkoop", "aankoop", "taxatie", "administratie"];
 
@@ -635,6 +661,15 @@ export default function ProjectDetailPage() {
   }, []);
 
   useEffect(() => { fetchProject(); fetchUsers(); }, [fetchProject, fetchUsers]);
+
+  useEffect(() => {
+    if (!project) return;
+    setProposalData({
+      verkoopstart: project.verkoopstart || "DIRECT",
+      startdatum: project.startdatum ? project.startdatum.split("T")[0] : "",
+      startReden: project.startReden || "",
+    });
+  }, [project]);
 
   useEffect(() => {
     if (project?.id) {
@@ -752,6 +787,31 @@ export default function ProjectDetailPage() {
     setShowEditWoning(true);
     setShowEditCommercieel(true);
     openEdit();
+  }
+
+  async function handleSaveOtdProposal() {
+    if (!project) return;
+    setProposalSaving(true);
+    setProposalError("");
+    setProposalMessage("");
+    try {
+      const res = await fetch(`/api/projecten/${project.id}/otd/proposal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proposalData),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setProposalError(data.error || "Voorstel kon niet worden opgeslagen");
+        return;
+      }
+      setProposalMessage("Voorstel vastgelegd");
+      await fetchProject();
+    } catch {
+      setProposalError("Voorstel kon niet worden opgeslagen");
+    } finally {
+      setProposalSaving(false);
+    }
   }
 
   async function handleDocumensoConcept() {
@@ -2374,18 +2434,95 @@ export default function ProjectDetailPage() {
                   <ArrowDownTrayIcon className="h-4 w-4" />
                   Opdracht maken
                 </a>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Voorstel</p>
+                    <h4 className="mt-1 text-sm font-semibold text-gray-900">Startkeuze vastleggen</h4>
+                  </div>
+                  <span className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[11px] font-medium ${getProjectStatusColor(project)}`}>
+                    {getProjectStatusLabel(project)}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {OTD_PROPOSAL_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setProposalData((data) => ({ ...data, verkoopstart: option.value }))}
+                      className={`min-h-[92px] rounded-lg border p-3 text-left transition-colors ${
+                        proposalData.verkoopstart === option.value
+                          ? "border-primary bg-white text-primary shadow-sm"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        {proposalData.verkoopstart === option.value ? <CheckCircleIcon className="h-4 w-4" /> : <ClockIcon className="h-4 w-4 text-gray-400" />}
+                        {option.label}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-gray-500">{option.description}</span>
+                    </button>
+                  ))}
+                </div>
+                {proposalData.verkoopstart !== "DIRECT" && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Beoogde startdatum</span>
+                      <input
+                        type="date"
+                        value={proposalData.startdatum}
+                        onChange={(e) => setProposalData((data) => ({ ...data, startdatum: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Reden of afspraak</span>
+                      <input
+                        type="text"
+                        value={proposalData.startReden}
+                        onChange={(e) => setProposalData((data) => ({ ...data, startReden: e.target.value }))}
+                        placeholder={proposalData.verkoopstart === "SLAPEND" ? "Stille verkoop / eerst voorbereiden" : "Wachten op datum of akkoord"}
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary"
+                      />
+                    </label>
+                  </div>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveOtdProposal}
+                    disabled={proposalSaving}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {proposalSaving ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <CheckIcon className="h-4 w-4" />}
+                    Voorstel vastleggen
+                  </button>
+                  {proposalMessage && <span className="text-sm text-emerald-700">{proposalMessage}</span>}
+                  {proposalError && <span className="text-sm text-red-700">{proposalError}</span>}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wider text-emerald-700">Akkoord</p>
+                <h4 className="mt-1 text-sm font-semibold text-gray-900">Documenso klaarzetten</h4>
+                <p className="mt-2 text-xs leading-5 text-gray-600">
+                  Concept met OTD, tekenvelden, redirect en vaste bijlagen.
+                </p>
                 <button
                   type="button"
                   onClick={handleDocumensoConcept}
                   disabled={documensoSaving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {documensoSaving ? (
                     <ArrowPathIcon className="h-4 w-4 animate-spin" />
                   ) : (
                     <DocumentTextIcon className="h-4 w-4" />
                   )}
-                  Documenso concept
+                  Tekenconcept maken
                 </button>
               </div>
             </div>
