@@ -72,19 +72,16 @@ async function downloadEnvelopeItem(itemId: string) {
 }
 
 async function addEnvelopeItems(envelopeId: string, files: Array<{ filename: string; bytes: Buffer }>) {
-  if (files.length === 0) return;
-
-  const form = new FormData();
-  form.append("payload", JSON.stringify({ envelopeId }));
-
   for (const file of files) {
+    const form = new FormData();
+    form.append("payload", JSON.stringify({ envelopeId }));
     form.append("files", new Blob([blobPart(file.bytes)], { type: "application/pdf" }), file.filename);
-  }
 
-  await documensoFetch("/api/v2/envelope/item/create-many", {
-    method: "POST",
-    body: form,
-  });
+    await documensoFetch("/api/v2/envelope/item/create-many", {
+      method: "POST",
+      body: form,
+    });
+  }
 }
 
 export async function createDocumensoOtdConcept({
