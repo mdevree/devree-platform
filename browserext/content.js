@@ -27,6 +27,7 @@ const AGENDA_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/real
 const LEAD_RESPONSE_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-lead-response';
 const SYNC_EVENT_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-sync/events';
 const QUARANTINE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-sync/quarantine';
+const OTD_KADASTER_URL = 'https://kantoor.devreemakelaardij.nl/api/otd/intake/realworks/kadaster';
 const PAYLOAD_VERSION = '2026-07-07';
 const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 const recentPayloadHashes = new Map();
@@ -200,6 +201,31 @@ window.addEventListener('message', (event) => {
   handleContactSync(event.data.data, event.data.url).catch((err) => {
     console.warn('[Realworks Sync] Contact-sync fout:', err);
   });
+});
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'REALWORKS_KADASTER_GRID') return;
+
+  const data = event.data.data || {};
+  const storageKey = data.realworksSystemId ? `rw_object_code_${data.realworksSystemId}` : null;
+  const send = (objectCode) => postPlatform(OTD_KADASTER_URL, {
+    source: 'realworks_browserext',
+    eventType: 'kadaster.grid',
+    capturedAt: new Date().toISOString(),
+    sourceUrl: window.location.href,
+    objectCode: objectCode || data.objectCode || '',
+    ...data,
+  }).then((res) => {
+    if (res?.ok) console.log('[Realworks Kadaster Sync] ✓ Verstuurd');
+    else if (res) console.warn('[Realworks Kadaster Sync] Fout:', res.status);
+  }).catch((err) => console.warn('[Realworks Kadaster Sync] Netwerkfout:', err));
+
+  if (storageKey) {
+    chrome.storage.local.get(storageKey).then((stored) => send(stored[storageKey]));
+  } else {
+    send('');
+  }
 });
 
 async function handleContactSync(data, realworksPath) {

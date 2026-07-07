@@ -307,6 +307,81 @@
       .filter((row) => row.systemid || row.rcode || row.email || row.name);
   }
 
+  function valueFromBodyPreview(body, key) {
+    if (!body) return '';
+    try {
+      const params = new URLSearchParams(body);
+      return params.get(key) || '';
+    } catch {
+      const match = String(body).match(new RegExp(`${key}=([^&]+)`));
+      return match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
+    }
+  }
+
+  function parseKadasterText(rawText) {
+    const text = stripHtml(rawText || '').replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+
+    const sizeMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|ha|are|ca)/i);
+    const parts = text
+      .replace(/\b\d+(?:[.,]\d+)?\s*(?:m2|m²|ha|are|ca)/ig, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    const sectionIndex = parts.findIndex((part) => /^[A-Z]{1,3}$/i.test(part));
+
+    if (sectionIndex <= 0 || !parts[sectionIndex + 1]) {
+      return { rawText: text };
+    }
+
+    return {
+      gemeente: parts.slice(0, sectionIndex).join(' '),
+      sectie: parts[sectionIndex].toUpperCase(),
+      nummer: parts[sectionIndex + 1],
+      grootteM2: sizeMatch?.[1]?.replace(',', '.') || '',
+      rawText: text,
+    };
+  }
+
+  function parseKadasterGrid(responseText) {
+    let rows;
+    try { rows = JSON.parse(responseText); } catch { return null; }
+    if (!Array.isArray(rows)) return null;
+
+    return rows
+      .map((row) => {
+        const columns = row.columns || [];
+        const kadasterText = stripHtml(columns[1]?.content || '');
+        const eigendomssituatie = stripHtml(columns[2]?.content || '');
+        const parsed = parseKadasterText(kadasterText || columns.map((column) => column.content || '').join(' '));
+        if (!parsed?.rawText) return null;
+        return {
+          ...parsed,
+          eigendomssituatie,
+          rowSystemid: String(row.rowAttributes?.systemid || row.rowAttributes?._systemid || ''),
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function postKadasterGridCapture(capture, responseText) {
+    if (!capture.url?.includes('/broker.brokerobject/grid')) return;
+    const request = capture.request_body_preview || '';
+    if (!request.includes('_entity=broker.kadaster') && !request.includes('getKadasterForGrid')) return;
+
+    const rows = parseKadasterGrid(responseText);
+    if (!rows?.length) return;
+
+    window.postMessage({
+      type: 'REALWORKS_KADASTER_GRID',
+      data: {
+        realworksSystemId: valueFromBodyPreview(request, '_systemid'),
+        rows,
+        url: capture.url,
+      },
+    }, '*');
+  }
+
   function postRelationGridCapture(capture, responseText) {
     if (!capture.url?.includes('/rela.relation/grid')) return;
 
@@ -840,6 +915,15 @@
 
         postSearchersGraphqlCapture({
           transport: 'xhr_graphql_parse',
+          method: _method,
+          url: _url,
+          status: xhr.status,
+          content_type: contentType,
+          request_body_preview: bodyPreview(_body),
+        }, responseText);
+
+        postKadasterGridCapture({
+          transport: 'xhr_kadaster_grid_parse',
           method: _method,
           url: _url,
           status: xhr.status,

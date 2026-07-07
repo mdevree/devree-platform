@@ -11,6 +11,7 @@ const QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-tasks';
 const TAXATIE_QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-taxatie-tasks';
 const WONING_QUEUE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-woning-tasks';
 const BACKUP_CAPTURE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-backup-captures';
+const OTD_REALWORKS_INTAKE_URL = 'https://kantoor.devreemakelaardij.nl/api/otd/intake/realworks';
 const REALWORKS_BASE = 'https://crm.realworks.nl';
 const BACKUP_CAPTURE_MAX_CHARS = 200000;
 const relationGridReplayKeys = new Set();
@@ -260,6 +261,7 @@ chrome.webRequest.onBeforeRequest.addListener(
           isMultipart: true,
           url: '/servlets/objects/broker.brokerobject/save',
         },
+        [`rw_object_code_${fields._systemid}`]: fields.objectcode || fields.lisnr || '',
       });
       console.log(`[RW Woning Cache] Gecached via webRequest: ${fields._systemid} (${fields.objectcode || fields.lisnr})`);
     }
@@ -281,6 +283,27 @@ chrome.webRequest.onBeforeRequest.addListener(
       if (res.ok) console.log('[RW Woning Sync] ✓ Verstuurd:', fields.objectcode || fields.lisnr);
       else console.warn('[RW Woning Sync] Fout:', res.status);
     }).catch(err => console.warn('[RW Woning Sync] Netwerkfout:', err));
+
+    if (WEBHOOK_SECRET) {
+      fetch(OTD_REALWORKS_INTAKE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-webhook-secret': WEBHOOK_SECRET,
+        },
+        body: JSON.stringify({
+          ...woning,
+          data: woning,
+          eventType: fields.lisstate === '13' ? 'otd.ready' : 'verkoop.project.sync',
+          source: 'realworks_browserext',
+          realworksPath: '/servlets/objects/broker.brokerobject/save',
+          capturedAt: new Date().toISOString(),
+        }),
+      }).then(res => {
+        if (res.ok) console.log('[RW OTD/Project Intake] ✓ Verstuurd:', fields.objectcode || fields.lisnr);
+        else console.warn('[RW OTD/Project Intake] Fout:', res.status);
+      }).catch(err => console.warn('[RW OTD/Project Intake] Netwerkfout:', err));
+    }
   },
   {
     urls: ['https://crm.realworks.nl/servlets/objects/broker.brokerobject/save'],
