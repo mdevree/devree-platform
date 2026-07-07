@@ -183,6 +183,23 @@ interface ProjectContact {
   lastActive?: string | null;
 }
 
+interface ProjectProposal {
+  id: string;
+  publicUrl: string | null;
+  status: string;
+  selectedVerkoopstart: string | null;
+  selectedStartdatum: string | null;
+  selectedStartReden: string | null;
+  documensoDocumentId: number | null;
+  documensoEnvelopeId: string | null;
+  documensoSigningUrl: string | null;
+  errorMessage: string | null;
+  expiresAt: string | null;
+  acceptedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -227,6 +244,7 @@ interface Project {
   hypotheekAdviseurId: string | null;
   hypotheekAdviseur: { id: string; naam: string; bedrijf: string | null } | null;
   contacts: ProjectContact[];
+  proposals: ProjectProposal[];
   tasks: Task[];
   calls: Call[];
   createdAt: string;
@@ -607,6 +625,7 @@ export default function ProjectDetailPage() {
   const [proposalLinkSaving, setProposalLinkSaving] = useState(false);
   const [proposalLinkError, setProposalLinkError] = useState("");
   const [proposalLink, setProposalLink] = useState("");
+  const [proposalLinkCopied, setProposalLinkCopied] = useState(false);
 
   const categories = ["binnendienst", "verkoop", "aankoop", "taxatie", "administratie"];
 
@@ -667,11 +686,14 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!project) return;
+    const latestProposal = project.proposals?.[0];
     setProposalData({
       verkoopstart: project.verkoopstart || "DIRECT",
       startdatum: project.startdatum ? project.startdatum.split("T")[0] : "",
       startReden: project.startReden || "",
     });
+    setProposalLink(latestProposal?.publicUrl || "");
+    setProposalLinkCopied(false);
   }, [project]);
 
   useEffect(() => {
@@ -832,14 +854,26 @@ export default function ProjectDetailPage() {
         return;
       }
       setProposalLink(data.proposalUrl);
+      setProposalLinkCopied(false);
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(data.proposalUrl).catch(() => undefined);
+        await navigator.clipboard.writeText(data.proposalUrl)
+          .then(() => setProposalLinkCopied(true))
+          .catch(() => undefined);
       }
+      await fetchProject();
     } catch {
       setProposalLinkError("Voorstellink kon niet worden gemaakt");
     } finally {
       setProposalLinkSaving(false);
     }
+  }
+
+  async function handleCopyProposalLink() {
+    if (!proposalLink || !navigator.clipboard?.writeText) return;
+    await navigator.clipboard.writeText(proposalLink).then(() => {
+      setProposalLinkCopied(true);
+      setTimeout(() => setProposalLinkCopied(false), 2500);
+    }).catch(() => undefined);
   }
 
   async function handleDocumensoConcept() {
@@ -1350,6 +1384,22 @@ export default function ProjectDetailPage() {
     { label: "Aanvullende afspraken", ok: true },
   ];
   const otdMissing = otdChecks.filter((check) => !check.ok);
+  const latestProposal = project.proposals?.[0] || null;
+  const latestProposalExpired = latestProposal?.expiresAt ? new Date(latestProposal.expiresAt) < new Date() : false;
+  const latestProposalStatusLabel =
+    !latestProposal ? "Nog niet gemaakt" :
+    latestProposal.status === "OPEN" && latestProposalExpired ? "Verlopen" :
+    latestProposal.status === "OPEN" ? "Open" :
+    latestProposal.status === "ACCEPTED" ? "Akkoord" :
+    latestProposal.status === "ERROR" ? "Fout" :
+    latestProposal.status === "REVOKED" ? "Ingetrokken" :
+    latestProposal.status;
+  const latestProposalTone =
+    latestProposal?.status === "ACCEPTED" ? "border-emerald-100 bg-emerald-50 text-emerald-800" :
+    latestProposal?.status === "ERROR" ? "border-red-100 bg-red-50 text-red-700" :
+    latestProposalExpired ? "border-amber-100 bg-amber-50 text-amber-800" :
+    latestProposal?.status === "OPEN" ? "border-blue-100 bg-blue-50 text-blue-800" :
+    "border-gray-200 bg-gray-50 text-gray-600";
 
   return (
     <div>
@@ -2469,11 +2519,41 @@ export default function ProjectDetailPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Voorstel</p>
-                    <h4 className="mt-1 text-sm font-semibold text-gray-900">Startkeuze vastleggen</h4>
+                    <h4 className="mt-1 text-sm font-semibold text-gray-900">Offerte en startkeuze</h4>
                   </div>
                   <span className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[11px] font-medium ${getProjectStatusColor(project)}`}>
                     {getProjectStatusLabel(project)}
                   </span>
+                </div>
+                <div className={`mt-3 rounded-lg border px-3 py-2 text-sm ${latestProposalTone}`}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <span className="font-semibold">{latestProposalStatusLabel}</span>
+                      {latestProposal?.createdAt && (
+                        <span className="ml-2 text-xs opacity-75">aangemaakt {formatDateFull(latestProposal.createdAt)}</span>
+                      )}
+                      {latestProposal?.acceptedAt && (
+                        <span className="ml-2 text-xs opacity-75">akkoord {formatDateFull(latestProposal.acceptedAt)}</span>
+                      )}
+                      {latestProposal?.expiresAt && latestProposal.status === "OPEN" && !latestProposalExpired && (
+                        <span className="ml-2 text-xs opacity-75">geldig tot {formatDateFull(latestProposal.expiresAt)}</span>
+                      )}
+                    </div>
+                    {latestProposal?.documensoDocumentId && (
+                      <a
+                        href={`https://ondertekenen.devreemakelaardij.nl/documents/${latestProposal.documensoDocumentId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold underline"
+                      >
+                        Documenso
+                        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </div>
+                  {latestProposal?.errorMessage && (
+                    <p className="mt-1 text-xs leading-5">{latestProposal.errorMessage}</p>
+                  )}
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   {OTD_PROPOSAL_OPTIONS.map((option) => (
@@ -2539,14 +2619,35 @@ export default function ProjectDetailPage() {
                     className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {proposalLinkSaving ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <LinkSlashIcon className="h-4 w-4 rotate-45" />}
-                    Voorstellink maken
+                    Nieuwe voorstellink maken
                   </button>
                   {proposalLink && (
                     <div className="mt-3 rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm text-emerald-800">
-                      Link gekopieerd:{" "}
-                      <a href={proposalLink} target="_blank" rel="noopener noreferrer" className="font-medium underline">
-                        voorstel openen
-                      </a>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="font-medium">{proposalLinkCopied ? "Link gekopieerd" : "Voorstellink klaar"}</p>
+                          <a href={proposalLink} target="_blank" rel="noopener noreferrer" className="block truncate underline">
+                            {proposalLink}
+                          </a>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCopyProposalLink}
+                            className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+                          >
+                            Kopieer
+                          </button>
+                          <a
+                            href={proposalLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md bg-emerald-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-800"
+                          >
+                            Open
+                          </a>
+                        </div>
+                      </div>
                     </div>
                   )}
                   {proposalLinkError && (

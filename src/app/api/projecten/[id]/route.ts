@@ -23,6 +23,10 @@ export async function GET(
       contacts: {
         orderBy: { addedAt: "asc" },
       },
+      proposals: {
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      },
       tasks: {
         include: {
           assignee: { select: { id: true, name: true, role: true } },

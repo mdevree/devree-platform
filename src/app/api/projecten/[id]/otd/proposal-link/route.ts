@@ -28,8 +28,13 @@ export async function POST(
 
   const token = createProposalToken();
   const expiresAt = proposalExpiresAt();
+  const proposalUrl = publicProposalUrl(token);
 
   await prisma.$transaction([
+    prisma.project.update({
+      where: { id },
+      data: { projectStatus: "OFFERTE_VERSTUURD" },
+    }),
     prisma.projectProposal.updateMany({
       where: { projectId: id, status: "OPEN" },
       data: { status: "REVOKED" },
@@ -38,6 +43,7 @@ export async function POST(
       data: {
         projectId: id,
         tokenHash: proposalTokenHash(token),
+        publicUrl: proposalUrl,
         expiresAt,
       },
     }),
@@ -45,7 +51,7 @@ export async function POST(
 
   return NextResponse.json({
     success: true,
-    proposalUrl: publicProposalUrl(token),
+    proposalUrl,
     expiresAt,
   });
 }
