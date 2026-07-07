@@ -5,6 +5,15 @@ export type DocumensoRecipient = {
   signingOrder?: number;
 };
 
+type DocumensoField = {
+  type: "INITIALS" | "SIGNATURE" | "DATE";
+  pageNumber: number;
+  pageX: number;
+  pageY: number;
+  width: number;
+  height: number;
+};
+
 export type DocumensoConceptResult = {
   documentId: number;
   envelopeId: string;
@@ -24,6 +33,10 @@ function baseUrl() {
   return (process.env.DOCUMENSO_URL || "https://ondertekenen.devreemakelaardij.nl").replace(/\/$/, "");
 }
 
+function apiBaseUrl() {
+  return (process.env.DOCUMENSO_API_URL || process.env.DOCUMENSO_URL || "https://ondertekenen.devreemakelaardij.nl").replace(/\/$/, "");
+}
+
 function apiToken() {
   const token = process.env.DOCUMENSO_API_TOKEN;
   if (!token) {
@@ -33,7 +46,7 @@ function apiToken() {
 }
 
 async function documensoFetch(path: string, init: RequestInit = {}) {
-  const res = await fetch(`${baseUrl()}${path}`, {
+  const res = await fetch(`${apiBaseUrl()}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${apiToken()}`,
@@ -58,6 +71,91 @@ function templateAttachmentItemIds() {
 
 function blobPart(buffer: Buffer) {
   return new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
+}
+
+function pdfPageCount(pdf: Buffer) {
+  const text = pdf.toString("latin1");
+  const matches = text.match(/\/Type\s*\/Page\b/g);
+  return Math.max(1, matches?.length || 1);
+}
+
+function initials(name: string) {
+  const parts = name
+    .replace(/[^\p{L}\s.-]/gu, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const seed = parts.length > 1 ? parts.slice(0, -1) : parts;
+  return seed
+    .map((part) => part[0]?.toUpperCase())
+    .filter(Boolean)
+    .join("")
+    .slice(0, 4);
+}
+
+function signatureSlotFields(slotIndex: number): Pick<DocumensoField, "pageX" | "pageY" | "width" | "height"> {
+  const column = slotIndex % 2;
+  const row = Math.floor(slotIndex / 2);
+  return {
+    pageX: column === 0 ? 9 : 54,
+    pageY: 28 + row * 24,
+    width: 34,
+    height: 5,
+  };
+}
+
+function buildSigningFields(recipient: DocumensoRecipient, slotIndex: number, pageCount: number): DocumensoField[] {
+  if (recipient.role !== "SIGNER") return [];
+  const fields: DocumensoField[] = [];
+
+  if (slotIndex > 0) {
+    for (let page = 1; page < pageCount; page += 1) {
+      fields.push({
+        type: "INITIALS",
+        pageNumber: page,
+        pageX: 84,
+        pageY: 93,
+        width: 12,
+        height: 3,
+      });
+    }
+  }
+
+  const signature = signatureSlotFields(slotIndex);
+  fields.push({
+    type: "SIGNATURE",
+    pageNumber: pageCount,
+    ...signature,
+  });
+  fields.push({
+    type: "DATE",
+    pageNumber: pageCount,
+    pageX: signature.pageX + 6,
+    pageY: signature.pageY + 7,
+    width: 24,
+    height: 3,
+  });
+  return fields;
+}
+
+function withSigningFields(recipients: DocumensoRecipient[], pageCount: number) {
+  const customerSigners = recipients.filter((recipient) => recipient.role === "SIGNER" && !/melvin@devreemakelaardij\.nl/i.test(recipient.email));
+  const melvin = recipients.find((recipient) => /melvin@devreemakelaardij\.nl/i.test(recipient.email));
+  const signingSlots = new Map<string, number>();
+
+  customerSigners.forEach((recipient, index) => signingSlots.set(recipient.email.toLowerCase(), index));
+  if (melvin) signingSlots.set(melvin.email.toLowerCase(), customerSigners.length);
+
+  return recipients.map((recipient) => ({
+    ...recipient,
+    fields: buildSigningFields(recipient, signingSlots.get(recipient.email.toLowerCase()) ?? 0, pageCount).map((field) => ({
+      ...field,
+      fieldMeta: {
+        type: field.type === "SIGNATURE" ? "signature" : field.type === "INITIALS" ? "initials" : "date",
+        label: field.type === "INITIALS" ? initials(recipient.name) : undefined,
+        required: true,
+      },
+    })),
+  }));
 }
 
 async function downloadEnvelopeItem(itemId: string) {
@@ -98,11 +196,12 @@ export async function createDocumensoOtdConcept({
   recipients: DocumensoRecipient[];
 }): Promise<DocumensoConceptResult> {
   const warnings: string[] = [];
+  const pageCount = pdfPageCount(pdf);
   const form = new FormData();
   form.append("payload", JSON.stringify({
     title,
     externalId,
-    recipients,
+    recipients: withSigningFields(recipients, pageCount),
     meta: {
       timezone: "Europe/Amsterdam",
       dateFormat: "dd/MM/yyyy HH:mm",
