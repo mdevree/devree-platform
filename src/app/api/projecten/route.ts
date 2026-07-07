@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
       // Commercieel
       vraagprijs: data.vraagprijs ? parseInt(data.vraagprijs) : null,
       courtagePercentage: data.courtagePercentage ? parseFloat(data.courtagePercentage) : null,
+      aanvaarding: data.aanvaarding || null,
       verkoopmethode: data.verkoopmethode || null,
       bijzondereAfspraken: data.bijzondereAfspraken || null,
       // Kosten
@@ -209,6 +210,7 @@ export async function PATCH(request: NextRequest) {
   // Commercieel
   if (data.vraagprijs !== undefined) updateData.vraagprijs = data.vraagprijs !== "" && data.vraagprijs != null ? parseInt(data.vraagprijs) : null;
   if (data.courtagePercentage !== undefined) updateData.courtagePercentage = data.courtagePercentage !== "" && data.courtagePercentage != null ? parseFloat(data.courtagePercentage) : null;
+  if (data.aanvaarding !== undefined) updateData.aanvaarding = data.aanvaarding || null;
   if (data.verkoopmethode !== undefined) updateData.verkoopmethode = data.verkoopmethode || null;
   if (data.bijzondereAfspraken !== undefined) updateData.bijzondereAfspraken = data.bijzondereAfspraken;
   // Kosten — lege strings naar null, getallen parsen

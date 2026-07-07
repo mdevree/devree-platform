@@ -321,6 +321,7 @@ export function projectUpdateDataFromOtd(data: OtdProjectData) {
     woningOppervlakte: data.object.woonoppervlakte ?? data.object.kadastraal?.grootteM2 ?? null,
     vraagprijs: data.afspraken.vraagprijs ?? null,
     courtagePercentage: data.afspraken.courtagePercentage ?? null,
+    aanvaarding: data.afspraken.aanvaarding ?? null,
     verkoopmethode: data.afspraken.verkoopmethode ?? null,
     bijzondereAfspraken: data.afspraken.bijzondereAfspraken ?? null,
     kostenPubliciteit: data.kosten.publiciteit,

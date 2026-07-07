@@ -64,6 +64,7 @@ test("bewaart objectcode als platform Realworks ID", () => {
   );
 
   assert.equal(projectUpdateDataFromOtd(data).realworksId, "SE11902");
+  assert.equal(projectUpdateDataFromOtd(data).aanvaarding, "in overleg");
 });
 
 test("markeert kadaster en opdrachtgeverdetails als controlepunten", () => {

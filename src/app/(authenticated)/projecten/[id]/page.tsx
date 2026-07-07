@@ -187,6 +187,7 @@ interface Project {
   // Commercieel
   vraagprijs: number | null;
   courtagePercentage: string | null;
+  aanvaarding: string | null;
   verkoopmethode: string | null;
   bijzondereAfspraken: string | null;
   // Kosten
@@ -479,7 +480,7 @@ export default function ProjectDetailPage() {
     verkoopstart: "", startdatum: "", startReden: "",
     woningAdres: "", woningPostcode: "", woningPlaats: "",
     kadGemeente: "", kadSectie: "", kadNummer: "", woningOppervlakte: "",
-    vraagprijs: "", courtagePercentage: "", verkoopmethode: "", bijzondereAfspraken: "",
+    vraagprijs: "", courtagePercentage: "", aanvaarding: "", verkoopmethode: "", bijzondereAfspraken: "",
     kostenPubliciteit: "", kostenEnergielabel: "", kostenJuridisch: "",
     kostenBouwkundig: "", kostenIntrekking: "", kostenBedenktijd: "",
   });
@@ -723,6 +724,7 @@ export default function ProjectDetailPage() {
       woningOppervlakte: project.woningOppervlakte || "",
       vraagprijs: project.vraagprijs != null ? String(project.vraagprijs) : "",
       courtagePercentage: project.courtagePercentage || "",
+      aanvaarding: project.aanvaarding || "",
       verkoopmethode: project.verkoopmethode || "",
       bijzondereAfspraken: project.bijzondereAfspraken || "",
       kostenPubliciteit: project.kostenPubliciteit != null ? String(project.kostenPubliciteit) : "",
@@ -733,6 +735,12 @@ export default function ProjectDetailPage() {
       kostenBedenktijd: project.kostenBedenktijd != null ? String(project.kostenBedenktijd) : "",
     });
     setShowEdit(true);
+  }
+
+  function openOtdEdit() {
+    setShowEditWoning(true);
+    setShowEditCommercieel(true);
+    openEdit();
   }
 
   async function handleEditSave(e: React.FormEvent) {
@@ -751,6 +759,7 @@ export default function ProjectDetailPage() {
           startdatum: editData.startdatum || null,
           startReden: editData.startReden || null,
           vraagprijs: intOrNull(editData.vraagprijs),
+          aanvaarding: editData.aanvaarding || null,
           kostenPubliciteit: intOrNull(editData.kostenPubliciteit),
           kostenEnergielabel: intOrNull(editData.kostenEnergielabel),
           kostenJuridisch: intOrNull(editData.kostenJuridisch),
@@ -1207,6 +1216,16 @@ export default function ProjectDetailPage() {
 
   const openTasks = project.tasks.filter((t) => t.status !== "afgerond").length;
   const completedTasks = project.tasks.filter((t) => t.status === "afgerond").length;
+  const otdChecks = [
+    { label: "Opdrachtgever", ok: Boolean(project.contactName || project.contactEmail || project.contacts.some((c) => c.role === "opdrachtgever")) },
+    { label: "Objectadres", ok: Boolean(project.woningAdres && project.woningPostcode && project.woningPlaats) },
+    { label: "Kadastraal", ok: Boolean(project.kadGemeente && project.kadSectie && project.kadNummer) },
+    { label: "Vraagprijs", ok: project.vraagprijs != null },
+    { label: "Courtage", ok: Boolean(project.courtagePercentage) },
+    { label: "Aanvaarding", ok: Boolean(project.aanvaarding) },
+    { label: "Aanvullende afspraken", ok: true },
+  ];
+  const otdMissing = otdChecks.filter((check) => !check.ok);
 
   return (
     <div>
@@ -2292,16 +2311,53 @@ export default function ProjectDetailPage() {
       {/* ===== DOSSIER TAB ===== */}
       {activeTab === "dossier" && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <a
-              href={`/api/projecten/${project.id}/otd/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-            >
-              <ArrowDownTrayIcon className="h-4 w-4" />
-              Opdracht maken
-            </a>
+          <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Opdracht tot dienstverlening</p>
+                <h3 className="mt-1 text-lg font-semibold text-gray-900">Controle en PDF</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Vul ontbrekende dossierdata aan en maak daarna de opdracht-PDF vanuit dit project.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={openOtdEdit}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                  Gegevens aanpassen
+                </button>
+                <a
+                  href={`/api/projecten/${project.id}/otd/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  Opdracht maken
+                </a>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {otdChecks.map((check) => (
+                <div
+                  key={check.label}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                    check.ok ? "border-green-100 bg-green-50 text-green-700" : "border-amber-100 bg-amber-50 text-amber-700"
+                  }`}
+                >
+                  {check.ok ? <CheckCircleIcon className="h-4 w-4 shrink-0" /> : <ExclamationCircleIcon className="h-4 w-4 shrink-0" />}
+                  <span>{check.label}</span>
+                </div>
+              ))}
+            </div>
+            {otdMissing.length > 0 && (
+              <p className="mt-3 text-sm text-amber-700">
+                Nog aanvullen: {otdMissing.map((check) => check.label).join(", ")}.
+              </p>
+            )}
           </div>
 
           {/* Opdracht */}
@@ -2397,7 +2453,7 @@ export default function ProjectDetailPage() {
           )}
 
           {/* Commercieel */}
-          {(project.vraagprijs || project.courtagePercentage || project.verkoopmethode || project.bijzondereAfspraken) && (
+          {(project.vraagprijs || project.courtagePercentage || project.aanvaarding || project.verkoopmethode || project.bijzondereAfspraken) && (
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Commercieel</p>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
@@ -2415,6 +2471,12 @@ export default function ProjectDetailPage() {
                     <dd className="mt-0.5 font-medium text-gray-900">{project.courtagePercentage}%</dd>
                   </div>
                 )}
+                {project.aanvaarding && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Aanvaarding</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.aanvaarding}</dd>
+                  </div>
+                )}
                 {project.verkoopmethode && (
                   <div>
                     <dt className="text-xs text-gray-500">Verkoopmethode</dt>
@@ -2423,7 +2485,7 @@ export default function ProjectDetailPage() {
                 )}
                 {project.bijzondereAfspraken && (
                   <div className="col-span-2 sm:col-span-3">
-                    <dt className="text-xs text-gray-500">Bijzondere afspraken</dt>
+                    <dt className="text-xs text-gray-500">Aanvullende afspraken</dt>
                     <dd className="mt-0.5 whitespace-pre-wrap text-gray-900">{project.bijzondereAfspraken}</dd>
                   </div>
                 )}
@@ -2534,7 +2596,7 @@ export default function ProjectDetailPage() {
           )}
 
           {/* Geen dossierdata */}
-          {!project.woningAdres && !project.kadGemeente && !project.vraagprijs && !project.courtagePercentage && !project.kostenPubliciteit && (
+          {!project.woningAdres && !project.kadGemeente && !project.vraagprijs && !project.courtagePercentage && !project.aanvaarding && !project.kostenPubliciteit && (
             <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
               <DocumentTextIcon className="mx-auto mb-3 h-10 w-10 text-gray-300" />
               <p className="text-sm font-medium text-gray-600">Nog geen dossiergegevens</p>
@@ -2983,7 +3045,13 @@ export default function ProjectDetailPage() {
                       </div>
                     )}
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Bijzondere afspraken</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Aanvaarding</label>
+                      <input type="text" value={editData.aanvaarding} onChange={(e) => setEditData((d) => ({ ...d, aanvaarding: e.target.value }))}
+                        placeholder="bijv. in overleg"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Aanvullende afspraken</label>
                       <textarea value={editData.bijzondereAfspraken} onChange={(e) => setEditData((d) => ({ ...d, bijzondereAfspraken: e.target.value }))} rows={2}
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                     </div>

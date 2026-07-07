@@ -297,12 +297,12 @@ function buildHtml({
     ${line("Datum opdracht", new Intl.DateTimeFormat("nl-NL").format(new Date()))}
     ${line("Vraagprijs", euro(project.vraagprijs))}
     ${line("Courtage", percent(project.courtagePercentage))}
-    ${line("Aanvaarding", "in overleg")}
+    ${line("Aanvaarding", project.aanvaarding)}
     ${line("Verkoopmethode", verkoopmethode)}
     ${line("Bankrekening", "NL02 RABO 0380 8057 23 t.n.v. De Vree Makelaardij B.V.")}
   </dl>
   ${project.bijzondereAfspraken ? `
-    <div class="section-note"><strong>Bijzondere afspraken</strong><br>${escapeHtml(project.bijzondereAfspraken)}</div>
+    <div class="section-note"><strong>Aanvullende afspraken</strong><br>${escapeHtml(project.bijzondereAfspraken)}</div>
   ` : ""}
 
   <h2>Kosten en voorwaarden</h2>
@@ -334,7 +334,7 @@ function buildHtml({
   </p>
   <p class="muted">
     Dit document is automatisch voorbereid vanuit het platform. Controleer ontbrekende persoonsgegevens,
-    kadastrale gegevens, vraagprijs, verkoopmethode, aanvaarding en bijzondere afspraken voor verzending.
+    kadastrale gegevens, vraagprijs, verkoopmethode, aanvaarding en aanvullende afspraken voor verzending.
   </p>
 
   <div class="signature-section">

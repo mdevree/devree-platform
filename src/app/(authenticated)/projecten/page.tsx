@@ -146,6 +146,7 @@ export default function ProjectenPage() {
     woningPostcode: "",
     woningPlaats: "",
     courtagePercentage: "",
+    aanvaarding: "",
     vraagprijs: "",
     bijzondereAfspraken: "",
     verkoopmethode: "",
@@ -246,6 +247,7 @@ export default function ProjectenPage() {
       woningPostcode: "",
       woningPlaats: "",
       courtagePercentage: "",
+      aanvaarding: "",
       vraagprijs: "",
       bijzondereAfspraken: "",
       verkoopmethode: "",
@@ -267,6 +269,7 @@ export default function ProjectenPage() {
         ...newProject,
         status: "lead", // legacy
         vraagprijs: newProject.vraagprijs ? parseFloat(newProject.vraagprijs) : null,
+        aanvaarding: newProject.aanvaarding || null,
         kostenPubliciteit: newProject.kostenPubliciteit ? parseInt(newProject.kostenPubliciteit) : null,
         kostenEnergielabel: newProject.kostenEnergielabel ? parseInt(newProject.kostenEnergielabel) : null,
         kostenIntrekking: newProject.kostenIntrekking ? parseInt(newProject.kostenIntrekking) : null,
@@ -816,6 +819,16 @@ export default function ProjectenPage() {
                           </select>
                         </div>
                       )}
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Aanvaarding</label>
+                        <input
+                          type="text"
+                          value={newProject.aanvaarding}
+                          onChange={(e) => setNewProject((p) => ({ ...p, aanvaarding: e.target.value }))}
+                          placeholder="in overleg"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                        />
+                      </div>
                       {newProject.type === "VERKOOP" && (
                         <>
                           <div>
@@ -861,7 +874,7 @@ export default function ProjectenPage() {
                         </>
                       )}
                       <div className="col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-gray-600">Bijzondere afspraken</label>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Aanvullende afspraken</label>
                         <textarea
                           value={newProject.bijzondereAfspraken}
                           onChange={(e) => setNewProject((p) => ({ ...p, bijzondereAfspraken: e.target.value }))}
