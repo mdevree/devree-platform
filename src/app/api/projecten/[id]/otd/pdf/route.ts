@@ -51,6 +51,7 @@ async function renderPdf(html: string): Promise<Buffer> {
   const gotenbergUrl = (process.env.GOTENBERG_URL || DEFAULT_GOTENBERG_URL).replace(/\/$/, "");
   const form = new FormData();
   form.append("files", new Blob([html], { type: "text/html" }), "index.html");
+  form.append("preferCssPageSize", "true");
 
   const res = await fetch(`${gotenbergUrl}/forms/chromium/convert/html`, {
     method: "POST",
@@ -237,6 +238,10 @@ function buildHtml({
       margin-top: 12px;
       page-break-inside: avoid;
     }
+    .signature-section {
+      break-before: page;
+      page-break-before: always;
+    }
     .signature {
       border: 1px solid #d9e3de;
       border-radius: 6px;
@@ -332,9 +337,11 @@ function buildHtml({
     kadastrale gegevens, vraagprijs, verkoopmethode, aanvaarding en bijzondere afspraken voor verzending.
   </p>
 
-  <h2>Ondertekening</h2>
-  <div class="signatures">
-    ${renderHandtekeningen(opdrachtgevers)}
+  <div class="signature-section">
+    <h2>Ondertekening</h2>
+    <div class="signatures">
+      ${renderHandtekeningen(opdrachtgevers)}
+    </div>
   </div>
 
   <footer>
