@@ -28,6 +28,7 @@ import {
   TrashIcon,
   LinkSlashIcon,
   ArrowPathIcon,
+  ArrowDownTrayIcon,
   DocumentTextIcon,
   BanknotesIcon,
   ChevronDownIcon,
@@ -2291,6 +2292,18 @@ export default function ProjectDetailPage() {
       {/* ===== DOSSIER TAB ===== */}
       {activeTab === "dossier" && (
         <div className="space-y-4">
+          <div className="flex justify-end">
+            <a
+              href={`/api/projecten/${project.id}/otd/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" />
+              Opdracht maken
+            </a>
+          </div>
+
           {/* Opdracht */}
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Opdracht</p>
@@ -2429,18 +2442,18 @@ export default function ProjectDetailPage() {
                     { label: "Energielabel", value: project.kostenEnergielabel },
                     { label: "Juridisch", value: project.kostenJuridisch },
                     { label: "Bouwkundig", value: project.kostenBouwkundig },
-                    { label: "Intrekking", value: project.kostenIntrekking },
-                    { label: "Bedenktijd", value: project.kostenBedenktijd },
                   ].filter((r) => r.value != null).map((row) => (
                     <tr key={row.label}>
                       <td className="py-2 text-gray-500">{row.label}</td>
-                      <td className="py-2 text-right font-medium text-gray-900">€ {row.value!.toLocaleString("nl-NL")}</td>
+                      <td className="py-2 text-right font-medium text-gray-900">
+                        {row.value === 0 ? "Niet nodig" : `€ ${row.value!.toLocaleString("nl-NL")}`}
+                      </td>
                     </tr>
                   ))}
                   <tr className="border-t-2 border-gray-200">
-                    <td className="py-2 font-semibold text-gray-700">Totaal</td>
+                    <td className="py-2 font-semibold text-gray-700">Totaal directe kosten</td>
                     <td className="py-2 text-right font-semibold text-gray-900">
-                      € {[project.kostenPubliciteit, project.kostenEnergielabel, project.kostenJuridisch, project.kostenBouwkundig, project.kostenIntrekking, project.kostenBedenktijd]
+                      € {[project.kostenPubliciteit, project.kostenEnergielabel, project.kostenJuridisch, project.kostenBouwkundig]
                           .filter((v): v is number => v != null)
                           .reduce((a, b) => a + b, 0)
                           .toLocaleString("nl-NL")}
@@ -2448,6 +2461,26 @@ export default function ProjectDetailPage() {
                   </tr>
                 </tbody>
               </table>
+              {(project.kostenIntrekking || project.kostenBedenktijd) && (
+                <table className="mt-4 w-full border-t border-gray-100 pt-2 text-sm">
+                  <tbody className="divide-y divide-gray-100">
+                    <tr>
+                      <td colSpan={2} className="pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-gray-400">
+                        Voorwaardelijke bedragen
+                      </td>
+                    </tr>
+                    {[
+                      { label: "Bij intrekking", value: project.kostenIntrekking },
+                      { label: "Bij ontbinding binnen bedenktijd", value: project.kostenBedenktijd },
+                    ].filter((r) => r.value != null).map((row) => (
+                      <tr key={row.label}>
+                        <td className="py-2 text-gray-500">{row.label}</td>
+                        <td className="py-2 text-right font-medium text-gray-900">€ {row.value!.toLocaleString("nl-NL")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 
