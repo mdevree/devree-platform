@@ -24,6 +24,7 @@ import {
   FireIcon,
   SparklesIcon,
   NewspaperIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -44,6 +45,7 @@ const navigation = [
   { name: "Facebook Triggers", href: "/facebook-triggers", icon: MegaphoneIcon },
   { name: "WhatsApp", href: "/whatsapp", icon: ChatBubbleLeftRightIcon },
   { name: "Feedback", href: "/feedback", icon: ChatBubbleBottomCenterTextIcon },
+  { name: "Systeemcontrole", href: "/systeemcontrole", icon: ShieldCheckIcon },
 ];
 
 

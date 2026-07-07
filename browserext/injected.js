@@ -1,7 +1,6 @@
 // Draait in pagina-context (niet isolated world) — onderschept XHR én form submits van GWT
 (function () {
   const CONTACT_SAVE_PATH = '/rela.person/save';
-  const CONTACT_XHR_TARGET = '/rela.person/';
   const AGENDA_TARGET = '/rela.agenda/searchAgendaDay';
   const TAXATIE_PATH = '/broker.taxatie/';
   const LEAD_RESPONSE_PATH = '/broker.response/save';
@@ -862,7 +861,7 @@
         });
       });
 
-      if (_method === 'POST' && _url.includes(CONTACT_XHR_TARGET) && body) {
+      if (_method === 'POST' && _url.includes(CONTACT_SAVE_PATH) && body) {
         xhr.addEventListener('load', function () {
           if (xhr.status === 200) {
             try {

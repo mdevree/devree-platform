@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>Realworks → n8n Sync — Instellingen</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; color: #1f2937; }
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #1f2937; }
     h1 { font-size: 1.25rem; }
     label { display: block; font-weight: 600; margin-bottom: .25rem; }
     input { width: 100%; padding: .5rem; border: 1px solid #d1d5db; border-radius: .375rem; font-size: .9rem; box-sizing: border-box; }
@@ -13,6 +13,14 @@
     .hint { color: #6b7280; font-size: .8rem; margin-top: .25rem; }
     .status { margin-top: 1rem; font-size: .9rem; }
     .ok { color: #059669; }
+    .panel { margin-top: 1.5rem; border: 1px solid #e5e7eb; padding: 1rem; background: #fff; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-top: .75rem; }
+    .metric { border: 1px solid #e5e7eb; padding: .75rem; }
+    .metric span { display: block; color: #6b7280; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+    .metric strong { display: block; margin-top: .25rem; font-size: 1.4rem; }
+    dl { display: grid; grid-template-columns: 160px 1fr; gap: .5rem .75rem; margin: .75rem 0 0; font-size: .9rem; }
+    dt { color: #6b7280; }
+    dd { margin: 0; overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -23,6 +31,24 @@
   <p class="hint">Klik op opslaan om de wachtrij-poll te activeren.</p>
   <button id="save">Opslaan</button>
   <div class="status" id="status"></div>
+
+  <section class="panel">
+    <h2>Extensiestatus</h2>
+    <p class="hint">Lokale status van deze Chrome-installatie. Verdachte payloads worden niet naar Mautic doorgestuurd.</p>
+    <div class="grid">
+      <div class="metric"><span>Verstuurd</span><strong id="sent">0</strong></div>
+      <div class="metric"><span>Geblokkeerd</span><strong id="rejected">0</strong></div>
+      <div class="metric"><span>Dubbel</span><strong id="duplicates">0</strong></div>
+      <div class="metric"><span>Fouten</span><strong id="errors">0</strong></div>
+    </div>
+    <dl>
+      <dt>Versie</dt><dd id="extensionVersion">-</dd>
+      <dt>Laatste sync</dt><dd id="lastSyncAt">-</dd>
+      <dt>Laatste blokkade</dt><dd id="lastRejectedReason">-</dd>
+      <dt>Laatste fout</dt><dd id="lastError">-</dd>
+    </dl>
+    <button id="refreshStatus" type="button">Status vernieuwen</button>
+  </section>
   <script src="options.js"></script>
 </body>
 </html>

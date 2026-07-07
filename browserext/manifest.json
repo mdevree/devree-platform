@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Realworks → n8n Sync",
-  "version": "1.3",
+  "version": "1.5",
   "description": "Synchroniseert contacten, taxaties en woningen van Realworks naar n8n en voert terugschrijftaken uit via de wachtrij-API.",
   "permissions": [
     "alarms",
