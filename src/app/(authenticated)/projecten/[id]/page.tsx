@@ -569,6 +569,15 @@ export default function ProjectDetailPage() {
 
   // Verrijkte contact namen (geladen na project fetch)
   const [enrichedContacts, setEnrichedContacts] = useState<Record<number, { name: string; points: number; lastActive: string | null }>>({});
+  const [documensoSaving, setDocumensoSaving] = useState(false);
+  const [documensoError, setDocumensoError] = useState("");
+  const [documensoConcept, setDocumensoConcept] = useState<{
+    documentId: number;
+    envelopeId: string;
+    documentUrl: string;
+    editUrl: string;
+    warnings: string[];
+  } | null>(null);
 
   const categories = ["binnendienst", "verkoop", "aankoop", "taxatie", "administratie"];
 
@@ -743,6 +752,31 @@ export default function ProjectDetailPage() {
     setShowEditWoning(true);
     setShowEditCommercieel(true);
     openEdit();
+  }
+
+  async function handleDocumensoConcept() {
+    if (!project) return;
+    setDocumensoSaving(true);
+    setDocumensoError("");
+    setDocumensoConcept(null);
+    try {
+      const res = await fetch(`/api/projecten/${project.id}/otd/documenso`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setDocumensoError(data.error || "Documenso concept kon niet worden gemaakt");
+        return;
+      }
+      setDocumensoConcept(data.concept);
+      if (data.concept?.editUrl) {
+        window.open(data.concept.editUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      setDocumensoError("Kan Documenso niet bereiken");
+    } finally {
+      setDocumensoSaving(false);
+    }
   }
 
   async function handleEditSave(e: React.FormEvent) {
@@ -2340,8 +2374,44 @@ export default function ProjectDetailPage() {
                   <ArrowDownTrayIcon className="h-4 w-4" />
                   Opdracht maken
                 </a>
+                <button
+                  type="button"
+                  onClick={handleDocumensoConcept}
+                  disabled={documensoSaving}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {documensoSaving ? (
+                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <DocumentTextIcon className="h-4 w-4" />
+                  )}
+                  Documenso concept
+                </button>
               </div>
             </div>
+            {documensoError && (
+              <div className="mt-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {documensoError}
+              </div>
+            )}
+            {documensoConcept && (
+              <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                Concept staat klaar in Documenso:{" "}
+                <a
+                  href={documensoConcept.editUrl || documensoConcept.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline"
+                >
+                  openen
+                </a>
+                {documensoConcept.warnings?.length > 0 && (
+                  <span className="ml-2 text-amber-700">
+                    Let op: {documensoConcept.warnings.join(" ")}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {otdChecks.map((check) => (
                 <div
