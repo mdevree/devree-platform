@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { getContactFull } from "@/lib/mautic";
 import { VERKOOPMETHODE_LABELS } from "@/lib/projectTypes";
 
 const DEFAULT_GOTENBERG_URL = "http://127.0.0.1:3050";
+let cachedLogoDataUri: string | null = null;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -13,6 +16,13 @@ function escapeHtml(value: unknown): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function logoDataUri(): string {
+  if (cachedLogoDataUri) return cachedLogoDataUri;
+  const png = readFileSync(join(process.cwd(), "public", "devree-logo-horizontal.png"));
+  cachedLogoDataUri = `data:image/png;base64,${png.toString("base64")}`;
+  return cachedLogoDataUri;
 }
 
 function slugPart(value: string | null | undefined): string {
@@ -158,7 +168,8 @@ function buildHtml({
   const objectAdres = [project.woningAdres || project.address, project.woningPostcode, project.woningPlaats]
     .filter(Boolean)
     .join(", ");
-  const kadastraal = `gemeente ${project.kadGemeente || "…………………"}, sectie ${project.kadSectie || "……"}, no. ${project.kadNummer || "…………"}, groot ……… m²`;
+  const kadastraal = `gemeente ${project.kadGemeente || "…………………"}, sectie ${project.kadSectie || "……"}, no. ${project.kadNummer || "…………"}, groot ${project.kadGrootte || "………"} m²`;
+  const logo = logoDataUri();
   const vandaag = new Intl.DateTimeFormat("nl-NL").format(new Date());
   const aanvaarding = project.aanvaarding || "________";
   const vraagprijs = project.vraagprijs ? `${euro(project.vraagprijs)} k.k.` : "________";
@@ -197,11 +208,12 @@ function buildHtml({
       padding-bottom: 12px;
       text-align: center;
     }
-    .brand {
-      color: #005c3f;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: .2px;
+    .brand-logo {
+      display: block;
+      height: 34px;
+      margin: 0 auto 6px;
+      object-fit: contain;
+      width: 170px;
     }
     .subbrand { color: #6b7280; font-size: 10px; margin-top: 2px; }
     h1 {
@@ -286,7 +298,7 @@ function buildHtml({
 </head>
 <body>
   <header>
-    <div class="brand">De Vree Makelaardij</div>
+    <img class="brand-logo" src="${logo}" alt="De Vree Makelaardij">
     <div class="subbrand">NVM Makelaar in Spijkenisse en omgeving</div>
     <h1>Opdracht tot dienstverlening bij verkoop</h1>
   </header>

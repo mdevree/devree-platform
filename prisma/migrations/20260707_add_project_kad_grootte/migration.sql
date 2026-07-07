@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD COLUMN `kadGrootte` VARCHAR(191) NULL;

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Realworks → n8n Sync",
-  "version": "1.7",
+  "version": "1.8",
   "description": "Synchroniseert contacten, taxaties, woningen, verkoopprojecten en kadasterdata van Realworks naar het De Vree platform.",
   "permissions": [
     "alarms",

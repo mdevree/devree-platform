@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       kadGemeente: kadaster.gemeente ?? project.kadGemeente,
       kadSectie: kadaster.sectie ?? project.kadSectie,
       kadNummer: kadaster.nummer ?? project.kadNummer,
-      woningOppervlakte: kadaster.grootteM2 ?? project.woningOppervlakte,
+      kadGrootte: kadaster.grootteM2 ?? project.kadGrootte,
     },
   });
 

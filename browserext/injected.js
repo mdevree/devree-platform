@@ -957,6 +957,10 @@
               } else {
                 new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
               }
+              for (const [key, value] of Object.entries({ ...data })) {
+                const mask = data[`${key}__MASK`];
+                if (mask && value !== '') data[`${key}_label`] = decodeMask(value, mask);
+              }
               window.postMessage({ type: 'REALWORKS_CONTACT', data, url: _url }, '*');
             } catch {}
           }

@@ -134,6 +134,7 @@ export async function POST(request: NextRequest) {
       kadGemeente: data.kadGemeente || null,
       kadSectie: data.kadSectie || null,
       kadNummer: data.kadNummer || null,
+      kadGrootte: data.kadGrootte || null,
       woningOppervlakte: data.woningOppervlakte || null,
       // Commercieel
       vraagprijs: data.vraagprijs ? parseInt(data.vraagprijs) : null,
@@ -206,6 +207,7 @@ export async function PATCH(request: NextRequest) {
   if (data.kadGemeente !== undefined) updateData.kadGemeente = data.kadGemeente;
   if (data.kadSectie !== undefined) updateData.kadSectie = data.kadSectie;
   if (data.kadNummer !== undefined) updateData.kadNummer = data.kadNummer;
+  if (data.kadGrootte !== undefined) updateData.kadGrootte = data.kadGrootte;
   if (data.woningOppervlakte !== undefined) updateData.woningOppervlakte = data.woningOppervlakte;
   // Commercieel
   if (data.vraagprijs !== undefined) updateData.vraagprijs = data.vraagprijs !== "" && data.vraagprijs != null ? parseInt(data.vraagprijs) : null;

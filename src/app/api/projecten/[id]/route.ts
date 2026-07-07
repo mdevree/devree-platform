@@ -87,6 +87,7 @@ export async function PATCH(
   if (data.kadGemeente !== undefined) updateData.kadGemeente = data.kadGemeente;
   if (data.kadSectie !== undefined) updateData.kadSectie = data.kadSectie;
   if (data.kadNummer !== undefined) updateData.kadNummer = data.kadNummer;
+  if (data.kadGrootte !== undefined) updateData.kadGrootte = data.kadGrootte;
   if (data.woningOppervlakte !== undefined) updateData.woningOppervlakte = data.woningOppervlakte;
   if (data.vraagprijs !== undefined) updateData.vraagprijs = data.vraagprijs !== "" && data.vraagprijs != null ? parseInt(data.vraagprijs) : null;
   if (data.courtagePercentage !== undefined) updateData.courtagePercentage = data.courtagePercentage !== "" && data.courtagePercentage != null ? parseFloat(data.courtagePercentage) : null;

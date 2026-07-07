@@ -183,6 +183,7 @@ interface Project {
   kadGemeente: string | null;
   kadSectie: string | null;
   kadNummer: string | null;
+  kadGrootte: string | null;
   woningOppervlakte: string | null;
   // Commercieel
   vraagprijs: number | null;
@@ -479,7 +480,7 @@ export default function ProjectDetailPage() {
     type: "VERKOOP", projectStatus: "LEAD",
     verkoopstart: "", startdatum: "", startReden: "",
     woningAdres: "", woningPostcode: "", woningPlaats: "",
-    kadGemeente: "", kadSectie: "", kadNummer: "", woningOppervlakte: "",
+    kadGemeente: "", kadSectie: "", kadNummer: "", kadGrootte: "", woningOppervlakte: "",
     vraagprijs: "", courtagePercentage: "", aanvaarding: "", verkoopmethode: "", bijzondereAfspraken: "",
     kostenPubliciteit: "", kostenEnergielabel: "", kostenJuridisch: "",
     kostenBouwkundig: "", kostenIntrekking: "", kostenBedenktijd: "",
@@ -721,6 +722,7 @@ export default function ProjectDetailPage() {
       kadGemeente: project.kadGemeente || "",
       kadSectie: project.kadSectie || "",
       kadNummer: project.kadNummer || "",
+      kadGrootte: project.kadGrootte || "",
       woningOppervlakte: project.woningOppervlakte || "",
       vraagprijs: project.vraagprijs != null ? String(project.vraagprijs) : "",
       courtagePercentage: project.courtagePercentage || "",
@@ -2402,7 +2404,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* Woning */}
-          {(project.woningAdres || project.kadGemeente || project.woningOppervlakte) && (
+          {(project.woningAdres || project.kadGemeente || project.kadGrootte || project.woningOppervlakte) && (
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Woning</p>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
@@ -2440,6 +2442,12 @@ export default function ProjectDetailPage() {
                   <div>
                     <dt className="text-xs text-gray-500">Perceelnummer</dt>
                     <dd className="mt-0.5 font-medium text-gray-900">{project.kadNummer}</dd>
+                  </div>
+                )}
+                {project.kadGrootte && (
+                  <div>
+                    <dt className="text-xs text-gray-500">Perceelgrootte</dt>
+                    <dd className="mt-0.5 font-medium text-gray-900">{project.kadGrootte} m²</dd>
                   </div>
                 )}
                 {project.woningOppervlakte && (
@@ -2984,7 +2992,7 @@ export default function ProjectDetailPage() {
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-3">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Kad. gemeente</label>
                         <input type="text" value={editData.kadGemeente} onChange={(e) => setEditData((d) => ({ ...d, kadGemeente: e.target.value }))}
@@ -2998,6 +3006,12 @@ export default function ProjectDetailPage() {
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Perceelnr.</label>
                         <input type="text" value={editData.kadNummer} onChange={(e) => setEditData((d) => ({ ...d, kadNummer: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Perceelgrootte</label>
+                        <input type="text" value={editData.kadGrootte} onChange={(e) => setEditData((d) => ({ ...d, kadGrootte: e.target.value }))}
+                          placeholder="bijv. 124"
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
                       </div>
                     </div>

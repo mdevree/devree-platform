@@ -137,6 +137,7 @@ model Project {
   kadGemeente       String?
   kadSectie         String?
   kadNummer         String?
+  kadGrootte        String?
   woningOppervlakte String?
 
   // Commercieel

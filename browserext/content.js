@@ -42,6 +42,16 @@ function stableJson(value) {
   return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
 }
 
+function decodeMask(value, maskString) {
+  if (!maskString || value === undefined || value === null || value === '') return value;
+  for (const entry of String(maskString).split('|')) {
+    const sep = entry.indexOf(';');
+    if (sep === -1) continue;
+    if (entry.slice(0, sep) === String(value)) return entry.slice(sep + 1);
+  }
+  return value;
+}
+
 async function sha256Hex(value) {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -233,7 +243,10 @@ async function handleContactSync(data, realworksPath) {
   const SKIP = /(__MASK|__EDIT__|__NEW__|_grid_|_dispatcher|_collection|_entity|CSRFToken)/;
   const contact = { source: 'realworks', page_url: window.location.href };
   for (const [k, v] of Object.entries(d)) {
-    if (!SKIP.test(k) && v !== '') contact[k] = v;
+    if (SKIP.test(k) || v === '') continue;
+    contact[k] = v;
+    const mask = d[`${k}__MASK`];
+    if (mask) contact[`${k}_label`] = decodeMask(v, mask);
   }
 
   const envelope = await buildSyncEnvelope('contact.save', realworksPath, contact);
