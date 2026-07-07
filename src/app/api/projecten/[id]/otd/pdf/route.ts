@@ -58,6 +58,7 @@ async function renderPdf(html: string): Promise<Buffer> {
 
 type Opdrachtgever = {
   naam: string;
+  achternaam?: string | null;
   aanhef?: string | null;
   initialen?: string | null;
   voornamen?: string | null;
@@ -88,7 +89,8 @@ function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
     const woonplaats = opdrachtgever.woonplaats || opdrachtgever.postcodePlaats?.replace(/^\d{4}\s?[A-Z]{2}\s*/i, "") || null;
     const postcode = opdrachtgever.postcode || opdrachtgever.postcodePlaats?.match(/^\d{4}\s?[A-Z]{2}/i)?.[0] || null;
     const straat = opdrachtgever.straat || opdrachtgever.adres;
-    const juridischeNaam = [opdrachtgever.aanhef, opdrachtgever.initialen, opdrachtgever.naam]
+    const juridischeAchternaam = opdrachtgever.achternaam || opdrachtgever.naam;
+    const juridischeNaam = [opdrachtgever.aanhef, opdrachtgever.initialen, juridischeAchternaam]
       .filter(Boolean)
       .join(" ")
       .replace(/\s+/g, " ")
@@ -113,7 +115,8 @@ function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
 
 function renderHandtekeningen(opdrachtgevers: Opdrachtgever[]) {
   const opdrachtgeverBlocks = opdrachtgevers.map((opdrachtgever, index) => {
-    const juridischeNaam = [opdrachtgever.aanhef, opdrachtgever.initialen, opdrachtgever.naam]
+    const juridischeAchternaam = opdrachtgever.achternaam || opdrachtgever.naam;
+    const juridischeNaam = [opdrachtgever.aanhef, opdrachtgever.initialen, juridischeAchternaam]
       .filter(Boolean)
       .join(" ")
       .replace(/\s+/g, " ")
@@ -388,6 +391,7 @@ export async function GET(
       const name = [contact?.firstname, contact?.lastname].filter(Boolean).join(" ") || link.label || `Mautic ${link.mauticContactId}`;
       return {
         naam: name,
+        achternaam: contact?.lastname ?? null,
         aanhef: contact?.otdAanhef ?? null,
         initialen: contact?.otdInitialen ?? null,
         voornamen: contact?.otdVoornamen ?? null,
