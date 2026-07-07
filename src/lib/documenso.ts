@@ -103,11 +103,11 @@ function signatureSlotFields(slotIndex: number): Pick<DocumensoField, "pageX" | 
   };
 }
 
-function buildSigningFields(recipient: DocumensoRecipient, slotIndex: number, pageCount: number): DocumensoField[] {
+function buildSigningFields(recipient: DocumensoRecipient, slotIndex: number, pageCount: number, includeInitials: boolean): DocumensoField[] {
   if (recipient.role !== "SIGNER") return [];
   const fields: DocumensoField[] = [];
 
-  if (slotIndex > 0) {
+  if (includeInitials) {
     for (let page = 1; page < pageCount; page += 1) {
       fields.push({
         type: "INITIALS",
@@ -147,7 +147,12 @@ function withSigningFields(recipients: DocumensoRecipient[], pageCount: number) 
 
   return recipients.map((recipient) => ({
     ...recipient,
-    fields: buildSigningFields(recipient, signingSlots.get(recipient.email.toLowerCase()) ?? 0, pageCount).map((field) => ({
+    fields: buildSigningFields(
+      recipient,
+      signingSlots.get(recipient.email.toLowerCase()) ?? 0,
+      pageCount,
+      customerSigners.some((signer) => signer.email.toLowerCase() === recipient.email.toLowerCase()),
+    ).map((field) => ({
       ...field,
       fieldMeta: {
         type: field.type === "SIGNATURE" ? "signature" : field.type === "INITIALS" ? "initials" : "date",
