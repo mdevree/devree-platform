@@ -80,17 +80,17 @@ export async function POST(
       name: contact.name,
       email: contact.email,
       role: "SIGNER" as const,
-      signingOrder: index + 2,
+      signingOrder: index + 1,
     }] : []);
 
   const recipients = uniqueRecipients([
+    ...opdrachtgeverRecipients,
     {
       name: "Melvin de Vree",
       email: "melvin@devreemakelaardij.nl",
       role: "SIGNER",
-      signingOrder: 1,
+      signingOrder: opdrachtgeverRecipients.length + 1,
     },
-    ...opdrachtgeverRecipients,
     {
       name: "De Vree Makelaardij",
       email: "info@devreemakelaardij.nl",

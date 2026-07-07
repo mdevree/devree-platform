@@ -27,6 +27,13 @@ export type DocumensoConceptResult = {
   warnings: string[];
 };
 
+export type DocumensoSigningLink = {
+  name: string;
+  email: string;
+  role: string;
+  signingUrl: string;
+};
+
 class DocumensoApiError extends Error {
   constructor(message: string, public status?: number) {
     super(message);
@@ -102,6 +109,18 @@ function attachmentLabel(itemId: string) {
 }
 
 function attachmentLinks(): DocumensoAttachmentLink[] {
+  const configuredUrls = (process.env.DOCUMENSO_OTD_ATTACHMENT_URLS || "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+  if (configuredUrls.length > 0) {
+    return templateAttachmentItemIds().map((itemId, index) => ({
+      label: attachmentLabel(itemId),
+      data: configuredUrls[index] || configuredUrls[0],
+    }));
+  }
+
   const platformUrl = publicPlatformBaseUrl();
   return templateAttachmentItemIds().map((itemId) => ({
     label: attachmentLabel(itemId),
@@ -266,4 +285,26 @@ export async function createDocumensoOtdConcept({
     editUrl: `${url}/documents/${created.id}/edit`,
     warnings,
   };
+}
+
+export async function getDocumensoSigningLinks(documentId: number): Promise<DocumensoSigningLink[]> {
+  const res = await documensoFetch(`/api/v2/document/${documentId}`);
+  const document = await res.json() as {
+    recipients?: Array<{
+      name?: string | null;
+      email?: string | null;
+      role?: string | null;
+      token?: string | null;
+    }>;
+  };
+  const url = baseUrl();
+
+  return (document.recipients || [])
+    .filter((recipient) => recipient.role === "SIGNER" && recipient.token)
+    .map((recipient) => ({
+      name: recipient.name || "",
+      email: recipient.email || "",
+      role: recipient.role || "SIGNER",
+      signingUrl: `${url}/sign/${recipient.token}`,
+    }));
 }

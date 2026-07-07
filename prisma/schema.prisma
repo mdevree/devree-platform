@@ -157,6 +157,7 @@ model Project {
 
   // Relaties
   contacts            ProjectContact[]
+  proposals           ProjectProposal[]
   debiteurenLink      ProjectDebiteurenLink?
   tasks               Task[]
   calls               Call[]
@@ -176,6 +177,30 @@ model Project {
   @@index([realworksId])
   @@index([hypotheekAdviseurId])
   @@map("projects")
+}
+
+model ProjectProposal {
+  id                   String        @id @default(cuid())
+  project              Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId            String
+  tokenHash            String        @unique
+  status               String        @default("OPEN") // OPEN, ACCEPTED, REVOKED, ERROR
+  selectedVerkoopstart Verkoopstart?
+  selectedStartdatum   DateTime?
+  selectedStartReden   String?
+  documensoDocumentId  Int?
+  documensoEnvelopeId  String?
+  documensoSigningUrl  String?       @db.Text
+  errorMessage         String?       @db.Text
+  expiresAt            DateTime?
+  acceptedAt           DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("project_proposals")
 }
 
 model ProjectContact {
@@ -978,12 +1003,12 @@ model RealworksWoningTask {
 }
 
 model RealworksSyncEvent {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   eventType        String
-  status           String   @default("processed") // processed | ignored | quarantined | failed | duplicate
-  ignoredReason    String?  @db.Text
+  status           String    @default("processed") // processed | ignored | quarantined | failed | duplicate
+  ignoredReason    String?   @db.Text
   source           String?
-  sourceUrl        String?  @db.Text
+  sourceUrl        String?   @db.Text
   realworksPath    String?
   method           String?
   systemid         String?
@@ -991,13 +1016,13 @@ model RealworksSyncEvent {
   email            String?
   payloadVersion   String?
   extensionVersion String?
-  payloadHash      String?  @unique
+  payloadHash      String?   @unique
   matchStrategy    String?
   matchConfidence  Int?
   payload          Json?
   capturedAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([eventType])
   @@index([status])

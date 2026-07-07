@@ -604,6 +604,9 @@ export default function ProjectDetailPage() {
   const [proposalSaving, setProposalSaving] = useState(false);
   const [proposalError, setProposalError] = useState("");
   const [proposalMessage, setProposalMessage] = useState("");
+  const [proposalLinkSaving, setProposalLinkSaving] = useState(false);
+  const [proposalLinkError, setProposalLinkError] = useState("");
+  const [proposalLink, setProposalLink] = useState("");
 
   const categories = ["binnendienst", "verkoop", "aankoop", "taxatie", "administratie"];
 
@@ -811,6 +814,31 @@ export default function ProjectDetailPage() {
       setProposalError("Voorstel kon niet worden opgeslagen");
     } finally {
       setProposalSaving(false);
+    }
+  }
+
+  async function handleCreateProposalLink() {
+    if (!project) return;
+    setProposalLinkSaving(true);
+    setProposalLinkError("");
+    setProposalLink("");
+    try {
+      const res = await fetch(`/api/projecten/${project.id}/otd/proposal-link`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setProposalLinkError(data.error || "Voorstellink kon niet worden gemaakt");
+        return;
+      }
+      setProposalLink(data.proposalUrl);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(data.proposalUrl).catch(() => undefined);
+      }
+    } catch {
+      setProposalLinkError("Voorstellink kon niet worden gemaakt");
+    } finally {
+      setProposalLinkSaving(false);
     }
   }
 
@@ -2502,6 +2530,30 @@ export default function ProjectDetailPage() {
                   </button>
                   {proposalMessage && <span className="text-sm text-emerald-700">{proposalMessage}</span>}
                   {proposalError && <span className="text-sm text-red-700">{proposalError}</span>}
+                </div>
+                <div className="mt-4 border-t border-gray-200 pt-4">
+                  <button
+                    type="button"
+                    onClick={handleCreateProposalLink}
+                    disabled={proposalLinkSaving}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {proposalLinkSaving ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <LinkSlashIcon className="h-4 w-4 rotate-45" />}
+                    Voorstellink maken
+                  </button>
+                  {proposalLink && (
+                    <div className="mt-3 rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm text-emerald-800">
+                      Link gekopieerd:{" "}
+                      <a href={proposalLink} target="_blank" rel="noopener noreferrer" className="font-medium underline">
+                        voorstel openen
+                      </a>
+                    </div>
+                  )}
+                  {proposalLinkError && (
+                    <div className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {proposalLinkError}
+                    </div>
+                  )}
                 </div>
               </div>
 
