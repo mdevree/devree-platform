@@ -214,7 +214,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body;\n\nconst countryMap = { 'NL': 'Netherlands', 'BE': 'Belgium', 'DE': 'Germany' };\n\nreturn [{\n  json: {\n    firstname:              body.firstname                                        || '',\n    lastname:               body.lastname                                         || '',\n    email:                  body.email                                            || '',\n    mobile:                 body.mobile                                           || '',\n    phone:                  body.tel1                                             || '',\n    address1:               `${body.hstreet || ''} ${body.hhouseno || ''}`.trim(),\n    address2:               `${body.hzipcode || ''} ${body.hcity || ''}`.trim(),\n    zipcode:                body.hzipcode                                         || '',\n    city:                   body.hcity                                            || '',\n    country:                countryMap[body.hcountry] || body.hcountry            || '',\n    salutation:             body.saluation                                        || '',\n    typerela:               body.rtype                                            || '',\n    systemid:               body._systemid                                        || '',\n    realworks_code:         body.rcode                                            || '',\n    huisnummer:             body.hhouseno                                         || '',\n    huisnummer_toevoeging:  body.hhousenoadd                                      || '',\n    _mauticContactId:  body.field1                                      || '',\n    woning_adres:           `${body.hstreet || ''} ${body.hhouseno || ''}, ${body.hzipcode || ''} ${body.hcity || ''}`.trim(),\n  }\n}];"
+        "jsCode": "const body = $input.first().json.body;\nconst pick = (...values) => values.find((value) => value !== undefined && value !== null && String(value).trim() !== '') || '';\n\nconst countryMap = { 'NL': 'Netherlands', 'BE': 'Belgium', 'DE': 'Germany' };\n\nreturn [{\n  json: {\n    firstname:              body.firstname                                        || '',\n    lastname:               body.lastname                                         || '',\n    email:                  body.email                                            || '',\n    mobile:                 body.mobile                                           || '',\n    phone:                  body.tel1                                             || '',\n    address1:               `${body.hstreet || ''} ${body.hhouseno || ''}`.trim(),\n    address2:               `${body.hzipcode || ''} ${body.hcity || ''}`.trim(),\n    zipcode:                body.hzipcode                                         || '',\n    city:                   body.hcity                                            || '',\n    country:                countryMap[body.hcountry] || body.hcountry            || '',\n    salutation:             body.saluation                                        || '',\n    typerela:               body.rtype                                            || '',\n    systemid:               body._systemid                                        || '',\n    realworks_code:         body.rcode                                            || '',\n    huisnummer:             body.hhouseno                                         || '',\n    huisnummer_toevoeging:  body.hhousenoadd                                      || '',\n    _mauticContactId:  body.field1                                      || '',\n    woning_adres:           `${body.hstreet || ''} ${body.hhouseno || ''}, ${body.hzipcode || ''} ${body.hcity || ''}`.trim(),\n    otd_aanhef:             pick(body.otd_aanhef, body.aanhef, body.saluation, body.salutation, body.title),\n    otd_initialen:          pick(body.otd_initialen, body.initials, body.initialen, body.inits),\n    otd_voornamen:          pick(body.otd_voornamen, body.voornamen, body.firstnames, body.firstname_full, body.firstname),\n    otd_geboorteplaats:     pick(body.otd_geboorteplaats, body.geboorteplaats, body.birthplace, body.birth_place, body.pobirth),\n    otd_burgerlijke_staat:  pick(body.otd_burgerlijke_staat, body.burgerlijke_staat, body.marital_status, body.maritalstatus, body.burgstat),\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -297,6 +297,26 @@
               {
                 "fieldId": "intentie_verkoop",
                 "fieldValue": "={{ $json.intentie_verkoop }}"
+              },
+              {
+                "fieldId": "otd_aanhef",
+                "fieldValue": "={{ $json.otd_aanhef }}"
+              },
+              {
+                "fieldId": "otd_initialen",
+                "fieldValue": "={{ $json.otd_initialen }}"
+              },
+              {
+                "fieldId": "otd_voornamen",
+                "fieldValue": "={{ $json.otd_voornamen }}"
+              },
+              {
+                "fieldId": "otd_geboorteplaats",
+                "fieldValue": "={{ $json.otd_geboorteplaats }}"
+              },
+              {
+                "fieldId": "otd_burgerlijke_staat",
+                "fieldValue": "={{ $json.otd_burgerlijke_staat }}"
               }
             ]
           },
@@ -556,6 +576,26 @@
               {
                 "fieldId": "intentie_verkoop",
                 "fieldValue": "={{ $json.intentie_verkoop }}"
+              },
+              {
+                "fieldId": "otd_aanhef",
+                "fieldValue": "={{ $json.otd_aanhef }}"
+              },
+              {
+                "fieldId": "otd_initialen",
+                "fieldValue": "={{ $json.otd_initialen }}"
+              },
+              {
+                "fieldId": "otd_voornamen",
+                "fieldValue": "={{ $json.otd_voornamen }}"
+              },
+              {
+                "fieldId": "otd_geboorteplaats",
+                "fieldValue": "={{ $json.otd_geboorteplaats }}"
+              },
+              {
+                "fieldId": "otd_burgerlijke_staat",
+                "fieldValue": "={{ $json.otd_burgerlijke_staat }}"
               }
             ]
           },

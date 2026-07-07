@@ -129,6 +129,12 @@ export interface MauticContactFull extends MauticContact {
   zipcode: string | null;
   country: string | null;
   website: string | null;
+  // Opdracht tot dienstverlening velden uit Realworks
+  otdAanhef: string | null;
+  otdInitialen: string | null;
+  otdVoornamen: string | null;
+  otdGeboorteplaats: string | null;
+  otdBurgerlijkeStaat: string | null;
   // AI data profiel veld (JSON string opgeslagen in een custom veld)
   aiProfile: string | null;
   // AI sub-velden (gegenereerd door AI-workflow op basis van Mautic data + interacties)
@@ -353,6 +359,11 @@ export async function getContactFull(contactId: number): Promise<MauticContactFu
     zipcode: fields.zipcode || null,
     country: fields.country || null,
     website: fields.website || null,
+    otdAanhef: fields.otd_aanhef || null,
+    otdInitialen: fields.otd_initialen || null,
+    otdVoornamen: fields.otd_voornamen || null,
+    otdGeboorteplaats: fields.otd_geboorteplaats || null,
+    otdBurgerlijkeStaat: fields.otd_burgerlijke_staat || null,
     aiProfile: fields.ai_profiel_data || null,
     aiCurrentSituation: fields.ai_current_situation || null,
     aiHousingMotivation: fields.ai_housing_motivation || null,

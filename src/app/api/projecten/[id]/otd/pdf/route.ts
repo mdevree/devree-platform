@@ -30,29 +30,12 @@ function euro(value: number | null | undefined): string {
   return `€ ${value.toLocaleString("nl-NL")},-`;
 }
 
-function percent(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "________";
-  return `${new Intl.NumberFormat("nl-NL", {
-    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  }).format(value)}% inclusief btw`;
-}
-
 function percentLegal(value: number | null | undefined): string {
   if (value === null || value === undefined) return "________";
   return `${new Intl.NumberFormat("nl-NL", {
     minimumFractionDigits: value % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(value)} % incl. BTW`;
-}
-
-function line(label: string, value: unknown) {
-  return `
-    <div class="field">
-      <dt>${escapeHtml(label)}</dt>
-      <dd>${escapeHtml(value || "________")}</dd>
-    </div>
-  `;
 }
 
 async function renderPdf(html: string): Promise<Buffer> {
@@ -75,6 +58,8 @@ async function renderPdf(html: string): Promise<Buffer> {
 
 type Opdrachtgever = {
   naam: string;
+  aanhef?: string | null;
+  initialen?: string | null;
   voornamen?: string | null;
   geboorteplaats?: string | null;
   email?: string | null;
@@ -87,24 +72,6 @@ type Opdrachtgever = {
   burgerlijkeStaat?: string | null;
   rol?: string | null;
 };
-
-function renderOpdrachtgeverSamenvatting(opdrachtgevers: Opdrachtgever[]) {
-  return opdrachtgevers.map((opdrachtgever, index) => `
-    <tr>
-      <td>${index + 1}</td>
-      <td>
-        <strong>${escapeHtml(opdrachtgever.naam)}</strong>
-        ${opdrachtgever.rol ? `<br><span>${escapeHtml(opdrachtgever.rol)}</span>` : ""}
-      </td>
-      <td>${escapeHtml(opdrachtgever.email || "________")}</td>
-      <td>${escapeHtml(opdrachtgever.telefoon || "________")}</td>
-      <td>
-        ${escapeHtml(opdrachtgever.adres || "________")}
-        <br>${escapeHtml(opdrachtgever.postcodePlaats || "________")}
-      </td>
-    </tr>
-  `).join("");
-}
 
 function renderPartyField(label: string, value: unknown) {
   return `
@@ -121,11 +88,16 @@ function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
     const woonplaats = opdrachtgever.woonplaats || opdrachtgever.postcodePlaats?.replace(/^\d{4}\s?[A-Z]{2}\s*/i, "") || null;
     const postcode = opdrachtgever.postcode || opdrachtgever.postcodePlaats?.match(/^\d{4}\s?[A-Z]{2}/i)?.[0] || null;
     const straat = opdrachtgever.straat || opdrachtgever.adres;
+    const juridischeNaam = [opdrachtgever.aanhef, opdrachtgever.initialen, opdrachtgever.naam]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim() || opdrachtgever.naam;
 
     return `
       <section class="party-block">
         <p><strong>${opdrachtgevers.length === 1 ? "De opdrachtgever" : `De opdrachtgever ${index + 1}`}</strong></p>
-        ${renderPartyField("Naam", opdrachtgever.naam)}
+        ${renderPartyField("Naam", juridischeNaam)}
         ${renderPartyField("Voornamen", opdrachtgever.voornamen)}
         ${renderPartyField("Geboorteplaats", opdrachtgever.geboorteplaats)}
         ${renderPartyField("Woonplaats", woonplaats)}
@@ -140,15 +112,23 @@ function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
 }
 
 function renderHandtekeningen(opdrachtgevers: Opdrachtgever[]) {
-  const opdrachtgeverBlocks = opdrachtgevers.map((opdrachtgever, index) => `
-    <div class="signature">
-      <p class="signature-title">${escapeHtml(opdrachtgevers.length === 1 ? "De opdrachtgever(s)," : `De opdrachtgever ${index + 1},`)}</p>
-      <div class="signature-line"></div>
-      <p>naam: ${escapeHtml(opdrachtgever.naam || "……………………………………")}</p>
-      <p>plaats: ……………………………………</p>
-      <p>datum: ……………………………………</p>
-    </div>
-  `).join("");
+  const opdrachtgeverBlocks = opdrachtgevers.map((opdrachtgever, index) => {
+    const juridischeNaam = [opdrachtgever.aanhef, opdrachtgever.initialen, opdrachtgever.naam]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim() || opdrachtgever.naam;
+
+    return `
+      <div class="signature">
+        <p class="signature-title">${escapeHtml(opdrachtgevers.length === 1 ? "De opdrachtgever(s)," : `De opdrachtgever ${index + 1},`)}</p>
+        <div class="signature-line"></div>
+        <p>naam: ${escapeHtml(juridischeNaam || "……………………………………")}</p>
+        <p>plaats: ……………………………………</p>
+        <p>datum: ……………………………………</p>
+      </div>
+    `;
+  }).join("");
 
   return `${opdrachtgeverBlocks}
     <div class="signature">
@@ -233,41 +213,7 @@ function buildHtml({
       margin: 18px 0 8px;
       padding-bottom: 4px;
     }
-    table { border-collapse: collapse; width: 100%; }
-    th {
-      background: #f3f7f5;
-      color: #315246;
-      font-size: 9px;
-      text-align: left;
-      text-transform: uppercase;
-    }
-    th, td {
-      border-bottom: 1px solid #edf1ef;
-      padding: 6px 7px;
-      vertical-align: top;
-    }
-    dl.grid {
-      display: grid;
-      gap: 8px 14px;
-      grid-template-columns: 1fr 1fr;
-      margin: 0;
-    }
-    .field dt {
-      color: #6b7280;
-      font-size: 9px;
-      margin-bottom: 1px;
-    }
-    .field dd {
-      font-weight: 600;
-      margin: 0;
-    }
     .muted { color: #6b7280; }
-    .section-note {
-      background: #f8faf9;
-      border-left: 3px solid #005c3f;
-      margin-top: 8px;
-      padding: 8px 10px;
-    }
     .article p {
       margin: 0 0 7px;
       text-align: left;
@@ -345,36 +291,6 @@ function buildHtml({
   <h2>De ondergetekende(n)</h2>
   ${renderOpdrachtgeverBlokken(opdrachtgevers)}
 
-  <h2>Contactoverzicht</h2>
-  <table>
-    <thead>
-      <tr><th>#</th><th>Naam</th><th>E-mail</th><th>Telefoon</th><th>Adres</th></tr>
-    </thead>
-    <tbody>${renderOpdrachtgeverSamenvatting(opdrachtgevers)}</tbody>
-  </table>
-
-  <h2>Object</h2>
-  <dl class="grid">
-    ${line("Plaatselijk bekend", objectAdres)}
-    ${line("Kadastrale aanduiding", kadastraal)}
-    ${line("Woonoppervlakte", project.woningOppervlakte ? `${project.woningOppervlakte} m²` : null)}
-    ${line("Realworks ID", project.realworksId)}
-  </dl>
-
-  <h2>Afspraken</h2>
-  <dl class="grid">
-    ${line("Datum opdracht", vandaag)}
-    ${line("Vraagprijs", vraagprijs)}
-    ${line("Courtage", percent(project.courtagePercentage))}
-    ${line("Aanvaarding", aanvaarding)}
-    ${line("Verkoopmethode", verkoopmethode)}
-    ${line("Bankrekening", "NL02 RABO 0380 8057 23 t.n.v. De Vree Makelaardij B.V.")}
-  </dl>
-  ${project.bijzondereAfspraken ? `
-    <div class="section-note"><strong>Aanvullende afspraken</strong><br>${escapeHtml(project.bijzondereAfspraken)}</div>
-  ` : ""}
-
-  <h2>Opdrachttekst</h2>
   <div class="article">
     <p><strong>Het NVM-lid</strong></p>
     <p>Makelaarskantoor De Vree Makelaardij B.V. te Spijkenisse.</p>
@@ -472,10 +388,17 @@ export async function GET(
       const name = [contact?.firstname, contact?.lastname].filter(Boolean).join(" ") || link.label || `Mautic ${link.mauticContactId}`;
       return {
         naam: name,
+        aanhef: contact?.otdAanhef ?? null,
+        initialen: contact?.otdInitialen ?? null,
+        voornamen: contact?.otdVoornamen ?? null,
+        geboorteplaats: contact?.otdGeboorteplaats ?? null,
         email: contact?.email ?? null,
         telefoon: contact?.mobile || contact?.phone || null,
         adres: contact?.address1 ?? null,
+        woonplaats: contact?.city ?? null,
+        postcode: contact?.zipcode ?? null,
         postcodePlaats: [contact?.zipcode, contact?.city].filter(Boolean).join(" ") || null,
+        burgerlijkeStaat: contact?.otdBurgerlijkeStaat ?? null,
         rol: link.role,
       };
     }),
