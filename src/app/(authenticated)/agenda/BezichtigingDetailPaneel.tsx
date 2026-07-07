@@ -80,6 +80,15 @@ interface ContextResponse {
   project: { id: string; naam: string } | null;
 }
 
+type MauticContactOption = {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string | null;
+  phone: string | null;
+  mobile: string | null;
+};
+
 function formatDatumTijd(d: string | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleString("nl-NL", {
@@ -124,6 +133,12 @@ export default function BezichtigingDetailPaneel({
   const [pdfMelding, setPdfMelding] = useState<string | null>(null);
   const [koppelBezig, setKoppelBezig] = useState(false);
   const [verwijderBezig, setVerwijderBezig] = useState(false);
+  const [toonMauticZoeker, setToonMauticZoeker] = useState(false);
+  const [mauticZoekterm, setMauticZoekterm] = useState("");
+  const [mauticResultaten, setMauticResultaten] = useState<MauticContactOption[]>([]);
+  const [mauticZoekt, setMauticZoekt] = useState(false);
+  const [mauticKoppelt, setMauticKoppelt] = useState<number | null>(null);
+  const [mauticMelding, setMauticMelding] = useState<string | null>(null);
 
   const laad = useCallback(async () => {
     setLoading(true);
@@ -175,6 +190,57 @@ export default function BezichtigingDetailPaneel({
       }
     } finally {
       setKoppelBezig(false);
+    }
+  }
+
+  async function zoekMauticContacten() {
+    const q = mauticZoekterm.trim();
+    if (q.length < 2) {
+      setMauticResultaten([]);
+      setMauticMelding("Vul minimaal 2 tekens in.");
+      return;
+    }
+    setMauticZoekt(true);
+    setMauticMelding(null);
+    try {
+      const res = await fetch(`/api/mautic/contacts?search=${encodeURIComponent(q)}&limit=8`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMauticMelding(data.error || "Zoeken in Mautic mislukt.");
+        return;
+      }
+      setMauticResultaten(data.contacts || []);
+      if (!data.contacts?.length) setMauticMelding("Geen contacten gevonden.");
+    } catch {
+      setMauticMelding("Zoeken in Mautic mislukt.");
+    } finally {
+      setMauticZoekt(false);
+    }
+  }
+
+  async function kiesMauticContact(contactId: number) {
+    setMauticKoppelt(contactId);
+    setMauticMelding(null);
+    try {
+      const res = await fetch(`/api/agenda/${afspraakId}/mautic-contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMauticMelding(data.error || "Koppelen mislukt.");
+        return;
+      }
+      setToonMauticZoeker(false);
+      setMauticZoekterm("");
+      setMauticResultaten([]);
+      await laad();
+      onGekoppeld?.();
+    } catch {
+      setMauticMelding("Koppelen mislukt.");
+    } finally {
+      setMauticKoppelt(null);
     }
   }
 
@@ -267,6 +333,16 @@ export default function BezichtigingDetailPaneel({
                   Naar leadprofiel
                 </a>
               )}
+              <button
+                onClick={() => {
+                  setToonMauticZoeker((open) => !open);
+                  setMauticMelding(null);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+              >
+                <UserPlusIcon className="h-4 w-4" />
+                Kies Mautic-contact
+              </button>
               {ctx?.project && (
                 <a
                   href={`/projecten/${ctx.project.id}`}
@@ -306,6 +382,57 @@ export default function BezichtigingDetailPaneel({
                       </>
                     )}
                   </p>
+                )}
+              </div>
+            )}
+
+            {toonMauticZoeker && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                <div className="flex gap-2">
+                  <input
+                    value={mauticZoekterm}
+                    onChange={(event) => setMauticZoekterm(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") zoekMauticContacten();
+                    }}
+                    placeholder="Zoek Mautic-contact op naam, e-mail of telefoon"
+                    className="min-w-0 flex-1 rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={zoekMauticContacten}
+                    disabled={mauticZoekt}
+                    className="rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
+                  >
+                    {mauticZoekt ? "Zoekt..." : "Zoek"}
+                  </button>
+                </div>
+                {mauticMelding && <p className="mt-2 text-xs text-gray-600">{mauticMelding}</p>}
+                {mauticResultaten.length > 0 && (
+                  <ul className="mt-3 divide-y divide-blue-100 rounded-md border border-blue-100 bg-white">
+                    {mauticResultaten.map((contact) => {
+                      const naam = `${contact.firstname || ""} ${contact.lastname || ""}`.trim() || "Naamloos contact";
+                      const telefoon = contact.mobile || contact.phone;
+                      return (
+                        <li key={contact.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                          <div className="min-w-0 text-sm">
+                            <p className="font-medium text-gray-900">{naam}</p>
+                            <p className="truncate text-xs text-gray-500">
+                              #{contact.id}
+                              {contact.email ? ` · ${contact.email}` : ""}
+                              {telefoon ? ` · ${telefoon}` : ""}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => kiesMauticContact(contact.id)}
+                            disabled={mauticKoppelt !== null}
+                            className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+                          >
+                            {mauticKoppelt === contact.id ? "Koppelt..." : "Kies"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </div>
             )}

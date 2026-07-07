@@ -106,6 +106,21 @@ export interface MauticContact {
   lastActive: string | null;
 }
 
+function mapBasicContact(contact: Record<string, unknown>, fallbackId?: number): MauticContact {
+  const fields = (contact.fields as Record<string, Record<string, unknown>>)?.all || {};
+  return {
+    id: (contact.id as number) || fallbackId || 0,
+    firstname: (fields.firstname as string) || "",
+    lastname: (fields.lastname as string) || "",
+    email: (fields.email as string) || null,
+    phone: (fields.phone as string) || null,
+    mobile: (fields.mobile as string) || null,
+    company: (fields.company as string) || null,
+    points: (contact.points as number) || 0,
+    lastActive: (fields.last_active as string) || null,
+  };
+}
+
 export interface MauticContactFull extends MauticContact {
   address1: string | null;
   address2: string | null;
@@ -402,23 +417,37 @@ export async function searchContacts(options: {
   const rawContacts = data.contacts || {};
   const total = data.total ? parseInt(data.total) : 0;
 
-  const contacts: MauticContact[] = Object.values(rawContacts).map((c: unknown) => {
-    const contact = c as Record<string, unknown>;
-    const fields = (contact.fields as Record<string, Record<string, unknown>>)?.all || {};
-    return {
-      id: contact.id as number,
-      firstname: (fields.firstname as string) || "",
-      lastname: (fields.lastname as string) || "",
-      email: (fields.email as string) || null,
-      phone: (fields.phone as string) || null,
-      mobile: (fields.mobile as string) || null,
-      company: (fields.company as string) || null,
-      points: (contact.points as number) || 0,
-      lastActive: (fields.last_active as string) || null,
-    };
-  });
+  const contacts: MauticContact[] = Object.values(rawContacts).map((c: unknown) =>
+    mapBasicContact(c as Record<string, unknown>)
+  );
 
   return { contacts, total };
+}
+
+export async function searchContactByEmail(email: string): Promise<MauticContact | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const query = new URLSearchParams({
+    "where[0][col]": "email",
+    "where[0][expr]": "eq",
+    "where[0][val]": normalized,
+    limit: "1",
+  });
+
+  const response = await mauticFetch(`/api/contacts?${query}`);
+  if (!response.ok) {
+    console.error("Mautic e-mail zoekfout:", response.status, await response.text());
+    return null;
+  }
+
+  const data = await response.json();
+  const contacts = data.contacts || {};
+  const contactIds = Object.keys(contacts);
+  if (contactIds.length === 0) return null;
+
+  const contactId = parseInt(contactIds[0]);
+  return mapBasicContact(contacts[contactIds[0]], contactId);
 }
 
 /**

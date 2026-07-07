@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
-import { searchContactByRealworksCode, updateContact } from "@/lib/mautic";
+import {
+  createContact,
+  searchContactByEmail,
+  searchContactByRealworksCode,
+  updateContact,
+  type MauticContact,
+} from "@/lib/mautic";
 import { koppelAfspraakAanLead } from "@/lib/kijkerKoppeling";
+import { findRealworksContactForAgenda, type RealworksRelationContact } from "@/lib/agendaRealworksContact";
 
 const AMSTERDAM_TIME_ZONE = "Europe/Amsterdam";
 
@@ -50,6 +57,93 @@ function isBezichtigingType(type: string | null): boolean {
   return /bezicht|viewing/i.test(type ?? "");
 }
 
+function contactNaam(contact: Pick<MauticContact, "firstname" | "lastname">): string {
+  return `${contact.firstname} ${contact.lastname}`.trim();
+}
+
+function normalizeEmail(email: string | null | undefined): string | null {
+  return email?.trim().toLowerCase() || null;
+}
+
+function hasIdentity(contact: MauticContact | null): boolean {
+  if (!contact) return false;
+  return Boolean(contact.firstname || contact.lastname || contact.email || contact.mobile || contact.phone);
+}
+
+function matchesRealworksContact(
+  contact: MauticContact | null,
+  realworksContact: RealworksRelationContact | null
+): boolean {
+  if (!contact || !realworksContact) return false;
+  const rwEmail = normalizeEmail(realworksContact.email);
+  if (rwEmail && normalizeEmail(contact.email) === rwEmail) return true;
+  const rwPhone = realworksContact.mobile || realworksContact.phone;
+  if (rwPhone && [contact.mobile, contact.phone].filter(Boolean).includes(rwPhone)) return true;
+  return Boolean(realworksContact.name && contactNaam(contact).toLowerCase() === realworksContact.name.toLowerCase());
+}
+
+function realworksContactFields(
+  contact: RealworksRelationContact,
+  agrcode: string | null
+): Record<string, string | number | null> {
+  const fields: Record<string, string | number | null> = {
+    realworks_code: contact.realworksCode || agrcode,
+  };
+  if (contact.firstname) fields.firstname = contact.firstname;
+  if (contact.lastname) fields.lastname = contact.lastname;
+  if (contact.email) fields.email = contact.email;
+  if (contact.mobile) fields.mobile = contact.mobile;
+  if (contact.phone) fields.phone = contact.phone;
+  return fields;
+}
+
+async function resolveMauticContactForAfspraak(
+  agrcode: string | null,
+  byRealworksCode: MauticContact | null,
+  realworksContact: RealworksRelationContact | null
+): Promise<MauticContact | null> {
+  if (!realworksContact) return byRealworksCode;
+
+  const byEmail = realworksContact.email
+    ? await searchContactByEmail(realworksContact.email)
+    : null;
+
+  let chosen: MauticContact | null = null;
+  if (matchesRealworksContact(byRealworksCode, realworksContact)) {
+    chosen = byRealworksCode;
+  } else if (byEmail) {
+    chosen = byEmail;
+    if (byRealworksCode && byRealworksCode.id !== byEmail.id) {
+      await updateContact(byRealworksCode.id, { realworks_code: null });
+    }
+  } else if (byRealworksCode && !hasIdentity(byRealworksCode)) {
+    chosen = byRealworksCode;
+  } else if (
+    (!byRealworksCode && (realworksContact.email || realworksContact.mobile || realworksContact.name)) ||
+    (byRealworksCode && (realworksContact.email || realworksContact.mobile))
+  ) {
+    chosen = await createContact({
+      firstname: realworksContact.firstname,
+      lastname: realworksContact.lastname,
+      email: realworksContact.email || undefined,
+      mobile: realworksContact.mobile || undefined,
+      phone: realworksContact.phone || undefined,
+    });
+    if (chosen && byRealworksCode && byRealworksCode.id !== chosen.id) {
+      await updateContact(byRealworksCode.id, { realworks_code: null });
+    }
+  } else {
+    chosen = byRealworksCode;
+  }
+
+  if (chosen) {
+    const updated = await updateContact(chosen.id, realworksContactFields(realworksContact, agrcode));
+    return updated ?? chosen;
+  }
+
+  return null;
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -63,15 +157,22 @@ export async function POST(
   if (!afspraak)
     return NextResponse.json({ error: "Afspraak niet gevonden" }, { status: 404 });
 
-  // Parallel: Mautic-contact opzoeken via agrcode + project opzoeken via agobjcode
-  const [mauticContact, project] = await Promise.all([
+  // Parallel: Mautic-contact opzoeken via agrcode, Realworks-capture uitlezen en project zoeken.
+  const [mauticByRealworksCode, realworksContact, project] = await Promise.all([
     afspraak.agrcode ? searchContactByRealworksCode(afspraak.agrcode) : Promise.resolve(null),
+    findRealworksContactForAgenda(afspraak),
     afspraak.agobjcode
       ? prisma.project.findFirst({ where: { realworksId: afspraak.agobjcode } })
       : afspraak.projectId
       ? prisma.project.findUnique({ where: { id: afspraak.projectId } })
       : Promise.resolve(null),
   ]);
+
+  const mauticContact = await resolveMauticContactForAfspraak(
+    afspraak.agrcode,
+    mauticByRealworksCode,
+    realworksContact
+  );
 
   const hasContact = mauticContact !== null;
   const hasProject = project !== null;

@@ -68,15 +68,24 @@ async function vindBestaandeLead(
 export async function koppelAfspraakAanLead(
   afspraak: AfspraakBrugInput
 ): Promise<KoppelResultaat | null> {
-  // Al gekoppeld: alleen projectkoppeling borgen.
-  if (afspraak.leadId) {
-    if (afspraak.projectId) await koppelProject(afspraak.leadId, afspraak.projectId);
-    return { leadId: afspraak.leadId, projectId: afspraak.projectId, created: false };
-  }
-
   const mauticId = afspraak.mauticContactId != null ? String(afspraak.mauticContactId) : null;
   const email = afspraak.contactEmail?.trim() || null;
   const telefoon = afspraak.contactTelefoon?.trim() || null;
+
+  // Al gekoppeld: alleen projectkoppeling borgen.
+  if (afspraak.leadId) {
+    const updateData: Partial<Pick<Lead, "naam" | "email" | "telefoon" | "mauticContactId">> = {};
+    if (afspraak.contactNaam) updateData.naam = afspraak.contactNaam;
+    if (email) updateData.email = email;
+    if (telefoon) updateData.telefoon = telefoon;
+    if (mauticId) updateData.mauticContactId = mauticId;
+
+    if (Object.keys(updateData).length) {
+      await prisma.lead.update({ where: { id: afspraak.leadId }, data: updateData });
+    }
+    if (afspraak.projectId) await koppelProject(afspraak.leadId, afspraak.projectId);
+    return { leadId: afspraak.leadId, projectId: afspraak.projectId, created: false };
+  }
 
   // Zonder enige identificatie kunnen we geen betrouwbare kijker maken.
   if (!mauticId && !email && !telefoon) return null;
