@@ -116,6 +116,33 @@ export function parseDutchMoneyToCentsFreeInt(value: unknown): number | null {
   return parsed === null ? null : Math.round(parsed);
 }
 
+function formatDutchDateLabel(value: unknown): string | null {
+  const text = stringValue(value);
+  if (!text) return null;
+
+  const match = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+  if (!match) return text;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3].length === 2 ? `20${match[3]}` : match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) {
+    return text;
+  }
+
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
 export function formatEuro(value: number | null | undefined): string {
   if (value === null || value === undefined) return "";
   return `€ ${new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 0 }).format(value)},-`;
@@ -204,7 +231,7 @@ export function normalizeRealworksBrokerObjectForOtd(
       vraagprijs,
       koopconditie: koopconditieLabel === "vrij op naam" ? "vrij op naam" : koopconditieLabel === "kosten koper" ? "kosten koper" : null,
       courtagePercentage,
-      aanvaarding: stringValue(fields.aanvaarding ?? fields.lissttrans) ?? "in overleg",
+      aanvaarding: formatDutchDateLabel(fields.aanvaarding ?? fields.lisdatefre ?? fields.lissttrans) ?? "in overleg",
       verkoopmethode: verkoopmethodeFromRealworks(fields),
       bijzondereAfspraken: stringValue(fields.bijzondereAfspraken),
     },

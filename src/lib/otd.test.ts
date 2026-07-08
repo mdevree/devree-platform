@@ -70,6 +70,16 @@ test("bewaart objectcode als platform Realworks ID", () => {
   assert.equal(projectUpdateDataFromOtd(data).aanvaarding, "in overleg");
 });
 
+test("leest voorkeur opleveringsdatum uit Realworks lisdatefre", () => {
+  const data = normalizeRealworksBrokerObjectForOtd(
+    { ...HOEK_REALWORKS_FIELDS, lisdatefre: "01-12-2026" },
+    new Date("2026-07-08T14:30:00+02:00"),
+  );
+
+  assert.equal(data.afspraken.aanvaarding, "1 december 2026");
+  assert.equal(projectUpdateDataFromOtd(data).aanvaarding, "1 december 2026");
+});
+
 test("markeert kadaster en opdrachtgeverdetails als controlepunten", () => {
   const data = normalizeRealworksBrokerObjectForOtd(
     HOEK_REALWORKS_FIELDS,
