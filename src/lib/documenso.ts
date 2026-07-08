@@ -45,6 +45,13 @@ function baseUrl() {
   return (process.env.DOCUMENSO_URL || "https://ondertekenen.devreemakelaardij.nl").replace(/\/$/, "");
 }
 
+function teamDocumentUrl(documentId: number, edit = false) {
+  const url = baseUrl();
+  const teamSlug = (process.env.DOCUMENSO_TEAM_SLUG || "melvin").replace(/^\/+|\/+$/g, "");
+  const teamPrefix = teamSlug ? `/t/${encodeURIComponent(teamSlug)}` : "";
+  return `${url}${teamPrefix}/documents/${documentId}${edit ? "/edit" : ""}`;
+}
+
 function apiBaseUrl() {
   return (process.env.DOCUMENSO_API_URL || process.env.DOCUMENSO_URL || "https://ondertekenen.devreemakelaardij.nl").replace(/\/$/, "");
 }
@@ -278,12 +285,11 @@ export async function createDocumensoOtdConcept({
   });
   const created = await createRes.json() as { id: number; envelopeId: string };
 
-  const url = baseUrl();
   return {
     documentId: created.id,
     envelopeId: created.envelopeId,
-    documentUrl: `${url}/documents/${created.id}`,
-    editUrl: `${url}/documents/${created.id}`,
+    documentUrl: teamDocumentUrl(created.id),
+    editUrl: teamDocumentUrl(created.id, true),
     warnings,
   };
 }

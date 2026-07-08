@@ -188,6 +188,7 @@ function buildHtml({
   const vraagprijs = project.vraagprijs ? `${euro(project.vraagprijs)} k.k.` : "________";
   const courtage = percentLegal(project.courtagePercentage);
   const publiciteitskosten = project.kostenPubliciteit ?? 650;
+  const quickscanKosten = project.kostenBouwkundig && project.kostenBouwkundig > 0 ? project.kostenBouwkundig : 0;
   const intrekkingskosten = project.kostenIntrekking ?? 600;
   const bedenktijdkosten = project.kostenBedenktijd ?? 350;
   const bijzondereAfspraken = project.bijzondereAfspraken?.trim() || "……………………………………………………………………";
@@ -342,6 +343,9 @@ function buildHtml({
     ${project.kostenEnergielabel && project.kostenEnergielabel > 0
       ? `<p class="indent">- energielabel definitief maken of regelen via het NVM-lid: max. ${escapeHtml(euro(project.kostenEnergielabel))} incl. BTW;</p>`
       : `<p class="indent">- energielabel: geen kosten via het NVM-lid; opdrachtgever beschikt reeds over een geldig energielabel of verzorgt dit zelf.</p>`}
+    ${quickscanKosten > 0
+      ? `<p class="indent">- quickscan fundering laten uitvoeren via het NVM-lid: max. ${escapeHtml(euro(quickscanKosten))} incl. BTW;</p>`
+      : ""}
     <p class="indent"><strong>1.3</strong> De notaris vóór het verlijden van de akte van levering aan het NVM-lid een exemplaar van het concept van die notariële akte en de nota van afrekening ter inzage verstrekt en, indien en voor zover de opdrachtgever op dat moment nog loon, verschotten of andere kosten verschuldigd is, deze bij het passeren van de akte van levering verrekent.</p>
     <p class="indent"><strong>1.4</strong> Voor zover hij zijn eigendomspapieren aan het NVM-lid ter hand heeft gesteld deze bij het tot stand komen van de overeenkomst via de notaris aan de koper ter beschikking worden gesteld.</p>
     <p><strong>2.</strong> Het object is te aanvaarden per ${escapeHtml(aanvaarding)}.</p>

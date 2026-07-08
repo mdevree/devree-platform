@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Verkoopstart } from "@prisma/client";
-import { getDocumensoSigningLinks } from "@/lib/documenso";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
 
@@ -99,13 +98,6 @@ export async function POST(
       throw new Error(conceptData.error || "Documenso concept kon niet worden gemaakt");
     }
 
-    const links = await getDocumensoSigningLinks(conceptData.concept.documentId);
-    const customerSigningLink = links.find((link) => !/melvin@devreemakelaardij\.nl/i.test(link.email));
-
-    if (!customerSigningLink) {
-      throw new Error("Geen klant-ondertekenlink gevonden");
-    }
-
     await prisma.projectProposal.update({
       where: { id: proposal.id },
       data: {
@@ -122,7 +114,7 @@ export async function POST(
         acceptedAt: new Date(),
         documensoDocumentId: conceptData.concept.documentId,
         documensoEnvelopeId: conceptData.concept.envelopeId,
-        documensoSigningUrl: customerSigningLink.signingUrl,
+        documensoSigningUrl: null,
       },
     });
 
@@ -133,7 +125,6 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      signingUrl: customerSigningLink.signingUrl,
       documentUrl: conceptData.concept.documentUrl,
       editUrl: conceptData.concept.editUrl,
     });

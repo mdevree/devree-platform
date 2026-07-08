@@ -54,6 +54,7 @@ export default function ProposalChoiceForm({
   const [quickscanNote, setQuickscanNote] = useState(defaultQuickscanNote || "");
   const [loading, setLoading] = useState(false);
   const [remarksLoading, setRemarksLoading] = useState(false);
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -82,11 +83,12 @@ export default function ProposalChoiceForm({
         body: JSON.stringify(payload()),
       });
       const data = await res.json();
-      if (!res.ok || !data.success || !data.signingUrl) {
+      if (!res.ok || !data.success) {
         setError(data.error || "Akkoord kon niet worden verwerkt");
         return;
       }
-      window.location.href = data.signingUrl;
+      setAccepted(true);
+      setMessage("Dank voor uw akkoord. De opdracht tot dienstverlening wordt nu opgemaakt.");
     } catch {
       setError("Akkoord kon niet worden verwerkt");
     } finally {
@@ -115,6 +117,21 @@ export default function ProposalChoiceForm({
     } finally {
       setRemarksLoading(false);
     }
+  }
+
+  if (accepted) {
+    return (
+      <section className="rounded-lg border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Akkoord ontvangen</p>
+        <h2 className="mt-2 text-xl font-semibold text-emerald-950">Wij maken de opdracht tot dienstverlening voor u klaar.</h2>
+        <p className="mt-3 text-sm leading-6 text-emerald-900">
+          De opdracht wordt gecontroleerd en daarna eerst door de makelaar ondertekend. Daarna ontvangt u per e-mail een uitnodiging om de opdracht digitaal te ondertekenen.
+        </p>
+        <p className="mt-2 text-sm leading-6 text-emerald-900">
+          Na ondertekening maken wij uw digitale klantomgeving aan op Move.nl. Bij direct starten nemen wij zo snel mogelijk contact op om de fotograaf in te plannen.
+        </p>
+      </section>
+    );
   }
 
   return (
@@ -305,7 +322,7 @@ export default function ProposalChoiceForm({
           disabled={loading || remarksLoading}
           className="inline-flex w-full items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {loading ? "Tekenverzoek klaarzetten..." : "Akkoord en naar ondertekenen"}
+          {loading ? "Akkoord verwerken..." : "Akkoord geven"}
         </button>
         <button
           type="button"

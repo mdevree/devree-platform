@@ -201,12 +201,26 @@ export default async function ProposalPage(
         </section>
 
         {unavailable ? (
-          <section className="mt-5 rounded-lg border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
-            {expired ? "Dit voorstel is verlopen." : "Dit voorstel is niet meer open."}
-            {proposal.documensoSigningUrl && (
-              <a href={proposal.documensoSigningUrl} className="ml-2 font-semibold underline">
-                Open ondertekenen
-              </a>
+          <section className={`mt-5 rounded-lg border p-5 text-sm ${
+            proposal.status === "ACCEPTED" && !expired
+              ? "border-emerald-100 bg-emerald-50 text-emerald-900"
+              : "border-amber-100 bg-amber-50 text-amber-800"
+          }`}>
+            {expired ? (
+              "Dit voorstel is verlopen."
+            ) : proposal.status === "ACCEPTED" ? (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Akkoord ontvangen</p>
+                <h2 className="mt-2 text-xl font-semibold text-emerald-950">Wij maken de opdracht tot dienstverlening voor u klaar.</h2>
+                <p className="mt-3 leading-6">
+                  De opdracht wordt gecontroleerd en daarna eerst door de makelaar ondertekend. Daarna ontvangt u per e-mail een uitnodiging om de opdracht digitaal te ondertekenen.
+                </p>
+                <p className="mt-2 leading-6">
+                  Na ondertekening maken wij uw digitale klantomgeving aan op Move.nl. Bij direct starten nemen wij zo snel mogelijk contact op om de fotograaf in te plannen.
+                </p>
+              </>
+            ) : (
+              "Dit voorstel is niet meer open."
             )}
           </section>
         ) : (
