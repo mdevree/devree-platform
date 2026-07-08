@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
 import {
   firstCompleteKadasterRegel,
+  kadasterRegelFromRealworksFields,
   normalizeKadasterText,
   stringValue,
   type OtdKadasterRegel,
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   const realworksSystemId = stringValue(body.realworksSystemId ?? body.systemid ?? body._systemid);
-  const objectCode = stringValue(body.objectCode ?? body.lisnr ?? body.objectcode);
+  const objectCode = stringValue(body.objectCode ?? body.lisnr ?? body.objectcode ?? body.kadlisnr);
 
   if (!realworksSystemId && !objectCode) {
     return NextResponse.json(
@@ -44,6 +45,8 @@ export async function POST(request: NextRequest) {
 
   const fallback = normalizeKadasterText(body.rawText);
   if (fallback) rows.push(fallback);
+  const directFields = kadasterRegelFromRealworksFields(body as Record<string, unknown>);
+  if (directFields) rows.unshift(directFields);
 
   const kadaster = firstCompleteKadasterRegel(rows);
   if (!kadaster) {
@@ -57,7 +60,7 @@ export async function POST(request: NextRequest) {
   const project = await prisma.project.findFirst({
     where: {
       OR: [
-        ...(realworksSystemId ? [{ realworksId: realworksSystemId }] : []),
+        ...(realworksSystemId ? [{ realworksSystemId }, { realworksId: realworksSystemId }] : []),
         ...(objectCode ? [{ realworksId: objectCode }] : []),
       ],
     },

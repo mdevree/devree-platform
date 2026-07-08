@@ -125,7 +125,9 @@ model Project {
   address         String?
   notionPageId    String? @unique
   mauticContactId Int? // Fallback voor backward-compat (legacy)
-  realworksId     String? // Koppeling met woning op WordPress via Realworks ID
+  realworksId     String? // Publieke objectcode (bijv. SE11902), voor WordPress/agenda
+  realworksSystemId        String? // Interne Realworks _systemid van broker.brokerobject
+  realworksProjectSystemId String? // Interne Realworks project_systemid
   contactName     String? // Fallback contactnaam (legacy)
   contactPhone    String? // Fallback telefoonnummer (legacy)
   contactEmail    String? // Fallback emailadres (legacy)
@@ -175,6 +177,8 @@ model Project {
   @@index([notionPageId])
   @@index([mauticContactId])
   @@index([realworksId])
+  @@index([realworksSystemId])
+  @@index([realworksProjectSystemId])
   @@index([hypotheekAdviseurId])
   @@map("projects")
 }

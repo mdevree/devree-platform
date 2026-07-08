@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { recalculateActionOpportunities } from "@/lib/actionOpportunities";
+import { kadasterRegelFromRealworksFields } from "@/lib/otd";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -74,6 +75,21 @@ function jsonValue(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNu
   return value === null || value === undefined
     ? Prisma.JsonNull
     : (value as Prisma.InputJsonValue);
+}
+
+function parsePreviewRecord(value: string | undefined): Record<string, unknown> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return asRecord(parsed);
+  } catch {}
+
+  const params = new URLSearchParams(value);
+  const record: Record<string, unknown> = {};
+  params.forEach((paramValue, key) => {
+    record[key] = paramValue;
+  });
+  return record;
 }
 
 async function ingestSearchersCapture(capture: RealworksNetworkCapture) {
@@ -219,6 +235,38 @@ async function ingestSearchersCapture(capture: RealworksNetworkCapture) {
   return { searchers: searchersUpserted, results: resultsUpserted, opportunities };
 }
 
+async function ingestKadasterSaveCapture(capture: RealworksNetworkCapture) {
+  if (!capture.path?.includes("/servlets/objects/broker.kadaster/save")) return null;
+
+  const fields = parsePreviewRecord(capture.request_body_preview);
+  const objectCode = firstString(fields.kadlisnr, fields.objectCode, fields.objectcode, fields.lisnr);
+  const kadaster = kadasterRegelFromRealworksFields(fields);
+  if (!objectCode || !kadaster) {
+    return { ignored: true, ignoredReason: "Geen objectcode of kadasterdata in broker.kadaster/save" };
+  }
+
+  const project = await prisma.project.findFirst({
+    where: { realworksId: objectCode },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  if (!project) {
+    return { ignored: true, ignoredReason: "Geen project gevonden voor kadaster-save", objectCode, kadaster };
+  }
+
+  await prisma.project.update({
+    where: { id: project.id },
+    data: {
+      kadGemeente: kadaster.gemeente ?? project.kadGemeente,
+      kadSectie: kadaster.sectie ?? project.kadSectie,
+      kadNummer: kadaster.nummer ?? project.kadNummer,
+      kadGrootte: kadaster.grootteM2 ?? project.kadGrootte,
+    },
+  });
+
+  return { updated: true, projectId: project.id, objectCode, kadaster };
+}
+
 function parseOptionalDate(value: unknown) {
   if (!value) return null;
   const date = new Date(String(value));
@@ -328,6 +376,7 @@ export async function POST(request: NextRequest) {
 
   await storeBackupCapture(normalizedCapture);
   const ingestResult = await ingestSearchersCapture(normalizedCapture);
+  const kadasterIngestResult = await ingestKadasterSaveCapture(normalizedCapture);
 
   const configuredWebhookUrl = process.env.REALWORKS_BACKUP_CAPTURE_WEBHOOK_URL;
   const n8nUrl = process.env.N8N_URL;
@@ -336,7 +385,7 @@ export async function POST(request: NextRequest) {
 
   if (!webhookUrl) {
     return NextResponse.json(
-      { success: true, forwarded: false, reason: "Geen capture webhook geconfigureerd", ingest: ingestResult },
+      { success: true, forwarded: false, reason: "Geen capture webhook geconfigureerd", ingest: ingestResult, kadasterIngest: kadasterIngestResult },
       { headers: CORS_HEADERS }
     );
   }
@@ -354,13 +403,13 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { success: true, forwarded: res.ok, webhookStatus: res.status, ingest: ingestResult },
+      { success: true, forwarded: res.ok, webhookStatus: res.status, ingest: ingestResult, kadasterIngest: kadasterIngestResult },
       { headers: CORS_HEADERS }
     );
   } catch (error) {
     console.warn("[realworks-backup-capture] webhook forward mislukt:", error);
     return NextResponse.json(
-      { success: true, forwarded: false, error: "Webhook forward mislukt" },
+      { success: true, forwarded: false, error: "Webhook forward mislukt", ingest: ingestResult, kadasterIngest: kadasterIngestResult },
       { headers: CORS_HEADERS }
     );
   }

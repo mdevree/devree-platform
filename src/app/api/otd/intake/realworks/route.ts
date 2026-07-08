@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
   const otd = normalizeRealworksBrokerObjectForOtd(fields);
   const otdReadyTrigger = isOtdTriggerFromRealworks(fields);
   const updateData = projectUpdateDataFromOtd(otd);
-  const realworksSystemId = stringValue(updateData.realworksId);
+  const realworksSystemId = stringValue(otd.realworksSystemId);
+  const realworksProjectSystemId = stringValue(otd.realworksProjectSystemId);
   const objectCode = stringValue(otd.realworksObjectCode);
   const address = stringValue(updateData.woningAdres);
 
@@ -35,7 +36,8 @@ export async function POST(request: NextRequest) {
   const existingProject = await prisma.project.findFirst({
     where: {
       OR: [
-        ...(realworksSystemId ? [{ realworksId: realworksSystemId }] : []),
+        ...(realworksSystemId ? [{ realworksSystemId }, { realworksId: realworksSystemId }] : []),
+        ...(realworksProjectSystemId ? [{ realworksProjectSystemId }] : []),
         ...(objectCode ? [{ realworksId: objectCode }] : []),
         ...(address ? [{ woningAdres: address }] : []),
       ],

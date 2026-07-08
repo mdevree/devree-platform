@@ -5,6 +5,7 @@ import {
   formatEuro,
   firstCompleteKadasterRegel,
   isOtdTriggerFromRealworks,
+  kadasterRegelFromRealworksFields,
   normalizeKadasterText,
   normalizeRealworksBrokerObjectForOtd,
   otdCompletenessIssues,
@@ -64,6 +65,8 @@ test("bewaart objectcode als platform Realworks ID", () => {
   );
 
   assert.equal(projectUpdateDataFromOtd(data).realworksId, "SE11902");
+  assert.equal(projectUpdateDataFromOtd(data).realworksSystemId, "10409219");
+  assert.equal(projectUpdateDataFromOtd(data).realworksProjectSystemId, "24533077");
   assert.equal(projectUpdateDataFromOtd(data).aanvaarding, "in overleg");
 });
 
@@ -116,6 +119,25 @@ test("parseert eenvoudige kadastertekst naar OTD-velden", () => {
     nummer: "1234",
     grootteM2: "124",
     rawText: "Spijkenisse A 1234 groot 124 m²",
+  });
+});
+
+test("parseert Realworks kadaster-save velden naar OTD-velden", () => {
+  assert.deepEqual(kadasterRegelFromRealworksFields({
+    kadlisnr: "SE11905",
+    kadcity: "Pernis",
+    kadsection: "B",
+    kadperc: "2896",
+    ko_grootteperceel: "196",
+    kadastersoort: "1",
+    kadastersoort__MASK: "1;Volle eigendom|2;Erfpacht",
+  }), {
+    gemeente: "Pernis",
+    sectie: "B",
+    nummer: "2896",
+    grootteM2: "196",
+    eigendomssituatie: "Volle eigendom",
+    rawText: "Pernis B 2896 196 m²",
   });
 });
 

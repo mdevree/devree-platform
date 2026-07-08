@@ -296,6 +296,37 @@ export function normalizeKadasterText(rawValue: unknown): OtdKadasterRegel | nul
   };
 }
 
+export function kadasterRegelFromRealworksFields(fields: Record<string, unknown>): OtdKadasterRegel | null {
+  const gemeente = stringValue(fields.kadcity ?? fields.kadGemeente ?? fields.kadgemeente ?? fields.gemeente);
+  const sectie = stringValue(fields.kadsection ?? fields.kadSectie ?? fields.kadsectie ?? fields.sectie);
+  const nummer = stringValue(fields.kadperc ?? fields.kadNummer ?? fields.kadnummer ?? fields.perceelnummer ?? fields.nummer);
+  const grootteM2 = stringValue(
+    fields.ko_grootteperceel
+      ?? fields.ko_kadsurface
+      ?? fields.kadGrootte
+      ?? fields.kadgrootte
+      ?? fields.grootteM2
+      ?? fields.grootte
+      ?? fields.oppervlakte,
+  );
+  const eigendomssituatie = stringValue(
+    fields.kadastersoort_label
+      ?? decodeRealworksMask(fields.kadastersoort, fields.kadastersoort__MASK)
+      ?? fields.eigendomssituatie,
+  );
+
+  if (!gemeente && !sectie && !nummer && !grootteM2 && !eigendomssituatie) return null;
+
+  return {
+    gemeente,
+    sectie: sectie?.toUpperCase() ?? null,
+    nummer,
+    grootteM2,
+    eigendomssituatie,
+    rawText: [gemeente, sectie, nummer, grootteM2 ? `${grootteM2} m²` : null].filter(Boolean).join(" ") || null,
+  };
+}
+
 export function firstCompleteKadasterRegel(rows: OtdKadasterRegel[]): OtdKadasterRegel | null {
   return rows.find((row) => row.gemeente && row.sectie && row.nummer) ?? rows[0] ?? null;
 }
@@ -311,6 +342,8 @@ export function projectUpdateDataFromOtd(data: OtdProjectData) {
     // WordPress en agenda-afspraken koppelen daarop. Het interne Realworks
     // _systemid blijft beschikbaar in de intake-payload voor kadastermapping.
     realworksId: data.realworksObjectCode ?? data.realworksSystemId ?? null,
+    realworksSystemId: data.realworksSystemId ?? null,
+    realworksProjectSystemId: data.realworksProjectSystemId ?? null,
     contactName: data.realworksRelationName ?? null,
     woningAdres: data.object.adres ?? null,
     woningPostcode: data.object.postcode ?? null,
