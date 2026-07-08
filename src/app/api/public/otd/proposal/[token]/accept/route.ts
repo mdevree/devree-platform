@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Verkoopstart } from "@prisma/client";
-import { createContact } from "@/lib/mautic";
+import { createContact, updateContact } from "@/lib/mautic";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
 
@@ -34,6 +34,40 @@ function cleanExtraOpdrachtgevers(value: unknown) {
     .slice(0, 4);
 }
 
+function cleanOpdrachtgeverCorrecties(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
+      const mauticContactId = Number(record.mauticContactId);
+      return {
+        mauticContactId: Number.isFinite(mauticContactId) ? mauticContactId : null,
+        naam: cleanString(record.naam),
+        aanhef: cleanString(record.aanhef),
+        initialen: cleanString(record.initialen),
+        voornamen: cleanString(record.voornamen),
+        achternaam: cleanString(record.achternaam),
+        email: cleanString(record.email),
+        telefoon: cleanString(record.telefoon),
+        geboortedatum: cleanString(record.geboortedatum),
+        geboorteplaats: cleanString(record.geboorteplaats),
+        burgerlijkeStaat: cleanString(record.burgerlijkeStaat),
+      };
+    })
+    .filter((item) => item.mauticContactId)
+    .slice(0, 8);
+}
+
+function splitName(value: string | null) {
+  const parts = (value || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { firstname: "", lastname: parts[0] || "" };
+  return {
+    firstname: parts.slice(0, -1).join(" "),
+    lastname: parts.at(-1) || "",
+  };
+}
+
 function parseVerkoopstart(value: unknown): Verkoopstart {
   const verkoopstart = (cleanString(value) || "DIRECT") as Verkoopstart;
   if (!VERKOOPSTART_VALUES.has(verkoopstart)) {
@@ -51,12 +85,57 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, "&#39;");
 }
 
+function renderFields(fields: Array<[string, unknown]>) {
+  return `
+    <dl>
+      ${fields.map(([label, value]) => `
+        <dt><strong>${escapeHtml(label)}</strong></dt>
+        <dd>${escapeHtml(value || "Niet ingevuld")}</dd>
+      `).join("")}
+    </dl>
+  `;
+}
+
+function renderPeople(title: string, people: Array<Record<string, unknown>>) {
+  if (!people.length) return `<h3>${escapeHtml(title)}</h3><p><em>Geen</em></p>`;
+
+  return `
+    <h3>${escapeHtml(title)}</h3>
+    ${people.map((person, index) => `
+      <h4>${escapeHtml(title)} ${index + 1}</h4>
+      ${renderFields([
+        ["Naam", person.naam || person.achternaam],
+        ["Aanhef", person.aanhef],
+        ["Initialen", person.initialen],
+        ["Voornamen", person.voornamen],
+        ["Achternaam", person.achternaam],
+        ["E-mail", person.email],
+        ["Telefoon", person.telefoon],
+        ["Geboortedatum", person.geboortedatum],
+        ["Geboorteplaats", person.geboorteplaats],
+        ["Burgerlijke staat", person.burgerlijkeStaat],
+      ])}
+    `).join("")}
+  `;
+}
+
 async function notifyOfficeProposalAccepted({
   project,
   proposalUrl,
   editUrl,
   remarks,
+  verkoopstart,
+  startdatum,
+  startReden,
+  silentSale,
+  energielabelChoice,
+  energielabelNote,
+  quickscanChoice,
+  quickscanNote,
+  opdrachtgeverCorrecties,
+  extraOpdrachtgevers,
   extraCount,
+  correctionCount,
 }: {
   project: {
     id: string;
@@ -71,7 +150,18 @@ async function notifyOfficeProposalAccepted({
   proposalUrl: string | null;
   editUrl: string | null;
   remarks: string | null;
+  verkoopstart: Verkoopstart;
+  startdatum: Date | null;
+  startReden: string | null;
+  silentSale: boolean;
+  energielabelChoice: string | null;
+  energielabelNote: string | null;
+  quickscanChoice: string | null;
+  quickscanNote: string | null;
+  opdrachtgeverCorrecties: Array<Record<string, unknown>>;
+  extraOpdrachtgevers: Array<Record<string, unknown>>;
   extraCount: number;
+  correctionCount: number;
 }) {
   const webhookUrl = process.env.AI_INFO_EMAIL_WEBHOOK_URL;
   if (!webhookUrl) return;
@@ -87,9 +177,23 @@ async function notifyOfficeProposalAccepted({
       <strong>Contact:</strong> ${escapeHtml(project.contactName || "Onbekend")}<br>
       <strong>E-mail:</strong> ${escapeHtml(project.contactEmail || "")}<br>
       <strong>Telefoon:</strong> ${escapeHtml(project.contactPhone || "")}<br>
+      <strong>Aangepaste bestaande opdrachtgevers:</strong> ${correctionCount}<br>
       <strong>Extra opdrachtgevers doorgegeven:</strong> ${extraCount}
     </p>
-    ${remarks ? `<h3>Opmerking klant</h3><p>${escapeHtml(remarks).replace(/\n/g, "<br>")}</p>` : ""}
+    <h3>Keuzes en opmerkingen</h3>
+    ${renderFields([
+      ["Startkeuze", verkoopstart],
+      ["Startdatum", startdatum ? startdatum.toLocaleDateString("nl-NL") : ""],
+      ["Toelichting start", startReden],
+      ["Stille verkoop", silentSale ? "Ja" : "Nee"],
+      ["Energielabel", energielabelChoice],
+      ["Toelichting energielabel", energielabelNote],
+      ["Quickscan", quickscanChoice],
+      ["Toelichting quickscan", quickscanNote],
+      ["Opmerking klant", remarks],
+    ])}
+    ${renderPeople("Aangepaste bestaande opdrachtgever", opdrachtgeverCorrecties)}
+    ${renderPeople("Extra opdrachtgever", extraOpdrachtgevers)}
     <p>
       <a href="${escapeHtml(`${platformUrl}/projecten/${project.id}`)}">Open project in kantoorplatform</a>
       ${editUrl ? `<br><a href="${escapeHtml(editUrl)}">Open Documenso concept</a>` : ""}
@@ -132,7 +236,16 @@ export async function POST(
 
   const proposal = await prisma.projectProposal.findUnique({
     where: { tokenHash: proposalTokenHash(token) },
-    include: { project: true },
+    include: {
+      project: {
+        include: {
+          contacts: {
+            where: { role: { in: ["opdrachtgever", "partner", "gemachtigde"] } },
+            select: { mauticContactId: true },
+          },
+        },
+      },
+    },
   });
 
   if (!proposal || proposal.status !== "OPEN") {
@@ -166,6 +279,9 @@ export async function POST(
     ? (proposal.project.kostenBouwkundig && proposal.project.kostenBouwkundig > 0 ? proposal.project.kostenBouwkundig : 399)
     : 0;
   const extraOpdrachtgevers = cleanExtraOpdrachtgevers(body.extraOpdrachtgevers);
+  const allowedContactIds = new Set(proposal.project.contacts.map((contact) => contact.mauticContactId));
+  const opdrachtgeverCorrecties = cleanOpdrachtgeverCorrecties(body.opdrachtgeverCorrecties)
+    .filter((correctie) => correctie.mauticContactId && allowedContactIds.has(correctie.mauticContactId));
 
   await prisma.project.update({
     where: { id: proposal.projectId },
@@ -219,6 +335,23 @@ export async function POST(
     }
   }
 
+  for (const correctie of opdrachtgeverCorrecties) {
+    if (!correctie.mauticContactId) continue;
+    const split = splitName(correctie.naam);
+    await updateContact(correctie.mauticContactId, {
+      firstname: correctie.voornamen?.split(/\s+/)[0] || split.firstname || null,
+      lastname: correctie.achternaam || split.lastname || correctie.naam || null,
+      email: correctie.email,
+      mobile: correctie.telefoon,
+      otd_aanhef: correctie.aanhef,
+      otd_initialen: correctie.initialen,
+      otd_voornamen: correctie.voornamen,
+      geboortedatum: correctie.geboortedatum,
+      otd_geboorteplaats: correctie.geboorteplaats,
+      otd_burgerlijke_staat: correctie.burgerlijkeStaat,
+    });
+  }
+
   try {
     const baseUrl = process.env.PLATFORM_INTERNAL_URL || request.nextUrl.origin;
     const conceptRes = await fetch(`${baseUrl}/api/projecten/${proposal.projectId}/otd/documenso`, {
@@ -263,7 +396,18 @@ export async function POST(
       proposalUrl: proposal.publicUrl,
       editUrl: conceptData.concept.editUrl || null,
       remarks,
+      verkoopstart,
+      startdatum,
+      startReden,
+      silentSale,
+      energielabelChoice,
+      energielabelNote,
+      quickscanChoice,
+      quickscanNote,
+      opdrachtgeverCorrecties,
+      extraOpdrachtgevers,
       extraCount: extraOpdrachtgevers.length,
+      correctionCount: opdrachtgeverCorrecties.length,
     });
 
     return NextResponse.json({

@@ -27,6 +27,12 @@ type ExtraOpdrachtgever = {
   burgerlijkeStaat: string;
 };
 
+type BekendeOpdrachtgever = ExtraOpdrachtgever & {
+  mauticContactId: number | null;
+  naam: string;
+  adres: string;
+};
+
 const emptyExtraOpdrachtgever: ExtraOpdrachtgever = {
   aanhef: "",
   initialen: "",
@@ -52,6 +58,7 @@ export default function ProposalChoiceForm({
   defaultQuickscanNote,
   energielabelKosten,
   quickscanKosten,
+  opdrachtgevers,
 }: {
   token: string;
   defaultVerkoopstart: string;
@@ -65,6 +72,7 @@ export default function ProposalChoiceForm({
   defaultQuickscanNote: string;
   energielabelKosten: number;
   quickscanKosten: number;
+  opdrachtgevers: BekendeOpdrachtgever[];
 }) {
   const initialVerkoopstart = defaultVerkoopstart === "SLAPEND" ? "UITGESTELD" : defaultVerkoopstart || "DIRECT";
   const [verkoopstart, setVerkoopstart] = useState(initialVerkoopstart);
@@ -76,6 +84,8 @@ export default function ProposalChoiceForm({
   const [energielabelNote, setEnergielabelNote] = useState(defaultEnergielabelNote || "");
   const [quickscanChoice, setQuickscanChoice] = useState(defaultQuickscanChoice || "ZELF_REGELEN");
   const [quickscanNote, setQuickscanNote] = useState(defaultQuickscanNote || "");
+  const [bekendeOpdrachtgevers, setBekendeOpdrachtgevers] = useState<BekendeOpdrachtgever[]>(opdrachtgevers);
+  const [editingOpdrachtgevers, setEditingOpdrachtgevers] = useState<Record<number, boolean>>({});
   const [extraOpdrachtgevers, setExtraOpdrachtgevers] = useState<ExtraOpdrachtgever[]>([]);
   const [loading, setLoading] = useState(false);
   const [remarksLoading, setRemarksLoading] = useState(false);
@@ -94,8 +104,15 @@ export default function ProposalChoiceForm({
       energielabelNote,
       quickscanChoice,
       quickscanNote,
+      opdrachtgeverCorrecties: bekendeOpdrachtgevers.filter((item) => item.mauticContactId),
       extraOpdrachtgevers: extraOpdrachtgevers.filter((item) => item.achternaam.trim() || item.email.trim()),
     };
+  }
+
+  function updateBekendeOpdrachtgever(index: number, patch: Partial<BekendeOpdrachtgever>) {
+    setBekendeOpdrachtgevers((items) => items.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, ...patch } : item
+    )));
   }
 
   function updateExtraOpdrachtgever(index: number, patch: Partial<ExtraOpdrachtgever>) {
@@ -322,30 +339,112 @@ export default function ProposalChoiceForm({
       )}
 
       <div className="mt-5 border-t border-gray-100 pt-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Gegevens voor de opdracht</p>
-        <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-900">
-          Wij vullen de opdracht tot dienstverlening alvast voor met de aangeleverde gegevens en gegevens uit het Kadaster. Mist er een opdrachtgever, dan kunt u die hieronder doorgeven.
-        </div>
-      </div>
-
-      <div className="mt-5 border-t border-gray-100 pt-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Extra opdrachtgever</p>
-            <p className="mt-1 text-sm leading-6 text-gray-600">
-              Bijvoorbeeld een partner of mede-eigenaar die ook moet tekenen.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Gegevens voor de opdracht</p>
+            <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-900">
+              Wij vullen de opdracht tot dienstverlening alvast voor met de aangeleverde gegevens en gegevens uit het Kadaster. Controleer de gegevens hieronder en pas ze aan waar nodig.
+            </div>
           </div>
           <button
             type="button"
             onClick={() => setExtraOpdrachtgevers((items) => [...items, { ...emptyExtraOpdrachtgever }])}
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
           >
             Opdrachtgever toevoegen
           </button>
         </div>
 
-        {extraOpdrachtgevers.length > 0 && (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {bekendeOpdrachtgevers.map((opdrachtgever, index) => {
+            const isEditing = Boolean(editingOpdrachtgevers[index]);
+            return (
+              <div key={`${opdrachtgever.mauticContactId || opdrachtgever.email || opdrachtgever.naam}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-950">{opdrachtgever.naam}</p>
+                    {!opdrachtgever.mauticContactId && (
+                      <p className="mt-1 text-xs leading-5 text-amber-700">Deze gegevens zijn nog niet aan een contact gekoppeld.</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingOpdrachtgevers((items) => ({ ...items, [index]: !isEditing }))}
+                    className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 transition hover:bg-gray-100"
+                  >
+                    {isEditing ? "Sluiten" : "Gegevens aanpassen"}
+                  </button>
+                </div>
+
+                {!isEditing ? (
+                  <dl className="mt-3 grid gap-2 text-sm">
+                    {[
+                      ["Aanhef", opdrachtgever.aanhef],
+                      ["Initialen", opdrachtgever.initialen],
+                      ["Voornamen", opdrachtgever.voornamen],
+                      ["Geboortedatum", opdrachtgever.geboortedatum],
+                      ["E-mail", opdrachtgever.email],
+                      ["Telefoon", opdrachtgever.telefoon],
+                      ["Adres", opdrachtgever.adres],
+                      ["Geboorteplaats", opdrachtgever.geboorteplaats],
+                      ["Burgerlijke staat", opdrachtgever.burgerlijkeStaat],
+                    ].map(([label, value]) => (
+                      <div key={label} className="grid grid-cols-[120px_1fr] gap-3">
+                        <dt className="text-gray-500">{label}</dt>
+                        <dd className={value ? "text-gray-900" : "text-amber-700"}>
+                          {value || "Nog niet bekend"}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Aanhef</span>
+                      <input value={opdrachtgever.aanhef} onChange={(event) => updateBekendeOpdrachtgever(index, { aanhef: event.target.value })} placeholder="Bijv. mevrouw" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Initialen</span>
+                      <input value={opdrachtgever.initialen} onChange={(event) => updateBekendeOpdrachtgever(index, { initialen: event.target.value })} placeholder="Bijv. A.B." className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Voornamen</span>
+                      <input value={opdrachtgever.voornamen} onChange={(event) => updateBekendeOpdrachtgever(index, { voornamen: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Naam</span>
+                      <input value={opdrachtgever.naam} onChange={(event) => updateBekendeOpdrachtgever(index, { naam: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">E-mailadres</span>
+                      <input type="email" value={opdrachtgever.email} onChange={(event) => updateBekendeOpdrachtgever(index, { email: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Telefoon</span>
+                      <input value={opdrachtgever.telefoon} onChange={(event) => updateBekendeOpdrachtgever(index, { telefoon: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Geboortedatum</span>
+                      <input type="date" value={opdrachtgever.geboortedatum} onChange={(event) => updateBekendeOpdrachtgever(index, { geboortedatum: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Geboorteplaats</span>
+                      <input value={opdrachtgever.geboorteplaats} onChange={(event) => updateBekendeOpdrachtgever(index, { geboorteplaats: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block sm:col-span-2">
+                      <span className="text-xs font-medium text-gray-600">Burgerlijke staat</span>
+                      <input value={opdrachtgever.burgerlijkeStaat} onChange={(event) => updateBekendeOpdrachtgever(index, { burgerlijkeStaat: event.target.value })} placeholder="Bijv. gehuwd, ongehuwd" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {extraOpdrachtgevers.length > 0 && (
+        <div className="mt-5 border-t border-gray-100 pt-5">
           <div className="mt-4 space-y-4">
             {extraOpdrachtgevers.map((extra, index) => (
               <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -400,8 +499,8 @@ export default function ProposalChoiceForm({
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="mt-5 border-t border-gray-100 pt-5">
         <label className="block">

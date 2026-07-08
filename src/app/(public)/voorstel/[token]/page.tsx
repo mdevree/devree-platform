@@ -107,32 +107,36 @@ export default async function ProposalPage(
       const naam = [contact?.firstname, contact?.lastname].filter(Boolean).join(" ") || link.label || "Opdrachtgever";
       const adres = [contact?.address1, [contact?.zipcode, contact?.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
       return {
+        mauticContactId: link.mauticContactId,
         naam,
-        email: contact?.email || null,
-        telefoon: contact?.mobile || contact?.phone || null,
-        adres: adres || null,
-        aanhef: contact?.otdAanhef || null,
-        initialen: contact?.otdInitialen || null,
-        voornamen: contact?.otdVoornamen || null,
-        geboortedatum: contact?.geboortedatum || null,
-        geboorteplaats: contact?.otdGeboorteplaats || null,
-        burgerlijkeStaat: contact?.otdBurgerlijkeStaat || null,
+        achternaam: contact?.lastname || "",
+        email: contact?.email || "",
+        telefoon: contact?.mobile || contact?.phone || "",
+        adres: adres || "",
+        aanhef: contact?.otdAanhef || "",
+        initialen: contact?.otdInitialen || "",
+        voornamen: contact?.otdVoornamen || "",
+        geboortedatum: contact?.geboortedatum || "",
+        geboorteplaats: contact?.otdGeboorteplaats || "",
+        burgerlijkeStaat: contact?.otdBurgerlijkeStaat || "",
       };
     }),
   );
   const opdrachtgeverFallback = knownOpdrachtgevers.length
     ? []
     : [{
+        mauticContactId: null,
         naam: project.contactName || "Nog niet bekend",
-        email: project.contactEmail || null,
-        telefoon: project.contactPhone || null,
-        adres: null,
-        aanhef: null,
-        initialen: null,
-        voornamen: null,
-        geboortedatum: null,
-        geboorteplaats: null,
-        burgerlijkeStaat: null,
+        achternaam: "",
+        email: project.contactEmail || "",
+        telefoon: project.contactPhone || "",
+        adres: "",
+        aanhef: "",
+        initialen: "",
+        voornamen: "",
+        geboortedatum: "",
+        geboorteplaats: "",
+        burgerlijkeStaat: "",
       }];
   const opdrachtgevers = knownOpdrachtgevers.length ? knownOpdrachtgevers : opdrachtgeverFallback;
 
@@ -250,40 +254,6 @@ export default async function ProposalPage(
           </p>
         </section>
 
-        <section className="mt-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Bekende opdrachtgevergegevens</p>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Deze gegevens gebruiken wij voor de opdracht tot dienstverlening. Ontbreekt er iets of moet er iemand extra meetekenen, geef dat hieronder door.
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {opdrachtgevers.map((opdrachtgever, index) => (
-              <div key={`${opdrachtgever.email || opdrachtgever.naam}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm font-semibold text-gray-950">{opdrachtgever.naam}</p>
-                <dl className="mt-3 grid gap-2 text-sm">
-                  {[
-                    ["Aanhef", opdrachtgever.aanhef],
-                    ["Initialen", opdrachtgever.initialen],
-                    ["Voornamen", opdrachtgever.voornamen],
-                    ["Geboortedatum", opdrachtgever.geboortedatum],
-                    ["E-mail", opdrachtgever.email],
-                    ["Telefoon", opdrachtgever.telefoon],
-                    ["Adres", opdrachtgever.adres],
-                    ["Geboorteplaats", opdrachtgever.geboorteplaats],
-                    ["Burgerlijke staat", opdrachtgever.burgerlijkeStaat],
-                  ].map(([label, value]) => (
-                    <div key={label} className="grid grid-cols-[120px_1fr] gap-3">
-                      <dt className="text-gray-500">{label}</dt>
-                      <dd className={value ? "text-gray-900" : "text-amber-700"}>
-                        {value || "Nog niet bekend"}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {unavailable ? (
           <section className={`mt-5 rounded-lg border p-5 text-sm ${
             proposal.status === "ACCEPTED" && !expired
@@ -322,6 +292,7 @@ export default async function ProposalPage(
               defaultQuickscanNote={proposal.selectedQuickscanNote || ""}
               energielabelKosten={energielabelOfferKosten}
               quickscanKosten={quickscanKosten}
+              opdrachtgevers={opdrachtgevers}
             />
           </div>
         )}
