@@ -28,6 +28,10 @@ function uniqueRecipients(recipients: DocumensoRecipient[]) {
   });
 }
 
+function internalPlatformBaseUrl(request: NextRequest) {
+  return (process.env.PLATFORM_INTERNAL_URL || request.nextUrl.origin).replace(/\/$/, "");
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -51,13 +55,20 @@ export async function POST(
     return NextResponse.json({ error: "Project niet gevonden" }, { status: 404 });
   }
 
-  const origin = request.nextUrl.origin;
-  const pdfRes = await fetch(`${origin}/api/projecten/${project.id}/otd/pdf`, {
-    headers: {
-      cookie: request.headers.get("cookie") || "",
-      ...(process.env.N8N_WEBHOOK_SECRET ? { "x-webhook-secret": process.env.N8N_WEBHOOK_SECRET } : {}),
-    },
-  });
+  let pdfRes: Response;
+  try {
+    pdfRes = await fetch(`${internalPlatformBaseUrl(request)}/api/projecten/${project.id}/otd/pdf`, {
+      headers: {
+        cookie: request.headers.get("cookie") || "",
+        ...(process.env.N8N_WEBHOOK_SECRET ? { "x-webhook-secret": process.env.N8N_WEBHOOK_SECRET } : {}),
+      },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? `OTD-PDF kon niet worden gemaakt: ${error.message}` : "OTD-PDF kon niet worden gemaakt" },
+      { status: 502 },
+    );
+  }
 
   if (!pdfRes.ok) {
     return NextResponse.json(
