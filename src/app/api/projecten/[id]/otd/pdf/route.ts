@@ -299,7 +299,7 @@ function buildHtml({
 <body>
   <header>
     <img class="brand-logo" src="${logo}" alt="De Vree Makelaardij">
-    <div class="subbrand">NVM Makelaar in Spijkenisse en omgeving</div>
+    <div class="subbrand">Uw belang is ons belang</div>
     <h1>Opdracht tot dienstverlening bij verkoop</h1>
   </header>
 
