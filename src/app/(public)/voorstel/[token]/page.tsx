@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProposalChoiceForm from "./ProposalChoiceForm";
+import { getContactFull } from "@/lib/mautic";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
 import { VERKOOPMETHODE_LABELS } from "@/lib/projectTypes";
@@ -58,7 +59,16 @@ export default async function ProposalPage(
   const previewMode = query.preview === "1" || query.preview === "true";
   const proposal = await prisma.projectProposal.findUnique({
     where: { tokenHash: proposalTokenHash(token) },
-    include: { project: true },
+    include: {
+      project: {
+        include: {
+          contacts: {
+            where: { role: { in: ["opdrachtgever", "partner", "gemachtigde"] } },
+            orderBy: { addedAt: "asc" },
+          },
+        },
+      },
+    },
   });
 
   if (!proposal) notFound();
@@ -91,6 +101,38 @@ export default async function ProposalPage(
     || (energielabelKosten > 0 ? "VIA_MAKELAAR" : "AANWEZIG_OF_ZELF");
   const quickscanChoice = proposal.selectedQuickscanChoice
     || (quickscanKosten > 0 ? "VIA_MAKELAAR" : "ZELF_REGELEN");
+  const knownOpdrachtgevers = await Promise.all(
+    project.contacts.map(async (link) => {
+      const contact = await getContactFull(link.mauticContactId).catch(() => null);
+      const naam = [contact?.firstname, contact?.lastname].filter(Boolean).join(" ") || link.label || "Opdrachtgever";
+      const adres = [contact?.address1, [contact?.zipcode, contact?.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+      return {
+        naam,
+        email: contact?.email || null,
+        telefoon: contact?.mobile || contact?.phone || null,
+        adres: adres || null,
+        aanhef: contact?.otdAanhef || null,
+        initialen: contact?.otdInitialen || null,
+        voornamen: contact?.otdVoornamen || null,
+        geboorteplaats: contact?.otdGeboorteplaats || null,
+        burgerlijkeStaat: contact?.otdBurgerlijkeStaat || null,
+      };
+    }),
+  );
+  const opdrachtgeverFallback = knownOpdrachtgevers.length
+    ? []
+    : [{
+        naam: project.contactName || "Nog niet bekend",
+        email: project.contactEmail || null,
+        telefoon: project.contactPhone || null,
+        adres: null,
+        aanhef: null,
+        initialen: null,
+        voornamen: null,
+        geboorteplaats: null,
+        burgerlijkeStaat: null,
+      }];
+  const opdrachtgevers = knownOpdrachtgevers.length ? knownOpdrachtgevers : opdrachtgeverFallback;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -204,6 +246,39 @@ export default async function ProposalPage(
           <p className="mt-2 text-sm leading-6 text-gray-600">
             Bij direct starten nemen wij zo snel mogelijk contact op om een fotograaf in te plannen.
           </p>
+        </section>
+
+        <section className="mt-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Bekende opdrachtgevergegevens</p>
+          <p className="mt-2 text-sm leading-6 text-gray-600">
+            Deze gegevens gebruiken wij voor de opdracht tot dienstverlening. Ontbreekt er iets of moet er iemand extra meetekenen, geef dat hieronder door.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {opdrachtgevers.map((opdrachtgever, index) => (
+              <div key={`${opdrachtgever.email || opdrachtgever.naam}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm font-semibold text-gray-950">{opdrachtgever.naam}</p>
+                <dl className="mt-3 grid gap-2 text-sm">
+                  {[
+                    ["Aanhef", opdrachtgever.aanhef],
+                    ["Initialen", opdrachtgever.initialen],
+                    ["Voornamen", opdrachtgever.voornamen],
+                    ["E-mail", opdrachtgever.email],
+                    ["Telefoon", opdrachtgever.telefoon],
+                    ["Adres", opdrachtgever.adres],
+                    ["Geboorteplaats", opdrachtgever.geboorteplaats],
+                    ["Burgerlijke staat", opdrachtgever.burgerlijkeStaat],
+                  ].map(([label, value]) => (
+                    <div key={label} className="grid grid-cols-[120px_1fr] gap-3">
+                      <dt className="text-gray-500">{label}</dt>
+                      <dd className={value ? "text-gray-900" : "text-amber-700"}>
+                        {value || "Nog niet bekend"}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
         </section>
 
         {unavailable ? (
