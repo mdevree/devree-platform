@@ -27,9 +27,14 @@ function formatDate(value: Date | null | undefined) {
 }
 
 export default async function ProposalPage(
-  { params }: { params: Promise<{ token: string }> },
+  { params, searchParams }: {
+    params: Promise<{ token: string }>;
+    searchParams?: Promise<{ preview?: string }>;
+  },
 ) {
   const { token } = await params;
+  const query = searchParams ? await searchParams : {};
+  const previewMode = query.preview === "1" || query.preview === "true";
   const proposal = await prisma.projectProposal.findUnique({
     where: { tokenHash: proposalTokenHash(token) },
     include: { project: true },
@@ -37,14 +42,16 @@ export default async function ProposalPage(
 
   if (!proposal) notFound();
 
-  await prisma.projectProposal.update({
-    where: { id: proposal.id },
-    data: {
-      viewedAt: proposal.viewedAt || new Date(),
-      lastViewedAt: new Date(),
-      viewCount: { increment: 1 },
-    },
-  });
+  if (!previewMode) {
+    await prisma.projectProposal.update({
+      where: { id: proposal.id },
+      data: {
+        viewedAt: proposal.viewedAt || new Date(),
+        lastViewedAt: new Date(),
+        viewCount: { increment: 1 },
+      },
+    });
+  }
 
   const project = proposal.project;
   const expired = proposal.expiresAt ? proposal.expiresAt < new Date() : false;
@@ -69,6 +76,11 @@ export default async function ProposalPage(
           <div>
             <p className="text-sm font-semibold uppercase tracking-wider text-emerald-800">De Vree Makelaardij</p>
             <h1 className="mt-2 text-3xl font-semibold text-gray-950">Voorstel verkoopopdracht</h1>
+            {previewMode && (
+              <p className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                Preview voor kantoor, geen tracking
+              </p>
+            )}
           </div>
           <div className="text-sm text-gray-500">0181-611919 · info@devreemakelaardij.nl</div>
         </div>

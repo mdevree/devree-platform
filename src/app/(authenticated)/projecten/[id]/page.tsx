@@ -2552,17 +2552,30 @@ export default function ProjectDetailPage() {
                         <span className="ml-2 text-xs opacity-75">geldig tot {formatDateFull(latestProposal.expiresAt)}</span>
                       )}
                     </div>
-                    {latestProposal?.documensoDocumentId && (
-                      <a
-                        href={`https://ondertekenen.devreemakelaardij.nl/documents/${latestProposal.documensoDocumentId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold underline"
-                      >
-                        Documenso
-                        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
-                      </a>
-                    )}
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      {latestProposal?.publicUrl && (
+                        <a
+                          href={`${latestProposal.publicUrl}${latestProposal.publicUrl.includes("?") ? "&" : "?"}preview=1`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold underline"
+                        >
+                          Preview
+                          <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {latestProposal?.documensoDocumentId && (
+                        <a
+                          href={`https://ondertekenen.devreemakelaardij.nl/documents/${latestProposal.documensoDocumentId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold underline"
+                        >
+                          Documenso
+                          <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                   {latestProposal?.errorMessage && (
                     <p className="mt-1 text-xs leading-5">{latestProposal.errorMessage}</p>
@@ -2664,6 +2677,14 @@ export default function ProjectDetailPage() {
                             className="rounded-md bg-emerald-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-800"
                           >
                             Open
+                          </a>
+                          <a
+                            href={`${proposalLink}${proposalLink.includes("?") ? "&" : "?"}preview=1`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                          >
+                            Preview
                           </a>
                         </div>
                       </div>

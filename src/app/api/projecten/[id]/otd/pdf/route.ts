@@ -135,9 +135,8 @@ function renderHandtekeningen(opdrachtgevers: Opdrachtgever[]) {
     return `
       <div class="signature">
         <p class="signature-title">${escapeHtml(opdrachtgevers.length === 1 ? "De opdrachtgever(s)," : `De opdrachtgever ${index + 1},`)}</p>
-        <div class="signature-line"></div>
+        <div class="signature-sign-area"></div>
         <p>naam: ${escapeHtml(juridischeNaam || "……………………………………")}</p>
-        <p>plaats: ……………………………………</p>
         <p>datum: ……………………………………</p>
       </div>
     `;
@@ -146,9 +145,8 @@ function renderHandtekeningen(opdrachtgevers: Opdrachtgever[]) {
   return `${opdrachtgeverBlocks}
     <div class="signature">
       <p class="signature-title">Het NVM-lid,</p>
-      <div class="signature-line"></div>
+      <div class="signature-sign-area"></div>
       <p>naam: De heer M. de Vree</p>
-      <p>plaats: ……………………………………</p>
       <p>datum: ……………………………………</p>
     </div>
   `;
@@ -273,17 +271,20 @@ function buildHtml({
     .signature {
       border: 1px solid #d9e3de;
       border-radius: 6px;
-      min-height: 112px;
+      min-height: 122px;
       padding: 10px;
     }
     .signature-title {
       color: #005c3f;
       font-weight: 700;
-      margin: 0 0 26px;
+      margin: 0 0 8px;
     }
-    .signature-line {
-      border-top: 1px solid #11251d;
-      margin-bottom: 8px;
+    .signature-sign-area {
+      background: #fff;
+      border: 1px dashed #cbd5d1;
+      border-radius: 4px;
+      height: 34px;
+      margin: 0 0 10px;
       width: 100%;
     }
     footer {
