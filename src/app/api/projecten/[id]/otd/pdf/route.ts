@@ -323,7 +323,9 @@ function buildHtml({
     <p class="indent"><strong>1.1</strong> Het NVM-lid de opdracht, eventueel met foto's, tekeningen e.d. ter kennis brengt van collega's en derden en dat deze gegevens worden opgenomen in gidsen en andere overzichten waaronder Funda.</p>
     <p class="indent"><strong>1.2</strong> Het NVM-lid kosten maakt zoals hieronder vermeld, die door hem, desgewenst telkens nadat hij deze heeft voldaan, aan de opdrachtgever in rekening worden gebracht en wel, behoudens nadere afspraken, tot in totaal niet meer dan de aangegeven bedragen:</p>
     <p class="indent">– publiciteitskosten (Funda plaatsing compleet, fotopresentatie inclusief 360 graden foto's, video, plattegronden etc.): max. ${escapeHtml(euro(publiciteitskosten))} incl. BTW;</p>
-    ${project.kostenEnergielabel && project.kostenEnergielabel > 0 ? `<p class="indent">- energielabel definitief maken: max. ${escapeHtml(euro(project.kostenEnergielabel))} incl. BTW;</p>` : ""}
+    ${project.kostenEnergielabel && project.kostenEnergielabel > 0
+      ? `<p class="indent">- energielabel definitief maken of regelen via het NVM-lid: max. ${escapeHtml(euro(project.kostenEnergielabel))} incl. BTW;</p>`
+      : `<p class="indent">- energielabel: geen kosten via het NVM-lid; opdrachtgever beschikt reeds over een geldig energielabel of verzorgt dit zelf.</p>`}
     <p class="indent"><strong>1.3</strong> De notaris vóór het verlijden van de akte van levering aan het NVM-lid een exemplaar van het concept van die notariële akte en de nota van afrekening ter inzage verstrekt en, indien en voor zover de opdrachtgever op dat moment nog loon, verschotten of andere kosten verschuldigd is, deze bij het passeren van de akte van levering verrekent.</p>
     <p class="indent"><strong>1.4</strong> Voor zover hij zijn eigendomspapieren aan het NVM-lid ter hand heeft gesteld deze bij het tot stand komen van de overeenkomst via de notaris aan de koper ter beschikking worden gesteld.</p>
     <p><strong>2.</strong> Het object is te aanvaarden per ${escapeHtml(aanvaarding)}.</p>

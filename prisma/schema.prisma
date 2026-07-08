@@ -189,6 +189,8 @@ model ProjectProposal {
   selectedVerkoopstart Verkoopstart?
   selectedStartdatum   DateTime?
   selectedStartReden   String?
+  selectedEnergielabelChoice String?
+  selectedEnergielabelNote   String?       @db.Text
   documensoDocumentId  Int?
   documensoEnvelopeId  String?
   documensoSigningUrl  String?       @db.Text

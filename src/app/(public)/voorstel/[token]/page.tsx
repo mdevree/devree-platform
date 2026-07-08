@@ -45,6 +45,10 @@ export default async function ProposalPage(
     ? VERKOOPMETHODE_LABELS[project.verkoopmethode] || project.verkoopmethode
     : "Nog te bepalen";
   const verkoopstart = proposal.selectedVerkoopstart || project.verkoopstart || "DIRECT";
+  const energielabelKosten = project.kostenEnergielabel && project.kostenEnergielabel > 0 ? project.kostenEnergielabel : 0;
+  const energielabelLabel = energielabelKosten > 0 ? euro(energielabelKosten) : "Al aanwezig / zelf regelen";
+  const energielabelChoice = proposal.selectedEnergielabelChoice
+    || (energielabelKosten > 0 ? "VIA_MAKELAAR" : "AANWEZIG_OF_ZELF");
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -90,19 +94,37 @@ export default async function ProposalPage(
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Energielabel</dt>
-                <dd className="font-medium text-gray-900">{euro(project.kostenEnergielabel ?? 0)}</dd>
+                <dd className="text-right font-medium text-gray-900">{energielabelLabel}</dd>
               </div>
             </dl>
-            <p className="mt-4 text-xs leading-5 text-gray-500">
-              Intrekkings- en bedenktijdkosten staan juridisch in de opdracht, maar zijn geen kosten die u normaal vooraf betaalt.
-            </p>
           </aside>
         </div>
+
+        <section className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Publiciteitskosten</p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Dit is het maximale budget voor de presentatie van de woning, zoals Funda, fotografie, 360 graden foto&apos;s, video en plattegronden. We brengen dit alleen in rekening volgens de afspraken in de opdracht.
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Energielabel</p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              We rekenen geen gratis energielabel. Als het label al geldig is of u dit zelf regelt, staat hiervoor geen kostenpost via ons. Alleen als wij het moeten regelen, nemen we daarvoor een maximum op.
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Intrekking en bedenktijd</p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Deze bedragen staan juridisch in de opdracht voor uitzonderingssituaties, bijvoorbeeld intrekken na gemaakte werkzaamheden of ontbinding binnen de wettelijke bedenktijd. Dit zijn geen kosten die u normaal vooraf betaalt.
+            </p>
+          </div>
+        </section>
 
         <section className="mt-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Vervolg</p>
           <p className="mt-2 text-sm leading-6 text-gray-600">
-            Als u akkoord bent, zetten we de opdracht tot dienstverlening direct klaar voor ondertekening. Na het tekenen komt u terug op de website van De Vree Makelaardij.
+            Als u akkoord bent, zetten we de opdracht tot dienstverlening klaar voor ondertekening. Na het tekenen komt u terug op de website van De Vree Makelaardij.
           </p>
         </section>
 
@@ -122,6 +144,8 @@ export default async function ProposalPage(
               defaultVerkoopstart={verkoopstart}
               defaultStartdatum={dateInputValue(proposal.selectedStartdatum || project.startdatum)}
               defaultStartReden={proposal.selectedStartReden || project.startReden || ""}
+              defaultEnergielabelChoice={energielabelChoice}
+              defaultEnergielabelNote={proposal.selectedEnergielabelNote || ""}
             />
           </div>
         )}
