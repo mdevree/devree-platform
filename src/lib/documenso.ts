@@ -283,7 +283,7 @@ export async function createDocumensoOtdConcept({
     documentId: created.id,
     envelopeId: created.envelopeId,
     documentUrl: `${url}/documents/${created.id}`,
-    editUrl: `${url}/documents/${created.id}/edit`,
+    editUrl: `${url}/documents/${created.id}`,
     warnings,
   };
 }
