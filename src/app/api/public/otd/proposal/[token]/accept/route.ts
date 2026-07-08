@@ -6,6 +6,7 @@ import { proposalTokenHash } from "@/lib/projectProposal";
 
 const VERKOOPSTART_VALUES = new Set<Verkoopstart>(["DIRECT", "UITGESTELD", "SLAPEND"]);
 const ENERGIELABEL_CHOICES = new Set(["AANWEZIG_OF_ZELF", "VIA_MAKELAAR"]);
+const QUICKSCAN_CHOICES = new Set(["ZELF_REGELEN", "VIA_MAKELAAR"]);
 
 function cleanString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -64,6 +65,13 @@ export async function POST(
   const energielabelKosten = energielabelChoice === "VIA_MAKELAAR"
     ? (proposal.project.kostenEnergielabel && proposal.project.kostenEnergielabel > 0 ? proposal.project.kostenEnergielabel : 350)
     : 0;
+  const quickscanChoice = QUICKSCAN_CHOICES.has(cleanString(body.quickscanChoice) || "")
+    ? cleanString(body.quickscanChoice)
+    : "ZELF_REGELEN";
+  const quickscanNote = cleanString(body.quickscanNote);
+  const quickscanKosten = quickscanChoice === "VIA_MAKELAAR"
+    ? (proposal.project.kostenBouwkundig && proposal.project.kostenBouwkundig > 0 ? proposal.project.kostenBouwkundig : 399)
+    : 0;
 
   await prisma.project.update({
     where: { id: proposal.projectId },
@@ -73,6 +81,7 @@ export async function POST(
       startdatum,
       startReden,
       kostenEnergielabel: energielabelKosten,
+      kostenBouwkundig: quickscanKosten,
     },
   });
 
@@ -108,6 +117,8 @@ export async function POST(
         selectedRemarks: remarks,
         selectedEnergielabelChoice: energielabelChoice,
         selectedEnergielabelNote: energielabelNote,
+        selectedQuickscanChoice: quickscanChoice,
+        selectedQuickscanNote: quickscanNote,
         acceptedAt: new Date(),
         documensoDocumentId: conceptData.concept.documentId,
         documensoEnvelopeId: conceptData.concept.envelopeId,

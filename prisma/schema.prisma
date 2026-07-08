@@ -197,6 +197,8 @@ model ProjectProposal {
   selectedRemarks       String?       @db.Text
   selectedEnergielabelChoice String?
   selectedEnergielabelNote   String?       @db.Text
+  selectedQuickscanChoice    String?
+  selectedQuickscanNote      String?       @db.Text
   documensoDocumentId  Int?
   documensoEnvelopeId  String?
   documensoSigningUrl  String?       @db.Text

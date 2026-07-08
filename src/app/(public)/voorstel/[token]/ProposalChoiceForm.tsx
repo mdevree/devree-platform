@@ -24,7 +24,10 @@ export default function ProposalChoiceForm({
   defaultRemarks,
   defaultEnergielabelChoice,
   defaultEnergielabelNote,
+  defaultQuickscanChoice,
+  defaultQuickscanNote,
   energielabelKosten,
+  quickscanKosten,
 }: {
   token: string;
   defaultVerkoopstart: string;
@@ -34,7 +37,10 @@ export default function ProposalChoiceForm({
   defaultRemarks: string;
   defaultEnergielabelChoice: string;
   defaultEnergielabelNote: string;
+  defaultQuickscanChoice: string;
+  defaultQuickscanNote: string;
   energielabelKosten: number;
+  quickscanKosten: number;
 }) {
   const initialVerkoopstart = defaultVerkoopstart === "SLAPEND" ? "UITGESTELD" : defaultVerkoopstart || "DIRECT";
   const [verkoopstart, setVerkoopstart] = useState(initialVerkoopstart);
@@ -44,6 +50,8 @@ export default function ProposalChoiceForm({
   const [remarks, setRemarks] = useState(defaultRemarks || "");
   const [energielabelChoice, setEnergielabelChoice] = useState(defaultEnergielabelChoice || "AANWEZIG_OF_ZELF");
   const [energielabelNote, setEnergielabelNote] = useState(defaultEnergielabelNote || "");
+  const [quickscanChoice, setQuickscanChoice] = useState(defaultQuickscanChoice || "ZELF_REGELEN");
+  const [quickscanNote, setQuickscanNote] = useState(defaultQuickscanNote || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -54,7 +62,17 @@ export default function ProposalChoiceForm({
       const res = await fetch(`/api/public/otd/proposal/${encodeURIComponent(token)}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verkoopstart, startdatum, startReden, silentSale, remarks, energielabelChoice, energielabelNote }),
+        body: JSON.stringify({
+          verkoopstart,
+          startdatum,
+          startReden,
+          silentSale,
+          remarks,
+          energielabelChoice,
+          energielabelNote,
+          quickscanChoice,
+          quickscanNote,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success || !data.signingUrl) {
@@ -172,6 +190,53 @@ export default function ProposalChoiceForm({
           />
         </label>
       </div>
+
+      {quickscanKosten > 0 && (
+        <div className="mt-5 border-t border-gray-100 pt-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Quickscan fundering</p>
+          <p className="mt-1 text-sm leading-6 text-gray-600">
+            Voor deze woning adviseren wij om vooraf een quickscan naar de fundering te laten uitvoeren. U kunt dit zelf regelen of door ons laten uitzetten bij een gespecialiseerd bedrijf.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setQuickscanChoice("ZELF_REGELEN")}
+              className={`rounded-lg border p-4 text-left transition ${
+                quickscanChoice === "ZELF_REGELEN"
+                  ? "border-emerald-700 bg-emerald-50 text-emerald-950"
+                  : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <span className="block text-sm font-semibold">Zelf regelen</span>
+              <span className="mt-2 block text-xs leading-5 text-gray-500">Geen kosten via De Vree Makelaardij.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickscanChoice("VIA_MAKELAAR")}
+              className={`rounded-lg border p-4 text-left transition ${
+                quickscanChoice === "VIA_MAKELAAR"
+                  ? "border-emerald-700 bg-emerald-50 text-emerald-950"
+                  : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <span className="block text-sm font-semibold">Via De Vree regelen</span>
+              <span className="mt-2 block text-xs leading-5 text-gray-500">
+                Wij zetten de opdracht voor u uit. Kosten: € {quickscanKosten.toLocaleString("nl-NL")},- incl. btw.
+              </span>
+            </button>
+          </div>
+          <label className="mt-3 block">
+            <span className="text-xs font-medium text-gray-600">Toelichting quickscan</span>
+            <input
+              type="text"
+              value={quickscanNote}
+              onChange={(event) => setQuickscanNote(event.target.value)}
+              placeholder="Bijvoorbeeld: opdrachtgever regelt dit zelf of graag via De Vree uitzetten"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
+            />
+          </label>
+        </div>
+      )}
 
       <div className="mt-5 border-t border-gray-100 pt-5">
         <label className="block">

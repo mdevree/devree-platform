@@ -83,6 +83,8 @@ export default async function ProposalPage(
   const quickscanKosten = project.kostenBouwkundig && project.kostenBouwkundig > 0 ? project.kostenBouwkundig : 0;
   const energielabelChoice = proposal.selectedEnergielabelChoice
     || (energielabelKosten > 0 ? "VIA_MAKELAAR" : "AANWEZIG_OF_ZELF");
+  const quickscanChoice = proposal.selectedQuickscanChoice
+    || (quickscanKosten > 0 ? "VIA_MAKELAAR" : "ZELF_REGELEN");
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -145,7 +147,7 @@ export default async function ProposalPage(
           </aside>
         </div>
 
-        <section className={`mt-5 grid gap-4 ${quickscanKosten > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+        <section className={`mt-5 grid gap-4 ${quickscanKosten > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Publiciteitskosten</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
@@ -165,19 +167,27 @@ export default async function ProposalPage(
             <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Quickscan</p>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                Voor deze woning moet eerst een quickscan worden uitgevoerd. Dit komt niet vaak voor, maar wij kunnen dit voor u uitzetten bij een gespecialiseerd bedrijf.
+                Voor deze woning adviseren wij om vooraf een quickscan naar de fundering te laten uitvoeren. Dit kunnen wij voor u uitzetten bij een gespecialiseerd bedrijf.
+              </p>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                Volgens de beschikbare funderingsdata is sprake van een verhoogd risico met vastgestelde betrouwbaarheid. Dat betekent dat er voor dit pand sterke aanwijzingen of broninformatie over mogelijke funderingsproblematiek beschikbaar is.
+              </p>
+              <p className="mt-2 text-xs leading-5 text-gray-500">
+                Bron: FunderMaps (KCAF / FunderConsult).{" "}
+                <a
+                  href="https://www.devreemakelaardij.nl/vragen/taxatierapport-2026-funderingsrisico/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-emerald-800 underline underline-offset-2"
+                >
+                  Lees meer over funderingsrisico
+                </a>
               </p>
               <p className="mt-2 text-sm font-medium text-gray-900">
                 Kosten: {euro(quickscanKosten)} incl. btw.
               </p>
             </div>
           )}
-          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Intrekking en bedenktijd</p>
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-              Deze bedragen staan juridisch in de opdracht voor uitzonderingssituaties, bijvoorbeeld intrekken na gemaakte werkzaamheden of ontbinding binnen de wettelijke bedenktijd. Dit zijn geen kosten die u normaal vooraf betaalt.
-            </p>
-          </div>
         </section>
 
         <section className="mt-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -210,7 +220,10 @@ export default async function ProposalPage(
               defaultRemarks={proposal.selectedRemarks || ""}
               defaultEnergielabelChoice={energielabelChoice}
               defaultEnergielabelNote={proposal.selectedEnergielabelNote || ""}
+              defaultQuickscanChoice={quickscanChoice}
+              defaultQuickscanNote={proposal.selectedQuickscanNote || ""}
               energielabelKosten={energielabelOfferKosten}
+              quickscanKosten={quickscanKosten}
             />
           </div>
         )}
