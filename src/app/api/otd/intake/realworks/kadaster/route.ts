@@ -9,9 +9,19 @@ import {
   type OtdKadasterRegel,
 } from "@/lib/otd";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, x-webhook-secret",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
 export async function POST(request: NextRequest) {
   if (!await isAuthorized(request)) {
-    return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
+    return NextResponse.json({ error: "Niet ingelogd" }, { status: 401, headers: CORS_HEADERS });
   }
 
   const body = await request.json();
@@ -21,7 +31,7 @@ export async function POST(request: NextRequest) {
   if (!realworksSystemId && !objectCode) {
     return NextResponse.json(
       { error: "realworksSystemId of objectCode is verplicht voor kadasterkoppeling" },
-      { status: 400 },
+      { status: 400, headers: CORS_HEADERS },
     );
   }
 
@@ -54,7 +64,7 @@ export async function POST(request: NextRequest) {
       success: true,
       ignored: true,
       ignoredReason: "Geen bruikbare kadasterregel gevonden",
-    });
+    }, { headers: CORS_HEADERS });
   }
 
   const project = await prisma.project.findFirst({
@@ -73,7 +83,7 @@ export async function POST(request: NextRequest) {
       ignored: true,
       ignoredReason: "Geen project gevonden voor Realworks object",
       kadaster,
-    });
+    }, { headers: CORS_HEADERS });
   }
 
   const updatedProject = await prisma.project.update({
@@ -91,5 +101,5 @@ export async function POST(request: NextRequest) {
     project: updatedProject,
     kadaster,
     rows,
-  });
+  }, { headers: CORS_HEADERS });
 }
