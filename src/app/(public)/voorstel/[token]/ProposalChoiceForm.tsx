@@ -53,26 +53,33 @@ export default function ProposalChoiceForm({
   const [quickscanChoice, setQuickscanChoice] = useState(defaultQuickscanChoice || "ZELF_REGELEN");
   const [quickscanNote, setQuickscanNote] = useState(defaultQuickscanNote || "");
   const [loading, setLoading] = useState(false);
+  const [remarksLoading, setRemarksLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  function payload() {
+    return {
+      verkoopstart,
+      startdatum,
+      startReden,
+      silentSale,
+      remarks,
+      energielabelChoice,
+      energielabelNote,
+      quickscanChoice,
+      quickscanNote,
+    };
+  }
 
   async function submit() {
     setLoading(true);
     setError("");
+    setMessage("");
     try {
       const res = await fetch(`/api/public/otd/proposal/${encodeURIComponent(token)}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          verkoopstart,
-          startdatum,
-          startReden,
-          silentSale,
-          remarks,
-          energielabelChoice,
-          energielabelNote,
-          quickscanChoice,
-          quickscanNote,
-        }),
+        body: JSON.stringify(payload()),
       });
       const data = await res.json();
       if (!res.ok || !data.success || !data.signingUrl) {
@@ -84,6 +91,29 @@ export default function ProposalChoiceForm({
       setError("Akkoord kon niet worden verwerkt");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function sendRemarks() {
+    setRemarksLoading(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await fetch(`/api/public/otd/proposal/${encodeURIComponent(token)}/remarks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload()),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.error || "Opmerking kon niet worden verstuurd");
+        return;
+      }
+      setMessage("Uw opmerking is verstuurd. Wij nemen contact met u op.");
+    } catch {
+      setError("Opmerking kon niet worden verstuurd");
+    } finally {
+      setRemarksLoading(false);
     }
   }
 
@@ -179,16 +209,18 @@ export default function ProposalChoiceForm({
             </span>
           </button>
         </div>
-        <label className="mt-3 block">
-          <span className="text-xs font-medium text-gray-600">Toelichting energielabel</span>
-          <input
-            type="text"
-            value={energielabelNote}
-            onChange={(event) => setEnergielabelNote(event.target.value)}
-            placeholder="Bijvoorbeeld: energielabel is al geldig of opdrachtgever regelt dit zelf"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
-          />
-        </label>
+        {energielabelChoice === "AANWEZIG_OF_ZELF" && (
+          <label className="mt-3 block">
+            <span className="text-xs font-medium text-gray-600">Eventuele toelichting</span>
+            <input
+              type="text"
+              value={energielabelNote}
+              onChange={(event) => setEnergielabelNote(event.target.value)}
+              placeholder="Bijvoorbeeld: energielabel is al geldig of opdrachtgever regelt dit zelf"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
+            />
+          </label>
+        )}
       </div>
 
       {quickscanKosten > 0 && (
@@ -225,16 +257,18 @@ export default function ProposalChoiceForm({
               </span>
             </button>
           </div>
-          <label className="mt-3 block">
-            <span className="text-xs font-medium text-gray-600">Toelichting quickscan</span>
-            <input
-              type="text"
-              value={quickscanNote}
-              onChange={(event) => setQuickscanNote(event.target.value)}
-              placeholder="Bijvoorbeeld: opdrachtgever regelt dit zelf of graag via De Vree uitzetten"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
-            />
-          </label>
+          {quickscanChoice === "ZELF_REGELEN" && (
+            <label className="mt-3 block">
+              <span className="text-xs font-medium text-gray-600">Eventuele toelichting</span>
+              <input
+                type="text"
+                value={quickscanNote}
+                onChange={(event) => setQuickscanNote(event.target.value)}
+                placeholder="Bijvoorbeeld: opdrachtgever regelt dit zelf"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
+              />
+            </label>
+          )}
         </div>
       )}
 
@@ -258,15 +292,30 @@ export default function ProposalChoiceForm({
           {error}
         </div>
       )}
+      {message && (
+        <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {message}
+        </div>
+      )}
 
-      <button
-        type="button"
-        onClick={submit}
-        disabled={loading}
-        className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-      >
-        {loading ? "Tekenverzoek klaarzetten..." : "Akkoord en naar ondertekenen"}
-      </button>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={loading || remarksLoading}
+          className="inline-flex w-full items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        >
+          {loading ? "Tekenverzoek klaarzetten..." : "Akkoord en naar ondertekenen"}
+        </button>
+        <button
+          type="button"
+          onClick={sendRemarks}
+          disabled={loading || remarksLoading}
+          className="inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        >
+          {remarksLoading ? "Opmerking versturen..." : "Vraag of opmerking versturen"}
+        </button>
+      </div>
     </div>
   );
 }
