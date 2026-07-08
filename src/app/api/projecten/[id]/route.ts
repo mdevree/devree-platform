@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
 
+function nonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 /**
  * GET /api/projecten/[id]
  * Haal een enkel project op met alle taken en calls
@@ -88,10 +92,10 @@ export async function PATCH(
   if (data.woningAdres !== undefined) updateData.woningAdres = data.woningAdres;
   if (data.woningPostcode !== undefined) updateData.woningPostcode = data.woningPostcode;
   if (data.woningPlaats !== undefined) updateData.woningPlaats = data.woningPlaats;
-  if (data.kadGemeente !== undefined) updateData.kadGemeente = data.kadGemeente;
-  if (data.kadSectie !== undefined) updateData.kadSectie = data.kadSectie;
-  if (data.kadNummer !== undefined) updateData.kadNummer = data.kadNummer;
-  if (data.kadGrootte !== undefined) updateData.kadGrootte = data.kadGrootte;
+  if (data.kadGemeente !== undefined && nonEmptyString(data.kadGemeente)) updateData.kadGemeente = nonEmptyString(data.kadGemeente);
+  if (data.kadSectie !== undefined && nonEmptyString(data.kadSectie)) updateData.kadSectie = nonEmptyString(data.kadSectie);
+  if (data.kadNummer !== undefined && nonEmptyString(data.kadNummer)) updateData.kadNummer = nonEmptyString(data.kadNummer);
+  if (data.kadGrootte !== undefined && nonEmptyString(data.kadGrootte)) updateData.kadGrootte = nonEmptyString(data.kadGrootte);
   if (data.woningOppervlakte !== undefined) updateData.woningOppervlakte = data.woningOppervlakte;
   if (data.vraagprijs !== undefined) updateData.vraagprijs = data.vraagprijs !== "" && data.vraagprijs != null ? parseInt(data.vraagprijs) : null;
   if (data.courtagePercentage !== undefined) updateData.courtagePercentage = data.courtagePercentage !== "" && data.courtagePercentage != null ? parseFloat(data.courtagePercentage) : null;

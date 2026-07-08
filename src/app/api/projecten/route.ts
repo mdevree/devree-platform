@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth";
 import { isAuthorized } from "@/lib/apiAuth";
 import { ACTIVE_STATUSES, TERMINAL_STATUSES } from "@/lib/projectTypes";
 
+function nonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 /**
  * GET /api/projecten
  * Haal projecten op met filters
@@ -204,10 +208,10 @@ export async function PATCH(request: NextRequest) {
   if (data.woningAdres !== undefined) updateData.woningAdres = data.woningAdres;
   if (data.woningPostcode !== undefined) updateData.woningPostcode = data.woningPostcode;
   if (data.woningPlaats !== undefined) updateData.woningPlaats = data.woningPlaats;
-  if (data.kadGemeente !== undefined) updateData.kadGemeente = data.kadGemeente;
-  if (data.kadSectie !== undefined) updateData.kadSectie = data.kadSectie;
-  if (data.kadNummer !== undefined) updateData.kadNummer = data.kadNummer;
-  if (data.kadGrootte !== undefined) updateData.kadGrootte = data.kadGrootte;
+  if (data.kadGemeente !== undefined && nonEmptyString(data.kadGemeente)) updateData.kadGemeente = nonEmptyString(data.kadGemeente);
+  if (data.kadSectie !== undefined && nonEmptyString(data.kadSectie)) updateData.kadSectie = nonEmptyString(data.kadSectie);
+  if (data.kadNummer !== undefined && nonEmptyString(data.kadNummer)) updateData.kadNummer = nonEmptyString(data.kadNummer);
+  if (data.kadGrootte !== undefined && nonEmptyString(data.kadGrootte)) updateData.kadGrootte = nonEmptyString(data.kadGrootte);
   if (data.woningOppervlakte !== undefined) updateData.woningOppervlakte = data.woningOppervlakte;
   // Commercieel
   if (data.vraagprijs !== undefined) updateData.vraagprijs = data.vraagprijs !== "" && data.vraagprijs != null ? parseInt(data.vraagprijs) : null;
