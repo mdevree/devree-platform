@@ -4,6 +4,7 @@ import ProposalChoiceForm from "./ProposalChoiceForm";
 import { getContactFull } from "@/lib/mautic";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
+import { notifyOfficeProposalFirstViewed } from "@/lib/proposalNotifications";
 import { VERKOOPMETHODE_LABELS } from "@/lib/projectTypes";
 
 export const metadata: Metadata = {
@@ -74,14 +75,23 @@ export default async function ProposalPage(
   if (!proposal) notFound();
 
   if (!previewMode) {
+    const isFirstView = !proposal.viewedAt;
+    const viewedAt = new Date();
     await prisma.projectProposal.update({
       where: { id: proposal.id },
       data: {
-        viewedAt: proposal.viewedAt || new Date(),
-        lastViewedAt: new Date(),
+        viewedAt: proposal.viewedAt || viewedAt,
+        lastViewedAt: viewedAt,
         viewCount: { increment: 1 },
       },
     });
+    if (isFirstView) {
+      await notifyOfficeProposalFirstViewed({
+        project: proposal.project,
+        proposalUrl: proposal.publicUrl,
+        viewedAt,
+      });
+    }
   }
 
   const project = proposal.project;
