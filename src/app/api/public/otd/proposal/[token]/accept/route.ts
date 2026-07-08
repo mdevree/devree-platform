@@ -42,6 +42,77 @@ function parseVerkoopstart(value: unknown): Verkoopstart {
   return verkoopstart;
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function notifyOfficeProposalAccepted({
+  project,
+  proposalUrl,
+  editUrl,
+  remarks,
+  extraCount,
+}: {
+  project: {
+    id: string;
+    name: string;
+    woningAdres: string | null;
+    woningPostcode: string | null;
+    woningPlaats: string | null;
+    contactName: string | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+  };
+  proposalUrl: string | null;
+  editUrl: string | null;
+  remarks: string | null;
+  extraCount: number;
+}) {
+  const webhookUrl = process.env.AI_INFO_EMAIL_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const platformUrl = (process.env.PLATFORM_BASE_URL || "https://kantoor.devreemakelaardij.nl").replace(/\/$/, "");
+  const objectAdres = [project.woningAdres, project.woningPostcode, project.woningPlaats].filter(Boolean).join(", ") || project.name;
+  const html = `
+    <h2>Voorstel verkoopopdracht akkoord</h2>
+    <p>Een opdrachtgever heeft akkoord gegeven op het voorstel.</p>
+    <p>
+      <strong>Project:</strong> ${escapeHtml(project.name)}<br>
+      <strong>Object:</strong> ${escapeHtml(objectAdres)}<br>
+      <strong>Contact:</strong> ${escapeHtml(project.contactName || "Onbekend")}<br>
+      <strong>E-mail:</strong> ${escapeHtml(project.contactEmail || "")}<br>
+      <strong>Telefoon:</strong> ${escapeHtml(project.contactPhone || "")}<br>
+      <strong>Extra opdrachtgevers doorgegeven:</strong> ${extraCount}
+    </p>
+    ${remarks ? `<h3>Opmerking klant</h3><p>${escapeHtml(remarks).replace(/\n/g, "<br>")}</p>` : ""}
+    <p>
+      <a href="${escapeHtml(`${platformUrl}/projecten/${project.id}`)}">Open project in kantoorplatform</a>
+      ${editUrl ? `<br><a href="${escapeHtml(editUrl)}">Open Documenso concept</a>` : ""}
+      ${proposalUrl ? `<br><a href="${escapeHtml(proposalUrl)}">Open voorstelpagina</a>` : ""}
+    </p>
+  `;
+
+  await fetch(webhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(process.env.N8N_WEBHOOK_SECRET ? { "x-webhook-secret": process.env.N8N_WEBHOOK_SECRET } : {}),
+    },
+    body: JSON.stringify({
+      to: "info@devreemakelaardij.nl",
+      subject: `Voorstel akkoord: ${objectAdres}`,
+      html,
+    }),
+  }).catch((error) => {
+    console.error("Voorstel akkoord mail mislukt:", error);
+  });
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
@@ -185,6 +256,14 @@ export async function POST(
     await prisma.project.update({
       where: { id: proposal.projectId },
       data: { projectStatus: "OTD_VERSTUURD" },
+    });
+
+    await notifyOfficeProposalAccepted({
+      project: proposal.project,
+      proposalUrl: proposal.publicUrl,
+      editUrl: conceptData.concept.editUrl || null,
+      remarks,
+      extraCount: extraOpdrachtgevers.length,
     });
 
     return NextResponse.json({
