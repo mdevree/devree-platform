@@ -135,6 +135,7 @@ export interface MauticContactFull extends MauticContact {
   otdVoornamen: string | null;
   otdGeboorteplaats: string | null;
   otdBurgerlijkeStaat: string | null;
+  geboortedatum: string | null;
   // AI data profiel veld (JSON string opgeslagen in een custom veld)
   aiProfile: string | null;
   // AI sub-velden (gegenereerd door AI-workflow op basis van Mautic data + interacties)
@@ -273,6 +274,7 @@ export async function createContact(data: {
   otd_voornamen?: string;
   otd_geboorteplaats?: string;
   otd_burgerlijke_staat?: string;
+  geboortedatum?: string;
 }): Promise<MauticContact | null> {
   const response = await mauticFetch("/api/contacts/new", {
     method: "POST",
@@ -372,6 +374,7 @@ export async function getContactFull(contactId: number): Promise<MauticContactFu
     otdVoornamen: fields.otd_voornamen || null,
     otdGeboorteplaats: fields.otd_geboorteplaats || null,
     otdBurgerlijkeStaat: fields.otd_burgerlijke_staat || null,
+    geboortedatum: fields.geboortedatum || null,
     aiProfile: fields.ai_profiel_data || null,
     aiCurrentSituation: fields.ai_current_situation || null,
     aiHousingMotivation: fields.ai_housing_motivation || null,

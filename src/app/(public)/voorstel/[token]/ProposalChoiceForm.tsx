@@ -22,6 +22,7 @@ type ExtraOpdrachtgever = {
   achternaam: string;
   email: string;
   telefoon: string;
+  geboortedatum: string;
   geboorteplaats: string;
   burgerlijkeStaat: string;
 };
@@ -33,6 +34,7 @@ const emptyExtraOpdrachtgever: ExtraOpdrachtgever = {
   achternaam: "",
   email: "",
   telefoon: "",
+  geboortedatum: "",
   geboorteplaats: "",
   burgerlijkeStaat: "",
 };
@@ -322,7 +324,7 @@ export default function ProposalChoiceForm({
       <div className="mt-5 border-t border-gray-100 pt-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Gegevens voor de opdracht</p>
         <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-900">
-          Wij vullen de opdracht tot dienstverlening alvast voor met de gegevens die bij ons bekend zijn, waaronder de gegevens uit Realworks en het Kadaster. Mist er een opdrachtgever, dan kunt u die hieronder doorgeven.
+          Wij vullen de opdracht tot dienstverlening alvast voor met de aangeleverde gegevens en gegevens uit het Kadaster. Mist er een opdrachtgever, dan kunt u die hieronder doorgeven.
         </div>
       </div>
 
@@ -381,6 +383,10 @@ export default function ProposalChoiceForm({
                   <label className="block">
                     <span className="text-xs font-medium text-gray-600">Telefoon</span>
                     <input value={extra.telefoon} onChange={(event) => updateExtraOpdrachtgever(index, { telefoon: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Geboortedatum</span>
+                    <input type="date" value={extra.geboortedatum} onChange={(event) => updateExtraOpdrachtgever(index, { geboortedatum: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
                   </label>
                   <label className="block">
                     <span className="text-xs font-medium text-gray-600">Geboorteplaats</span>

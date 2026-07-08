@@ -87,6 +87,7 @@ type Opdrachtgever = {
   aanhef?: string | null;
   initialen?: string | null;
   voornamen?: string | null;
+  geboortedatum?: string | null;
   geboorteplaats?: string | null;
   email?: string | null;
   telefoon?: string | null;
@@ -126,6 +127,7 @@ function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
         <p><strong>${opdrachtgevers.length === 1 ? "De opdrachtgever" : `De opdrachtgever ${index + 1}`}</strong></p>
         ${renderPartyField("Naam", juridischeNaam)}
         ${renderPartyField("Voornamen", opdrachtgever.voornamen)}
+        ${renderPartyField("Geboortedatum", opdrachtgever.geboortedatum)}
         ${renderPartyField("Geboorteplaats", opdrachtgever.geboorteplaats)}
         ${renderPartyField("Woonplaats", woonplaats)}
         ${renderPartyField("Postcode", postcode)}
@@ -428,6 +430,7 @@ export async function GET(
         aanhef: contact?.otdAanhef ?? null,
         initialen: contact?.otdInitialen ?? null,
         voornamen: contact?.otdVoornamen ?? null,
+        geboortedatum: contact?.geboortedatum ?? null,
         geboorteplaats: contact?.otdGeboorteplaats ?? null,
         email: contact?.email ?? null,
         telefoon: contact?.mobile || contact?.phone || null,

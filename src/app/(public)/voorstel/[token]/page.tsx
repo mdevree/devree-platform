@@ -114,6 +114,7 @@ export default async function ProposalPage(
         aanhef: contact?.otdAanhef || null,
         initialen: contact?.otdInitialen || null,
         voornamen: contact?.otdVoornamen || null,
+        geboortedatum: contact?.geboortedatum || null,
         geboorteplaats: contact?.otdGeboorteplaats || null,
         burgerlijkeStaat: contact?.otdBurgerlijkeStaat || null,
       };
@@ -129,6 +130,7 @@ export default async function ProposalPage(
         aanhef: null,
         initialen: null,
         voornamen: null,
+        geboortedatum: null,
         geboorteplaats: null,
         burgerlijkeStaat: null,
       }];
@@ -262,6 +264,7 @@ export default async function ProposalPage(
                     ["Aanhef", opdrachtgever.aanhef],
                     ["Initialen", opdrachtgever.initialen],
                     ["Voornamen", opdrachtgever.voornamen],
+                    ["Geboortedatum", opdrachtgever.geboortedatum],
                     ["E-mail", opdrachtgever.email],
                     ["Telefoon", opdrachtgever.telefoon],
                     ["Adres", opdrachtgever.adres],

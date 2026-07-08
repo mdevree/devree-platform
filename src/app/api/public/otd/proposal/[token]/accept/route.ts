@@ -25,6 +25,7 @@ function cleanExtraOpdrachtgevers(value: unknown) {
         achternaam: cleanString(record.achternaam),
         email: cleanString(record.email),
         telefoon: cleanString(record.telefoon),
+        geboortedatum: cleanString(record.geboortedatum),
         geboorteplaats: cleanString(record.geboorteplaats),
         burgerlijkeStaat: cleanString(record.burgerlijkeStaat),
       };
@@ -121,6 +122,7 @@ export async function POST(
       otd_voornamen: extra.voornamen || undefined,
       otd_geboorteplaats: extra.geboorteplaats || undefined,
       otd_burgerlijke_staat: extra.burgerlijkeStaat || undefined,
+      geboortedatum: extra.geboortedatum || undefined,
     });
 
     if (contact?.id) {
