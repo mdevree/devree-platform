@@ -353,15 +353,6 @@ export default function ProposalChoiceForm({
           <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-900">
             Wij vullen de opdracht tot dienstverlening alvast voor met de aangeleverde gegevens en gegevens uit het Kadaster. Controleer de gegevens hieronder en pas ze aan waar nodig.
           </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setExtraOpdrachtgevers((items) => [...items, { ...emptyExtraOpdrachtgever }])}
-              className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-            >
-              Opdrachtgever toevoegen
-            </button>
-          </div>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -449,6 +440,13 @@ export default function ProposalChoiceForm({
               </div>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setExtraOpdrachtgevers((items) => [...items, { ...emptyExtraOpdrachtgever }])}
+            className="flex min-h-[180px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white p-4 text-center text-sm font-semibold text-gray-800 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900"
+          >
+            Opdrachtgever toevoegen
+          </button>
         </div>
       </div>
 
