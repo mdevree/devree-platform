@@ -45,6 +45,15 @@ const emptyExtraOpdrachtgever: ExtraOpdrachtgever = {
   burgerlijkeStaat: "",
 };
 
+function formatDateNl(value: string) {
+  if (!value) return "";
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}-${isoMatch[2]}-${isoMatch[1]}`;
+  const nlMatch = value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (nlMatch) return `${nlMatch[1].padStart(2, "0")}-${nlMatch[2].padStart(2, "0")}-${nlMatch[3]}`;
+  return value;
+}
+
 export default function ProposalChoiceForm({
   token,
   defaultVerkoopstart,
@@ -339,20 +348,20 @@ export default function ProposalChoiceForm({
       )}
 
       <div className="mt-5 border-t border-gray-100 pt-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+        <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Gegevens voor de opdracht</p>
-            <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-900">
-              Wij vullen de opdracht tot dienstverlening alvast voor met de aangeleverde gegevens en gegevens uit het Kadaster. Controleer de gegevens hieronder en pas ze aan waar nodig.
-            </div>
+            <button
+              type="button"
+              onClick={() => setExtraOpdrachtgevers((items) => [...items, { ...emptyExtraOpdrachtgever }])}
+              className="inline-flex shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+            >
+              Opdrachtgever toevoegen
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setExtraOpdrachtgevers((items) => [...items, { ...emptyExtraOpdrachtgever }])}
-            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-          >
-            Opdrachtgever toevoegen
-          </button>
+          <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-900">
+            Wij vullen de opdracht tot dienstverlening alvast voor met de aangeleverde gegevens en gegevens uit het Kadaster. Controleer de gegevens hieronder en pas ze aan waar nodig.
+          </div>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -382,7 +391,7 @@ export default function ProposalChoiceForm({
                       ["Aanhef", opdrachtgever.aanhef],
                       ["Initialen", opdrachtgever.initialen],
                       ["Voornamen", opdrachtgever.voornamen],
-                      ["Geboortedatum", opdrachtgever.geboortedatum],
+                      ["Geboortedatum", formatDateNl(opdrachtgever.geboortedatum)],
                       ["E-mail", opdrachtgever.email],
                       ["Telefoon", opdrachtgever.telefoon],
                       ["Adres", opdrachtgever.adres],

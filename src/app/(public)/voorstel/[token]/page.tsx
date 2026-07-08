@@ -205,7 +205,7 @@ export default async function ProposalPage(
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Publiciteitskosten</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Dit is het maximale budget voor de presentatie van de woning, zoals Funda, fotografie, 360 graden foto&apos;s, video en plattegronden. We brengen dit alleen in rekening volgens de afspraken in de opdracht.
+              Dit is het maximale budget voor de presentatie van de woning, zoals Funda, fotografie, meetrapport, 360 graden foto&apos;s, video en plattegronden.
             </p>
           </div>
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
