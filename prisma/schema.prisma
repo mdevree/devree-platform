@@ -196,6 +196,9 @@ model ProjectProposal {
   documensoSigningUrl  String?       @db.Text
   errorMessage         String?       @db.Text
   expiresAt            DateTime?
+  viewedAt             DateTime?
+  lastViewedAt         DateTime?
+  viewCount            Int           @default(0)
   acceptedAt           DateTime?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt

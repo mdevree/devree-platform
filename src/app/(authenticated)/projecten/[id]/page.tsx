@@ -195,6 +195,9 @@ interface ProjectProposal {
   documensoSigningUrl: string | null;
   errorMessage: string | null;
   expiresAt: string | null;
+  viewedAt: string | null;
+  lastViewedAt: string | null;
+  viewCount: number;
   acceptedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -2532,6 +2535,14 @@ export default function ProjectDetailPage() {
                       {latestProposal?.createdAt && (
                         <span className="ml-2 text-xs opacity-75">aangemaakt {formatDateFull(latestProposal.createdAt)}</span>
                       )}
+                      {latestProposal?.viewedAt ? (
+                        <span className="ml-2 text-xs opacity-75">
+                          bekeken {formatDateFull(latestProposal.lastViewedAt || latestProposal.viewedAt)}
+                          {latestProposal.viewCount > 1 ? ` (${latestProposal.viewCount}x)` : ""}
+                        </span>
+                      ) : latestProposal?.publicUrl ? (
+                        <span className="ml-2 text-xs opacity-75">nog niet bekeken</span>
+                      ) : null}
                       {latestProposal?.acceptedAt && (
                         <span className="ml-2 text-xs opacity-75">akkoord {formatDateFull(latestProposal.acceptedAt)}</span>
                       )}

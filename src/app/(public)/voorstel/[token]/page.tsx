@@ -37,6 +37,15 @@ export default async function ProposalPage(
 
   if (!proposal) notFound();
 
+  await prisma.projectProposal.update({
+    where: { id: proposal.id },
+    data: {
+      viewedAt: proposal.viewedAt || new Date(),
+      lastViewedAt: new Date(),
+      viewCount: { increment: 1 },
+    },
+  });
+
   const project = proposal.project;
   const expired = proposal.expiresAt ? proposal.expiresAt < new Date() : false;
   const unavailable = proposal.status !== "OPEN" || expired;
