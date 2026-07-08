@@ -1,8 +1,14 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import ProposalChoiceForm from "./ProposalChoiceForm";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
 import { VERKOOPMETHODE_LABELS } from "@/lib/projectTypes";
+
+export const metadata: Metadata = {
+  title: "Voorstel verkoopopdracht | De Vree Makelaardij",
+  description: "Voorstel voor de verkoopopdracht van De Vree Makelaardij.",
+};
 
 function euro(value: number | null | undefined) {
   if (value == null) return "Nog te bepalen";

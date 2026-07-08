@@ -15,6 +15,28 @@ const OPTIONS = [
   },
 ];
 
+type ExtraOpdrachtgever = {
+  aanhef: string;
+  initialen: string;
+  voornamen: string;
+  achternaam: string;
+  email: string;
+  telefoon: string;
+  geboorteplaats: string;
+  burgerlijkeStaat: string;
+};
+
+const emptyExtraOpdrachtgever: ExtraOpdrachtgever = {
+  aanhef: "",
+  initialen: "",
+  voornamen: "",
+  achternaam: "",
+  email: "",
+  telefoon: "",
+  geboorteplaats: "",
+  burgerlijkeStaat: "",
+};
+
 export default function ProposalChoiceForm({
   token,
   defaultVerkoopstart,
@@ -52,6 +74,7 @@ export default function ProposalChoiceForm({
   const [energielabelNote, setEnergielabelNote] = useState(defaultEnergielabelNote || "");
   const [quickscanChoice, setQuickscanChoice] = useState(defaultQuickscanChoice || "ZELF_REGELEN");
   const [quickscanNote, setQuickscanNote] = useState(defaultQuickscanNote || "");
+  const [extraOpdrachtgevers, setExtraOpdrachtgevers] = useState<ExtraOpdrachtgever[]>([]);
   const [loading, setLoading] = useState(false);
   const [remarksLoading, setRemarksLoading] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -69,7 +92,14 @@ export default function ProposalChoiceForm({
       energielabelNote,
       quickscanChoice,
       quickscanNote,
+      extraOpdrachtgevers: extraOpdrachtgevers.filter((item) => item.achternaam.trim() || item.email.trim()),
     };
+  }
+
+  function updateExtraOpdrachtgever(index: number, patch: Partial<ExtraOpdrachtgever>) {
+    setExtraOpdrachtgevers((items) => items.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, ...patch } : item
+    )));
   }
 
   async function submit() {
@@ -288,6 +318,84 @@ export default function ProposalChoiceForm({
           )}
         </div>
       )}
+
+      <div className="mt-5 border-t border-gray-100 pt-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Gegevens voor de opdracht</p>
+        <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-900">
+          Wij vullen de opdracht tot dienstverlening alvast voor met de gegevens die bij ons bekend zijn, waaronder de gegevens uit Realworks en het Kadaster. Mist er een opdrachtgever, dan kunt u die hieronder doorgeven.
+        </div>
+      </div>
+
+      <div className="mt-5 border-t border-gray-100 pt-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Extra opdrachtgever</p>
+            <p className="mt-1 text-sm leading-6 text-gray-600">
+              Bijvoorbeeld een partner of mede-eigenaar die ook moet tekenen.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExtraOpdrachtgevers((items) => [...items, { ...emptyExtraOpdrachtgever }])}
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+          >
+            Opdrachtgever toevoegen
+          </button>
+        </div>
+
+        {extraOpdrachtgevers.length > 0 && (
+          <div className="mt-4 space-y-4">
+            {extraOpdrachtgevers.map((extra, index) => (
+              <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-gray-900">Extra opdrachtgever {index + 1}</p>
+                  <button
+                    type="button"
+                    onClick={() => setExtraOpdrachtgevers((items) => items.filter((_, itemIndex) => itemIndex !== index))}
+                    className="text-sm font-medium text-red-700 hover:text-red-800"
+                  >
+                    Verwijderen
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Aanhef</span>
+                    <input value={extra.aanhef} onChange={(event) => updateExtraOpdrachtgever(index, { aanhef: event.target.value })} placeholder="Bijv. mevrouw" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Initialen</span>
+                    <input value={extra.initialen} onChange={(event) => updateExtraOpdrachtgever(index, { initialen: event.target.value })} placeholder="Bijv. A.B." className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Voornamen</span>
+                    <input value={extra.voornamen} onChange={(event) => updateExtraOpdrachtgever(index, { voornamen: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Achternaam</span>
+                    <input value={extra.achternaam} onChange={(event) => updateExtraOpdrachtgever(index, { achternaam: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">E-mailadres</span>
+                    <input type="email" value={extra.email} onChange={(event) => updateExtraOpdrachtgever(index, { email: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Telefoon</span>
+                    <input value={extra.telefoon} onChange={(event) => updateExtraOpdrachtgever(index, { telefoon: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Geboorteplaats</span>
+                    <input value={extra.geboorteplaats} onChange={(event) => updateExtraOpdrachtgever(index, { geboorteplaats: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600">Burgerlijke staat</span>
+                    <input value={extra.burgerlijkeStaat} onChange={(event) => updateExtraOpdrachtgever(index, { burgerlijkeStaat: event.target.value })} placeholder="Bijv. gehuwd, ongehuwd" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="mt-5 border-t border-gray-100 pt-5">
         <label className="block">

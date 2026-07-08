@@ -265,6 +265,14 @@ export async function createContact(data: {
   mobile?: string;
   email?: string;
   company?: string;
+  address1?: string;
+  zipcode?: string;
+  city?: string;
+  otd_aanhef?: string;
+  otd_initialen?: string;
+  otd_voornamen?: string;
+  otd_geboorteplaats?: string;
+  otd_burgerlijke_staat?: string;
 }): Promise<MauticContact | null> {
   const response = await mauticFetch("/api/contacts/new", {
     method: "POST",

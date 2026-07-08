@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Verkoopstart } from "@prisma/client";
+import { createContact } from "@/lib/mautic";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
 
@@ -9,6 +10,27 @@ const QUICKSCAN_CHOICES = new Set(["ZELF_REGELEN", "VIA_MAKELAAR"]);
 
 function cleanString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function cleanExtraOpdrachtgevers(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
+      return {
+        aanhef: cleanString(record.aanhef),
+        initialen: cleanString(record.initialen),
+        voornamen: cleanString(record.voornamen),
+        achternaam: cleanString(record.achternaam),
+        email: cleanString(record.email),
+        telefoon: cleanString(record.telefoon),
+        geboorteplaats: cleanString(record.geboorteplaats),
+        burgerlijkeStaat: cleanString(record.burgerlijkeStaat),
+      };
+    })
+    .filter((item) => item.achternaam && item.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email))
+    .slice(0, 4);
 }
 
 function parseVerkoopstart(value: unknown): Verkoopstart {
@@ -71,6 +93,7 @@ export async function POST(
   const quickscanKosten = quickscanChoice === "VIA_MAKELAAR"
     ? (proposal.project.kostenBouwkundig && proposal.project.kostenBouwkundig > 0 ? proposal.project.kostenBouwkundig : 399)
     : 0;
+  const extraOpdrachtgevers = cleanExtraOpdrachtgevers(body.extraOpdrachtgevers);
 
   await prisma.project.update({
     where: { id: proposal.projectId },
@@ -83,6 +106,45 @@ export async function POST(
       kostenBouwkundig: quickscanKosten,
     },
   });
+
+  for (const extra of extraOpdrachtgevers) {
+    const contact = await createContact({
+      firstname: extra.voornamen?.split(/\s+/)[0] || extra.initialen || extra.aanhef || "",
+      lastname: extra.achternaam || "",
+      email: extra.email || undefined,
+      mobile: extra.telefoon || undefined,
+      address1: proposal.project.woningAdres || proposal.project.address || undefined,
+      zipcode: proposal.project.woningPostcode || undefined,
+      city: proposal.project.woningPlaats || undefined,
+      otd_aanhef: extra.aanhef || undefined,
+      otd_initialen: extra.initialen || undefined,
+      otd_voornamen: extra.voornamen || undefined,
+      otd_geboorteplaats: extra.geboorteplaats || undefined,
+      otd_burgerlijke_staat: extra.burgerlijkeStaat || undefined,
+    });
+
+    if (contact?.id) {
+      await prisma.projectContact.upsert({
+        where: {
+          projectId_mauticContactId: {
+            projectId: proposal.projectId,
+            mauticContactId: contact.id,
+          },
+        },
+        update: {
+          role: "opdrachtgever",
+          label: [extra.voornamen, extra.achternaam].filter(Boolean).join(" ") || extra.achternaam,
+        },
+        create: {
+          projectId: proposal.projectId,
+          mauticContactId: contact.id,
+          role: "opdrachtgever",
+          label: [extra.voornamen, extra.achternaam].filter(Boolean).join(" ") || extra.achternaam,
+          addedBy: "voorstel",
+        },
+      });
+    }
+  }
 
   try {
     const baseUrl = process.env.PLATFORM_INTERNAL_URL || request.nextUrl.origin;
