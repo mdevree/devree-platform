@@ -48,6 +48,21 @@ function percentLegal(value: number | null | undefined): string {
   }).format(value)} % incl. BTW`;
 }
 
+function formatAanvaarding(value: string | null | undefined): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return "________";
+
+  const normalized = trimmed
+    .replace(/\s+/g, " ")
+    .replace(/\b(?:per|vanaf)\s+/i, "");
+  const isDateLike =
+    /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(normalized)
+    || /^\d{4}-\d{1,2}-\d{1,2}$/.test(normalized)
+    || /^\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}$/i.test(normalized);
+
+  return isDateLike ? `voorkeur: ${trimmed}` : trimmed;
+}
+
 async function renderPdf(html: string): Promise<Buffer> {
   const gotenbergUrl = (process.env.GOTENBERG_URL || DEFAULT_GOTENBERG_URL).replace(/\/$/, "");
   const form = new FormData();
@@ -169,7 +184,7 @@ function buildHtml({
   const kadastraal = `gemeente ${project.kadGemeente || "…………………"}, sectie ${project.kadSectie || "……"}, no. ${project.kadNummer || "…………"}, groot ${project.kadGrootte || "………"} m²`;
   const logo = logoDataUri();
   const vandaag = new Intl.DateTimeFormat("nl-NL").format(new Date());
-  const aanvaarding = project.aanvaarding || "________";
+  const aanvaarding = formatAanvaarding(project.aanvaarding);
   const vraagprijs = project.vraagprijs ? `${euro(project.vraagprijs)} k.k.` : "________";
   const courtage = percentLegal(project.courtagePercentage);
   const publiciteitskosten = project.kostenPubliciteit ?? 650;

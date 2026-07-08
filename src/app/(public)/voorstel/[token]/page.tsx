@@ -26,6 +26,21 @@ function formatDate(value: Date | null | undefined) {
   return value ? value.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" }) : null;
 }
 
+function formatAanvaarding(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "In overleg";
+
+  const normalized = trimmed
+    .replace(/\s+/g, " ")
+    .replace(/\b(?:per|vanaf)\s+/i, "");
+  const isDateLike =
+    /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(normalized)
+    || /^\d{4}-\d{1,2}-\d{1,2}$/.test(normalized)
+    || /^\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}$/i.test(normalized);
+
+  return isDateLike ? `voorkeur: ${trimmed}` : trimmed;
+}
+
 export default async function ProposalPage(
   { params, searchParams }: {
     params: Promise<{ token: string }>;
@@ -100,7 +115,7 @@ export default async function ProposalPage(
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Aanvaarding</dt>
-                <dd className="mt-1 font-semibold text-gray-900">{project.aanvaarding || "In overleg"}</dd>
+                <dd className="mt-1 font-semibold text-gray-900">{formatAanvaarding(project.aanvaarding)}</dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">Verkoopmethode</dt>
