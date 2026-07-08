@@ -9,7 +9,7 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 - **Telefonie** — Live call popups, call history, Mautic CRM koppeling, notities per gesprek, contact detail panel met AI data profiel
 - **Digitale medewerker** — Beheerbare agentprofielen, taakprofielen, outbound AI-belkaarten voor bezichtigingsopvolging, Mautic, n8n info-mail en concept follow-up
 - **Taken** — Kanban + tabeloverzicht, per makelaar en centraal voor binnendienst, met tijdregistratie per taak
-- **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info en kosten. Projecten kunnen worden samengevoegd
+- **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info, kosten, voorstel-flow en opdracht tot dienstverlening. Projecten kunnen worden samengevoegd
 - **Contacten** — Mautic CRM overzicht met zoekfunctie, contactdetails bewerken, AI data profiel en email activiteit. Nieuw contact aanmaken direct vanuit de pagina
 - **Pipeline** — Kanban-board op basis van `verkoopgesprek_status` uit Mautic, met interesse-scores en AI profielen
 - **Kansen** — Actielijst op basis van Realworks-objectmutaties, zoekprofielen en Mautic websitegedrag. Signaleert o.a. actieve interesse en nieuwe woningmatches
@@ -85,6 +85,58 @@ flowchart LR
 - De PBX-firewall is streng. Voor de admin UI op poort `3003` moet het actuele publieke IP in de trusted-zone staan.
 - De huidige PBX heeft beperkte RAM-capaciteit. Voor stabiele realtime audio is minimaal 2 GB RAM wenselijk, liever 4 GB.
 - Details, herstelcommando's en testbevindingen staan in `pbx/ai-belassistent-notities.md` en `pbx/devree-ai-bridge/README.md`.
+
+---
+
+## Voorstel en opdracht tot dienstverlening
+
+Het platform ondersteunt een semi-automatische verkoopopdracht-flow voor woningen die richting verkoop gaan. Het doel is niet blind automatiseren, maar veilig voorbereiden: gegevens verzamelen, opdrachtgever laten controleren, kantoor informeren en daarna pas een Documenso-concept klaarmaken.
+
+### Flow
+
+1. Een project bevat objectdata, commerciële afspraken, kosten, kadastrale gegevens en gekoppelde Mautic-contacten.
+2. Via het dossier kan een voorstel-link worden gemaakt. De publieke URL heeft de vorm `/voorstel/[token]`.
+3. De voorstelpagina toont woning, vraagprijs, courtage, aanvaarding, verkoopmethode, publiciteitskosten, energielabel en eventuele quickscan fundering.
+4. Onder **Gegevens voor de opdracht** controleert de opdrachtgever de bekende gegevens. Bestaande opdrachtgevers kunnen worden aangepast; een extra opdrachtgever staat als actiekaart naast de bestaande kaart.
+5. Klanten kunnen kiezen voor direct starten of toekomstig aanbod, stille verkoop aanvinken, energielabel/quickscan-keuzes maken en opmerkingen invullen.
+6. Bij akkoord maakt het platform een Documenso-concept klaar. De klant krijgt niet direct een tekenlink; kantoor controleert eerst en de makelaar tekent eerst.
+7. Na ondertekening wordt de digitale klantomgeving op Move.nl aangemaakt.
+
+### Veiligheidsregels
+
+- Previewlinks mogen met `?preview=1` worden geopend; dit registreert geen view-tracking.
+- De voorstelpagina mag geen interne termen zoals Realworks tonen. Gebruik klanttaal zoals "aangeleverde gegevens" en "gegevens uit het Kadaster".
+- Akkoord geeft geen directe klantredirect naar Documenso. De bevestiging zegt dat de opdracht wordt gecontroleerd en dat de klant later per e-mail een uitnodiging krijgt.
+- Bij akkoord wordt een mail naar `info@devreemakelaardij.nl` gestuurd met alle ingevulde gegevens als back-up.
+- Bij "Vraag of opmerking versturen" wordt ook een back-upmail gestuurd met alle ingestuurde velden.
+- De n8n workflow `AI Belassistent - Info Email` accepteert ook generieke HTML-mails voor deze kantoor-notificaties.
+- Gekoppelde bestaande opdrachtgevers mogen alleen worden bijgewerkt als hun Mautic-contact aan het project gekoppeld is.
+
+### Gegevens en velden
+
+- Mautic blijft leidend voor contactdata.
+- Persoonsveld `geboortedatum` is een algemeen Mautic-contactveld, geen OTD-specifiek veld.
+- OTD-specifieke contactvelden zijn onder andere `otd_aanhef`, `otd_initialen`, `otd_voornamen`, `otd_geboorteplaats` en `otd_burgerlijke_staat`.
+- Datumweergave op de klantpagina is `DD-MM-YYYY`; HTML date-inputs gebruiken intern `YYYY-MM-DD`.
+- Realworks/n8n probeert geboortedatum uit meerdere veldnamen te lezen, waaronder `birthdate`, `birth_date`, `date_of_birth`, `rbirthdate`, `prbirthdate` en `dob`.
+
+### Klantteksten
+
+- Publiciteitskosten: "Dit is het maximale budget voor de presentatie van de woning, zoals Funda, fotografie, meetrapport, 360 graden foto's, video en plattegronden."
+- Energielabel: "Indien gewenst zetten wij de opdracht voor u uit om een energielabel te laten opmaken. Een energielabel is verplicht voordat we de woning online publiceren. Als u al een energielabel heeft of dit zelf regelt, kunt u dat aangeven."
+- Quickscan fundering wordt alleen getoond als `kostenBouwkundig > 0`. Bij FunderMaps hoog risico kan worden verwezen naar het artikel over funderingsrisico.
+
+### Productiecomponenten
+
+| Component | Locatie |
+|-----------|---------|
+| Voorstelpagina | `/voorstel/[token]` |
+| Preview zonder tracking | `/voorstel/[token]?preview=1` |
+| Akkoord API | `POST /api/public/otd/proposal/[token]/accept` |
+| Opmerking API | `POST /api/public/otd/proposal/[token]/remarks` |
+| PDF generatie | `GET /api/projecten/[id]/otd/pdf` |
+| Documenso concept | `POST /api/projecten/[id]/otd/documenso` |
+| Kantoor notificatie | n8n `AI Belassistent - Info Email` |
 
 ---
 
