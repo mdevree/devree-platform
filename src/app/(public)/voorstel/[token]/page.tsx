@@ -56,7 +56,9 @@ export default async function ProposalPage(
   const verkoopstart = proposal.selectedVerkoopstart || project.verkoopstart || "DIRECT";
   const silentSale = proposal.selectedSilentSale || verkoopstart === "SLAPEND";
   const energielabelKosten = project.kostenEnergielabel && project.kostenEnergielabel > 0 ? project.kostenEnergielabel : 0;
-  const energielabelLabel = energielabelKosten > 0 ? euro(energielabelKosten) : "Al aanwezig / zelf regelen";
+  const energielabelOfferKosten = energielabelKosten > 0 ? energielabelKosten : 350;
+  const energielabelLabel = energielabelKosten > 0 ? euro(energielabelKosten) : `${euro(energielabelOfferKosten)} indien nodig`;
+  const quickscanKosten = project.kostenBouwkundig && project.kostenBouwkundig > 0 ? project.kostenBouwkundig : 0;
   const energielabelChoice = proposal.selectedEnergielabelChoice
     || (energielabelKosten > 0 ? "VIA_MAKELAAR" : "AANWEZIG_OF_ZELF");
 
@@ -106,11 +108,17 @@ export default async function ProposalPage(
                 <dt className="text-gray-500">Energielabel</dt>
                 <dd className="text-right font-medium text-gray-900">{energielabelLabel}</dd>
               </div>
+              {quickscanKosten > 0 && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-gray-500">Quickscan</dt>
+                  <dd className="text-right font-medium text-gray-900">{euro(quickscanKosten)}</dd>
+                </div>
+              )}
             </dl>
           </aside>
         </div>
 
-        <section className="mt-5 grid gap-4 lg:grid-cols-3">
+        <section className={`mt-5 grid gap-4 ${quickscanKosten > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Publiciteitskosten</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
@@ -120,9 +128,23 @@ export default async function ProposalPage(
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Energielabel</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Indien gewenst zetten wij de opdracht voor u uit om een energielabel te laten opmaken. Dit is verplicht voordat we de woning online publiceren. Als u al een energielabel heeft of dit zelf regelt, kunt u dat aangeven.
+              Indien gewenst zetten wij de opdracht voor u uit om een energielabel te laten opmaken. Een energielabel is verplicht voordat we de woning online publiceren. Als u al een energielabel heeft of dit zelf regelt, kunt u dat aangeven.
+            </p>
+            <p className="mt-2 text-sm font-medium text-gray-900">
+              Kosten via ons: maximaal {euro(energielabelOfferKosten)} incl. btw.
             </p>
           </div>
+          {quickscanKosten > 0 && (
+            <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Quickscan</p>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                Voor deze woning moet eerst een quickscan worden uitgevoerd. Dit komt niet vaak voor, maar wij kunnen dit voor u uitzetten bij een gespecialiseerd bedrijf.
+              </p>
+              <p className="mt-2 text-sm font-medium text-gray-900">
+                Kosten: {euro(quickscanKosten)} incl. btw.
+              </p>
+            </div>
+          )}
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Intrekking en bedenktijd</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
@@ -161,6 +183,7 @@ export default async function ProposalPage(
               defaultRemarks={proposal.selectedRemarks || ""}
               defaultEnergielabelChoice={energielabelChoice}
               defaultEnergielabelNote={proposal.selectedEnergielabelNote || ""}
+              energielabelKosten={energielabelOfferKosten}
             />
           </div>
         )}

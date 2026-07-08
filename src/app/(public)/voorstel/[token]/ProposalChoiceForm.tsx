@@ -24,6 +24,7 @@ export default function ProposalChoiceForm({
   defaultRemarks,
   defaultEnergielabelChoice,
   defaultEnergielabelNote,
+  energielabelKosten,
 }: {
   token: string;
   defaultVerkoopstart: string;
@@ -33,6 +34,7 @@ export default function ProposalChoiceForm({
   defaultRemarks: string;
   defaultEnergielabelChoice: string;
   defaultEnergielabelNote: string;
+  energielabelKosten: number;
 }) {
   const initialVerkoopstart = defaultVerkoopstart === "SLAPEND" ? "UITGESTELD" : defaultVerkoopstart || "DIRECT";
   const [verkoopstart, setVerkoopstart] = useState(initialVerkoopstart);
@@ -129,7 +131,7 @@ export default function ProposalChoiceForm({
       <div className="mt-5 border-t border-gray-100 pt-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Energielabel</p>
         <p className="mt-1 text-sm leading-6 text-gray-600">
-          Indien gewenst zetten wij de opdracht voor u uit om een energielabel te laten opmaken. Dit is verplicht voordat we de woning online publiceren. Als u al een energielabel heeft of dit zelf regelt, kunt u dat hieronder aangeven.
+          Indien gewenst zetten wij de opdracht voor u uit om een energielabel te laten opmaken. Een energielabel is verplicht voordat we de woning online publiceren. Als u al een energielabel heeft of dit zelf regelt, kunt u dat hieronder aangeven.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <button
@@ -154,7 +156,9 @@ export default function ProposalChoiceForm({
             }`}
           >
             <span className="block text-sm font-semibold">Via De Vree regelen</span>
-            <span className="mt-2 block text-xs leading-5 text-gray-500">Alleen als er nog geen geldig energielabel is.</span>
+            <span className="mt-2 block text-xs leading-5 text-gray-500">
+              Alleen als er nog geen geldig energielabel is. Maximaal € {energielabelKosten.toLocaleString("nl-NL")},- incl. btw.
+            </span>
           </button>
         </div>
         <label className="mt-3 block">
