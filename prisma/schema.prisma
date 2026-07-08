@@ -189,6 +189,8 @@ model ProjectProposal {
   selectedVerkoopstart Verkoopstart?
   selectedStartdatum   DateTime?
   selectedStartReden   String?
+  selectedSilentSale    Boolean?
+  selectedRemarks       String?       @db.Text
   selectedEnergielabelChoice String?
   selectedEnergielabelNote   String?       @db.Text
   documensoDocumentId  Int?

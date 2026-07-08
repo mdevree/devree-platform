@@ -190,6 +190,8 @@ interface ProjectProposal {
   selectedVerkoopstart: string | null;
   selectedStartdatum: string | null;
   selectedStartReden: string | null;
+  selectedSilentSale: boolean | null;
+  selectedRemarks: string | null;
   documensoDocumentId: number | null;
   documensoEnvelopeId: string | null;
   documensoSigningUrl: string | null;
@@ -2564,6 +2566,12 @@ export default function ProjectDetailPage() {
                   </div>
                   {latestProposal?.errorMessage && (
                     <p className="mt-1 text-xs leading-5">{latestProposal.errorMessage}</p>
+                  )}
+                  {(latestProposal?.selectedSilentSale || latestProposal?.selectedRemarks) && (
+                    <div className="mt-2 space-y-1 text-xs leading-5">
+                      {latestProposal.selectedSilentSale && <p>Stille verkoop gewenst.</p>}
+                      {latestProposal.selectedRemarks && <p>Opmerking: {latestProposal.selectedRemarks}</p>}
+                    </div>
                   )}
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">

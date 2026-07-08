@@ -54,6 +54,7 @@ export default async function ProposalPage(
     ? VERKOOPMETHODE_LABELS[project.verkoopmethode] || project.verkoopmethode
     : "Nog te bepalen";
   const verkoopstart = proposal.selectedVerkoopstart || project.verkoopstart || "DIRECT";
+  const silentSale = proposal.selectedSilentSale || verkoopstart === "SLAPEND";
   const energielabelKosten = project.kostenEnergielabel && project.kostenEnergielabel > 0 ? project.kostenEnergielabel : 0;
   const energielabelLabel = energielabelKosten > 0 ? euro(energielabelKosten) : "Al aanwezig / zelf regelen";
   const energielabelChoice = proposal.selectedEnergielabelChoice
@@ -119,7 +120,7 @@ export default async function ProposalPage(
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Energielabel</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              We rekenen geen gratis energielabel. Als het label al geldig is of u dit zelf regelt, staat hiervoor geen kostenpost via ons. Alleen als wij het moeten regelen, nemen we daarvoor een maximum op.
+              Indien gewenst zetten wij de opdracht voor u uit om een energielabel te laten opmaken. Dit is verplicht voordat we de woning online publiceren. Als u al een energielabel heeft of dit zelf regelt, kunt u dat aangeven.
             </p>
           </div>
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -133,7 +134,10 @@ export default async function ProposalPage(
         <section className="mt-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Vervolg</p>
           <p className="mt-2 text-sm leading-6 text-gray-600">
-            Als u akkoord bent, zetten we de opdracht tot dienstverlening klaar voor ondertekening. Na het tekenen komt u terug op de website van De Vree Makelaardij.
+            Na ondertekening maken wij uw digitale klantomgeving aan op Move.nl. Hier kunt u het verkoopproces volgen en de lijst van zaken en vragenlijst voor de verkoop invullen.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-gray-600">
+            Bij direct starten nemen wij zo snel mogelijk contact op om een fotograaf in te plannen.
           </p>
         </section>
 
@@ -153,6 +157,8 @@ export default async function ProposalPage(
               defaultVerkoopstart={verkoopstart}
               defaultStartdatum={dateInputValue(proposal.selectedStartdatum || project.startdatum)}
               defaultStartReden={proposal.selectedStartReden || project.startReden || ""}
+              defaultSilentSale={silentSale}
+              defaultRemarks={proposal.selectedRemarks || ""}
               defaultEnergielabelChoice={energielabelChoice}
               defaultEnergielabelNote={proposal.selectedEnergielabelNote || ""}
             />

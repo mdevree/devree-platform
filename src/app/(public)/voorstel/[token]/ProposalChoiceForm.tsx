@@ -6,17 +6,12 @@ const OPTIONS = [
   {
     value: "DIRECT",
     label: "Direct starten",
-    description: "Wij mogen na ondertekening direct met de verkoopvoorbereiding starten.",
-  },
-  {
-    value: "SLAPEND",
-    label: "Stille verkoop",
-    description: "Wij leggen de opdracht vast en stemmen de zichtbaarheid rustig af.",
+    description: "Na ondertekening nemen wij zo snel mogelijk contact op om de fotograaf in te plannen.",
   },
   {
     value: "UITGESTELD",
     label: "Toekomstig aanbod",
-    description: "Wij mogen voorbereiden, maar starten de verkoop later.",
+    description: "Wij mogen alvast voorbereiden, maar brengen de woning later actief onder de aandacht.",
   },
 ];
 
@@ -25,6 +20,8 @@ export default function ProposalChoiceForm({
   defaultVerkoopstart,
   defaultStartdatum,
   defaultStartReden,
+  defaultSilentSale,
+  defaultRemarks,
   defaultEnergielabelChoice,
   defaultEnergielabelNote,
 }: {
@@ -32,12 +29,17 @@ export default function ProposalChoiceForm({
   defaultVerkoopstart: string;
   defaultStartdatum: string;
   defaultStartReden: string;
+  defaultSilentSale: boolean;
+  defaultRemarks: string;
   defaultEnergielabelChoice: string;
   defaultEnergielabelNote: string;
 }) {
-  const [verkoopstart, setVerkoopstart] = useState(defaultVerkoopstart || "DIRECT");
+  const initialVerkoopstart = defaultVerkoopstart === "SLAPEND" ? "UITGESTELD" : defaultVerkoopstart || "DIRECT";
+  const [verkoopstart, setVerkoopstart] = useState(initialVerkoopstart);
   const [startdatum, setStartdatum] = useState(defaultStartdatum || "");
   const [startReden, setStartReden] = useState(defaultStartReden || "");
+  const [silentSale, setSilentSale] = useState(defaultSilentSale || defaultVerkoopstart === "SLAPEND");
+  const [remarks, setRemarks] = useState(defaultRemarks || "");
   const [energielabelChoice, setEnergielabelChoice] = useState(defaultEnergielabelChoice || "AANWEZIG_OF_ZELF");
   const [energielabelNote, setEnergielabelNote] = useState(defaultEnergielabelNote || "");
   const [loading, setLoading] = useState(false);
@@ -50,7 +52,7 @@ export default function ProposalChoiceForm({
       const res = await fetch(`/api/public/otd/proposal/${encodeURIComponent(token)}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verkoopstart, startdatum, startReden, energielabelChoice, energielabelNote }),
+        body: JSON.stringify({ verkoopstart, startdatum, startReden, silentSale, remarks, energielabelChoice, energielabelNote }),
       });
       const data = await res.json();
       if (!res.ok || !data.success || !data.signingUrl) {
@@ -68,7 +70,7 @@ export default function ProposalChoiceForm({
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Uw keuze</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -87,8 +89,8 @@ export default function ProposalChoiceForm({
       </div>
 
       {verkoopstart !== "DIRECT" && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="block">
+        <div className="mt-4 space-y-3">
+          <label className="block max-w-sm">
             <span className="text-xs font-medium text-gray-600">Beoogde startdatum</span>
             <input
               type="date"
@@ -97,13 +99,27 @@ export default function ProposalChoiceForm({
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
             />
           </label>
+          <label className="flex gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <input
+              type="checkbox"
+              checked={silentSale}
+              onChange={(event) => setSilentSale(event.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-700"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-gray-900">Stille verkoop</span>
+              <span className="mt-1 block text-xs leading-5 text-gray-500">
+                Wij zorgen dat het object alvast beperkt zichtbaar is in de uitwisselingssystemen, maar brengen de woning nog niet groots openbaar onder de aandacht.
+              </span>
+            </span>
+          </label>
           <label className="block">
             <span className="text-xs font-medium text-gray-600">Toelichting</span>
             <input
               type="text"
               value={startReden}
               onChange={(event) => setStartReden(event.target.value)}
-              placeholder={verkoopstart === "SLAPEND" ? "Bijvoorbeeld: eerst stille verkoop" : "Bijvoorbeeld: starten per genoemde datum"}
+              placeholder="Bijvoorbeeld: starten per genoemde datum of eerst alleen voorbereiden"
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
             />
           </label>
@@ -113,7 +129,7 @@ export default function ProposalChoiceForm({
       <div className="mt-5 border-t border-gray-100 pt-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Energielabel</p>
         <p className="mt-1 text-sm leading-6 text-gray-600">
-          Voor verkoop is een geldig energielabel nodig. Als dit al aanwezig is of u dit zelf regelt, nemen wij hiervoor geen kosten op.
+          Indien gewenst zetten wij de opdracht voor u uit om een energielabel te laten opmaken. Dit is verplicht voordat we de woning online publiceren. Als u al een energielabel heeft of dit zelf regelt, kunt u dat hieronder aangeven.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <button
@@ -149,6 +165,21 @@ export default function ProposalChoiceForm({
             onChange={(event) => setEnergielabelNote(event.target.value)}
             placeholder="Bijvoorbeeld: energielabel is al geldig of opdrachtgever regelt dit zelf"
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
+          />
+        </label>
+      </div>
+
+      <div className="mt-5 border-t border-gray-100 pt-5">
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Op- of aanmerkingen</span>
+          <span className="mt-1 block text-sm leading-6 text-gray-600">
+            Heeft u andere wensen, bijvoorbeeld over vraagprijs of verkoopmethode? Laat het ons weten, dan nemen wij contact met u op om dit te bespreken.
+          </span>
+          <textarea
+            value={remarks}
+            onChange={(event) => setRemarks(event.target.value)}
+            rows={4}
+            className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700"
           />
         </label>
       </div>

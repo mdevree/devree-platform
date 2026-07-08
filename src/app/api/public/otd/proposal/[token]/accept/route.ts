@@ -54,7 +54,9 @@ export async function POST(
   }
 
   const startdatum = verkoopstart === "DIRECT" || !body.startdatum ? null : new Date(body.startdatum);
+  const silentSale = body.silentSale === true || verkoopstart === "SLAPEND";
   const startReden = verkoopstart === "DIRECT" ? null : cleanString(body.startReden);
+  const remarks = cleanString(body.remarks);
   const energielabelChoice = ENERGIELABEL_CHOICES.has(cleanString(body.energielabelChoice) || "")
     ? cleanString(body.energielabelChoice)
     : "AANWEZIG_OF_ZELF";
@@ -102,6 +104,8 @@ export async function POST(
         selectedVerkoopstart: verkoopstart,
         selectedStartdatum: startdatum,
         selectedStartReden: startReden,
+        selectedSilentSale: silentSale,
+        selectedRemarks: remarks,
         selectedEnergielabelChoice: energielabelChoice,
         selectedEnergielabelNote: energielabelNote,
         acceptedAt: new Date(),
