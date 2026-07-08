@@ -155,9 +155,9 @@ function signatureSlotFields(slotIndex: number): Pick<DocumensoField, "pageX" | 
   const column = slotIndex % 2;
   const row = Math.floor(slotIndex / 2);
   return {
-    pageX: column === 0 ? 9 : 54,
+    pageX: column === 0 ? 10 : 55,
     pageY: 15 + row * 24,
-    width: 34,
+    width: 31,
     height: 5,
   };
 }
@@ -188,10 +188,10 @@ function buildSigningFields(recipient: DocumensoRecipient, slotIndex: number, pa
   fields.push({
     type: "DATE",
     pageNumber: pageCount,
-    pageX: signature.pageX + 6,
-    pageY: signature.pageY + 11,
-    width: 24,
-    height: 3,
+    pageX: signature.pageX + 4.5,
+    pageY: signature.pageY + 6.5,
+    width: 20,
+    height: 2.8,
   });
   return fields;
 }
