@@ -33,6 +33,27 @@ test("matcht taxatiemail betrouwbaar op adres en postcode", () => {
   assert.equal(result.classification.suggestedProjectStatus, "ACTIEF");
 });
 
+test("matcht taxatieprojecten waarvan woningAdres al postcode en plaats bevat", () => {
+  const project = {
+    ...baseProject,
+    woningAdres: "Oostkade 4 c4, 3221AJ HELLEVOETSLUIS",
+    woningPostcode: "3221AJ",
+    woningPlaats: "HELLEVOETSLUIS",
+    contactEmail: "avonk39@hotmail.com",
+  };
+
+  const result = matchTaxatieMail([project, { ...baseProject, id: "project-2", woningAdres: "Repel 91 , 3224VE HELLEVOETSLUIS", contactEmail: null }], {
+    messageId: "m1b",
+    mailbox: "info@devreemakelaardij.nl",
+    subject: "NWWI aanvraag Oostkade 4 c4 Hellevoetsluis",
+    bodyText: "Object: Oostkade 4 c4, 3221 AJ Hellevoetsluis. Opdrachtgever avonk39@hotmail.com",
+  });
+
+  assert.equal(result.status, "matched");
+  assert.equal(result.selected?.projectId, "project-1");
+  assert.equal(result.selected?.nextcloudBasePath, "2026/Oostkade 4 c4, 3221AJ HELLEVOETSLUIS");
+});
+
 test("geeft ambiguous bij meerdere plausibele taxatieprojecten", () => {
   const other = {
     ...baseProject,

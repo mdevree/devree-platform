@@ -270,14 +270,27 @@ export function extractTaxatieMailHints(payload: TaxatieMailPayload) {
 export function taxatieNextcloudBasePath(project: TaxatieProjectForMatch, receivedAt?: string | null) {
   const date = receivedAt ? new Date(receivedAt) : new Date();
   const year = Number.isNaN(date.getTime()) ? new Date().getFullYear() : date.getFullYear();
-  const address = [project.woningAdres || project.address || project.name, project.woningPostcode, project.woningPlaats]
-    .filter(Boolean)
-    .join(" ")
+  const baseAddress = project.woningAdres || project.address || project.name;
+  const normalizedBase = normalizeText(baseAddress);
+  const postcode = normalizePostcode(project.woningPostcode);
+  const place = normalizeText(project.woningPlaats);
+  const parts = [baseAddress];
+  if (postcode && project.woningPostcode && !normalizePostcode(baseAddress)) parts.push(project.woningPostcode);
+  if (place && project.woningPlaats && !normalizedBase.includes(place)) parts.push(project.woningPlaats);
+  const address = parts.filter(Boolean).join(" ")
     .replace(/[/:*?"<>|]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
   return `${year}/${address || project.id}`;
+}
+
+function addressWithoutPostcodeAndPlace(value: unknown, place: string) {
+  return normalizeText(value)
+    .replace(POSTCODE_RE, " ")
+    .replace(place ? new RegExp(`\\b${place.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g") : /^$/, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function scoreProject(project: TaxatieProjectForMatch, payload: TaxatieMailPayload, targetSubfolder: string): TaxatieMatchCandidate {
@@ -286,9 +299,9 @@ function scoreProject(project: TaxatieProjectForMatch, payload: TaxatieMailPaylo
   let score = 0;
 
   const projectAddress = normalizeText([project.woningAdres || project.address, project.woningPostcode, project.woningPlaats].filter(Boolean).join(" "));
-  const projectStreet = normalizeText(project.woningAdres || project.address || project.name);
   const projectPostcode = normalizePostcode(project.woningPostcode);
   const projectPlace = normalizeText(project.woningPlaats);
+  const projectStreet = addressWithoutPostcodeAndPlace(project.woningAdres || project.address || project.name, projectPlace);
   const contactEmail = lower(project.contactEmail);
   const contactPhone = normalizePhone(project.contactPhone);
   const contactName = normalizeText(project.contactName);
@@ -358,7 +371,15 @@ export function matchTaxatieMail(projects: TaxatieProjectForMatch[], payload: Ta
   let status: TaxatieMailMatchStatus = "unmatched";
   let selected: TaxatieMatchCandidate | null = null;
 
-  if (top && top.score >= 85 && (!second || top.score - second.score >= 15)) {
+  const topHasHardContactAndObject =
+    top?.reasons.includes("postcode exact") &&
+    top?.reasons.includes("opdrachtgever e-mail matcht");
+  const gap = top ? top.score - (second?.score ?? 0) : 0;
+
+  if (top && top.score >= 85 && (!second || gap >= 15)) {
+    status = "matched";
+    selected = top;
+  } else if (top && top.score >= 75 && topHasHardContactAndObject && gap >= 50) {
     status = "matched";
     selected = top;
   } else if (top && top.score >= 60) {
