@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const source = $json;\nconst headers = source.headers || {};\nconst getHeader = (name) => headers[name] || headers[name.toLowerCase()] || headers[name.toUpperCase()] || '';\nconst mailbox = String(source.to?.value?.[0]?.address || source.to || source.deliveredTo || getHeader('delivered-to') || 'unknown').toLowerCase();\nconst from = String(source.from?.value?.[0]?.address || source.from || '').toLowerCase();\nconst to = String(source.to?.value?.map?.(v => v.address).join(', ') || source.to || mailbox).toLowerCase();\nconst subject = source.subject || '';\nconst bodyText = source.textPlain || source.text || '';\nconst textHtml = source.textHtml || source.html || '';\nconst receivedAt = source.date || source.receivedDate || new Date().toISOString();\nconst messageId = String(source.messageId || getHeader('message-id') || `${mailbox}:${receivedAt}:${subject}`).replace(/[<>]/g, '').slice(0, 191);\nconst attachments = Object.entries($binary || {}).map(([key, value]) => ({ key, fileName: value.fileName || key, mimeType: value.mimeType || '' }));\n\nconst fullText = `${subject}\\n${bodyText}\\n${textHtml}\\n${attachments.map(a => a.fileName).join('\\n')}`;\nconst isTaxatie = /taxatie|taxatierapport|nwwi|kadaster|eigendomsinformatie|hyp\\s?4|leveringsakte|energielabel|bouwkundig|fundering|splitsing|mjop|vve|jaarrekening|notulen|brainbay|stamkaart|validatie|rapport|nota/i.test(fullText);\nif (!isTaxatie) return [];\n\nreturn [{ json: { messageId, mailbox, from, to, subject, receivedAt, bodyText, textPlain: bodyText, textHtml, attachments }, binary: $binary }];"
+        "jsCode": "const source = $json;\nconst headers = source.headers || {};\nconst getHeader = (name) => headers[name] || headers[name.toLowerCase()] || headers[name.toUpperCase()] || '';\nconst mailbox = String(source.to?.value?.[0]?.address || source.to || source.deliveredTo || getHeader('delivered-to') || 'unknown').toLowerCase();\nconst from = String(source.from?.value?.[0]?.address || source.from || '').toLowerCase();\nconst to = String(source.to?.value?.map?.(v => v.address).join(', ') || source.to || mailbox).toLowerCase();\nconst subject = source.subject || '';\nconst bodyText = source.textPlain || source.text || '';\nconst textHtml = source.textHtml || source.html || '';\nconst receivedAt = source.date || source.receivedDate || new Date().toISOString();\nconst messageId = String(source.messageId || getHeader('message-id') || `${mailbox}:${receivedAt}:${subject}`).replace(/[<>]/g, '').slice(0, 191);\nconst attachments = Object.entries($binary || {}).map(([key, value]) => ({ key, fileName: value.fileName || key, mimeType: value.mimeType || '' }));\n\nconst fullText = `${subject}\\n${bodyText}\\n${textHtml}\\n${attachments.map(a => a.fileName).join('\\n')}`;\nconst isTaxatie = /\\b(taxatie|taxatierapport|nwwi|kadaster|eigendomsinformatie|kadastraal bericht|hyp\\s?4|akte van levering|leveringsakte|energielabel|bouwkundig rapport|bouwkundige keuring|funderingsrapport|splitsingsakte|ondersplitsing|mjop|vve|jaarrekening|notulen|brainbay|stamkaart|validatie taxatie|rapport gevalideerd|werkblad)\\b/i.test(fullText);\nif (!isTaxatie) return [];\n\nreturn [{ json: { messageId, mailbox, from, to, subject, receivedAt, bodyText, textPlain: bodyText, textHtml, attachments }, binary: $binary }];"
       },
       "id": "NormalizeTaxatieMail",
       "name": "Normaliseer taxatiemail",
@@ -472,8 +472,9 @@
   },
   "staticData": null,
   "pinData": {},
-  "activeVersionId": "9e71c727-f497-48ce-8e22-b443b5a0961b",
-  "versionCounter": 4,
+  "versionId": "ef45f3bd-cbc3-4791-b3ae-d78b882beab2",
+  "activeVersionId": null,
+  "versionCounter": 7,
   "tags": [],
   "versionMetadata": {
     "name": null,
