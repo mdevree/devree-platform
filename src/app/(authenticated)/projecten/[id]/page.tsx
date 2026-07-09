@@ -187,7 +187,6 @@ interface ProjectContact {
 interface ProjectProposal {
   id: string;
   publicUrl: string | null;
-  previewUrl?: string | null;
   status: string;
   selectedVerkoopstart: string | null;
   selectedStartdatum: string | null;
@@ -652,7 +651,6 @@ export default function ProjectDetailPage() {
   const [proposalLinkSaving, setProposalLinkSaving] = useState(false);
   const [proposalLinkError, setProposalLinkError] = useState("");
   const [proposalLink, setProposalLink] = useState("");
-  const [proposalPreviewLink, setProposalPreviewLink] = useState("");
   const [proposalLinkCopied, setProposalLinkCopied] = useState(false);
 
   const categories = ["binnendienst", "verkoop", "aankoop", "taxatie", "administratie"];
@@ -872,7 +870,6 @@ export default function ProjectDetailPage() {
     setProposalLinkSaving(true);
     setProposalLinkError("");
     setProposalLink("");
-    setProposalPreviewLink("");
     try {
       const res = await fetch(`/api/projecten/${project.id}/otd/proposal-link`, {
         method: "POST",
@@ -883,7 +880,6 @@ export default function ProjectDetailPage() {
         return;
       }
       setProposalLink(data.proposalUrl);
-      setProposalPreviewLink(data.proposalPreviewUrl || "");
       setProposalLinkCopied(false);
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(data.proposalUrl)
@@ -2624,7 +2620,7 @@ export default function ProjectDetailPage() {
                     <div className="flex shrink-0 flex-wrap gap-2">
                       {latestProposal?.publicUrl && (
                         <a
-                          href={latestProposal.previewUrl || latestProposal.publicUrl}
+                          href={`${latestProposal.publicUrl}${latestProposal.publicUrl.includes("?") ? "&" : "?"}preview=1`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs font-semibold underline"
@@ -2784,16 +2780,14 @@ export default function ProjectDetailPage() {
                           >
                             Open
                           </a>
-                          {proposalPreviewLink && (
-                            <a
-                              href={proposalPreviewLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
-                            >
-                              Preview
-                            </a>
-                          )}
+                          <a
+                            href={`${proposalLink}${proposalLink.includes("?") ? "&" : "?"}preview=1`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                          >
+                            Preview
+                          </a>
                         </div>
                       </div>
                     </div>

@@ -4,7 +4,7 @@ import ProposalChoiceForm from "./ProposalChoiceForm";
 import ProposalTracker from "./ProposalTracker";
 import { getContactFull } from "@/lib/mautic";
 import { prisma } from "@/lib/prisma";
-import { isValidProposalPreview, proposalTokenHash } from "@/lib/projectProposal";
+import { proposalTokenHash } from "@/lib/projectProposal";
 import { notifyOfficeProposalFirstViewed } from "@/lib/proposalNotifications";
 import { VERKOOPMETHODE_LABELS } from "@/lib/projectTypes";
 
@@ -53,13 +53,12 @@ function formatAanvaarding(value: string | null | undefined) {
 export default async function ProposalPage(
   { params, searchParams }: {
     params: Promise<{ token: string }>;
-    searchParams?: Promise<{ preview?: string; previewUntil?: string; previewSig?: string }>;
+    searchParams?: Promise<{ preview?: string }>;
   },
 ) {
   const { token } = await params;
   const query = searchParams ? await searchParams : {};
-  const previewMode = (query.preview === "1" || query.preview === "true")
-    && isValidProposalPreview(token, query.previewUntil, query.previewSig);
+  const previewMode = query.preview === "1" || query.preview === "true";
   const proposal = await prisma.projectProposal.findUnique({
     where: { tokenHash: proposalTokenHash(token) },
     include: {
