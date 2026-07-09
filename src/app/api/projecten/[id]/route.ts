@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
+import { publicProposalPreviewUrl, tokenFromProposalUrl } from "@/lib/projectProposal";
 
 function nonEmptyString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -61,7 +62,18 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ project });
+  const projectWithPreviewUrls = {
+    ...project,
+    proposals: project.proposals.map((proposal) => {
+      const token = tokenFromProposalUrl(proposal.publicUrl);
+      return {
+        ...proposal,
+        previewUrl: token ? publicProposalPreviewUrl(token) : null,
+      };
+    }),
+  };
+
+  return NextResponse.json({ project: projectWithPreviewUrls });
 }
 
 /**

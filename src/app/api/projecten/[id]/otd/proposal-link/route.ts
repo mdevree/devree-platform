@@ -5,6 +5,7 @@ import {
   createProposalToken,
   proposalExpiresAt,
   proposalTokenHash,
+  publicProposalPreviewUrl,
   publicProposalUrl,
 } from "@/lib/projectProposal";
 
@@ -29,6 +30,7 @@ export async function POST(
   const token = createProposalToken();
   const expiresAt = proposalExpiresAt();
   const proposalUrl = publicProposalUrl(token);
+  const proposalPreviewUrl = publicProposalPreviewUrl(token);
 
   await prisma.$transaction([
     prisma.project.update({
@@ -52,6 +54,7 @@ export async function POST(
   return NextResponse.json({
     success: true,
     proposalUrl,
+    proposalPreviewUrl,
     expiresAt,
   });
 }
