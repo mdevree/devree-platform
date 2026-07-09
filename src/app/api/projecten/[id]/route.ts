@@ -28,6 +28,12 @@ export async function GET(
         orderBy: { addedAt: "asc" },
       },
       proposals: {
+        include: {
+          events: {
+            orderBy: { createdAt: "desc" },
+            take: 50,
+          },
+        },
         orderBy: { createdAt: "desc" },
         take: 5,
       },

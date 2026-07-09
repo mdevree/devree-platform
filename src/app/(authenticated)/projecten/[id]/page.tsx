@@ -204,6 +204,19 @@ interface ProjectProposal {
   acceptedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  events?: ProjectProposalEvent[];
+}
+
+interface ProjectProposalEvent {
+  id: string;
+  eventType: string;
+  sessionId: string | null;
+  activeSeconds: number | null;
+  path: string | null;
+  referrer: string | null;
+  userAgent: string | null;
+  viewport: string | null;
+  createdAt: string;
 }
 
 interface Project {
@@ -1357,6 +1370,35 @@ export default function ProjectDetailPage() {
     return new Date(dateStr).toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
 
+  function formatDuration(seconds: number) {
+    if (!seconds) return "0s";
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    if (!minutes) return `${rest}s`;
+    if (!rest) return `${minutes}m`;
+    return `${minutes}m ${rest}s`;
+  }
+
+  function proposalEventLabel(type: string) {
+    if (type === "page_open") return "Geopend";
+    if (type === "heartbeat") return "Actief";
+    if (type === "visibility_hidden") return "Tab verlaten";
+    if (type === "pagehide") return "Pagina verlaten";
+    return type;
+  }
+
+  function deviceLabel(userAgent: string | null) {
+    const ua = userAgent || "";
+    const device = /iPhone|iPad|Android|Mobile/i.test(ua) ? "mobiel" : "desktop";
+    const browser =
+      /CriOS|Chrome/i.test(ua) ? "Chrome" :
+      /Safari/i.test(ua) ? "Safari" :
+      /Firefox/i.test(ua) ? "Firefox" :
+      /Edg/i.test(ua) ? "Edge" :
+      "browser";
+    return `${device} · ${browser}`;
+  }
+
   function formatCurrency(amount: number) {
     return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(amount);
   }
@@ -1413,6 +1455,10 @@ export default function ProjectDetailPage() {
     latestProposalExpired ? "border-amber-100 bg-amber-50 text-amber-800" :
     latestProposal?.status === "OPEN" ? "border-blue-100 bg-blue-50 text-blue-800" :
     "border-gray-200 bg-gray-50 text-gray-600";
+  const latestProposalEvents = latestProposal?.events || [];
+  const latestProposalSessions = new Set(latestProposalEvents.map((event) => event.sessionId).filter(Boolean)).size;
+  const latestProposalActiveSeconds = latestProposalEvents.reduce((sum, event) => sum + (event.activeSeconds || 0), 0);
+  const latestProposalLastEvent = latestProposalEvents[0] || null;
 
   return (
     <div>
@@ -2603,6 +2649,43 @@ export default function ProjectDetailPage() {
                     <div className="mt-2 space-y-1 text-xs leading-5">
                       {latestProposal.selectedSilentSale && <p>Stille verkoop gewenst.</p>}
                       {latestProposal.selectedRemarks && <p>Opmerking: {latestProposal.selectedRemarks}</p>}
+                    </div>
+                  )}
+                  {latestProposal?.publicUrl && (
+                    <div className="mt-3 rounded-md border border-white/60 bg-white/50 p-3 text-xs">
+                      <div className="grid gap-2 sm:grid-cols-4">
+                        <div>
+                          <p className="font-semibold">Openingen</p>
+                          <p>{latestProposal.viewCount}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Sessies</p>
+                          <p>{latestProposalSessions || (latestProposal.viewCount ? 1 : 0)}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Actieve tijd</p>
+                          <p>{formatDuration(latestProposalActiveSeconds)}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Laatste activiteit</p>
+                          <p>{latestProposalLastEvent ? formatDateTime(latestProposalLastEvent.createdAt) : "Nog geen detail"}</p>
+                        </div>
+                      </div>
+                      {latestProposalEvents.length > 0 && (
+                        <div className="mt-3 space-y-1 border-t border-white/70 pt-2">
+                          {latestProposalEvents.slice(0, 5).map((event) => (
+                            <div key={event.id} className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span>
+                                {proposalEventLabel(event.eventType)} · {formatDateTime(event.createdAt)}
+                                {event.activeSeconds ? ` · +${formatDuration(event.activeSeconds)}` : ""}
+                              </span>
+                              <span className="text-[11px] opacity-75">
+                                {deviceLabel(event.userAgent)}{event.viewport ? ` · ${event.viewport}` : ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

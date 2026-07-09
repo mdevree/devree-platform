@@ -188,6 +188,7 @@ model ProjectProposal {
   id                   String        @id @default(cuid())
   project              Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId            String
+  events               ProjectProposalEvent[]
   tokenHash            String        @unique
   publicUrl            String?       @db.Text
   status               String        @default("OPEN") // OPEN, ACCEPTED, REVOKED, ERROR
@@ -216,6 +217,27 @@ model ProjectProposal {
   @@index([status])
   @@index([expiresAt])
   @@map("project_proposals")
+}
+
+model ProjectProposalEvent {
+  id              String          @id @default(cuid())
+  proposal        ProjectProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId      String
+  eventType       String
+  sessionId       String?
+  activeSeconds   Int?
+  path            String?         @db.Text
+  referrer        String?         @db.Text
+  userAgent       String?         @db.Text
+  ipHash          String?
+  viewport        String?
+  createdAt       DateTime        @default(now())
+
+  @@index([proposalId])
+  @@index([eventType])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("project_proposal_events")
 }
 
 model ProjectContact {

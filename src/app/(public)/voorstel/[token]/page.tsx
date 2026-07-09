@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProposalChoiceForm from "./ProposalChoiceForm";
+import ProposalTracker from "./ProposalTracker";
 import { getContactFull } from "@/lib/mautic";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
@@ -152,6 +153,7 @@ export default async function ProposalPage(
 
   return (
     <main className="min-h-screen bg-gray-50">
+      <ProposalTracker token={token} enabled={!previewMode} />
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-12">
         <div className="mb-8 flex flex-col gap-2 border-b border-gray-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
