@@ -208,6 +208,7 @@ function withSigningFields(recipients: DocumensoRecipient[], pageCount: number) 
   const customerSigners = recipients.filter((recipient) => recipient.role === "SIGNER" && !/melvin@devreemakelaardij\.nl/i.test(recipient.email));
   const melvin = recipients.find((recipient) => /melvin@devreemakelaardij\.nl/i.test(recipient.email));
   const signingSlots = new Map<string, number>();
+  const includePageInitials = false;
 
   customerSigners.forEach((recipient, index) => signingSlots.set(recipient.email.toLowerCase(), index));
   if (melvin) signingSlots.set(melvin.email.toLowerCase(), customerSigners.length);
@@ -218,7 +219,7 @@ function withSigningFields(recipients: DocumensoRecipient[], pageCount: number) 
       recipient,
       signingSlots.get(recipient.email.toLowerCase()) ?? 0,
       pageCount,
-      customerSigners.some((signer) => signer.email.toLowerCase() === recipient.email.toLowerCase()),
+      includePageInitials,
     ).map((field) => ({
       ...field,
       fieldMeta: {

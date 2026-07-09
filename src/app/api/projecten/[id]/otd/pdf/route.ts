@@ -100,7 +100,13 @@ type Opdrachtgever = {
   rol?: string | null;
 };
 
-function renderPartyField(label: string, value: unknown) {
+function hasValue(value: unknown) {
+  return typeof value === "string" ? value.trim().length > 0 : value !== null && value !== undefined;
+}
+
+function renderPartyField(label: string, value: unknown, { required = false }: { required?: boolean } = {}) {
+  if (!required && !hasValue(value)) return "";
+
   return `
     <div class="party-row">
       <div>${escapeHtml(label)}</div>
@@ -125,7 +131,7 @@ function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
     return `
       <section class="party-block">
         <p><strong>${opdrachtgevers.length === 1 ? "De opdrachtgever" : `De opdrachtgever ${index + 1}`}</strong></p>
-        ${renderPartyField("Naam", juridischeNaam)}
+        ${renderPartyField("Naam", juridischeNaam, { required: true })}
         ${renderPartyField("Voornamen", opdrachtgever.voornamen)}
         ${renderPartyField("Geboortedatum", opdrachtgever.geboortedatum)}
         ${renderPartyField("Geboorteplaats", opdrachtgever.geboorteplaats)}
@@ -189,11 +195,31 @@ function buildHtml({
   const aanvaarding = formatAanvaarding(project.aanvaarding);
   const vraagprijs = project.vraagprijs ? `${euro(project.vraagprijs)} k.k.` : "________";
   const courtage = percentLegal(project.courtagePercentage);
-  const publiciteitskosten = project.kostenPubliciteit ?? 650;
+  const publiciteitskosten = project.kostenPubliciteit;
+  const energielabelKosten = project.kostenEnergielabel;
   const quickscanKosten = project.kostenBouwkundig && project.kostenBouwkundig > 0 ? project.kostenBouwkundig : 0;
   const intrekkingskosten = project.kostenIntrekking ?? 600;
   const bedenktijdkosten = project.kostenBedenktijd ?? 350;
-  const bijzondereAfspraken = project.bijzondereAfspraken?.trim() || "……………………………………………………………………";
+  const bijzondereAfspraken = project.bijzondereAfspraken?.trim();
+  const kostenRegels = [
+    publiciteitskosten && publiciteitskosten > 0
+      ? `<p class="indent">- publiciteitskosten (Funda plaatsing compleet, fotopresentatie inclusief 360 graden foto's, video, plattegronden etc.): max. ${escapeHtml(euro(publiciteitskosten))} incl. BTW;</p>`
+      : "",
+    energielabelKosten && energielabelKosten > 0
+      ? `<p class="indent">- energielabel definitief maken of regelen via het NVM-lid: max. ${escapeHtml(euro(energielabelKosten))} incl. BTW;</p>`
+      : "",
+    quickscanKosten > 0
+      ? `<p class="indent">- quickscan fundering laten uitvoeren via het NVM-lid: max. ${escapeHtml(euro(quickscanKosten))} incl. BTW;</p>`
+      : "",
+  ].filter(Boolean);
+  const kostenTekst = kostenRegels.length
+    ? kostenRegels.join("")
+    : `<p class="indent">- er worden geen afzonderlijke publiciteits-, energielabel- of quickscankosten aan opdrachtgever doorbelast.</p>`;
+  const bijzondereAfsprakenHtml = bijzondereAfspraken
+    ? `<p><strong>11. Bijzondere afspraken:</strong> ${escapeHtml(bijzondereAfspraken)}</p>`
+    : `<p><strong>11. Bijzondere afspraken:</strong></p>
+    <p>……………………………………………………………………</p>
+    <p>……………………………………………………………………</p>`;
 
   return `<!doctype html>
 <html lang="nl">
@@ -341,13 +367,7 @@ function buildHtml({
     <p><strong>1.</strong> Tenzij uit doorhalingen anders blijkt, stemt de opdrachtgever ermee in dat:</p>
     <p class="indent"><strong>1.1</strong> Het NVM-lid de opdracht, eventueel met foto's, tekeningen e.d. ter kennis brengt van collega's en derden en dat deze gegevens worden opgenomen in gidsen en andere overzichten waaronder Funda.</p>
     <p class="indent"><strong>1.2</strong> Het NVM-lid kosten maakt zoals hieronder vermeld, die door hem, desgewenst telkens nadat hij deze heeft voldaan, aan de opdrachtgever in rekening worden gebracht en wel, behoudens nadere afspraken, tot in totaal niet meer dan de aangegeven bedragen:</p>
-    <p class="indent">– publiciteitskosten (Funda plaatsing compleet, fotopresentatie inclusief 360 graden foto's, video, plattegronden etc.): max. ${escapeHtml(euro(publiciteitskosten))} incl. BTW;</p>
-    ${project.kostenEnergielabel && project.kostenEnergielabel > 0
-      ? `<p class="indent">- energielabel definitief maken of regelen via het NVM-lid: max. ${escapeHtml(euro(project.kostenEnergielabel))} incl. BTW;</p>`
-      : `<p class="indent">- energielabel: geen kosten via het NVM-lid; opdrachtgever beschikt reeds over een geldig energielabel of verzorgt dit zelf.</p>`}
-    ${quickscanKosten > 0
-      ? `<p class="indent">- quickscan fundering laten uitvoeren via het NVM-lid: max. ${escapeHtml(euro(quickscanKosten))} incl. BTW;</p>`
-      : ""}
+    ${kostenTekst}
     <p class="indent"><strong>1.3</strong> De notaris vóór het verlijden van de akte van levering aan het NVM-lid een exemplaar van het concept van die notariële akte en de nota van afrekening ter inzage verstrekt en, indien en voor zover de opdrachtgever op dat moment nog loon, verschotten of andere kosten verschuldigd is, deze bij het passeren van de akte van levering verrekent.</p>
     <p class="indent"><strong>1.4</strong> Voor zover hij zijn eigendomspapieren aan het NVM-lid ter hand heeft gesteld deze bij het tot stand komen van de overeenkomst via de notaris aan de koper ter beschikking worden gesteld.</p>
     <p><strong>2.</strong> Het object is te aanvaarden per ${escapeHtml(aanvaarding)}.</p>
@@ -367,9 +387,7 @@ function buildHtml({
     <p class="indent">a. Iedere aansprakelijkheid is beperkt tot uitsluitend de opdrachtgever en het doel van de opdracht;</p>
     <p class="indent">b. De hoogte van onze aansprakelijkheid is beperkt tot maximaal het bedrag waartoe wij (op grond van ons lidmaatschap van de NVM) op branche gebruikelijke voorwaarden verplicht verzekerd zijn tegen beroepsaansprakelijkheid;</p>
     <p class="indent">c. Onze aansprakelijkheid eindigt uiterlijk één (1) jaar na de juridische levering van het verkochte.</p>
-    <p><strong>11. Bijzondere afspraken:</strong> ${escapeHtml(bijzondereAfspraken)}</p>
-    <p>……………………………………………………………………</p>
-    <p>……………………………………………………………………</p>
+    ${bijzondereAfsprakenHtml}
     <p><strong>Bijlagen:</strong></p>
     <div class="appendices">
       <p>1. De Algemene Consumentenvoorwaarden Makelaardij, d.d. 1 september 2018</p>
