@@ -1,29 +1,55 @@
 {
+  "id": "TaxatieMailarchivering01",
   "name": "Taxatie — Mailarchivering",
+  "description": null,
+  "active": true,
+  "isArchived": false,
   "nodes": [
     {
       "parameters": {
         "mailbox": "INBOX",
         "downloadAttachments": true,
-        "options": {}
+        "options": {
+          "forceReconnect": 60
+        }
       },
       "id": "TaxatieMailInfoImap",
       "name": "Email Trigger - info",
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2,
-      "position": [-900, -160]
+      "position": [
+        -900,
+        -160
+      ],
+      "credentials": {
+        "imap": {
+          "id": "Zrru6hGA4eFunqyb",
+          "name": "Info @ De Vree Makelaardij"
+        }
+      }
     },
     {
       "parameters": {
         "mailbox": "INBOX",
         "downloadAttachments": true,
-        "options": {}
+        "options": {
+          "forceReconnect": 60
+        }
       },
       "id": "TaxatieMailMelvinImap",
       "name": "Email Trigger - melvin",
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2,
-      "position": [-900, 120]
+      "position": [
+        -900,
+        120
+      ],
+      "credentials": {
+        "imap": {
+          "id": "avSbWVaaeM5WgLE7",
+          "name": "Makelaar @ De Vree Makelaardij"
+        }
+      }
     },
     {
       "parameters": {
@@ -33,29 +59,45 @@
       "name": "Normaliseer taxatiemail",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-620, -20]
+      "position": [
+        -620,
+        -20
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.PLATFORM_BASE_URL || 'https://kantoor.devreemakelaardij.nl') + '/api/taxaties/mail-match' }}",
+        "url": "https://kantoor.devreemakelaardij.nl/api/taxaties/mail-match",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json }}",
-        "options": {}
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "MatchTaxatieProject",
       "name": "Match taxatieproject",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-360, -20]
+      "position": [
+        -360,
+        -20
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PlatformWebhookSecret01",
+          "name": "Platform Webhook Secret"
+        }
+      }
     },
     {
       "parameters": {
@@ -64,7 +106,10 @@
             {
               "leftValue": "={{ $json.status }}",
               "rightValue": "matched",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ]
         },
@@ -74,7 +119,10 @@
       "name": "Eenduidige match?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-110, -20]
+      "position": [
+        -110,
+        -20
+      ]
     },
     {
       "parameters": {
@@ -84,52 +132,69 @@
       "name": "Render e-mail HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [160, -160]
+      "position": [
+        160,
+        -160
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.GOTENBERG_URL }}/forms/chromium/convert/html",
+        "url": "http://127.0.0.1:3050/forms/chromium/convert/html",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            { "parameterType": "formBinaryData", "name": "files", "inputDataFieldName": "data" }
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "data"
+            }
           ]
         },
         "options": {
-          "response": { "response": { "responseFormat": "file", "outputPropertyName": "data" } }
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
         }
       },
       "id": "EmailToPdf",
       "name": "E-mail naar PDF (Gotenberg)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, -160]
+      "position": [
+        420,
+        -160
+      ]
     },
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ $env.NEXTCLOUD_URL + '/remote.php/dav/files/' + $env.NEXTCLOUD_USER + '/' + $('Render e-mail HTML').item.json.nextcloudPath }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Basic {{ Buffer.from($env.NEXTCLOUD_USER + ':' + $env.NEXTCLOUD_APP_PASSWORD).toString('base64') }}"
-            }
-          ]
-        },
+        "url": "={{ \"https://cloud.devreemakelaardij.nl/remote.php/webdav\" + \"/\" + $(\"Render e-mail HTML\").item.json.nextcloudPath }}",
         "sendBody": true,
         "contentType": "binaryData",
         "inputDataFieldName": "data",
-        "options": {}
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth"
       },
       "id": "SaveEmailPdf",
       "name": "Sla e-mail-PDF op in Nextcloud",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, -160]
+      "position": [
+        680,
+        -160
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "NextcloudWebdavBasicAuth01",
+          "name": "NextCloud WebDAV Basic Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -139,31 +204,36 @@
       "name": "Bereid PDF-bijlagen voor",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [160, -360]
+      "position": [
+        160,
+        -360
+      ]
     },
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ $env.NEXTCLOUD_URL + '/remote.php/dav/files/' + $env.NEXTCLOUD_USER + '/' + $json.nextcloudPath }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Basic {{ Buffer.from($env.NEXTCLOUD_USER + ':' + $env.NEXTCLOUD_APP_PASSWORD).toString('base64') }}"
-            }
-          ]
-        },
+        "url": "={{ \"https://cloud.devreemakelaardij.nl/remote.php/webdav\" + \"/\" + $json.nextcloudPath }}",
         "sendBody": true,
         "contentType": "binaryData",
         "inputDataFieldName": "data",
-        "options": {}
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth"
       },
       "id": "SavePdfAttachments",
       "name": "Sla PDF-bijlagen op in Nextcloud",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, -360]
+      "position": [
+        420,
+        -360
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "NextcloudWebdavBasicAuth01",
+          "name": "NextCloud WebDAV Basic Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -173,29 +243,45 @@
       "name": "Resultaat voorbereiden",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [930, -160]
+      "position": [
+        930,
+        -160
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.PLATFORM_BASE_URL || 'https://kantoor.devreemakelaardij.nl') + '/api/taxaties/mail-archive-result' }}",
+        "url": "https://kantoor.devreemakelaardij.nl/api/taxaties/mail-archive-result",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json }}",
-        "options": {}
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "ReportArchiveResult",
       "name": "Meld archiefresultaat aan platform",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, -160]
+      "position": [
+        1180,
+        -160
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PlatformWebhookSecret01",
+          "name": "Platform Webhook Secret"
+        }
+      }
     },
     {
       "parameters": {
@@ -205,70 +291,180 @@
       "name": "Maak controletaak payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [160, 120]
+      "position": [
+        160,
+        120
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.PLATFORM_BASE_URL || 'https://kantoor.devreemakelaardij.nl') + '/api/taken/webhook' }}",
+        "url": "https://kantoor.devreemakelaardij.nl/api/taken/webhook",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json }}",
-        "options": {}
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "CreateReviewTask",
       "name": "Maak controletaak",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, 120]
+      "position": [
+        420,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PlatformWebhookSecret01",
+          "name": "Platform Webhook Secret"
+        }
+      }
     }
   ],
   "connections": {
     "Email Trigger - info": {
-      "main": [[{ "node": "Normaliseer taxatiemail", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Normaliseer taxatiemail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Email Trigger - melvin": {
-      "main": [[{ "node": "Normaliseer taxatiemail", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Normaliseer taxatiemail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Normaliseer taxatiemail": {
-      "main": [[{ "node": "Match taxatieproject", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Match taxatieproject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Match taxatieproject": {
-      "main": [[{ "node": "Eenduidige match?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Eenduidige match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Eenduidige match?": {
       "main": [
         [
-          { "node": "Render e-mail HTML", "type": "main", "index": 0 },
-          { "node": "Bereid PDF-bijlagen voor", "type": "main", "index": 0 }
+          {
+            "node": "Render e-mail HTML",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bereid PDF-bijlagen voor",
+            "type": "main",
+            "index": 0
+          }
         ],
-        [{ "node": "Maak controletaak payload", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Maak controletaak payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Bereid PDF-bijlagen voor": {
-      "main": [[{ "node": "Sla PDF-bijlagen op in Nextcloud", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Sla PDF-bijlagen op in Nextcloud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Render e-mail HTML": {
-      "main": [[{ "node": "E-mail naar PDF (Gotenberg)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "E-mail naar PDF (Gotenberg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "E-mail naar PDF (Gotenberg)": {
-      "main": [[{ "node": "Sla e-mail-PDF op in Nextcloud", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Sla e-mail-PDF op in Nextcloud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Sla e-mail-PDF op in Nextcloud": {
-      "main": [[{ "node": "Resultaat voorbereiden", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Resultaat voorbereiden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Resultaat voorbereiden": {
-      "main": [[{ "node": "Meld archiefresultaat aan platform", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Meld archiefresultaat aan platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Maak controletaak payload": {
-      "main": [[{ "node": "Maak controletaak", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Maak controletaak",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -276,7 +472,11 @@
   },
   "staticData": null,
   "pinData": {},
-  "versionId": "taxatie-mailarchivering-v1",
-  "triggerCount": 2,
-  "tags": []
+  "activeVersionId": "9e71c727-f497-48ce-8e22-b443b5a0961b",
+  "versionCounter": 4,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
 }
