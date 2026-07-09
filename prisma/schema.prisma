@@ -162,6 +162,7 @@ model Project {
   proposals           ProjectProposal[]
   debiteurenLink      ProjectDebiteurenLink?
   tasks               Task[]
+  taxatieMailArchives TaxatieMailArchive[]
   calls               Call[]
   leadProjecten       LeadProject[]
   facebookTriggers    FacebookTrigger[]
@@ -483,6 +484,40 @@ model Task {
   @@index([dueDate])
   @@index([projectId])
   @@map("tasks")
+}
+
+model TaxatieMailArchive {
+  id                String    @id @default(cuid())
+  messageId         String
+  mailbox           String
+  fromEmail         String?
+  toEmail           String?
+  subject           String?
+  receivedAt        DateTime?
+  project           Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId         String?
+  matchStatus       String    @default("unmatched") // matched | ambiguous | unmatched
+  archiveStatus     String    @default("pending") // pending | archived | review_needed | failed
+  matchScore        Int?
+  matchReasons      Json?
+  candidates        Json?
+  checklistSignals  Json?
+  suggestedSubfolder String?
+  suggestedStatus   String?
+  nextcloudPath     String?   @db.Text
+  error             String?   @db.Text
+  rawPayload        Json?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([messageId, mailbox])
+  @@index([projectId])
+  @@index([matchStatus])
+  @@index([archiveStatus])
+  @@index([receivedAt])
+  @@map("taxatie_mail_archives")
 }
 
 model TimeEntry {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   ArrowLeftIcon,
@@ -44,6 +44,7 @@ import {
   VERKOOPMETHODE_LABELS,
   VERKOOPSTART_LABELS,
 } from "@/lib/projectTypes";
+import TaxatieControlePanel from "./TaxatieControlePanel";
 
 const MAUTIC_URL =
   process.env.NEXT_PUBLIC_MAUTIC_URL || "https://connect.devreemakelaardij.nl";
@@ -302,7 +303,7 @@ interface DebiteurenData {
   error?: string;
 }
 
-type ActiveTab = "taken" | "telefonie" | "woning" | "kijkers" | "dossier";
+type ActiveTab = "taken" | "telefonie" | "woning" | "kijkers" | "dossier" | "taxatieControle";
 
 interface KijkerLead {
   id: string;
@@ -492,6 +493,7 @@ const statusGroups = [
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const projectId = params.id as string;
 
@@ -499,6 +501,12 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("taken");
   const [users, setUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "taxatieControle") {
+      setActiveTab("taxatieControle");
+    }
+  }, [searchParams]);
 
   // Woning
   const [woning, setWoning] = useState<WoningData | null>(null);
@@ -1905,6 +1913,17 @@ export default function ProjectDetailPage() {
           <DocumentTextIcon className="h-4 w-4" />
           Dossier
         </button>
+        {project.type === "TAXATIE" && (
+          <button
+            onClick={() => setActiveTab("taxatieControle")}
+            className={`inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
+              activeTab === "taxatieControle" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <ClipboardDocumentListIcon className="h-4 w-4" />
+            Taxatiecontrole
+          </button>
+        )}
       </div>
 
       {/* ===== TAKEN TAB ===== */}
@@ -3017,6 +3036,10 @@ export default function ProjectDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === "taxatieControle" && project.type === "TAXATIE" && (
+        <TaxatieControlePanel projectId={project.id} />
       )}
 
       {/* ===== NOTITIE MODAL ===== */}

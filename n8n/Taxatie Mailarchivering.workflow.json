@@ -1,0 +1,282 @@
+{
+  "name": "Taxatie — Mailarchivering",
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "downloadAttachments": true,
+        "options": {}
+      },
+      "id": "TaxatieMailInfoImap",
+      "name": "Email Trigger - info",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [-900, -160]
+    },
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "downloadAttachments": true,
+        "options": {}
+      },
+      "id": "TaxatieMailMelvinImap",
+      "name": "Email Trigger - melvin",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [-900, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json;\nconst headers = source.headers || {};\nconst getHeader = (name) => headers[name] || headers[name.toLowerCase()] || headers[name.toUpperCase()] || '';\nconst mailbox = String(source.to?.value?.[0]?.address || source.to || source.deliveredTo || getHeader('delivered-to') || 'unknown').toLowerCase();\nconst from = String(source.from?.value?.[0]?.address || source.from || '').toLowerCase();\nconst to = String(source.to?.value?.map?.(v => v.address).join(', ') || source.to || mailbox).toLowerCase();\nconst subject = source.subject || '';\nconst bodyText = source.textPlain || source.text || '';\nconst textHtml = source.textHtml || source.html || '';\nconst receivedAt = source.date || source.receivedDate || new Date().toISOString();\nconst messageId = String(source.messageId || getHeader('message-id') || `${mailbox}:${receivedAt}:${subject}`).replace(/[<>]/g, '').slice(0, 191);\nconst attachments = Object.entries($binary || {}).map(([key, value]) => ({ key, fileName: value.fileName || key, mimeType: value.mimeType || '' }));\n\nconst fullText = `${subject}\\n${bodyText}\\n${textHtml}\\n${attachments.map(a => a.fileName).join('\\n')}`;\nconst isTaxatie = /taxatie|taxatierapport|nwwi|kadaster|eigendomsinformatie|hyp\\s?4|leveringsakte|energielabel|bouwkundig|fundering|splitsing|mjop|vve|jaarrekening|notulen|brainbay|stamkaart|validatie|rapport|nota/i.test(fullText);\nif (!isTaxatie) return [];\n\nreturn [{ json: { messageId, mailbox, from, to, subject, receivedAt, bodyText, textPlain: bodyText, textHtml, attachments }, binary: $binary }];"
+      },
+      "id": "NormalizeTaxatieMail",
+      "name": "Normaliseer taxatiemail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-620, -20]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.PLATFORM_BASE_URL || 'https://kantoor.devreemakelaardij.nl') + '/api/taxaties/mail-match' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "MatchTaxatieProject",
+      "name": "Match taxatieproject",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-360, -20]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "matched",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "IsMatched",
+      "name": "Eenduidige match?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-110, -20]
+    },
+    {
+      "parameters": {
+        "jsCode": "const match = $json;\nconst mail = $('Normaliseer taxatiemail').item.json;\nconst esc = (v) => String(v ?? '').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nconst received = mail.receivedAt ? new Date(mail.receivedAt).toLocaleString('nl-NL', { timeZone: 'Europe/Amsterdam' }) : '';\nconst body = mail.textHtml || `<pre>${esc(mail.bodyText || '')}</pre>`;\nconst html = `<!doctype html><html lang=\"nl\"><head><meta charset=\"utf-8\"><style>@page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;color:#111827;font-size:12px;line-height:1.45}.meta{border:1px solid #d1d5db;border-radius:6px;padding:10px;margin-bottom:14px}.label{font-weight:700;color:#4b5563;display:inline-block;width:80px}h1{font-size:18px;margin:0 0 10px}</style></head><body><h1>${esc(mail.subject || 'Taxatiemail')}</h1><div class=\"meta\"><div><span class=\"label\">Van</span>${esc(mail.from)}</div><div><span class=\"label\">Aan</span>${esc(mail.to)}</div><div><span class=\"label\">Datum</span>${esc(received)}</div><div><span class=\"label\">Message-ID</span>${esc(mail.messageId)}</div></div>${body}</body></html>`;\nconst slug = String(mail.subject || 'taxatiemail').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'taxatiemail';\nconst stamp = new Date(mail.receivedAt || Date.now()).toISOString().replace(/[:T]/g, '-').slice(0, 16);\nconst idPart = String(mail.messageId || match.archiveId).replace(/[^a-zA-Z0-9]+/g, '').slice(0, 10);\nconst nextcloudPath = `${match.selected.nextcloudBasePath}/${match.selected.targetSubfolder}/${stamp}_${slug}_${idPart}.pdf`;\nreturn [{ json: { archiveId: match.archiveId, nextcloudPath, match }, binary: { data: { data: Buffer.from(html).toString('base64'), mimeType: 'text/html', fileName: 'index.html' } } }];"
+      },
+      "id": "RenderEmailHtml",
+      "name": "Render e-mail HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, -160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GOTENBERG_URL }}/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "parameterType": "formBinaryData", "name": "files", "inputDataFieldName": "data" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "file", "outputPropertyName": "data" } }
+        }
+      },
+      "id": "EmailToPdf",
+      "name": "E-mail naar PDF (Gotenberg)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, -160]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.NEXTCLOUD_URL + '/remote.php/dav/files/' + $env.NEXTCLOUD_USER + '/' + $('Render e-mail HTML').item.json.nextcloudPath }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Basic {{ Buffer.from($env.NEXTCLOUD_USER + ':' + $env.NEXTCLOUD_APP_PASSWORD).toString('base64') }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "SaveEmailPdf",
+      "name": "Sla e-mail-PDF op in Nextcloud",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const match = $json;\nconst mailItem = $('Normaliseer taxatiemail').item;\nconst binary = mailItem.binary || {};\nconst mail = mailItem.json;\nconst stamp = new Date(mail.receivedAt || Date.now()).toISOString().replace(/[:T]/g, '-').slice(0, 16);\nconst idPart = String(mail.messageId || match.archiveId).replace(/[^a-zA-Z0-9]+/g, '').slice(0, 10);\nconst clean = (name) => String(name || 'bijlage.pdf').replace(/[\\\\/:*?\"<>|]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst items = [];\nfor (const [key, value] of Object.entries(binary)) {\n  const fileName = clean(value.fileName || key);\n  const mimeType = String(value.mimeType || '').toLowerCase();\n  if (!fileName.toLowerCase().endsWith('.pdf') && mimeType !== 'application/pdf') continue;\n  items.push({\n    json: {\n      archiveId: match.archiveId,\n      nextcloudPath: `${match.selected.nextcloudBasePath}/${match.selected.targetSubfolder}/${stamp}_${idPart}_${fileName}`,\n    },\n    binary: { data: value },\n  });\n}\nreturn items;"
+      },
+      "id": "PreparePdfAttachments",
+      "name": "Bereid PDF-bijlagen voor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, -360]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.NEXTCLOUD_URL + '/remote.php/dav/files/' + $env.NEXTCLOUD_USER + '/' + $json.nextcloudPath }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Basic {{ Buffer.from($env.NEXTCLOUD_USER + ':' + $env.NEXTCLOUD_APP_PASSWORD).toString('base64') }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "SavePdfAttachments",
+      "name": "Sla PDF-bijlagen op in Nextcloud",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, -360]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { archiveId: $('Render e-mail HTML').item.json.archiveId, archiveStatus: 'archived', nextcloudPath: $('Render e-mail HTML').item.json.nextcloudPath } }];"
+      },
+      "id": "PrepareArchiveResult",
+      "name": "Resultaat voorbereiden",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [930, -160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.PLATFORM_BASE_URL || 'https://kantoor.devreemakelaardij.nl') + '/api/taxaties/mail-archive-result' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "ReportArchiveResult",
+      "name": "Meld archiefresultaat aan platform",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1180, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const match = $json;\nconst mail = $('Normaliseer taxatiemail').item.json;\nconst candidates = (match.candidates || []).map(c => `- ${c.name} (${c.score}): ${c.reasons.join(', ')}`).join('\\n') || 'Geen kandidaten';\nreturn [{ json: { action: 'create', title: `Controleer taxatiemail: ${mail.subject || mail.messageId}`, description: [`Taxatiemail kon niet automatisch worden gekoppeld.`, ``, `Status: ${match.status}`, `Mailbox: ${mail.mailbox}`, `Van: ${mail.from}`, `Onderwerp: ${mail.subject}`, ``, `Kandidaten:`, candidates, ``, `Open platform: ${match.reviewUrl}`].join('\\n'), priority: 'hoog', category: 'taxatie', assigneeEmail: 'info@devreemakelaardij.nl' } }];"
+      },
+      "id": "PrepareReviewTask",
+      "name": "Maak controletaak payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.PLATFORM_BASE_URL || 'https://kantoor.devreemakelaardij.nl') + '/api/taken/webhook' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "CreateReviewTask",
+      "name": "Maak controletaak",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 120]
+    }
+  ],
+  "connections": {
+    "Email Trigger - info": {
+      "main": [[{ "node": "Normaliseer taxatiemail", "type": "main", "index": 0 }]]
+    },
+    "Email Trigger - melvin": {
+      "main": [[{ "node": "Normaliseer taxatiemail", "type": "main", "index": 0 }]]
+    },
+    "Normaliseer taxatiemail": {
+      "main": [[{ "node": "Match taxatieproject", "type": "main", "index": 0 }]]
+    },
+    "Match taxatieproject": {
+      "main": [[{ "node": "Eenduidige match?", "type": "main", "index": 0 }]]
+    },
+    "Eenduidige match?": {
+      "main": [
+        [
+          { "node": "Render e-mail HTML", "type": "main", "index": 0 },
+          { "node": "Bereid PDF-bijlagen voor", "type": "main", "index": 0 }
+        ],
+        [{ "node": "Maak controletaak payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Bereid PDF-bijlagen voor": {
+      "main": [[{ "node": "Sla PDF-bijlagen op in Nextcloud", "type": "main", "index": 0 }]]
+    },
+    "Render e-mail HTML": {
+      "main": [[{ "node": "E-mail naar PDF (Gotenberg)", "type": "main", "index": 0 }]]
+    },
+    "E-mail naar PDF (Gotenberg)": {
+      "main": [[{ "node": "Sla e-mail-PDF op in Nextcloud", "type": "main", "index": 0 }]]
+    },
+    "Sla e-mail-PDF op in Nextcloud": {
+      "main": [[{ "node": "Resultaat voorbereiden", "type": "main", "index": 0 }]]
+    },
+    "Resultaat voorbereiden": {
+      "main": [[{ "node": "Meld archiefresultaat aan platform", "type": "main", "index": 0 }]]
+    },
+    "Maak controletaak payload": {
+      "main": [[{ "node": "Maak controletaak", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versionId": "taxatie-mailarchivering-v1",
+  "triggerCount": 2,
+  "tags": []
+}
