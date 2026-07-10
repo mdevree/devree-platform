@@ -88,7 +88,6 @@ ${OTD_PDF_CSS}
     <div class="signatures">
       ${renderHandtekeningen(opdrachtgevers)}
     </div>
-    <p class="muted">* doorhalen wat niet van toepassing is.</p>
   </div>
 
   <footer>
