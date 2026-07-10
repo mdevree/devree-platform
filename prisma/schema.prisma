@@ -684,6 +684,109 @@ model RealworksObjectMutation {
   @@map("realworks_object_mutations")
 }
 
+model MarketObject {
+  id                  String                    @id @default(cuid())
+  canonicalKey        String?                   @unique
+  status              String                    @default("active") // active | removed | withdrawn
+  addressRaw          String?                   @db.Text
+  street              String?
+  houseNumber         String?
+  houseNumberAddition String?
+  postcode            String?
+  city                String?
+  objectKind          String?
+  objectSubType       String?
+  askingPrice         Int?
+  transactionPrice    Int?
+  rooms               Int?
+  bedrooms            Int?
+  livingArea          Int?
+  plotArea            Int?
+  buildYear           Int?
+  brokerName          String?
+  brokerEmail         String?
+  primaryImageUrl     String?                   @db.Text
+  firstSeenAt         DateTime                  @default(now())
+  lastSeenAt          DateTime                  @default(now())
+  lastMutationAt      DateTime?
+  closedAt            DateTime?
+  deleteAfter         DateTime?
+  sources             MarketObjectSource[]
+  enrichments         MarketObjectEnrichment[]
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  @@index([status], map: "market_object_status_idx")
+  @@index([postcode, houseNumber, houseNumberAddition], map: "market_object_address_idx")
+  @@index([deleteAfter], map: "market_object_delete_after_idx")
+  @@index([closedAt], map: "market_object_closed_idx")
+  @@map("market_objects")
+}
+
+model MarketObjectSource {
+  id             String       @id @default(cuid())
+  marketObject   MarketObject @relation(fields: [marketObjectId], references: [id], onDelete: Cascade)
+  marketObjectId String
+  source         String // realworks | move | social_media | manual
+  sourceObjectId String?
+  sourceUrl      String?      @db.Text
+  confidence     Float?
+  rawPayload     Json?
+  firstSeenAt    DateTime     @default(now())
+  lastSeenAt     DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([source, sourceObjectId], map: "market_source_object_key")
+  @@index([marketObjectId], map: "market_source_market_object_idx")
+  @@index([source], map: "market_source_source_idx")
+  @@index([sourceObjectId], map: "market_source_object_idx")
+  @@map("market_object_sources")
+}
+
+model MarketObjectEnrichment {
+  id             String       @id @default(cuid())
+  marketObject   MarketObject @relation(fields: [marketObjectId], references: [id], onDelete: Cascade)
+  marketObjectId String
+  source         String       @default("move")
+  status         String       @default("pending") // pending | success | failed
+  title          String?
+  listingText    String?      @db.LongText
+  features       Json?
+  images         Json?
+  enrichedAt     DateTime?
+  error          String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([marketObjectId, source], map: "market_enrichment_object_source_key")
+  @@index([status], map: "market_enrichment_status_idx")
+  @@index([enrichedAt], map: "market_enrichment_enriched_idx")
+  @@map("market_object_enrichments")
+}
+
+model MarketObjectTombstone {
+  id               String   @id @default(cuid())
+  marketObjectId   String?
+  canonicalKey     String?
+  exchangeObjectIds Json?
+  status           String
+  addressRaw       String?  @db.Text
+  postcode         String?
+  city             String?
+  askingPrice      Int?
+  transactionPrice Int?
+  closedAt         DateTime?
+  deletedAt        DateTime @default(now())
+  reason           String?
+  createdAt        DateTime @default(now())
+
+  @@index([canonicalKey], map: "market_tombstone_canonical_idx")
+  @@index([status], map: "market_tombstone_status_idx")
+  @@index([deletedAt], map: "market_tombstone_deleted_idx")
+  @@map("market_object_tombstones")
+}
+
 model RealworksSearcher {
   id               String   @id @default(cuid())
   searcherId       String   @unique

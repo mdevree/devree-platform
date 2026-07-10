@@ -86,6 +86,21 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
   for (const mutation of recentMutations) {
     if (!["new", "price_changed"].includes(mutation.mutationType)) continue;
 
+    const marketSource = await prisma.marketObjectSource.findUnique({
+      where: {
+        source_sourceObjectId: {
+          source: "realworks",
+          sourceObjectId: mutation.exchangeObjectId,
+        },
+      },
+      include: { marketObject: true },
+    });
+    const marketObject = marketSource?.marketObject ?? null;
+    if (marketObject && marketObject.status !== "active") {
+      result.skipped += 1;
+      continue;
+    }
+
     const matches = await prisma.realworksSearchResult.findMany({
       where: {
         exchangeObjectId: mutation.exchangeObjectId,
@@ -121,9 +136,9 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
         continue;
       }
 
-      const objectAddress = match.objectAddress || mutation.addressRaw;
-      const objectCity = match.objectCity || mutation.city;
-      const objectPrice = match.objectPrice || mutation.askingPrice;
+      const objectAddress = match.objectAddress || marketObject?.addressRaw || mutation.addressRaw;
+      const objectCity = match.objectCity || marketObject?.city || mutation.city;
+      const objectPrice = match.objectPrice || marketObject?.askingPrice || mutation.askingPrice;
       const reason = reasonFor({
         mutationType: mutation.mutationType,
         matchingPercentage: match.matchingPercentage,

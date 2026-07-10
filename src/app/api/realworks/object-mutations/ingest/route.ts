@@ -4,6 +4,7 @@ import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { parseRealworksMutationEmailHtml } from "@/lib/realworksMutations";
 import { recalculateActionOpportunities } from "@/lib/actionOpportunities";
+import { upsertMarketObjectFromRealworksMutation } from "@/lib/marketObjects";
 
 function jsonValue(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull {
   return value === null || value === undefined
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
   const mutations = parseRealworksMutationEmailHtml(html);
   let created = 0;
   let updated = 0;
+  const receivedAt = new Date();
 
   for (const mutation of mutations) {
     const existing = await prisma.realworksObjectMutation.findUnique({
@@ -53,71 +55,81 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    await prisma.realworksObjectMutation.upsert({
-      where: {
-        sourceMessageId_exchangeObjectId_mutationType: {
-          sourceMessageId,
-          exchangeObjectId: mutation.exchangeObjectId,
-          mutationType: mutation.mutationType,
+    await prisma.$transaction(async (tx) => {
+      await tx.realworksObjectMutation.upsert({
+        where: {
+          sourceMessageId_exchangeObjectId_mutationType: {
+            sourceMessageId,
+            exchangeObjectId: mutation.exchangeObjectId,
+            mutationType: mutation.mutationType,
+          },
         },
-      },
-      update: {
-        sourceSubject,
-        sourceDate,
-        mutationLabel: mutation.mutationLabel,
-        mutationDate: mutation.mutationDate ? new Date(mutation.mutationDate) : null,
-        moveUrl: mutation.moveUrl,
-        addressRaw: mutation.addressRaw,
-        street: mutation.street,
-        houseNumber: mutation.houseNumber,
-        postcode: mutation.postcode,
-        city: mutation.city,
-        objectKind: mutation.objectKind,
-        objectSubType: mutation.objectSubType,
-        askingPrice: mutation.askingPrice,
-        transactionPrice: mutation.transactionPrice,
-        rooms: mutation.rooms,
-        bedrooms: mutation.bedrooms,
-        livingArea: mutation.livingArea,
-        plotArea: mutation.plotArea,
-        buildYear: mutation.buildYear,
-        brokerName: mutation.brokerName,
-        brokerEmail: mutation.brokerEmail,
-        imageUrl: mutation.imageUrl,
-        features: jsonValue(mutation.features),
-        rawText: mutation.rawText,
-        rawHtml: mutation.rawHtml,
-      },
-      create: {
+        update: {
+          sourceSubject,
+          sourceDate,
+          mutationLabel: mutation.mutationLabel,
+          mutationDate: mutation.mutationDate ? new Date(mutation.mutationDate) : null,
+          moveUrl: mutation.moveUrl,
+          addressRaw: mutation.addressRaw,
+          street: mutation.street,
+          houseNumber: mutation.houseNumber,
+          postcode: mutation.postcode,
+          city: mutation.city,
+          objectKind: mutation.objectKind,
+          objectSubType: mutation.objectSubType,
+          askingPrice: mutation.askingPrice,
+          transactionPrice: mutation.transactionPrice,
+          rooms: mutation.rooms,
+          bedrooms: mutation.bedrooms,
+          livingArea: mutation.livingArea,
+          plotArea: mutation.plotArea,
+          buildYear: mutation.buildYear,
+          brokerName: mutation.brokerName,
+          brokerEmail: mutation.brokerEmail,
+          imageUrl: mutation.imageUrl,
+          features: jsonValue(mutation.features),
+          rawText: mutation.rawText,
+          rawHtml: mutation.rawHtml,
+        },
+        create: {
+          sourceMessageId,
+          sourceSubject,
+          sourceDate,
+          receivedAt,
+          mutationType: mutation.mutationType,
+          mutationLabel: mutation.mutationLabel,
+          mutationDate: mutation.mutationDate ? new Date(mutation.mutationDate) : null,
+          exchangeObjectId: mutation.exchangeObjectId,
+          moveUrl: mutation.moveUrl,
+          addressRaw: mutation.addressRaw,
+          street: mutation.street,
+          houseNumber: mutation.houseNumber,
+          postcode: mutation.postcode,
+          city: mutation.city,
+          objectKind: mutation.objectKind,
+          objectSubType: mutation.objectSubType,
+          askingPrice: mutation.askingPrice,
+          transactionPrice: mutation.transactionPrice,
+          rooms: mutation.rooms,
+          bedrooms: mutation.bedrooms,
+          livingArea: mutation.livingArea,
+          plotArea: mutation.plotArea,
+          buildYear: mutation.buildYear,
+          brokerName: mutation.brokerName,
+          brokerEmail: mutation.brokerEmail,
+          imageUrl: mutation.imageUrl,
+          features: jsonValue(mutation.features),
+          rawText: mutation.rawText,
+          rawHtml: mutation.rawHtml,
+        },
+      });
+
+      await upsertMarketObjectFromRealworksMutation(tx, mutation, {
         sourceMessageId,
         sourceSubject,
         sourceDate,
-        mutationType: mutation.mutationType,
-        mutationLabel: mutation.mutationLabel,
-        mutationDate: mutation.mutationDate ? new Date(mutation.mutationDate) : null,
-        exchangeObjectId: mutation.exchangeObjectId,
-        moveUrl: mutation.moveUrl,
-        addressRaw: mutation.addressRaw,
-        street: mutation.street,
-        houseNumber: mutation.houseNumber,
-        postcode: mutation.postcode,
-        city: mutation.city,
-        objectKind: mutation.objectKind,
-        objectSubType: mutation.objectSubType,
-        askingPrice: mutation.askingPrice,
-        transactionPrice: mutation.transactionPrice,
-        rooms: mutation.rooms,
-        bedrooms: mutation.bedrooms,
-        livingArea: mutation.livingArea,
-        plotArea: mutation.plotArea,
-        buildYear: mutation.buildYear,
-        brokerName: mutation.brokerName,
-        brokerEmail: mutation.brokerEmail,
-        imageUrl: mutation.imageUrl,
-        features: jsonValue(mutation.features),
-        rawText: mutation.rawText,
-        rawHtml: mutation.rawHtml,
-      },
+        receivedAt,
+      });
     });
 
     if (existing) updated += 1;
