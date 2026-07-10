@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
+import { notifyOfficeProposalFirstViewed } from "@/lib/proposalNotifications";
 
 const EVENT_TYPES = new Set(["page_open", "heartbeat", "visibility_hidden", "pagehide"]);
 
@@ -40,28 +41,60 @@ export async function POST(
     return NextResponse.json({ error: "Ongeldig event" }, { status: 400 });
   }
 
+  const sessionId = cleanString(body.sessionId, 191);
   const proposal = await prisma.projectProposal.findUnique({
     where: { tokenHash: proposalTokenHash(token) },
-    select: { id: true },
+    include: { project: true },
   });
 
   if (!proposal) {
     return NextResponse.json({ error: "Voorstel niet gevonden" }, { status: 404 });
   }
 
-  await prisma.projectProposalEvent.create({
-    data: {
-      proposalId: proposal.id,
-      eventType,
-      sessionId: cleanString(body.sessionId, 191),
-      activeSeconds: cleanActiveSeconds(body.activeSeconds),
-      path: cleanString(body.path),
-      referrer: cleanString(body.referrer),
-      viewport: cleanString(body.viewport, 64),
-      userAgent: cleanString(request.headers.get("user-agent")),
-      ipHash: hashIp(requestIp(request)),
-    },
+  const viewedAt = new Date();
+  const existingSessionOpen = eventType === "page_open" && sessionId
+    ? await prisma.projectProposalEvent.findFirst({
+        where: { proposalId: proposal.id, eventType: "page_open", sessionId },
+        select: { id: true },
+      })
+    : null;
+  const countAsOpen = eventType === "page_open" && !existingSessionOpen;
+  const isFirstView = countAsOpen && !proposal.viewedAt;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.projectProposalEvent.create({
+      data: {
+        proposalId: proposal.id,
+        eventType,
+        sessionId,
+        activeSeconds: cleanActiveSeconds(body.activeSeconds),
+        path: cleanString(body.path),
+        referrer: cleanString(body.referrer),
+        viewport: cleanString(body.viewport, 64),
+        userAgent: cleanString(request.headers.get("user-agent")),
+        ipHash: hashIp(requestIp(request)),
+      },
+    });
+
+    if (countAsOpen) {
+      await tx.projectProposal.update({
+        where: { id: proposal.id },
+        data: {
+          viewedAt: proposal.viewedAt || viewedAt,
+          lastViewedAt: viewedAt,
+          viewCount: { increment: 1 },
+        },
+      });
+    }
   });
+
+  if (isFirstView) {
+    await notifyOfficeProposalFirstViewed({
+      project: proposal.project,
+      proposalUrl: proposal.publicUrl,
+      viewedAt,
+    });
+  }
 
   return NextResponse.json({ success: true });
 }

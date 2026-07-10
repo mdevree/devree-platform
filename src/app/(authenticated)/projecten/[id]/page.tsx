@@ -1456,6 +1456,8 @@ export default function ProjectDetailPage() {
     latestProposal?.status === "OPEN" ? "border-blue-100 bg-blue-50 text-blue-800" :
     "border-gray-200 bg-gray-50 text-gray-600";
   const latestProposalEvents = latestProposal?.events || [];
+  const latestProposalOpenEvents = latestProposalEvents.filter((event) => event.eventType === "page_open");
+  const latestProposalOpenCount = latestProposalOpenEvents.length || latestProposal?.viewCount || 0;
   const latestProposalSessions = new Set(latestProposalEvents.map((event) => event.sessionId).filter(Boolean)).size;
   const latestProposalActiveSeconds = latestProposalEvents.reduce((sum, event) => sum + (event.activeSeconds || 0), 0);
   const latestProposalLastEvent = latestProposalEvents[0] || null;
@@ -2605,7 +2607,7 @@ export default function ProjectDetailPage() {
                       {latestProposal?.viewedAt ? (
                         <span className="ml-2 text-xs opacity-75">
                           bekeken {formatDateFull(latestProposal.lastViewedAt || latestProposal.viewedAt)}
-                          {latestProposal.viewCount > 1 ? ` (${latestProposal.viewCount}x)` : ""}
+                          {latestProposalOpenCount > 1 ? ` (${latestProposalOpenCount}x)` : ""}
                         </span>
                       ) : latestProposal?.publicUrl ? (
                         <span className="ml-2 text-xs opacity-75">nog niet bekeken</span>
@@ -2656,11 +2658,11 @@ export default function ProjectDetailPage() {
                       <div className="grid gap-2 sm:grid-cols-4">
                         <div>
                           <p className="font-semibold">Openingen</p>
-                          <p>{latestProposal.viewCount}</p>
+                          <p>{latestProposalOpenCount}</p>
                         </div>
                         <div>
                           <p className="font-semibold">Sessies</p>
-                          <p>{latestProposalSessions || (latestProposal.viewCount ? 1 : 0)}</p>
+                          <p>{latestProposalSessions || (latestProposalOpenCount ? 1 : 0)}</p>
                         </div>
                         <div>
                           <p className="font-semibold">Actieve tijd</p>
