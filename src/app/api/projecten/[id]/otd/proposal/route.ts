@@ -25,6 +25,11 @@ export async function POST(
     return NextResponse.json({ error: "Ongeldige verkoopstart" }, { status: 400 });
   }
 
+  const existing = await prisma.project.findUnique({ where: { id }, select: { type: true } });
+  if (existing?.type === "AANKOOP") {
+    return NextResponse.json({ error: "Niet beschikbaar voor aankoopprojecten" }, { status: 400 });
+  }
+
   const project = await prisma.project.update({
     where: { id },
     data: {

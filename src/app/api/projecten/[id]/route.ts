@@ -114,7 +114,24 @@ export async function PATCH(
   if (data.kostenBouwkundig !== undefined) updateData.kostenBouwkundig = data.kostenBouwkundig !== "" && data.kostenBouwkundig != null ? parseInt(data.kostenBouwkundig) : null;
   if (data.kostenIntrekking !== undefined) updateData.kostenIntrekking = data.kostenIntrekking !== "" && data.kostenIntrekking != null ? parseInt(data.kostenIntrekking) : null;
   if (data.kostenBedenktijd !== undefined) updateData.kostenBedenktijd = data.kostenBedenktijd !== "" && data.kostenBedenktijd != null ? parseInt(data.kostenBedenktijd) : null;
+  if (data.aankoopTariefVast !== undefined) updateData.aankoopTariefVast = data.aankoopTariefVast !== "" && data.aankoopTariefVast != null ? parseInt(data.aankoopTariefVast) : null;
+  if (data.aankoopToeslagExtraWoning !== undefined) updateData.aankoopToeslagExtraWoning = data.aankoopToeslagExtraWoning !== "" && data.aankoopToeslagExtraWoning != null ? parseInt(data.aankoopToeslagExtraWoning) : null;
+  if (data.aankoopMaxWoningen !== undefined) updateData.aankoopMaxWoningen = data.aankoopMaxWoningen !== "" && data.aankoopMaxWoningen != null ? parseInt(data.aankoopMaxWoningen) : null;
+  if (data.aankoopKostenNietDoorzetten !== undefined) updateData.aankoopKostenNietDoorzetten = data.aankoopKostenNietDoorzetten !== "" && data.aankoopKostenNietDoorzetten != null ? parseInt(data.aankoopKostenNietDoorzetten) : null;
+  if (data.aankoopWerkgebied !== undefined) updateData.aankoopWerkgebied = nonEmptyString(data.aankoopWerkgebied);
   if (data.hypotheekAdviseurId !== undefined) updateData.hypotheekAdviseurId = data.hypotheekAdviseurId || null;
+
+  // Bij een typewissel mag een openstaande voorstellink nooit van formulier
+  // wisselen; kantoor maakt daarna bewust een nieuwe link aan.
+  if (updateData.type !== undefined) {
+    const current = await prisma.project.findUnique({ where: { id }, select: { type: true } });
+    if (current && current.type !== updateData.type) {
+      await prisma.projectProposal.updateMany({
+        where: { projectId: id, status: "OPEN" },
+        data: { status: "REVOKED", errorMessage: "Projecttype gewijzigd" },
+      });
+    }
+  }
 
   const project = await prisma.project.update({
     where: { id },

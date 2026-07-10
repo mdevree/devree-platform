@@ -19,7 +19,7 @@ export async function POST(
   const { id } = await params;
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, type: true },
   });
 
   if (!project) {
@@ -33,7 +33,8 @@ export async function POST(
   await prisma.$transaction([
     prisma.project.update({
       where: { id },
-      data: { projectStatus: "OFFERTE_VERSTUURD" },
+      // Aankoop kent geen offertefase; de statusflow gaat direct naar OTD_VERSTUURD.
+      data: { projectStatus: project.type === "AANKOOP" ? "OTD_VERSTUURD" : "OFFERTE_VERSTUURD" },
     }),
     prisma.projectProposal.updateMany({
       where: { projectId: id, status: "OPEN" },

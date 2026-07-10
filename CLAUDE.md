@@ -62,6 +62,16 @@ De voorstel-flow is klantgevoelig. Het systeem moet gegevens verzamelen en contr
 - HTML date-inputs gebruiken intern `YYYY-MM-DD`; dat is normaal.
 - n8n/Realworks moet meerdere aliases accepteren voor geboortedatum, zoals `birthdate`, `birth_date`, `date_of_birth`, `rbirthdate`, `prbirthdate`, `dob`.
 
+## Aankoopvoorstel en aankoop-OTD
+
+- Aankoopprojecten (`type = AANKOOP`) gebruiken dezelfde voorstel-flow; alle branches zijn expliciet `type === "AANKOOP"` (nooit `!== "VERKOOP"`, anders trekt TAXATIE mee).
+- De verkoopflow is klantgevoelig en moet ongewijzigd blijven; aankoop heeft eigen componenten (`AankoopProposalPage`, `AankoopChoiceForm`, `aankoopHtml.ts`) naast de verkoopvarianten.
+- Aankoop kent geen offertefase: voorstellink en akkoord zetten het project op `OTD_VERSTUURD` (niet `OFFERTE_VERSTUURD`).
+- Klantpagina aankoop: alleen gegevens controleren + opmerkingen + akkoord. Geen verkoopstart, stille verkoop, energielabel of quickscan.
+- Tariefdefaults staan in `src/lib/otdAankoop.ts` (`DEFAULT_AANKOOP_TARIEVEN`); projectvelden `aankoopTariefVast`, `aankoopToeslagExtraWoning`, `aankoopMaxWoningen`, `aankoopKostenNietDoorzetten`, `aankoopWerkgebied` en hergebruikte `kostenIntrekking`/`kostenBedenktijd` overschrijven ze. `null` of `0` = default, zodat de PDF nooit lege bedragen toont.
+- Documenso-bijlagen aankoop via env `DOCUMENSO_OTD_AANKOOP_ATTACHMENT_ITEM_IDS` (ACV + Aankoopvoorwaarden 2026). Het Aankoopvoorwaarden-item moet in Documenso geüpload zijn vóór livegang.
+- Bij een projecttype-wissel worden OPEN voorstellinks automatisch gerevoked.
+
 ## Documenso
 
 - Documenso draait op `ondertekenen.devreemakelaardij.nl`.

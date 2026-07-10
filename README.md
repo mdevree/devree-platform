@@ -138,6 +138,19 @@ Het platform ondersteunt een semi-automatische verkoopopdracht-flow voor woninge
 | Documenso concept | `POST /api/projecten/[id]/otd/documenso` |
 | Kantoor notificatie | n8n `AI Belassistent - Info Email` |
 
+### Aankoopvoorstel
+
+Dezelfde voorstel-flow bestaat voor aankoopprojecten (`type = AANKOOP`). De publieke pagina, PDF, Documenso-concept en notificaties branchen op het projecttype; de verkoopflow blijft ongewijzigd.
+
+- Aankoopprojecten worden voorlopig handmatig aangemaakt; er is geen Realworks-intake voor aankoop.
+- De statusflow kent geen offertefase: een voorstellink zet het project direct op `OTD_VERSTUURD`.
+- De klantpagina toont tarieven, werkgebied en werkzaamheden. De klant controleert alleen de opdrachtgevergegevens, kan opdrachtgevers toevoegen/aanpassen, opmerkingen sturen en akkoord geven. Er zijn geen verkoopstart-, energielabel- of quickscankeuzes.
+- Tarieven hebben platformdefaults (incl. BTW) en zijn per project aanpasbaar in het dossier: € 3.000 vast tarief (max 5 woningen binnen het werkgebied), € 100 toeslag per extra woning, € 750 intrekking, € 500 ontbinding binnen bedenktijd, € 500 bij niet doorzetten na een geaccepteerd bod. `null` betekent standaardtarief; de PDF toont nooit lege bedragen.
+- Standaard werkgebied: circa 30 minuten reistijd vanaf kantoor Spijkenisse (gemeenten Nissewaard en Voorne aan Zee, plus Rozenburg, Pernis en Hoogvliet). Per project aanpasbaar via `aankoopWerkgebied`.
+- De aankoop-OTD-PDF volgt het NVM-aankoopdocument: werkzaamhedenlijst, ACV 2018 én Aankoopvoorwaarden 2026, bedenktijdartikelen en bijlagen (ACV, Aankoopvoorwaarden 2026, NVM Klachtenprocedure, Privacyverklaring).
+- Documenso-bijlagen voor aankoop staan in `DOCUMENSO_OTD_AANKOOP_ATTACHMENT_ITEM_IDS` (ACV-item plus het Aankoopvoorwaarden 2026-item; dit item moet in Documenso geüpload zijn vóór livegang).
+- Bij een wissel van projecttype worden openstaande voorstellinks automatisch ingetrokken.
+
 ---
 
 ## API Overzicht

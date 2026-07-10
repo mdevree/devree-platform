@@ -32,6 +32,7 @@ async function notifyOfficeProposalRemarks({
   project,
   body,
   remarks,
+  isAankoop = false,
 }: {
   project: {
     id: string;
@@ -45,6 +46,7 @@ async function notifyOfficeProposalRemarks({
   };
   body: Record<string, unknown>;
   remarks: string | null;
+  isAankoop?: boolean;
 }) {
   const webhookUrl = process.env.AI_INFO_EMAIL_WEBHOOK_URL;
   if (!webhookUrl) return;
@@ -75,7 +77,7 @@ async function notifyOfficeProposalRemarks({
     },
     body: JSON.stringify({
       to: "info@devreemakelaardij.nl",
-      subject: `Vraag/opmerking voorstel: ${objectAdres}`,
+      subject: isAankoop ? `Vraag/opmerking voorstel aankoop: ${objectAdres}` : `Vraag/opmerking voorstel: ${objectAdres}`,
       html,
     }),
   }).catch((error) => {
@@ -89,16 +91,6 @@ export async function POST(
 ) {
   const { token } = await params;
   const body = await request.json().catch(() => ({}));
-
-  let verkoopstart: Verkoopstart;
-  try {
-    verkoopstart = parseVerkoopstart(body.verkoopstart);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Ongeldige keuze" },
-      { status: 400 },
-    );
-  }
 
   const proposal = await prisma.projectProposal.findUnique({
     where: { tokenHash: proposalTokenHash(token) },
@@ -115,6 +107,36 @@ export async function POST(
       data: { status: "REVOKED", errorMessage: "Voorstel verlopen" },
     });
     return NextResponse.json({ error: "Voorstel is verlopen" }, { status: 410 });
+  }
+
+  // Aankoopvoorstellen kennen geen verkoopstart- of kostenkeuzes en de status
+  // blijft OTD_VERSTUURD (gezet bij het aanmaken van de voorstellink).
+  if (proposal.project.type === "AANKOOP") {
+    const remarks = cleanString(body.remarks);
+
+    await prisma.projectProposal.update({
+      where: { id: proposal.id },
+      data: { selectedRemarks: remarks },
+    });
+
+    await notifyOfficeProposalRemarks({
+      project: proposal.project,
+      body,
+      remarks,
+      isAankoop: true,
+    });
+
+    return NextResponse.json({ success: true });
+  }
+
+  let verkoopstart: Verkoopstart;
+  try {
+    verkoopstart = parseVerkoopstart(body.verkoopstart);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Ongeldige keuze" },
+      { status: 400 },
+    );
   }
 
   const startdatum = verkoopstart === "DIRECT" || !body.startdatum ? null : new Date(body.startdatum);
