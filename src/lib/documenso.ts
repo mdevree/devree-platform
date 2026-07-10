@@ -81,7 +81,17 @@ async function documensoFetch(path: string, init: RequestInit = {}) {
   return res;
 }
 
-function templateAttachmentItemIds() {
+export type OtdVariant = "verkoop" | "aankoop";
+
+function templateAttachmentItemIds(variant: OtdVariant = "verkoop") {
+  if (variant === "aankoop") {
+    // ACV-item hergebruikt; het Aankoopvoorwaarden 2026-item moet in Documenso
+    // geüpload zijn en via deze env-var geconfigureerd worden.
+    return (process.env.DOCUMENSO_OTD_AANKOOP_ATTACHMENT_ITEM_IDS || "envelope_item_voenxhxtymcfmfti")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
   return (process.env.DOCUMENSO_OTD_ATTACHMENT_ITEM_IDS || "envelope_item_voenxhxtymcfmfti,envelope_item_ckdzuncvzlhmnahm")
     .split(",")
     .map((id) => id.trim())
@@ -89,7 +99,7 @@ function templateAttachmentItemIds() {
 }
 
 export function allowedOtdAttachmentItemIds() {
-  return templateAttachmentItemIds();
+  return [...new Set([...templateAttachmentItemIds("verkoop"), ...templateAttachmentItemIds("aankoop")])];
 }
 
 function publicPlatformBaseUrl() {
@@ -112,24 +122,32 @@ function signingRedirectUrl() {
 function attachmentLabel(itemId: string) {
   if (itemId === "envelope_item_voenxhxtymcfmfti") return "Algemene consumentenvoorwaarden";
   if (itemId === "envelope_item_ckdzuncvzlhmnahm") return "NVM Protocol Transparant Bieden Woonruimte";
+  const aankoopLabels = (process.env.DOCUMENSO_OTD_AANKOOP_ATTACHMENT_ITEM_IDS || "")
+    .split(",")
+    .map((id) => id.trim());
+  if (aankoopLabels.includes(itemId)) return "Aankoopvoorwaarden 2026";
   return itemId;
 }
 
-function attachmentLinks(): DocumensoAttachmentLink[] {
-  const configuredUrls = (process.env.DOCUMENSO_OTD_ATTACHMENT_URLS || "")
-    .split(",")
-    .map((url) => url.trim())
-    .filter(Boolean);
+function attachmentLinks(variant: OtdVariant): DocumensoAttachmentLink[] {
+  // De vaste URL-override geldt alleen voor de verkoopbijlagen; aankoop gebruikt
+  // altijd de publieke platform-download zodat de mapping per item klopt.
+  if (variant === "verkoop") {
+    const configuredUrls = (process.env.DOCUMENSO_OTD_ATTACHMENT_URLS || "")
+      .split(",")
+      .map((url) => url.trim())
+      .filter(Boolean);
 
-  if (configuredUrls.length > 0) {
-    return templateAttachmentItemIds().map((itemId, index) => ({
-      label: attachmentLabel(itemId),
-      data: configuredUrls[index] || configuredUrls[0],
-    }));
+    if (configuredUrls.length > 0) {
+      return templateAttachmentItemIds(variant).map((itemId, index) => ({
+        label: attachmentLabel(itemId),
+        data: configuredUrls[index] || configuredUrls[0],
+      }));
+    }
   }
 
   const platformUrl = publicPlatformBaseUrl();
-  return templateAttachmentItemIds().map((itemId) => ({
+  return templateAttachmentItemIds(variant).map((itemId) => ({
     label: attachmentLabel(itemId),
     data: `${platformUrl}/api/public/documenso/otd-attachment/${encodeURIComponent(itemId)}`,
   }));
@@ -252,12 +270,14 @@ export async function createDocumensoOtdConcept({
   title,
   externalId,
   recipients,
+  variant = "verkoop",
 }: {
   pdf: Buffer;
   filename: string;
   title: string;
   externalId: string;
   recipients: DocumensoRecipient[];
+  variant?: OtdVariant;
 }): Promise<DocumensoConceptResult> {
   const warnings: string[] = [];
   const pageCount = pdfPageCount(pdf);
@@ -266,7 +286,7 @@ export async function createDocumensoOtdConcept({
     title,
     externalId,
     recipients: withSigningFields(recipients, pageCount),
-    attachments: attachmentLinks(),
+    attachments: attachmentLinks(variant),
     meta: {
       timezone: "Europe/Amsterdam",
       dateFormat: "dd/MM/yyyy HH:mm",

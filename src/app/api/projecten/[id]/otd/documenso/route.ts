@@ -110,8 +110,13 @@ export async function POST(
     },
   ]);
 
-  const title = `Opdracht tot dienstverlening ${project.woningAdres || project.name}`;
-  const filename = `Opdracht_tot_dienstverlening_${slugPart(project.woningAdres || project.name)}.pdf`;
+  const isAankoop = project.type === "AANKOOP";
+  const title = isAankoop
+    ? `Opdracht tot dienstverlening aankoop ${project.name}`
+    : `Opdracht tot dienstverlening ${project.woningAdres || project.name}`;
+  const filename = isAankoop
+    ? `Opdracht_tot_dienstverlening_aankoop_${slugPart(project.name)}.pdf`
+    : `Opdracht_tot_dienstverlening_${slugPart(project.woningAdres || project.name)}.pdf`;
 
   try {
     const concept = await createDocumensoOtdConcept({
@@ -120,6 +125,7 @@ export async function POST(
       title,
       externalId: `devree-platform-project-${project.id}`,
       recipients,
+      variant: isAankoop ? "aankoop" : "verkoop",
     });
 
     return NextResponse.json({

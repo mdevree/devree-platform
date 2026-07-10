@@ -1,16 +1,33 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import AankoopProposalPage from "./AankoopProposalPage";
 import ProposalChoiceForm from "./ProposalChoiceForm";
 import ProposalTracker from "./ProposalTracker";
 import { getContactFull } from "@/lib/mautic";
+import { aankoopTarievenFromProject } from "@/lib/otdAankoop";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
 import { VERKOOPMETHODE_LABELS } from "@/lib/projectTypes";
 
-export const metadata: Metadata = {
-  title: "Voorstel verkoopopdracht | De Vree Makelaardij",
-  description: "Voorstel voor de verkoopopdracht van De Vree Makelaardij.",
-};
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const proposal = await prisma.projectProposal.findUnique({
+    where: { tokenHash: proposalTokenHash(token) },
+    select: { project: { select: { type: true } } },
+  }).catch(() => null);
+
+  if (proposal?.project.type === "AANKOOP") {
+    return {
+      title: "Voorstel aankoopopdracht | De Vree Makelaardij",
+      description: "Voorstel voor de aankoopopdracht van De Vree Makelaardij.",
+    };
+  }
+
+  return {
+    title: "Voorstel verkoopopdracht | De Vree Makelaardij",
+    description: "Voorstel voor de verkoopopdracht van De Vree Makelaardij.",
+  };
+}
 
 function euro(value: number | null | undefined) {
   if (value == null) return "Nog te bepalen";
@@ -129,6 +146,20 @@ export default async function ProposalPage(
         burgerlijkeStaat: "",
       }];
   const opdrachtgevers = knownOpdrachtgevers.length ? knownOpdrachtgevers : opdrachtgeverFallback;
+
+  if (project.type === "AANKOOP") {
+    return (
+      <AankoopProposalPage
+        token={token}
+        previewMode={previewMode}
+        proposalStatus={proposal.status}
+        expiresAt={proposal.expiresAt}
+        defaultRemarks={proposal.selectedRemarks || ""}
+        tarieven={aankoopTarievenFromProject(project)}
+        opdrachtgevers={opdrachtgevers}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">

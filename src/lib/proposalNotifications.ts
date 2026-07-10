@@ -10,6 +10,7 @@ function escapeHtml(value: unknown) {
 type ProposalNotificationProject = {
   id: string;
   name: string;
+  type?: string;
   woningAdres: string | null;
   woningPostcode: string | null;
   woningPlaats: string | null;
@@ -66,7 +67,7 @@ export async function notifyOfficeProposalFirstViewed({
     },
     body: JSON.stringify({
       to: "info@devreemakelaardij.nl",
-      subject: `Voorstel geopend: ${objectAdres}`,
+      subject: project.type === "AANKOOP" ? `Voorstel aankoop geopend: ${objectAdres}` : `Voorstel geopend: ${objectAdres}`,
       html,
     }),
   }).catch((error) => {

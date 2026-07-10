@@ -157,6 +157,13 @@ model Project {
   kostenIntrekking   Int?
   kostenBedenktijd   Int?
 
+  // Aankooptarieven (alleen type=AANKOOP; null = platformdefault)
+  aankoopTariefVast           Int?
+  aankoopToeslagExtraWoning   Int?
+  aankoopMaxWoningen          Int?
+  aankoopKostenNietDoorzetten Int?
+  aankoopWerkgebied           String? @db.Text
+
   // Relaties
   contacts            ProjectContact[]
   proposals           ProjectProposal[]
