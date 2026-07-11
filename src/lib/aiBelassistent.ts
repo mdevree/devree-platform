@@ -8,6 +8,7 @@ import {
 } from "@/lib/mautic";
 import { fetchWoningVanWordPress } from "@/lib/wordpress";
 import { sendWhatsAppMessage, WhatsAppError } from "@/lib/whatsapp";
+import { toWhatsAppJid } from "@/lib/phone";
 
 const WP_BASE_URL = "https://www.devreemakelaardij.nl/wp-json/wp/v2";
 
@@ -698,19 +699,8 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) 
   }
 }
 
-function toStorageJid(phone: string) {
-  const digits = phone.trim().replace(/\D/g, "");
-  if (!digits) return null;
-  let international = digits;
-  if (digits.startsWith("00")) international = digits.slice(2);
-  else if (digits.startsWith("0")) international = `31${digits.slice(1)}`;
-  else if (digits.length === 9 && digits.startsWith("6")) international = `31${digits}`;
-  if (international.length < 10) return null;
-  return `${international}@s.whatsapp.net`;
-}
-
 async function openWhatsAppConversationForDraft(draft: { recipientPhone: string | null; recipientName: string | null; mauticContactId: number | null }) {
-  const waPhone = draft.recipientPhone ? toStorageJid(draft.recipientPhone) : null;
+  const waPhone = draft.recipientPhone ? toWhatsAppJid(draft.recipientPhone) : null;
   if (!waPhone) throw new Error("Geen geldig WhatsApp-nummer");
   const existing = await prisma.waConversation.findFirst({ where: { waPhone } });
   if (existing) {

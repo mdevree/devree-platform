@@ -194,6 +194,8 @@ Alle server-to-server calls gebruiken `x-webhook-secret`.
 | `POST` | `/api/ai/follow-up-drafts` | Maak een concept voor WhatsApp of e-mail; verzendt nog niets |
 | `PATCH` | `/api/ai/follow-up-drafts/[id]` | Werk status/body/metadata van een concept bij |
 | `POST` | `/api/ai/follow-up-drafts/[id]/send` | Verzend een goedgekeurd concept via de ingestelde provider |
+| `POST` | `/api/ai/follow-up-drafts/prepare-bezichtigingen` | Maak WhatsApp-concepten voor bezichtigingen van 24-48 uur geleden (skipt recent contact); body `{ dryRun?: true }` |
+| `GET` | `/api/ai/follow-up-drafts/prepare-bezichtigingen` | Rapportage van de laatste automatische run |
 | `GET` | `/api/ai/link-catalog` | Geeft toegestane links voor AI/follow-up: aanbod, vragen, verkoop, aankoop en taxatie |
 | `POST` | `/api/ai/link-catalog/sync` | Synchroniseert linkcatalogus vanuit WordPress en vaste dienstlinks |
 
@@ -237,6 +239,14 @@ Alle server-to-server calls gebruiken `x-webhook-secret`.
 `GET /api/ai/follow-up-drafts` accepteert `status=active|draft|approved|sent|rejected|alle`. De digitale medewerker toont standaard alleen actieve concepten, zodat oude verzonden of afgewezen concepten de interface niet vervuilen.
 
 Drafts worden verrijkt met `activity` uit `MauticEvent` op basis van `mauticContactId`, meegestuurde URL's en `rcode`. Daardoor kan de UI laten zien of een woninglink of andere opvolg-link al is bezocht. Voor WhatsApp-links naar de eigen website is `page.hit` het belangrijkst; voor Mautic-mails is `email.click` relevant.
+
+#### Automatische bezichtiging-opvolging
+
+De n8n-workflow `Bezichtiging Follow-up Concepten` roept elk uur `POST /api/ai/follow-up-drafts/prepare-bezichtigingen` aan. Het platform zet dan WhatsApp-**concepten** klaar (purpose `bezichtiging_followup`, createdBy `auto_bezichtiging`) voor bezichtigingen waarvan `agbegin` 24-48 uur geleden is: indruk vragen, vervolgstap voorstellen en de woninglink (met `?rcode=` voor Mautic-tracking). Er wordt nooit automatisch verzonden; goedkeuren en verzenden loopt via de Concepten-tab.
+
+Een bezichtiging wordt overgeslagen (met zichtbare reden) bij recent contact: uitgaande WhatsApp ná de bezichtiging, inkomende WhatsApp vanaf 48 uur ervóór (lopend gesprek), een beantwoord telefoongesprek of verstuurde Mautic-mail ná de bezichtiging, een ander openstaand concept voor hetzelfde contact, of een actieve AI-belkaart voor dezelfde afspraak. Idempotent via de unieke combinatie `agendaAfspraakId` + `purpose` op `FollowUpDraft`.
+
+Instellingen (venster, caps, template, rcode-tracking, aan/uit) staan in `AppSetting` key `bezichtiging_followup`; de laatste run-rapportage in `bezichtiging_followup_last_run`. Afspraken zonder contactkoppeling worden eerst (gecapt) verrijkt via de bestaande enrich-logica.
 
 ---
 

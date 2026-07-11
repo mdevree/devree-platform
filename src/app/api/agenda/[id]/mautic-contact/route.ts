@@ -3,6 +3,7 @@ import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { getContact, searchContactByRealworksCode, updateContact } from "@/lib/mautic";
 import { koppelAfspraakAanLead } from "@/lib/kijkerKoppeling";
+import { isBezichtigingType } from "@/lib/agendaEnrich";
 
 const AMSTERDAM_TIME_ZONE = "Europe/Amsterdam";
 
@@ -41,10 +42,6 @@ function buildAfspraakAdres(
   afspraak: { agdescr: string | null; aglocation: string | null }
 ): string | null {
   return buildWoningAdres(project) ?? afspraak.agdescr ?? afspraak.aglocation ?? null;
-}
-
-function isBezichtigingType(type: string | null): boolean {
-  return /bezicht|viewing/i.test(type ?? "");
 }
 
 export async function POST(

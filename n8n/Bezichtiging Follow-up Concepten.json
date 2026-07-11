@@ -1,0 +1,79 @@
+[
+  {
+    "id": "BezichtFollowup1",
+    "name": "Bezichtiging Follow-up Concepten (WhatsApp drafts)",
+    "description": "Roept elk uur het platform aan om WhatsApp-conceptberichten klaar te zetten voor bezichtigingen van 24-48 uur geleden. Het platform slaat kijkers over met recent contact; verzenden gebeurt altijd handmatig via de digitale medewerker.",
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "hours"
+              }
+            ]
+          }
+        },
+        "id": "n-sched",
+        "name": "Elk uur",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          224,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://kantoor.devreemakelaardij.nl/api/ai/follow-up-drafts/prepare-bezichtigingen",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-webhook-secret",
+                "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({}) }}",
+          "options": {
+            "timeout": 60000
+          }
+        },
+        "id": "n-prepare",
+        "name": "POST prepare-bezichtigingen",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          448,
+          304
+        ]
+      }
+    ],
+    "connections": {
+      "Elk uur": {
+        "main": [
+          [
+            {
+              "node": "POST prepare-bezichtigingen",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "tags": []
+  }
+]

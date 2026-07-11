@@ -35,6 +35,7 @@ type FollowUpDraft = {
   recipientEmail: string | null;
   body: string;
   status: string;
+  createdBy: string;
   deliveryError: string | null;
   createdAt: string;
   sentAt: string | null;
@@ -46,6 +47,22 @@ type FollowUpDraft = {
     eventTypes: string[];
   };
 };
+
+type PrepareBezichtigingenResult = {
+  ok: boolean;
+  enabled: boolean;
+  dryRun: boolean;
+  created: { draftId: string | null; afspraakId: string; recipientName: string | null }[];
+  skipped: { afspraakId: string; systemid: number | null; reason: string }[];
+  errors: { afspraakId: string; message: string }[];
+};
+
+type PrepareLastRun = {
+  at?: string;
+  created?: number;
+  skipped?: { afspraakId: string; reason: string }[];
+  errors?: { afspraakId: string; message: string }[];
+} | null;
 
 type LinkItem = {
   id: string;
@@ -184,6 +201,8 @@ export default function AiBelassistentDashboard() {
   const [callerStatus, setCallerStatus] = useState<CallerStatus | null>(null);
   const [draftStatusFilter, setDraftStatusFilter] = useState("active");
   const [activeTab, setActiveTab] = useState<TabKey>("overzicht");
+  const [prepareResult, setPrepareResult] = useState<PrepareBezichtigingenResult | null>(null);
+  const [prepareLastRun, setPrepareLastRun] = useState<PrepareLastRun>(null);
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === selectedJobId) || jobs[0] || null,
@@ -192,18 +211,20 @@ export default function AiBelassistentDashboard() {
 
   const loadAll = useCallback(async () => {
     setError(null);
-    const [loadedJobs, loadedDrafts, loadedLinks, loadedCallerStatus, loadedProfile, loadedTasks] = await Promise.all([
+    const [loadedJobs, loadedDrafts, loadedLinks, loadedCallerStatus, loadedProfile, loadedTasks, loadedPrepareLastRun] = await Promise.all([
       jsonFetch<AiCallJob[]>("/api/ai/call-jobs"),
       jsonFetch<FollowUpDraft[]>(`/api/ai/follow-up-drafts?status=${draftStatusFilter}`),
       jsonFetch<LinkItem[]>("/api/ai/link-catalog"),
       jsonFetch<CallerStatus>("/api/ai/caller-status"),
       jsonFetch<AgentProfile>("/api/ai/agent-profile"),
       jsonFetch<AgentTask[]>("/api/ai/tasks"),
+      jsonFetch<{ lastRun: PrepareLastRun }>("/api/ai/follow-up-drafts/prepare-bezichtigingen").catch(() => ({ lastRun: null })),
     ]);
     setJobs(loadedJobs);
     setDrafts(loadedDrafts);
     setLinks(loadedLinks);
     setCallerStatus(loadedCallerStatus);
+    setPrepareLastRun(loadedPrepareLastRun.lastRun);
     setAgentProfile(loadedProfile);
     setAgentTasks(loadedTasks);
     setProfileDraft({
@@ -296,6 +317,20 @@ export default function AiBelassistentDashboard() {
           }),
         }),
       "Belkaart doorgestuurd naar de caller."
+    );
+  }
+
+  async function prepareBezichtigingen(dryRun: boolean) {
+    await runAction(
+      "prepare-bezichtigingen",
+      async () => {
+        const result = await jsonFetch<PrepareBezichtigingenResult>("/api/ai/follow-up-drafts/prepare-bezichtigingen", {
+          method: "POST",
+          body: JSON.stringify({ dryRun }),
+        });
+        setPrepareResult(result);
+      },
+      dryRun ? "Dry-run afgerond, er is niets aangemaakt." : "Bezichtiging-concepten voorbereid."
     );
   }
 
@@ -577,6 +612,55 @@ export default function AiBelassistentDashboard() {
               ))}
             </div>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+            <button
+              onClick={() => prepareBezichtigingen(false)}
+              disabled={busy === "prepare-bezichtigingen"}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            >
+              Bezichtiging-concepten voorbereiden
+            </button>
+            <button
+              onClick={() => prepareBezichtigingen(true)}
+              disabled={busy === "prepare-bezichtigingen"}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-60"
+            >
+              Dry-run
+            </button>
+            {prepareLastRun?.at && (
+              <span className="text-xs text-gray-500">
+                Laatste automatische run: {formatDateTime(prepareLastRun.at)} · {prepareLastRun.created ?? 0} aangemaakt
+                {prepareLastRun.skipped?.length ? ` · ${prepareLastRun.skipped.length} overgeslagen` : ""}
+              </span>
+            )}
+          </div>
+          {prepareResult && (
+            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+              <p className="font-medium text-gray-900">
+                {prepareResult.dryRun ? "Dry-run: " : ""}
+                {prepareResult.created.length} concept{prepareResult.created.length === 1 ? "" : "en"}
+                {prepareResult.dryRun ? " zou worden aangemaakt" : " aangemaakt"} · {prepareResult.skipped.length} overgeslagen · {prepareResult.errors.length} fouten
+                {!prepareResult.enabled ? " · automatisering staat uit" : ""}
+              </p>
+              {prepareResult.skipped.length > 0 && (
+                <details className="mt-1">
+                  <summary className="cursor-pointer">Overgeslagen bezichtigingen</summary>
+                  <ul className="mt-1 space-y-0.5">
+                    {prepareResult.skipped.map((skip) => (
+                      <li key={skip.afspraakId}>{skip.systemid ?? skip.afspraakId}: {skip.reason}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+              {prepareResult.errors.length > 0 && (
+                <ul className="mt-1 space-y-0.5 text-red-600">
+                  {prepareResult.errors.map((err) => (
+                    <li key={err.afspraakId}>{err.afspraakId}: {err.message}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
         <div className="divide-y divide-gray-100">
           {drafts.length === 0 ? (
@@ -592,7 +676,14 @@ export default function AiBelassistentDashboard() {
                       {draft.sentAt ? ` · verzonden ${formatDateTime(draft.sentAt)}` : ""}
                     </p>
                   </div>
-                  <StatusPill value={draft.status} />
+                  <div className="flex items-center gap-2">
+                    {draft.createdBy === "auto_bezichtiging" && (
+                      <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                        Automatisch (bezichtiging)
+                      </span>
+                    )}
+                    <StatusPill value={draft.status} />
+                  </div>
                 </div>
                 {draft.activity && draft.activity.trackedUrls.length > 0 && (
                   <div
