@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
+import { toWhatsAppJid } from "@/lib/phone";
 
 export async function GET(req: NextRequest) {
   if (!await isAuthorized(req)) {
@@ -24,27 +25,13 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(conversations);
 }
 
-function toStorageJid(phone: string) {
-  const trimmed = phone.trim();
-  const digits = trimmed.replace(/\D/g, "");
-  if (!digits) return null;
-
-  let international = digits;
-  if (digits.startsWith("00")) international = digits.slice(2);
-  else if (digits.startsWith("0")) international = `31${digits.slice(1)}`;
-  else if (digits.length === 9 && digits.startsWith("6")) international = `31${digits}`;
-
-  if (international.length < 10) return null;
-  return `${international}@s.whatsapp.net`;
-}
-
 export async function POST(req: NextRequest) {
   if (!await isAuthorized(req)) {
     return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
   }
 
   const body = await req.json().catch(() => ({}));
-  const waPhone = typeof body.phone === "string" ? toStorageJid(body.phone) : null;
+  const waPhone = typeof body.phone === "string" ? toWhatsAppJid(body.phone) : null;
   const mauticContactId = Number.isFinite(Number(body.mauticContactId))
     ? Number(body.mauticContactId)
     : null;

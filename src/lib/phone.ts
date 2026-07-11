@@ -86,3 +86,19 @@ export function getCallTypeText(direction: string, reason: string | null): strin
     ? "Gemist inkomend gesprek"
     : "Uitgaand gesprek (niet opgenomen)";
 }
+
+/**
+ * Zet een telefoonnummer om naar het WhatsApp JID-formaat zoals opgeslagen in
+ * wa_conversations (bijv. "31612345678@s.whatsapp.net"). Geeft null bij een
+ * onbruikbaar nummer.
+ */
+export function toWhatsAppJid(phone: string): string | null {
+  const digits = phone.trim().replace(/\D/g, "");
+  if (!digits) return null;
+  let international = digits;
+  if (digits.startsWith("00")) international = digits.slice(2);
+  else if (digits.startsWith("0")) international = `31${digits.slice(1)}`;
+  else if (digits.length === 9 && digits.startsWith("6")) international = `31${digits}`;
+  if (international.length < 10) return null;
+  return `${international}@s.whatsapp.net`;
+}

@@ -10,6 +10,16 @@ Werknotities voor agents die aan het De Vree Makelaardij kantoorplatform werken.
 - Voor productie-deploys wordt de GHCR-image gebruikt; zet de live compose-image pas om nadat de image-tag bestaat.
 - n8n imports deactiveren workflows standaard. Na import altijd workflow opnieuw activeren en n8n restarten als de CLI meldt dat wijzigingen anders niet actief worden.
 
+## Bezichtiging-opvolging (WhatsApp-concepten)
+
+- `POST /api/ai/follow-up-drafts/prepare-bezichtigingen` maakt WhatsApp-concepten voor bezichtigingen van 24-48 uur geleden. Aangeroepen door n8n-workflow `Bezichtiging Follow-up Concepten` (elk uur) of handmatig via de Concepten-tab.
+- Altijd human-in-the-loop: concepten (`purpose: bezichtiging_followup`, `createdBy: auto_bezichtiging`) worden nooit automatisch verzonden. Het bestaande goedkeur/verzendpad (`sendFollowUpDraft`) niet aanraken.
+- Skip-regels staan als pure, geteste beslislogica in `src/lib/bezichtigingFollowUp.ts` (`beslisFollowUp`). Outbound WhatsApp vóór de bezichtiging (afspraakbevestiging) telt bewust níét als contact; inbound vanaf 48 uur ervoor wél.
+- Idempotency via unique `(agendaAfspraakId, purpose)` op `FollowUpDraft`. Branches nooit versoepelen zonder de unique te respecteren (P2002 = skip, geen fout).
+- Instellingen in `AppSetting` key `bezichtiging_followup` (venster/caps/template/rcodeTracking/enabled); laatste run in `bezichtiging_followup_last_run`.
+- `isBezichtigingType` en de enrich-logica staan gedeeld in `src/lib/agendaEnrich.ts`; WhatsApp-JID-normalisatie gedeeld in `src/lib/phone.ts` (`toWhatsAppJid`).
+- Aandachtspunt: skip op e-mailcontact leunt op `MauticEvent` `email.send`; controleer bij Mautic-webhookwijzigingen dat dit event doorkomt.
+
 ## Voorstel verkoopopdracht en OTD
 
 De voorstel-flow is klantgevoelig. Het systeem moet gegevens verzamelen en controleren, maar mag niet te vroeg automatisch naar de klant mailen of laten tekenen.

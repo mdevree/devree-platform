@@ -386,9 +386,10 @@ model AiCallResult {
 model FollowUpDraft {
   id               String    @id @default(cuid())
   channel          String // whatsapp | email
-  purpose          String // woning_link | afspraak_link | verkoop | aankoop | taxatie | faq | terugbelverzoek
+  purpose          String // woning_link | afspraak_link | verkoop | aankoop | taxatie | faq | terugbelverzoek | bezichtiging_followup
   aiCallJobId      String?
   aiCallResultId   String?
+  agendaAfspraakId String? // bron-bezichtiging; idempotency-anker voor automatische concepten
   mauticContactId  Int?
   projectId        String?
   recipientName    String?
@@ -408,6 +409,7 @@ model FollowUpDraft {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  @@unique([agendaAfspraakId, purpose])
   @@index([status])
   @@index([channel])
   @@index([purpose])
