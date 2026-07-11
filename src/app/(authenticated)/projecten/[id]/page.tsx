@@ -523,8 +523,9 @@ export default function ProjectDetailPage() {
   const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    if (searchParams.get("tab") === "taxatieControle") {
-      setActiveTab("taxatieControle");
+    const tab = searchParams.get("tab");
+    if (tab && ["taken", "telefonie", "woning", "kijkers", "dossier", "taxatieControle"].includes(tab)) {
+      setActiveTab(tab as ActiveTab);
     }
   }, [searchParams]);
 
