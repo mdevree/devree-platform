@@ -57,6 +57,14 @@ type DataQuality = {
   }>;
 };
 
+type BuildInfo = {
+  commitSha?: string | null;
+  shortCommitSha?: string | null;
+  buildTime?: string | null;
+  imageTag?: string | null;
+  nodeEnv?: string | null;
+};
+
 function Stat({ label, value, tone = "default" }: { label: string; value: string | number; tone?: "default" | "good" | "warn" }) {
   const toneClass = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-700" : "text-gray-900";
   return (
@@ -79,19 +87,22 @@ function countTotal(values?: Record<string, number>) {
 export default function SysteemcontrolePage() {
   const [health, setHealth] = useState<SyncHealth | null>(null);
   const [quality, setQuality] = useState<DataQuality | null>(null);
+  const [build, setBuild] = useState<BuildInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function load() {
     setError("");
     try {
-      const [healthRes, qualityRes] = await Promise.all([
+      const [healthRes, qualityRes, buildRes] = await Promise.all([
         fetch("/api/system/health/sync"),
         fetch("/api/system/data-quality/contacts"),
+        fetch("/api/system/build-info"),
       ]);
-      if (!healthRes.ok || !qualityRes.ok) throw new Error("Systeemcontrole kon niet worden geladen");
+      if (!healthRes.ok || !qualityRes.ok || !buildRes.ok) throw new Error("Systeemcontrole kon niet worden geladen");
       setHealth(await healthRes.json());
       setQuality(await qualityRes.json());
+      setBuild(await buildRes.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Onbekende fout");
     } finally {
@@ -120,6 +131,9 @@ export default function SysteemcontrolePage() {
           <h1 className="text-2xl font-bold text-gray-900">Systeemcontrole</h1>
           <p className="mt-1 text-sm text-gray-500">
             Realworks-extensie, sync-events, quarantaine en datakwaliteit.
+          </p>
+          <p className="mt-2 text-xs text-gray-400">
+            Build {build?.shortCommitSha || "-"} · image {build?.imageTag || "-"} · {fmtDate(build?.buildTime)}
           </p>
         </div>
         <button
