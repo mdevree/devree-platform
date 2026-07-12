@@ -65,6 +65,17 @@ type BuildInfo = {
   nodeEnv?: string | null;
 };
 
+type PbxHealth = {
+  health: "ok" | "attention";
+  configured: boolean;
+  checkedAt: string;
+  target?: string | null;
+  statusCode?: number;
+  responseTimeMs?: number;
+  context?: string | null;
+  error?: string | null;
+};
+
 function Stat({ label, value, tone = "default" }: { label: string; value: string | number; tone?: "default" | "good" | "warn" }) {
   const toneClass = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-700" : "text-gray-900";
   return (
@@ -88,21 +99,24 @@ export default function SysteemcontrolePage() {
   const [health, setHealth] = useState<SyncHealth | null>(null);
   const [quality, setQuality] = useState<DataQuality | null>(null);
   const [build, setBuild] = useState<BuildInfo | null>(null);
+  const [pbx, setPbx] = useState<PbxHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function load() {
     setError("");
     try {
-      const [healthRes, qualityRes, buildRes] = await Promise.all([
+      const [healthRes, qualityRes, buildRes, pbxRes] = await Promise.all([
         fetch("/api/system/health/sync"),
         fetch("/api/system/data-quality/contacts"),
         fetch("/api/system/build-info"),
+        fetch("/api/system/health/pbx"),
       ]);
-      if (!healthRes.ok || !qualityRes.ok || !buildRes.ok) throw new Error("Systeemcontrole kon niet worden geladen");
+      if (!healthRes.ok || !qualityRes.ok || !buildRes.ok || !pbxRes.ok) throw new Error("Systeemcontrole kon niet worden geladen");
       setHealth(await healthRes.json());
       setQuality(await qualityRes.json());
       setBuild(await buildRes.json());
+      setPbx(await pbxRes.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Onbekende fout");
     } finally {
@@ -147,12 +161,19 @@ export default function SysteemcontrolePage() {
 
       {error && <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-5">
         <Stat label="Syncstatus" value={health?.health === "ok" ? "OK" : "Aandacht"} tone={health?.health === "ok" ? "good" : "warn"} />
+        <Stat label="PBX bridge" value={pbx?.health === "ok" ? "OK" : "Aandacht"} tone={pbx?.health === "ok" ? "good" : "warn"} />
         <Stat label="Events 24 uur" value={countTotal(health?.eventCounts24h)} />
         <Stat label="Open quarantaine" value={health?.quarantineCounts?.open || 0} tone={(health?.quarantineCounts?.open || 0) > 0 ? "warn" : "good"} />
         <Stat label="Queue pending" value={queueTotals.pending} tone={queueTotals.pending > 0 ? "warn" : "good"} />
       </div>
+
+      {pbx?.health === "attention" && (
+        <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          PBX bridge vraagt aandacht: {pbx.error || "onbekende fout"}
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="border border-gray-200 bg-white">
