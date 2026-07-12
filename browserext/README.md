@@ -178,9 +178,22 @@ Een taak doorloopt de statussen `pending → processing → done / failed`. De c
 1. Open Chrome → `chrome://extensions`
 2. Schakel **Ontwikkelaarsmodus** in (rechtsboven)
 3. Klik **Unpacked laden** en selecteer de `browserext/` map
-4. Zet het juiste webhook-secret in `background.js` (`WEBHOOK_SECRET`)
+4. Open **Details → Extensieopties** en vul het webhook-secret in. Dit moet
+   gelijk zijn aan `N8N_WEBHOOK_SECRET` op de VPS.
 
 De extensie is actief zodra je ingelogd bent op `crm.realworks.nl`.
+
+## Traceerbaarheid
+
+De extensie stuurt bij nieuwe payloads metadata mee:
+
+- `traceId` — unieke ID voor het event;
+- `payloadVersion` — contractversie van de payload;
+- `extensionVersion` — versie uit `manifest.json`;
+- `capturedAt` — moment waarop de extensie de payload vastlegde;
+- `sourceHost` of bron-URL waar beschikbaar.
+
+De optiespagina toont lokaal de extensieversie en laatste syncstatus.
 
 ## Bestanden
 

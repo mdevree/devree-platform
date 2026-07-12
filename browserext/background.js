@@ -14,10 +14,29 @@ const BACKUP_CAPTURE_URL = 'https://kantoor.devreemakelaardij.nl/api/realworks-b
 const OTD_REALWORKS_INTAKE_URL = 'https://kantoor.devreemakelaardij.nl/api/otd/intake/realworks';
 const REALWORKS_BASE = 'https://crm.realworks.nl';
 const BACKUP_CAPTURE_MAX_CHARS = 200000;
+const PAYLOAD_VERSION = '2026-07-07';
+const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 const relationGridReplayKeys = new Set();
 const searchersGraphqlReplayKeys = new Set();
 const pendingSearchersGraphqlRequests = new Map();
 let realworksApiTokenCache = { token: '', expiresAt: 0 };
+
+function createTraceId(prefix = 'rw') {
+  const random = crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}_${random}`;
+}
+
+function syncMetadata(eventType, extra = {}) {
+  return {
+    traceId: createTraceId(eventType.replace(/[^a-z0-9]+/gi, '_').toLowerCase()),
+    payloadVersion: PAYLOAD_VERSION,
+    extensionVersion: EXTENSION_VERSION,
+    capturedAt: new Date().toISOString(),
+    ...extra,
+  };
+}
 
 // Decodeert een __MASK-waarde naar een leesbaar label.
 // bv. maskString = "0;|1;Vrijstaande woning|4;Tussenwoning", value = "4" → "Tussenwoning"
@@ -211,7 +230,7 @@ chrome.webRequest.onBeforeRequest.addListener(
     }
 
     // Stuur naar n8n webhook
-    const taxatie = { source: 'realworks' };
+    const taxatie = { source: 'realworks', ...syncMetadata('taxatie.save') };
     for (const [k, v] of Object.entries(fields)) {
       if (!TAXATIE_SKIP.test(k) && v !== '') taxatie[k] = v;
     }
@@ -267,7 +286,7 @@ chrome.webRequest.onBeforeRequest.addListener(
     }
 
     // Bouw payload: filter interne velden weg en decodeer __MASK-enums naar labels.
-    const woning = { source: 'realworks' };
+    const woning = { source: 'realworks', ...syncMetadata('woning.save') };
     for (const [k, v] of Object.entries(fields)) {
       if (WONING_SKIP.test(k) || v === '') continue;
       woning[k] = v;
@@ -297,7 +316,7 @@ chrome.webRequest.onBeforeRequest.addListener(
           eventType: fields.lisstate === '13' ? 'otd.ready' : 'verkoop.project.sync',
           source: 'realworks_browserext',
           realworksPath: '/servlets/objects/broker.brokerobject/save',
-          capturedAt: new Date().toISOString(),
+          sourceUrl: details.url,
         }),
       }).then(res => {
         if (res.ok) console.log('[RW OTD/Project Intake] ✓ Verstuurd:', fields.objectcode || fields.lisnr);
@@ -359,8 +378,8 @@ async function replayRelationGrid(url, body) {
     const parsedUrl = new URL(url);
 
     await captureRealworksBackup({
+      ...syncMetadata('relation.grid.replay'),
       source: rows.length ? 'realworks_relation_grid' : 'realworks_grid_debug',
-      captured_at: new Date().toISOString(),
       host: parsedUrl.hostname,
       path: parsedUrl.pathname,
       query: parsedUrl.search,
@@ -473,12 +492,12 @@ async function replaySearchersGraphql(url, body, requestHeaders = {}) {
     const resultEdges = Array.isArray(searchResults?.edges) ? searchResults.edges : [];
 
     await captureRealworksBackup({
+      ...syncMetadata(`graphql.${operationName}`),
       source: operationName === 'GetSearchResults'
         ? 'realworks_search_results_graphql'
         : operationName === 'GetSearcherById'
         ? 'realworks_searcher_detail_graphql'
         : 'realworks_searchers_graphql',
-      captured_at: new Date().toISOString(),
       host: 'crm.realworks.nl',
       path: '/api/aankoop/graphql',
       query: '',
@@ -514,8 +533,8 @@ chrome.webRequest.onBeforeRequest.addListener(
 
     const body = bodyFromWebRequest(details);
     captureRealworksBackup({
+      ...syncMetadata('xhr.probe'),
       source: 'realworks_xhr_probe',
-      captured_at: new Date().toISOString(),
       host: url.hostname,
       path: url.pathname,
       query: url.search,
@@ -588,6 +607,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function captureRealworksBackup(capture) {
   if (!capture?.url) return;
+  const enrichedCapture = {
+    ...syncMetadata(capture.source || 'backup.capture', {
+      captured_at: capture.captured_at || capture.capturedAt || new Date().toISOString(),
+    }),
+    ...capture,
+  };
 
   try {
     const res = await fetch(BACKUP_CAPTURE_URL, {
@@ -596,13 +621,13 @@ async function captureRealworksBackup(capture) {
         'Content-Type': 'application/json',
         'x-webhook-secret': WEBHOOK_SECRET,
       },
-      body: JSON.stringify(capture),
+      body: JSON.stringify(enrichedCapture),
     });
 
     if (res.ok) {
-      console.log('[RW Backup Capture] ✓ Verstuurd:', capture.method, capture.url);
+      console.log('[RW Backup Capture] ✓ Verstuurd:', enrichedCapture.method, enrichedCapture.url);
     } else {
-      console.warn('[RW Backup Capture] Fout:', res.status, capture.url);
+      console.warn('[RW Backup Capture] Fout:', res.status, enrichedCapture.url);
     }
   } catch (err) {
     console.warn('[RW Backup Capture] Netwerkfout:', err);
