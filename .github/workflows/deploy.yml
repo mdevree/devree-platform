@@ -72,7 +72,15 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=
 
-      # 10. Docker image bouwen en pushen
+      # 10. Build metadata bepalen
+      - name: Build metadata
+        id: build_meta
+        shell: bash
+        run: |
+          echo "build_time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      # 11. Docker image bouwen en pushen
       - name: Build en push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -82,10 +90,14 @@ jobs:
           sbom: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_COMMIT_SHA=${{ github.sha }}
+            APP_BUILD_TIME=${{ steps.build_meta.outputs.build_time }}
+            APP_IMAGE_TAG=${{ steps.build_meta.outputs.image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max,ignore-error=true
 
-      # 11. Productie automatisch bijwerken als de deploy key als secret is ingesteld
+      # 12. Productie automatisch bijwerken als de deploy key als secret is ingesteld
       - name: Deploy naar productie
         shell: bash
         env:

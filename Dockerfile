@@ -23,7 +23,14 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+ARG APP_COMMIT_SHA=""
+ARG APP_BUILD_TIME=""
+ARG APP_IMAGE_TAG=""
+
 ENV NODE_ENV=production
+ENV APP_COMMIT_SHA=$APP_COMMIT_SHA
+ENV APP_BUILD_TIME=$APP_BUILD_TIME
+ENV APP_IMAGE_TAG=$APP_IMAGE_TAG
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
