@@ -120,7 +120,10 @@ Status op 2026-07-12:
 
 - `functions.php` is gecommit en gepusht naar `mdevree/devree-kadence-child`
   als `8451e67`.
-- Alleen untracked backupbestanden rond Calendly blijven nog op de server staan.
+- De `functions.php.backup-*` bestanden rond Calendly zijn bewaard buiten de
+  actieve theme-map:
+  `/home/DeVreeMakelaardij/backups/kadence-child/20260712-calendly-functions-backups`.
+- De child theme Git-status op productie is schoon.
 
 Klaar wanneer:
 

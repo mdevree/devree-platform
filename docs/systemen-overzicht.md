@@ -137,13 +137,12 @@ Open productiepunten:
 | Sitepad | `/home/DeVreeMakelaardij/web/devreemakelaardij.nl/public_html` |
 | Child theme pad | `wp-content/themes/kadence-child/` |
 | GitHub | `git@github.com:mdevree/devree-kadence-child.git` |
-| Productie branch/status op 2026-07-12 | `main`, commit `8451e67`; `functions.php` wijzigingen zijn gepusht, backupbestanden staan nog untracked |
+| Productie branch/status op 2026-07-12 | `main`, commit `8451e67`; Git-status schoon |
 | Lokale map | `/Users/melvin/LocalDev/devree-kadence-child` |
+| Backupbestanden | Verplaatst naar `/home/DeVreeMakelaardij/backups/kadence-child/20260712-calendly-functions-backups` |
 
 Te controleren:
 
-- Of de untracked `functions.php.backup-*` bestanden bewaard, verplaatst of
-  verwijderd moeten worden.
 - Welke WordPress onderdelen door het platform worden gebruikt: woning-CPT,
   buurtdata-widget, linkcatalogus, FAQ's en aanbodlinks.
 
