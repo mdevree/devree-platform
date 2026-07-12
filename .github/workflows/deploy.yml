@@ -22,11 +22,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Docker Buildx setup (voor caching)
+      # 2. Node.js setup voor pre-deploy checks
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # 3. Dependencies installeren
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Lint controleren
+      - name: Run lint
+        run: npm run lint
+
+      # 5. TypeScript controleren
+      - name: Run typecheck
+        run: npm run typecheck
+
+      # 6. Tests draaien
+      - name: Run tests
+        run: npm test
+
+      # 7. Docker Buildx setup (voor caching)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 3. Inloggen bij GitHub Container Registry
+      # 8. Inloggen bij GitHub Container Registry
       - name: Login bij GHCR
         shell: bash
         run: |
@@ -39,7 +62,7 @@ jobs:
           done
           exit 1
 
-      # 4. Image metadata (tags + labels)
+      # 9. Image metadata (tags + labels)
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -49,7 +72,7 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=
 
-      # 5. Docker image bouwen en pushen
+      # 10. Docker image bouwen en pushen
       - name: Build en push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -62,7 +85,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max,ignore-error=true
 
-      # 6. Productie automatisch bijwerken als de deploy key als secret is ingesteld
+      # 11. Productie automatisch bijwerken als de deploy key als secret is ingesteld
       - name: Deploy naar productie
         shell: bash
         env:
