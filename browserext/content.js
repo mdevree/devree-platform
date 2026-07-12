@@ -32,6 +32,24 @@ const PAYLOAD_VERSION = '2026-07-07';
 const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 const recentPayloadHashes = new Map();
 
+function createTraceId(prefix = 'rw') {
+  const random = crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}_${random}`;
+}
+
+function syncMetadata(eventType, extra = {}) {
+  return {
+    traceId: createTraceId(eventType.replace(/[^a-z0-9]+/gi, '_').toLowerCase()),
+    payloadVersion: PAYLOAD_VERSION,
+    extensionVersion: EXTENSION_VERSION,
+    capturedAt: new Date().toISOString(),
+    sourceHost: window.location.hostname,
+    ...extra,
+  };
+}
+
 function isCompleteEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
@@ -136,9 +154,11 @@ async function buildSyncEnvelope(eventType, realworksPath, payload) {
     capturedAt: new Date().toISOString(),
     payload,
   };
+  const payloadHash = await sha256Hex(stableJson(envelope));
   return {
     ...envelope,
-    payloadHash: await sha256Hex(stableJson(envelope)),
+    traceId: createTraceId(eventType.replace(/[^a-z0-9]+/gi, '_').toLowerCase()),
+    payloadHash,
   };
 }
 
@@ -191,6 +211,7 @@ window.addEventListener('message', (event) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       source: 'realworks',
+      ...syncMetadata('agenda.sync'),
       page_url: window.location.href,
       fromdate: event.data.meta?.fromdate,
       todate: event.data.meta?.todate,
@@ -222,7 +243,7 @@ window.addEventListener('message', (event) => {
   const send = (objectCode) => postPlatform(OTD_KADASTER_URL, {
     source: 'realworks_browserext',
     eventType: 'kadaster.grid',
-    capturedAt: new Date().toISOString(),
+    ...syncMetadata('kadaster.grid'),
     sourceUrl: window.location.href,
     objectCode: objectCode || data.objectCode || '',
     ...data,
@@ -332,6 +353,7 @@ window.addEventListener('message', (event) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       source: 'realworks_lead_response',
+      ...syncMetadata('lead.response'),
       page_url: window.location.href,
       ...d,
     })
@@ -351,6 +373,7 @@ window.addEventListener('message', (event) => {
     type: 'CAPTURE_REALWORKS_BACKUP',
     capture: {
       ...event.data.capture,
+      ...syncMetadata('backup.capture'),
       page_url: window.location.href,
     },
   });
