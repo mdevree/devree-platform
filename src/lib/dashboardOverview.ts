@@ -138,7 +138,7 @@ function dedupeAndSortActions(actions: DashboardAction[]) {
       return true;
     })
     .sort((a, b) => a.priority - b.priority || (b.createdAt || "").localeCompare(a.createdAt || ""))
-    .slice(0, 14);
+    .slice(0, 10);
 }
 
 async function queueCounts() {
@@ -326,7 +326,7 @@ export async function getDashboardOverview(now = new Date()): Promise<DashboardO
       if (a.acceptedAt !== b.acceptedAt) return (b.acceptedAt || "").localeCompare(a.acceptedAt || "");
       return (b.lastViewedAt || b.createdAt).localeCompare(a.lastViewedAt || a.createdAt);
     })
-    .slice(0, 10);
+    .slice(0, 6);
 
   const agenda = agendaRaw
     .filter((item) => isBezichtigingType(item.agtype) || item.enrichmentStatus || !item.projectId || !item.mauticContactId)
@@ -343,7 +343,7 @@ export async function getDashboardOverview(now = new Date()): Promise<DashboardO
       };
     })
     .sort((a, b) => (a.status === "ok" ? 1 : 0) - (b.status === "ok" ? 1 : 0))
-    .slice(0, 10);
+    .slice(0, 5);
 
   const actions: DashboardAction[] = [];
 
