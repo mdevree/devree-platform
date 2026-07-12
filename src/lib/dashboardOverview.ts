@@ -125,6 +125,10 @@ function agendaStatus(item: {
   return "ok";
 }
 
+function isAcuteAgendaStatus(status: DashboardAgendaItem["status"]) {
+  return status === "conflict" || status === "needs_review" || status === "error";
+}
+
 function actionKey(prefix: string, id: string) {
   return `${prefix}:${id}`;
 }
@@ -342,6 +346,7 @@ export async function getDashboardOverview(now = new Date()): Promise<DashboardO
         href: `/agenda?afspraak=${encodeURIComponent(item.id)}`,
       };
     })
+    .filter((item) => isAcuteAgendaStatus(item.status))
     .sort((a, b) => (a.status === "ok" ? 1 : 0) - (b.status === "ok" ? 1 : 0))
     .slice(0, 5);
 
@@ -403,12 +408,11 @@ export async function getDashboardOverview(now = new Date()): Promise<DashboardO
   }
 
   for (const item of agenda) {
-    if (item.status === "ok") continue;
     actions.push({
       id: actionKey("agenda", item.id),
       priority: item.status === "error" || item.status === "conflict" ? 2 : 4,
       tone: item.status === "error" || item.status === "conflict" ? "red" : "amber",
-      label: item.status === "no_contact" ? "Agenda zonder contact" : item.status === "no_project" ? "Agenda zonder project" : "Agenda controleren",
+      label: "Agenda controleren",
       title: item.title,
       meta: [item.time, item.contactName, item.projectName].filter(Boolean).join(" · "),
       href: item.href,
@@ -475,7 +479,7 @@ export async function getDashboardOverview(now = new Date()): Promise<DashboardO
   }
 
   const sortedActions = dedupeAndSortActions(actions);
-  const agendaIssues = agenda.filter((item) => item.status !== "ok").length;
+  const agendaIssues = agenda.length;
   const followUpLastRunAt =
     followUpLastRun && typeof followUpLastRun === "object" && !Array.isArray(followUpLastRun) && "at" in followUpLastRun
       ? String((followUpLastRun as { at?: unknown }).at || "")

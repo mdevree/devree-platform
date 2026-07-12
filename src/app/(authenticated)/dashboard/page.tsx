@@ -49,8 +49,6 @@ const actionIcons: Record<string, typeof ChatBubbleLeftRightIcon> = {
   "Voorstel akkoord": DocumentCheckIcon,
   "Voorstel bekeken": EyeIcon,
   "Voorstelfout": ExclamationTriangleIcon,
-  "Agenda zonder contact": CalendarDaysIcon,
-  "Agenda zonder project": CalendarDaysIcon,
   "Agenda controleren": CalendarDaysIcon,
   "Bezichtiging opvolgen": ChatBubbleLeftRightIcon,
   "Systeemcontrole": WrenchScrewdriverIcon,
@@ -164,7 +162,7 @@ export default async function DashboardPage() {
         <div className="flex flex-wrap gap-2">
           <MetricPill label="WhatsApp" value={overview.stats.whatsappConcepts} href="/digitale-medewerker" />
           <MetricPill label="Voorstellen" value={overview.stats.openProposals} href="/projecten" />
-          <MetricPill label="Agenda" value={overview.stats.agendaIssues} href="/agenda" />
+          <MetricPill label="Agenda urgent" value={overview.stats.agendaIssues} href="/agenda" />
           <MetricPill label="Bijgewerkt" value={formatDateTime(overview.generatedAt)} />
         </div>
       </div>
@@ -208,13 +206,13 @@ export default async function DashboardPage() {
 
           <section className="border border-gray-200 bg-white">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-              <h2 className="font-semibold text-gray-900">Agenda</h2>
+              <h2 className="font-semibold text-gray-900">Agenda urgent</h2>
               <Link href="/agenda" className="text-sm font-semibold text-primary hover:underline">
                 Vandaag
               </Link>
             </div>
             <div className="divide-y divide-gray-100">
-              {agendaPreview.length === 0 && <p className="px-4 py-4 text-sm text-gray-500">Geen aandachtspunten.</p>}
+              {agendaPreview.length === 0 && <p className="px-4 py-4 text-sm text-gray-500">Geen acute agendafouten.</p>}
               {agendaPreview.map((item) => (
                 <Link key={item.id} href={item.href} className="block px-4 py-3 hover:bg-gray-50">
                   <div className="flex items-start justify-between gap-3">
