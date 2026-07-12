@@ -104,7 +104,7 @@ Acties:
    git diff --stat
    ```
 
-2. Review de 12 lokale wijzigingen.
+2. Review de lokale wijzigingen.
 3. Bepaal per wijziging:
    - bewust productiegedrag: commit en push;
    - tijdelijk/debug: verwijderen of apart documenteren;
@@ -115,6 +115,12 @@ Acties:
    ```bash
    rm -rf /home/DeVreeMakelaardij/web/devreemakelaardij.nl/public_html/wp-content/cache/fvm/
    ```
+
+Status op 2026-07-12:
+
+- `functions.php` is gecommit en gepusht naar `mdevree/devree-kadence-child`
+  als `8451e67`.
+- Alleen untracked backupbestanden rond Calendly blijven nog op de server staan.
 
 Klaar wanneer:
 
