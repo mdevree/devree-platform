@@ -660,15 +660,20 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) 
   const conversation = await openWhatsAppConversationForDraft(draft);
   try {
     const evolutionMsgId = await sendWhatsAppMessage(conversation.waPhone, draft.body);
-    const message = await prisma.waMessage.create({
-      data: {
-        conversationId: conversation.id,
-        direction: "OUTBOUND",
-        body: draft.body,
-        deliveryStatus: "SENT",
-        evolutionMsgId,
-      },
-    });
+    const existing = evolutionMsgId
+      ? await prisma.waMessage.findUnique({ where: { evolutionMsgId } })
+      : null;
+    const message =
+      existing ??
+      (await prisma.waMessage.create({
+        data: {
+          conversationId: conversation.id,
+          direction: "OUTBOUND",
+          body: draft.body,
+          deliveryStatus: "SENT",
+          evolutionMsgId,
+        },
+      }));
     await prisma.waConversation.update({
       where: { id: conversation.id },
       data: { lastMessageAt: new Date(), status: "OPEN" },

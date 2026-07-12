@@ -60,15 +60,21 @@ export async function POST(
     );
   }
 
-  const saved = await prisma.waMessage.create({
-    data: {
-      conversationId: id,
-      direction: "OUTBOUND",
-      body: message,
-      deliveryStatus: "SENT",
-      evolutionMsgId,
-    },
-  });
+  const existing = evolutionMsgId
+    ? await prisma.waMessage.findUnique({ where: { evolutionMsgId } })
+    : null;
+
+  const saved =
+    existing ??
+    (await prisma.waMessage.create({
+      data: {
+        conversationId: id,
+        direction: "OUTBOUND",
+        body: message,
+        deliveryStatus: "SENT",
+        evolutionMsgId,
+      },
+    }));
 
   await prisma.waConversation.update({
     where: { id },

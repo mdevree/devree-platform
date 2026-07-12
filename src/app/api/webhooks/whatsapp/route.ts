@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
   }
 
   const msg = normalized;
-  if (!msg || msg.fromMe) {
+  if (!msg) {
     return NextResponse.json({ ok: true });
   }
 
@@ -239,11 +239,14 @@ export async function POST(req: NextRequest) {
     : null;
 
   if (!existing) {
+    const direction = msg.fromMe ? "OUTBOUND" : "INBOUND";
+
     await prisma.waMessage.create({
       data: {
         conversationId: conversation.id,
-        direction: "INBOUND",
+        direction,
         body: bodyText,
+        deliveryStatus: msg.fromMe ? "SENT" : undefined,
         evolutionMsgId: providerMsgId,
       },
     });
@@ -254,7 +257,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Een inkomende WhatsApp-reactie is een engagement-signaal → voed Mautic.
-    if (conversation.mauticContactId) {
+    if (!msg.fromMe && conversation.mauticContactId) {
       try {
         await addContactPoints(conversation.mauticContactId, 2);
       } catch (err) {
