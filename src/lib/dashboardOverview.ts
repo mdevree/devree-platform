@@ -145,11 +145,17 @@ function dedupeAndSortActions(actions: DashboardAction[]) {
     .slice(0, 10);
 }
 
-async function queueCounts() {
+async function queueCounts(since: Date) {
+  const currentQueueWhere = {
+    OR: [
+      { status: { in: ["pending", "processing"] } },
+      { status: "failed", updatedAt: { gte: since } },
+    ],
+  };
   const [relation, taxatie, woning] = await Promise.all([
-    prisma.realworksTask.groupBy({ by: ["status"], _count: { _all: true } }),
-    prisma.realworksTaxatieTask.groupBy({ by: ["status"], _count: { _all: true } }),
-    prisma.realworksWoningTask.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.realworksTask.groupBy({ by: ["status"], where: currentQueueWhere, _count: { _all: true } }),
+    prisma.realworksTaxatieTask.groupBy({ by: ["status"], where: currentQueueWhere, _count: { _all: true } }),
+    prisma.realworksWoningTask.groupBy({ by: ["status"], where: currentQueueWhere, _count: { _all: true } }),
   ]);
   const all = [...relation, ...taxatie, ...woning];
   return all.reduce(
@@ -269,7 +275,7 @@ export async function getDashboardOverview(now = new Date()): Promise<DashboardO
       orderBy: { receivedAt: "desc" },
       select: { receivedAt: true },
     }),
-    queueCounts(),
+    queueCounts(since24h),
     getBezichtigingFollowUpLastRun().catch(() => null),
   ]);
 
