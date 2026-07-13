@@ -839,6 +839,25 @@
 
       postFormCapture(this, 'prototype_submit');
 
+      if (actionPath.includes(CONTACT_SAVE_PATH)) {
+        try {
+          const data = {};
+          new FormData(this).forEach((value, key) => {
+            if (typeof value === 'string') data[key] = value;
+          });
+          if (data['_systemid']) {
+            window.postMessage({ type: 'REALWORKS_CONTACT', data, url: actionPath }, '*');
+            window.postMessage({
+              type: 'REALWORKS_CONTACT_RAW',
+              systemid: data['_systemid'],
+              fields: data,
+              isMultipart: this.enctype === 'multipart/form-data',
+              url: actionPath,
+            }, '*');
+          }
+        } catch {}
+      }
+
       if (actionPath.includes(LEAD_RESPONSE_PATH)) {
         try {
           const data = {};
