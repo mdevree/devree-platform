@@ -1,0 +1,22 @@
+CREATE TABLE `realworks_mutation_ingest_runs` (
+  `id` VARCHAR(191) NOT NULL,
+  `sourceMessageId` VARCHAR(191) NOT NULL,
+  `sourceSubject` VARCHAR(191) NULL,
+  `sourceDate` DATETIME(3) NULL,
+  `processedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `status` VARCHAR(191) NOT NULL DEFAULT 'success',
+  `parsed` INTEGER NOT NULL DEFAULT 0,
+  `created` INTEGER NOT NULL DEFAULT 0,
+  `updated` INTEGER NOT NULL DEFAULT 0,
+  `opportunitiesCreated` INTEGER NOT NULL DEFAULT 0,
+  `opportunitiesUpdated` INTEGER NOT NULL DEFAULT 0,
+  `opportunitiesSkipped` INTEGER NOT NULL DEFAULT 0,
+  `error` TEXT NULL,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `realworks_mutation_ingest_runs_sourceMessageId_key` (`sourceMessageId`),
+  INDEX `rw_mutation_ingest_status_idx` (`status`),
+  INDEX `rw_mutation_ingest_source_date_idx` (`sourceDate`),
+  INDEX `rw_mutation_ingest_processed_idx` (`processedAt`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

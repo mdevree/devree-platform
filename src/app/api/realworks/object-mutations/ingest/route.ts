@@ -138,6 +138,36 @@ export async function POST(request: NextRequest) {
 
   const opportunities = await recalculateActionOpportunities();
 
+  await prisma.realworksMutationIngestRun.upsert({
+    where: { sourceMessageId },
+    update: {
+      sourceSubject,
+      sourceDate,
+      processedAt: receivedAt,
+      status: "success",
+      parsed: mutations.length,
+      created,
+      updated,
+      opportunitiesCreated: opportunities.created,
+      opportunitiesUpdated: opportunities.updated,
+      opportunitiesSkipped: opportunities.skipped,
+      error: null,
+    },
+    create: {
+      sourceMessageId,
+      sourceSubject,
+      sourceDate,
+      processedAt: receivedAt,
+      status: "success",
+      parsed: mutations.length,
+      created,
+      updated,
+      opportunitiesCreated: opportunities.created,
+      opportunitiesUpdated: opportunities.updated,
+      opportunitiesSkipped: opportunities.skipped,
+    },
+  });
+
   return NextResponse.json({
     success: true,
     parsed: mutations.length,

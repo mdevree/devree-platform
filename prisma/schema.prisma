@@ -686,6 +686,29 @@ model RealworksObjectMutation {
   @@map("realworks_object_mutations")
 }
 
+model RealworksMutationIngestRun {
+  id                   String    @id @default(cuid())
+  sourceMessageId      String    @unique
+  sourceSubject        String?
+  sourceDate           DateTime?
+  processedAt          DateTime  @default(now())
+  status               String    @default("success") // success | failed
+  parsed               Int       @default(0)
+  created              Int       @default(0)
+  updated              Int       @default(0)
+  opportunitiesCreated Int       @default(0)
+  opportunitiesUpdated Int       @default(0)
+  opportunitiesSkipped Int       @default(0)
+  error                String?   @db.Text
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([status], map: "rw_mutation_ingest_status_idx")
+  @@index([sourceDate], map: "rw_mutation_ingest_source_date_idx")
+  @@index([processedAt], map: "rw_mutation_ingest_processed_idx")
+  @@map("realworks_mutation_ingest_runs")
+}
+
 model MarketObject {
   id                  String                    @id @default(cuid())
   canonicalKey        String?                   @unique
