@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 
+const AGENDA_ISSUE_LOOKBACK_DAYS = 14;
+
 function groupDuplicates<T>(items: T[], keyFn: (item: T) => string | null) {
   const groups = new Map<string, T[]>();
   for (const item of items) {
@@ -20,14 +22,19 @@ export async function GET(request: NextRequest) {
   }
 
   const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const agendaIssueSince = new Date(Date.now() - AGENDA_ISSUE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
   const [leads, agendaIssues, suspiciousEvents, openQuarantine] = await Promise.all([
     prisma.lead.findMany({
       select: { id: true, naam: true, email: true, telefoon: true, mauticContactId: true, updatedAt: true },
       take: 5000,
     }),
     prisma.agendaAfspraak.findMany({
-      where: { enrichmentStatus: { in: ["no_contact", "no_project", "conflict", "needs_review", "error"] } },
-      orderBy: { updatedAt: "desc" },
+      where: {
+        enrichmentStatus: { in: ["no_contact", "no_project", "conflict", "needs_review", "error"] },
+        agbegin: { gte: agendaIssueSince },
+        NOT: { aginactive: true },
+      },
+      orderBy: { agbegin: "desc" },
       take: 100,
       select: {
         id: true,
