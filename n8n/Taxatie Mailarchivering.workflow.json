@@ -14,7 +14,7 @@
         }
       },
       "id": "TaxatieMailInfoImap",
-      "name": "Email Trigger - info",
+      "name": "Email Trigger - track",
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2,
       "position": [
@@ -23,10 +23,11 @@
       ],
       "credentials": {
         "imap": {
-          "id": "Zrru6hGA4eFunqyb",
-          "name": "Info @ De Vree Makelaardij"
+          "id": "yWy7gmbN8YjX11iR",
+          "name": "Track @ Connect"
         }
-      }
+      },
+      "disabled": true
     },
     {
       "parameters": {
@@ -330,20 +331,23 @@
           "name": "Platform Webhook Secret"
         }
       }
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"from\": \"klant@example.com\",\n  \"to\": \"track@connect.devreemakelaardij.nl\",\n  \"subject\": \"Taxatie documenten\",\n  \"textPlain\": \"Voorbeeld\",\n  \"textHtml\": \"<p>Voorbeeld</p>\"\n}"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -320,
+        160
+      ],
+      "id": "TaxatieMailExecuteTrigger01",
+      "name": "When Executed by Workflow 1"
     }
   ],
   "connections": {
-    "Email Trigger - info": {
-      "main": [
-        [
-          {
-            "node": "Normaliseer taxatiemail",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Email Trigger - melvin": {
       "main": [
         [
@@ -465,6 +469,28 @@
           }
         ]
       ]
+    },
+    "Email Trigger - track": {
+      "main": [
+        [
+          {
+            "node": "Normaliseer taxatiemail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Workflow 1": {
+      "main": [
+        [
+          {
+            "node": "Normaliseer taxatiemail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -472,9 +498,9 @@
   },
   "staticData": null,
   "pinData": {},
-  "versionId": "ef45f3bd-cbc3-4791-b3ae-d78b882beab2",
-  "activeVersionId": null,
-  "versionCounter": 7,
+  "versionId": "fcb9d566-a4fb-43fd-ada3-186257212fe1",
+  "activeVersionId": "fcb9d566-a4fb-43fd-ada3-186257212fe1",
+  "versionCounter": 26,
   "tags": [],
   "versionMetadata": {
     "name": null,

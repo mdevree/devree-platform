@@ -1,0 +1,535 @@
+{
+  "id": "kgSJH1FogBGyHVIo",
+  "name": "NWWI aanvraag taxatie",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\", [\"FROM\", \"mailing.nwwi.nl\"], [\"SUBJECT\", \"Aanvraagbevestiging / Verzoek tot acceptatie voor taxatiebedrijf\"]]",
+          "forceReconnect": 60
+        }
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        192
+      ],
+      "id": "2cbc6cdc-4660-4ed2-b978-a9c33c71a4fb",
+      "name": "Email Trigger (IMAP)",
+      "credentials": {
+        "imap": {
+          "id": "Zrru6hGA4eFunqyb",
+          "name": "Info @ De Vree Makelaardij"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## NWWI nieuwe aanvraag",
+        "height": 540,
+        "width": 1040
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        16,
+        -64
+      ],
+      "typeVersion": 1,
+      "id": "2eb35a3c-76f3-4ef4-b0a5-4de1333b447c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node: Parse alle gegevens uit NWWI aanvraagbevestiging email\nconst emailBody = items[0].json.textHtml;\n\n// === 1. ADRES VAN HET OBJECT ===\nconst startText = 'Er is voor u een aanvraag gedaan voor het volgende object:<br />';\nconst startIndex = emailBody.indexOf(startText);\nif (startIndex === -1) throw new Error('Kan het startpunt van het adres niet vinden');\nconst addressStart = startIndex + startText.length;\nconst addressEnd = emailBody.indexOf('.', addressStart);\nif (addressEnd === -1) throw new Error('Kan het eindpunt van het adres niet vinden');\nconst address = emailBody.substring(addressStart, addressEnd).trim();\n\n// === 2. HELPER: Parse een tabel-sectie op basis van header tekst ===\nfunction parseTableSection(html, headerText) {\n  const result = {};\n  const headerIndex = html.indexOf(headerText);\n  if (headerIndex === -1) return result;\n  \n  // Zoek de <table> die bij deze header hoort\n  const tableStart = html.lastIndexOf('<table>', headerIndex);\n  const tableEnd = html.indexOf('</table>', headerIndex);\n  if (tableStart === -1 || tableEnd === -1) return result;\n  \n  const tableHtml = html.substring(tableStart, tableEnd + 8);\n  \n  // Parse alle rijen met <td> paren\n  const rowRegex = /<tr><td[^>]*>([^<]*)<\\/td><td>([^<]*(?:<br\\s*\\/?>)?[^<]*)<\\/td><\\/tr>/gi;\n  let match;\n  while ((match = rowRegex.exec(tableHtml)) !== null) {\n    const key = match[1].replace(/:$/, '').trim();\n    const value = match[2].replace(/<br\\s*\\/?>/gi, '').trim();\n    if (key && value) {\n      result[key] = value;\n    }\n  }\n  return result;\n}\n\n// === 3. PARSE ALLE SECTIES ===\nconst opdrachtgever = parseTableSection(emailBody, 'Gegevens opdrachtgever:');\nconst opdrachtverstrekker = parseTableSection(emailBody, 'Gegevens opdrachtverstrekker:');\nconst bijzonderheden = parseTableSection(emailBody, 'Bijzonderheden:');\n// === 5. PARSE POSTCODE EN PLAATS UIT ADRES ===\n// Adres formaat: \"Irenestraat 10 , 3238XT ZWARTEWAAL\"\nconst postcodeMatch = address.match(/\\b(\\d{4}\\s*[A-Za-z]{2})\\s+(.+)$/);\nconst postcode = postcodeMatch ? postcodeMatch[1].replace(/\\s/g, '').toUpperCase() : '';\nconst plaats = postcodeMatch ? postcodeMatch[2].trim() : '';\n\n// === 4. RETURN ALLES ===\nreturn [{\n  json: {\n    ...items[0].json,\n    address: address,\n    postcode: postcode,\n    plaats: plaats,\n    \n    // Opdrachtgever (de klant)\n    opdrachtgever: {\n      naam: opdrachtgever['Opdrachtgever'] || '',\n      adres: opdrachtgever['Adres'] || '',\n      postcodeEnPlaats: opdrachtgever['Postcode en plaats'] || '',\n      telefoon: opdrachtgever['Telefoon'] || '',\n      email: opdrachtgever['E-mail'] || '',\n    },\n    \n    // Opdrachtverstrekker (de hypotheekadviseur)\n    opdrachtverstrekker: {\n      bedrijfsnaam: opdrachtverstrekker['Bedrijfsnaam'] || '',\n      contactpersoon: opdrachtverstrekker['Contactpersoon'] || '',\n      adres: opdrachtverstrekker['Adres'] || '',\n      postcodeEnPlaats: opdrachtverstrekker['Postcode en plaats'] || '',\n      telefoon: opdrachtverstrekker['Telefoon'] || '',\n      email: opdrachtverstrekker['E-mail'] || '',\n    },\n    \n    // Bijzonderheden\n    bijzonderheden: {\n      doelTaxatie: bijzonderheden['Doel taxatie'] || '',\n      typeRapport: bijzonderheden['Type rapport'] || '',\n      referentie: bijzonderheden['Referentie'] || '',\n      selectie: bijzonderheden['Selectie'] || '',\n      opmerkingen: bijzonderheden['Opmerkingen bij aanvraag'] || '',\n      verbouwing: bijzonderheden['Verbouwing'] || '',\n    },\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        192
+      ],
+      "id": "88b1b3ef-adf0-4fd4-8542-ec8cb78f795e",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "path": "={{ new Date().getFullYear() }}/{{ $json.address }}"
+      },
+      "type": "n8n-nodes-base.nextCloud",
+      "typeVersion": 1,
+      "position": [
+        448,
+        176
+      ],
+      "id": "fc13e8a8-b1e8-4732-9e20-f20390dd5c10",
+      "name": "Nextcloud",
+      "credentials": {
+        "nextCloudApi": {
+          "id": "O1Q1l2aXVJXpfyAC",
+          "name": "NextCloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "path": "={{ new Date().getFullYear() }}/{{ $('Code').item.json.address }}/1 Contracteren"
+      },
+      "type": "n8n-nodes-base.nextCloud",
+      "typeVersion": 1,
+      "position": [
+        256,
+        16
+      ],
+      "id": "feef58bc-9c4f-49e3-9618-bcd70a07f233",
+      "name": "Folder 1",
+      "credentials": {
+        "nextCloudApi": {
+          "id": "O1Q1l2aXVJXpfyAC",
+          "name": "NextCloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "path": "={{ new Date().getFullYear() }}/{{ $('Code').item.json.address }}/2 Rechercheren"
+      },
+      "type": "n8n-nodes-base.nextCloud",
+      "typeVersion": 1,
+      "position": [
+        608,
+        128
+      ],
+      "id": "87537c67-d39d-4dec-8db0-536e592c6d41",
+      "name": "Folder 2",
+      "credentials": {
+        "nextCloudApi": {
+          "id": "O1Q1l2aXVJXpfyAC",
+          "name": "NextCloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "path": "={{ new Date().getFullYear() }}/{{ $('Code').item.json.address }}/3 Analyseren"
+      },
+      "type": "n8n-nodes-base.nextCloud",
+      "typeVersion": 1,
+      "position": [
+        800,
+        -32
+      ],
+      "id": "4fc5206e-5c10-4ce0-990a-b64281130d0f",
+      "name": "Folder 3",
+      "credentials": {
+        "nextCloudApi": {
+          "id": "O1Q1l2aXVJXpfyAC",
+          "name": "NextCloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "path": "={{ new Date().getFullYear() }}/{{ $('Code').item.json.address }}/4 Waarderen"
+      },
+      "type": "n8n-nodes-base.nextCloud",
+      "typeVersion": 1,
+      "position": [
+        800,
+        128
+      ],
+      "id": "aec575a2-d5a9-4f84-87ce-181c8f1b56db",
+      "name": "Folder 4",
+      "credentials": {
+        "nextCloudApi": {
+          "id": "O1Q1l2aXVJXpfyAC",
+          "name": "NextCloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "path": "={{ new Date().getFullYear() }}/{{ $('Code').item.json.address }}/5 Rapporteren & 6 Archiveren"
+      },
+      "type": "n8n-nodes-base.nextCloud",
+      "typeVersion": 1,
+      "position": [
+        704,
+        288
+      ],
+      "id": "9cd5be99-897f-401d-aa38-f1b334d99827",
+      "name": "5 Rapporteren & 6 Archiveren",
+      "credentials": {
+        "nextCloudApi": {
+          "id": "O1Q1l2aXVJXpfyAC",
+          "name": "NextCloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "43541edb-47fe-47fa-be88-17c08cc9a7db",
+              "leftValue": "={{ $json.subject }}",
+              "rightValue": "Aanvraagbevestiging / Verzoek tot acceptatie voor taxatiebedrijf",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "IF Aanvraagbevestiging / Verzoek tot acceptatie voor taxatiebedrijf",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        32,
+        208
+      ],
+      "id": "da80e60e-4cc0-4d00-a6bd-7e9717c54504",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// N8N code node - direct bruikbaar\nconst addressString = items[0].json.address;\n\nif (!addressString) {\n    throw new Error('Geen adres gevonden in input');\n}\n\n// Parse postcode (4 cijfers + 2 letters)\nconst postcodeMatch = addressString.match(/\\b(\\d{4})\\s*([A-Za-z]{2})\\b/);\nif (!postcodeMatch) {\n    throw new Error('Geen geldige postcode gevonden in adres');\n}\nconst cleanPostcode = (postcodeMatch[1] + postcodeMatch[2]).toUpperCase();\n\n// Parse huisnummer\nconst huisnummerMatch = addressString.match(/\\b(\\d+(?:[A-Za-z])?)\\b/);\nif (!huisnummerMatch) {\n    throw new Error('Geen geldig huisnummer gevonden in adres');\n}\nconst huisnummer = huisnummerMatch[1];\n\n// Return in correct format voor N8N\nreturn [{\n    json: {\n        postcode: cleanPostcode,\n        huisnummer: huisnummer\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        384
+      ],
+      "id": "9ef8a670-0782-4988-82cf-6480833342ff",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "b96d56c4-fcb7-4c7d-bd3f-046fbc7f74d0",
+          "mode": "list",
+          "cachedResultName": "Taxaties",
+          "cachedResultUrl": "https://www.notion.so/b96d56c4fcb74c7dbd3f046fbc7f74d0"
+        },
+        "title": "={{ $('Code').item.json.address }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Adres|rich_text",
+              "textContent": "={{ $('Code').item.json.address }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        256
+      ],
+      "id": "b18abff8-c6a3-4b4d-b8d0-3fd90b73e0c4",
+      "name": "Create a database page",
+      "credentials": {
+        "notionApi": {
+          "id": "C4x1jyPX4boX03Se",
+          "name": "Notion account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NrFF2z1UgJT5raFQT7UGf",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/NrFF2z1UgJT5raFQT7UGf",
+          "cachedResultName": "Adres google geocoding plaats en afstand"
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        384
+      ],
+      "id": "b3d04371-6e27-4063-8388-2790701fec0b",
+      "name": "Call 'Adres google geocoding plaats en afstand'",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kantoor.devreemakelaardij.nl/api/taken/webhook",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "vKnHQNz2nUpDpNsJu1AD6g"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1408,
+        208
+      ],
+      "id": "c5de34d7-28e1-47fb-9771-945d4c23aebb",
+      "name": "Taak aanmaken",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kantoor.devreemakelaardij.nl/api/projecten/webhook",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "vKnHQNz2nUpDpNsJu1AD6g"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1168,
+        240
+      ],
+      "id": "1e67769b-e248-4245-a2a4-3f82002043d4",
+      "name": "Project aanmaken devree-platform",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Code').item.json;\n\nreturn [{\n  json: {\n    name: `Taxatie ${data.address}`,\n    type: \"TAXATIE\",\n    projectStatus: \"LEAD\",\n    woningAdres: data.address,\n    woningPostcode: data.postcode,\n    woningPlaats: data.plaats,\n    contactName: data.opdrachtgever.naam,\n    contactPhone: data.opdrachtgever.telefoon,\n    contactEmail: data.opdrachtgever.email,\n    hypotheekAdviseurBedrijf: data.opdrachtverstrekker.bedrijfsnaam,\n    hypotheekAdviseurNaam: data.opdrachtverstrekker.contactpersoon,\n    hypotheekAdviseurEmail: data.opdrachtverstrekker.email,\n    hypotheekAdviseurTelefoon: data.opdrachtverstrekker.telefoon,\n    description: [\n      \"NWWI taxatieaanvraag\",\n      `Doel: ${data.bijzonderheden.doelTaxatie}`,\n      `Type: ${data.bijzonderheden.typeRapport}`,\n      `Selectie: ${data.bijzonderheden.selectie}`,\n      `Opmerkingen: ${data.bijzonderheden.opmerkingen}`,\n      `Verbouwing: ${data.bijzonderheden.verbouwing}`\n    ].join(\"\\n\")\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        16
+      ],
+      "id": "dd3730cc-b968-48df-8ed2-9851aa43128d",
+      "name": "Data klaarzetten voor platform"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Code').item.json;\nconst projectId = $('Project aanmaken devree-platform').item.json.project.id;\n\nreturn [{\n  json: {\n    action: \"create\",\n    title: `Taxatie acceptatie: ${data.address}`,\n    description: [\n      \"NWWI taxatieaanvraag ontvangen.\",\n      \"\",\n      `Opdrachtgever: ${data.opdrachtgever.naam}`,\n      `Telefoon: ${data.opdrachtgever.telefoon}`,\n      `Email: ${data.opdrachtgever.email}`,\n      \"\",\n      `Opdrachtverstrekker: ${data.opdrachtverstrekker.bedrijfsnaam}`,\n      `Opmerkingen: ${data.bijzonderheden.opmerkingen}`\n    ].join(\"\\n\"),\n    projectId: projectId,\n    priority: \"hoog\",\n    category: \"taxatie\",\n    assigneeEmail: \"info@devreemakelaardij.nl\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        384
+      ],
+      "id": "d12eff12-9fa3-4ccd-8c3b-91cb54d6e1fb",
+      "name": "Taak klaarzetten"
+    }
+  ],
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "IF Aanvraagbevestiging / Verzoek tot acceptatie voor taxatiebedrijf",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Nextcloud",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nextcloud": {
+      "main": [
+        [
+          {
+            "node": "Folder 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Folder 2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Folder 3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Folder 4",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "5 Rapporteren & 6 Archiveren",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Aanvraagbevestiging / Verzoek tot acceptatie voor taxatiebedrijf": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Call 'Adres google geocoding plaats en afstand'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a database page": {
+      "main": [
+        [
+          {
+            "node": "Data klaarzetten voor platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Project aanmaken devree-platform": {
+      "main": [
+        [
+          {
+            "node": "Taak klaarzetten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data klaarzetten voor platform": {
+      "main": [
+        [
+          {
+            "node": "Project aanmaken devree-platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Taak klaarzetten": {
+      "main": [
+        [
+          {
+            "node": "Taak aanmaken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "SGI078Qv3mBr8mjoGW-_S",
+    "callerPolicy": "workflowsFromSameOwner",
+    "binaryMode": "separate",
+    "timeSavedPerExecution": 30
+  },
+  "staticData": {
+    "node:Email Trigger (IMAP)": {}
+  },
+  "pinData": {},
+  "versionId": "f2e2bc04-a5cc-4713-b164-54b8d972792f",
+  "activeVersionId": "f2e2bc04-a5cc-4713-b164-54b8d972792f",
+  "versionCounter": 412,
+  "tags": [
+    {
+      "updatedAt": "2026-01-18T22:56:57.509Z",
+      "createdAt": "2026-01-18T22:56:57.509Z",
+      "id": "ImE1XBlwx0LBmun0",
+      "name": "Taxatie workflow"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Version 453f7059",
+    "description": ""
+  }
+}
