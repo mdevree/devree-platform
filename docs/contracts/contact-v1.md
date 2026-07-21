@@ -87,3 +87,6 @@ De versieerbare voorbeeldpayloads staan in
 - Bij Mautic -> debiteuren koppelen toont het platform deze warnings direct in
   de facturatiekaart, zodat kantoor het adres kan controleren voordat het verder
   factureert.
+- De warnings worden ook opgeslagen op `project_debiteuren_links` en centraal
+  zichtbaar gemaakt op `/debiteurencontrole`, samen met projecten die wel een
+  Mautic-contact maar nog geen debiteurenlink hebben.

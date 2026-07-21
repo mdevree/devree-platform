@@ -272,11 +272,15 @@ model ProjectDebiteurenLink {
   klantNaam         String?
   klantEmail        String?
   klantAdres        String?
+  mauticContactId   Int?
+  contactWarnings   Json?
+  normalizationCheckedAt DateTime?
   linkedBy          String?
   linkedAt          DateTime  @default(now())
   lastCheckedAt     DateTime?
 
   @@index([debiteurenKlantId])
+  @@index([mauticContactId])
   @@map("project_debiteuren_links")
 }
 

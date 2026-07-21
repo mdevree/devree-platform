@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,7 @@ import {
   isDebiteurenApiError,
   upsertDebiteurenCustomerFromContact,
 } from "@/lib/debiteuren";
+import type { ContactV1NormalizationWarning } from "@/lib/contracts/contactV1";
 import { getContactFull } from "@/lib/mautic";
 
 function klantAdres(summary: Awaited<ReturnType<typeof getDebiteurenFactuurSamenvatting>>) {
@@ -44,13 +46,22 @@ async function saveProjectDebiteurenLink({
   projectId,
   debiteurenKlantId,
   linkedBy,
+  normalization,
 }: {
   projectId: string;
   debiteurenKlantId: number;
   linkedBy: string | null;
+  normalization?: {
+    mauticContactId: number;
+    warnings: ContactV1NormalizationWarning[];
+  } | null;
 }) {
   const summary = await getDebiteurenFactuurSamenvatting(debiteurenKlantId);
   const invoices = await getProjectDebiteurenInvoices(projectId);
+  const contactWarnings = normalization
+    ? normalization.warnings as Prisma.InputJsonValue
+    : Prisma.JsonNull;
+  const normalizationCheckedAt = normalization ? new Date() : null;
   const link = await prisma.projectDebiteurenLink.upsert({
     where: { projectId },
     create: {
@@ -59,6 +70,9 @@ async function saveProjectDebiteurenLink({
       klantNaam: summary.klant.naam,
       klantEmail: summary.klant.email,
       klantAdres: klantAdres(summary),
+      mauticContactId: normalization?.mauticContactId ?? null,
+      contactWarnings,
+      normalizationCheckedAt,
       linkedBy,
       lastCheckedAt: new Date(),
     },
@@ -67,6 +81,9 @@ async function saveProjectDebiteurenLink({
       klantNaam: summary.klant.naam,
       klantEmail: summary.klant.email,
       klantAdres: klantAdres(summary),
+      mauticContactId: normalization?.mauticContactId ?? null,
+      contactWarnings,
+      normalizationCheckedAt,
       linkedBy,
       linkedAt: new Date(),
       lastCheckedAt: new Date(),
@@ -196,6 +213,10 @@ export async function POST(
         projectId: id,
         debiteurenKlantId: upsert.customer.id,
         linkedBy,
+        normalization: {
+          mauticContactId,
+          warnings: contact.contactV1.normalizationWarnings,
+        },
       });
 
       return NextResponse.json({
