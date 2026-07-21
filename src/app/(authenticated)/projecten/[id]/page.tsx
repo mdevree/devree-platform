@@ -45,6 +45,7 @@ import {
   VERKOOPSTART_LABELS,
 } from "@/lib/projectTypes";
 import { AANKOOP_WERKGEBIED_DEFAULT, aankoopTarievenFromProject } from "@/lib/otdAankoop";
+import { getTaxatieInvoiceIdempotencyKey } from "@/lib/debiteurenInvoicePayload";
 import TaxatieControlePanel from "./TaxatieControlePanel";
 
 const MAUTIC_URL =
@@ -364,6 +365,7 @@ interface DebiteurenInvoicePreviewData {
 }
 
 interface DebiteurenInvoiceCreateData {
+  success?: boolean;
   result: string;
   invoice: {
     id: number;
@@ -378,6 +380,7 @@ interface DebiteurenInvoiceCreateData {
   } | null;
   platformInvoice: ProjectDebiteurenInvoice | null;
   invoiceUrl: string | null;
+  message?: string;
 }
 
 type ActiveTab = "taken" | "telefonie" | "woning" | "kijkers" | "dossier" | "taxatieControle";
@@ -680,6 +683,10 @@ export default function ProjectDetailPage() {
   const [taxatieInvoiceLoading, setTaxatieInvoiceLoading] = useState(false);
   const [taxatieInvoiceCreating, setTaxatieInvoiceCreating] = useState(false);
   const [taxatieInvoiceError, setTaxatieInvoiceError] = useState("");
+
+  const existingTaxatiePlatformInvoice = debiteurenData?.invoices?.find(
+    (invoice) => invoice.idempotencyKey === getTaxatieInvoiceIdempotencyKey(projectId)
+  ) || null;
 
   // Samenvoegen (merge) modal
   const [showMerge, setShowMerge] = useState(false);
@@ -1411,6 +1418,10 @@ export default function ProjectDetailPage() {
       setTaxatieInvoiceError("Maak eerst een preview voordat je de factuur aanmaakt");
       return;
     }
+    if (existingTaxatiePlatformInvoice) {
+      setTaxatieInvoiceError("Deze taxatiefactuur is al via het platform aangemaakt.");
+      return;
+    }
 
     const confirmation = window.prompt(
       "Deze actie maakt definitief een factuur aan in debiteuren. Typ FACTUUR om door te gaan."
@@ -1937,6 +1948,21 @@ export default function ProjectDetailPage() {
                     <p className="mt-1 text-xs text-emerald-700/80">
                       Controleer eerst de preview. Aanmaken vraagt daarna om expliciete bevestiging.
                     </p>
+                    {existingTaxatiePlatformInvoice && (
+                      <div className="mt-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
+                        Deze taxatiefactuur is al via het platform aangemaakt als
+                        {" "}#{existingTaxatiePlatformInvoice.factuurnummer || existingTaxatiePlatformInvoice.debiteurenFactuurId}.
+                        {" "}
+                        <a
+                          href={existingTaxatiePlatformInvoice.invoiceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-green-900 hover:underline"
+                        >
+                          Open factuur
+                        </a>
+                      </div>
+                    )}
                     <div className="mt-3 flex flex-wrap items-end gap-2">
                       <div className="min-w-[160px] flex-1">
                         <label className="mb-1 block text-xs font-medium text-emerald-900">Bedrag excl. btw</label>
@@ -2041,14 +2067,16 @@ export default function ProjectDetailPage() {
                           <p className="text-[11px] text-gray-500">
                             Definitief aanmaken gebruikt een idempotency-key; opnieuw klikken maakt geen dubbele factuur.
                           </p>
-                          <button
-                            onClick={handleCreateTaxatieInvoice}
-                            disabled={taxatieInvoiceCreating}
-                            className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <BanknotesIcon className="h-3.5 w-3.5" />
-                            {taxatieInvoiceCreating ? "Aanmaken..." : "Factuur aanmaken"}
-                          </button>
+                          {!existingTaxatiePlatformInvoice && (
+                            <button
+                              onClick={handleCreateTaxatieInvoice}
+                              disabled={taxatieInvoiceCreating}
+                              className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <BanknotesIcon className="h-3.5 w-3.5" />
+                              {taxatieInvoiceCreating ? "Aanmaken..." : "Factuur aanmaken"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -2070,6 +2098,25 @@ export default function ProjectDetailPage() {
                               <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
                             </a>
                           )}
+                        </div>
+                      </div>
+                    )}
+                    {taxatieInvoiceCreated?.platformInvoice && !taxatieInvoiceCreated.invoice && (
+                      <div className="mt-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span>
+                            {taxatieInvoiceCreated.message || "Deze taxatiefactuur was al aangemaakt"}:
+                            {" "}#{taxatieInvoiceCreated.platformInvoice.factuurnummer || taxatieInvoiceCreated.platformInvoice.debiteurenFactuurId}.
+                          </span>
+                          <a
+                            href={taxatieInvoiceCreated.invoiceUrl || taxatieInvoiceCreated.platformInvoice.invoiceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-semibold text-green-900 hover:underline"
+                          >
+                            Open factuur
+                            <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                          </a>
                         </div>
                       </div>
                     )}

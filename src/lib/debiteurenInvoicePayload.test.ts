@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildTaxatieInvoicePayload, type TaxatieInvoiceProject } from "./debiteurenInvoicePayload";
+import {
+  buildTaxatieInvoicePayload,
+  getTaxatieInvoiceIdempotencyKey,
+  type TaxatieInvoiceProject,
+} from "./debiteurenInvoicePayload";
 
 const PROJECT: TaxatieInvoiceProject = {
   id: "project-1",
@@ -28,6 +32,10 @@ test("bouwt taxatiefactuurpayload met expliciet bedrag en vaste idempotency-key"
   assert.equal(result.payload.subject, "Taxatie Voorbeeldstraat 1, 3011 AA, Rotterdam");
   assert.deepEqual(result.payload.lines, [{ description: "Taxatierapport", amountExcl: 650, vatRate: 0.21 }]);
   assert.deepEqual(result.payload.reference, { platformProjectId: "project-1", mauticContactId: 123 });
+});
+
+test("taxatiefactuur idempotency-key is gedeeld tussen API en UI", () => {
+  assert.equal(getTaxatieInvoiceIdempotencyKey("project-1"), "project:project-1:taxatie-invoice:v1");
 });
 
 test("bouwt taxatiefactuurpayload met formulierdetails", () => {

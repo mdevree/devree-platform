@@ -22,6 +22,10 @@ export type BuildTaxatieInvoicePayloadResult =
   | { ok: true; payload: DebiteurenInvoiceCreateV1; idempotencyKey: string }
   | { ok: false; status: number; error: string };
 
+export function getTaxatieInvoiceIdempotencyKey(projectId: string) {
+  return `project:${projectId}:taxatie-invoice:v1`;
+}
+
 export function buildTaxatieInvoicePayload(
   project: TaxatieInvoiceProject,
   input: unknown
@@ -52,7 +56,7 @@ export function buildTaxatieInvoicePayload(
 
   return {
     ok: true,
-    idempotencyKey: `project:${project.id}:taxatie-invoice:v1`,
+    idempotencyKey: getTaxatieInvoiceIdempotencyKey(project.id),
     payload: {
       contractVersion: "InvoiceCreateV1",
       source: "devree-platform",

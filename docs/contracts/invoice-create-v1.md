@@ -84,6 +84,11 @@ het platform een vaste idempotency-key per project/taxatiefactuur:
 `project:{projectId}:taxatie-invoice:v1`. Daardoor maakt een retry of dubbelklik
 geen tweede factuur aan.
 
+Als `project_debiteuren_invoices` al een rij met deze idempotency-key bevat,
+roept het platform de debiteuren-create-route niet opnieuw aan. De API geeft dan
+`result: "existing"` terug met de bestaande `platformInvoice` en directe
+debiteurenlink.
+
 Na een succesvolle debiteuren-response legt het platform de factuur ook vast in
 `project_debiteuren_invoices`. Die tabel is geen tweede factuurbron, maar een
 project-anker voor platformworkflow:

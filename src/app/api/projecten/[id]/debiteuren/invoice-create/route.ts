@@ -141,6 +141,22 @@ export async function POST(
 
   try {
     const actor = session?.user?.email || session?.user?.name || "devree-platform";
+    const existingPlatformInvoice = await prisma.projectDebiteurenInvoice.findUnique({
+      where: { idempotencyKey: build.idempotencyKey },
+    });
+
+    if (existingPlatformInvoice) {
+      return NextResponse.json({
+        success: true,
+        payload: build.payload,
+        result: "existing",
+        invoice: null,
+        platformInvoice: serializePlatformInvoice(existingPlatformInvoice),
+        invoiceUrl: getDebiteurenSharedLoginPath(`/?page=facturen&action=bekijk&id=${existingPlatformInvoice.debiteurenFactuurId}`),
+        message: "Deze taxatiefactuur is al via het platform aangemaakt",
+      });
+    }
+
     const created = await createDebiteurenInvoice(build.payload, actor, build.idempotencyKey);
     const invoice = created.invoice && "id" in created.invoice ? created.invoice : null;
     const platformInvoice = invoice
