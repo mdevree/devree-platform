@@ -47,6 +47,7 @@ Uitgevoerd na de debiteurenverbeteringen:
 | `04c7573` | Centrale debiteurencontrole toont verlopen/niet-gesynchroniseerde platformfacturen als aandachtspunt | `npm run verify` groen; container `04c7573`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
 | `045268c` | Platform haalt factuurstatussen direct op via `InvoiceReadV1` in plaats van via de klantsamenvatting | `npm run verify` groen; GitHub Actions-run `29866532137` groen; container `045268c`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; directe factuur-read vanuit container geeft gecontroleerd `404 not_found` voor niet-bestaande factuur; logs schoon |
 | `6ae5674` | Documenteert de live `InvoiceReadV1`-status en debiteurenproductiepad; geen runtimewijziging | GitHub Actions-run `29867054524` groen; container `6ae5674`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
+| `18cb705` | Projectfactuurflow gegeneraliseerd naar taxatie, verkoop en aankoop met dezelfde preview, expliciete `FACTUUR`-bevestiging en idempotency per project/factuurtype | `npm run verify` groen met 105 tests; GitHub Actions-run `29868282237` groen; container `18cb705`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; factuur-preview zonder sessie `401`; logs schoon |
 
 Back-ups vóór directe productie-DB wijzigingen:
 
