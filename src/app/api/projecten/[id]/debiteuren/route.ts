@@ -14,6 +14,32 @@ function klantAdres(summary: Awaited<ReturnType<typeof getDebiteurenFactuurSamen
   return [summary.klant.adres, summary.klant.postcode, summary.klant.plaats].filter(Boolean).join(", ") || null;
 }
 
+async function getProjectDebiteurenInvoices(projectId: string) {
+  const invoices = await prisma.projectDebiteurenInvoice.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
+  return invoices.map((invoice) => ({
+    id: invoice.id,
+    debiteurenKlantId: invoice.debiteurenKlantId,
+    debiteurenFactuurId: invoice.debiteurenFactuurId,
+    factuurnummer: invoice.factuurnummer,
+    invoiceType: invoice.invoiceType,
+    subject: invoice.subject,
+    invoiceDate: invoice.invoiceDate?.toISOString() ?? null,
+    dueDate: invoice.dueDate?.toISOString() ?? null,
+    amountExcl: invoice.amountExclCents / 100,
+    amountIncl: invoice.amountInclCents / 100,
+    hash: invoice.hash,
+    idempotencyKey: invoice.idempotencyKey,
+    createdBy: invoice.createdBy,
+    createdAt: invoice.createdAt.toISOString(),
+    invoiceUrl: getDebiteurenSharedLoginPath(`/?page=facturen&action=bekijk&id=${invoice.debiteurenFactuurId}`),
+  }));
+}
+
 async function saveProjectDebiteurenLink({
   projectId,
   debiteurenKlantId,
@@ -24,6 +50,7 @@ async function saveProjectDebiteurenLink({
   linkedBy: string | null;
 }) {
   const summary = await getDebiteurenFactuurSamenvatting(debiteurenKlantId);
+  const invoices = await getProjectDebiteurenInvoices(projectId);
   const link = await prisma.projectDebiteurenLink.upsert({
     where: { projectId },
     create: {
@@ -49,6 +76,7 @@ async function saveProjectDebiteurenLink({
   return {
     link,
     summary,
+    invoices,
     debiteurenUrl: getDebiteurenSharedLoginPath(`/?page=klanten&action=bewerk&id=${debiteurenKlantId}`),
   };
 }
@@ -62,12 +90,13 @@ export async function GET(
   }
 
   const { id } = await params;
+  const invoices = await getProjectDebiteurenInvoices(id);
   const link = await prisma.projectDebiteurenLink.findUnique({
     where: { projectId: id },
   });
 
   if (!link) {
-    return NextResponse.json({ link: null, summary: null });
+    return NextResponse.json({ link: null, summary: null, invoices });
   }
 
   try {
@@ -85,12 +114,13 @@ export async function GET(
     return NextResponse.json({
       link: updatedLink,
       summary,
+      invoices,
       debiteurenUrl: getDebiteurenSharedLoginPath(`/?page=klanten&action=bewerk&id=${link.debiteurenKlantId}`),
     });
   } catch (error) {
     const status = isDebiteurenApiError(error) ? error.status : 502;
     const message = error instanceof Error ? error.message : "Debiteuren niet bereikbaar";
-    return NextResponse.json({ link, summary: null, error: message }, { status });
+    return NextResponse.json({ link, summary: null, invoices, error: message }, { status });
   }
 }
 

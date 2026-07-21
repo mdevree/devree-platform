@@ -9,6 +9,91 @@ import {
 import { buildTaxatieInvoicePayload } from "@/lib/debiteurenInvoicePayload";
 import { prisma } from "@/lib/prisma";
 
+function moneyToCents(value: number) {
+  return Math.round(value * 100);
+}
+
+function dateFromDebiteuren(value: string | null) {
+  if (!value) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00.000Z`) : null;
+}
+
+function serializePlatformInvoice(invoice: Awaited<ReturnType<typeof recordProjectDebiteurenInvoice>> | null) {
+  if (!invoice) return null;
+  return {
+    id: invoice.id,
+    debiteurenKlantId: invoice.debiteurenKlantId,
+    debiteurenFactuurId: invoice.debiteurenFactuurId,
+    factuurnummer: invoice.factuurnummer,
+    invoiceType: invoice.invoiceType,
+    subject: invoice.subject,
+    invoiceDate: invoice.invoiceDate?.toISOString() ?? null,
+    dueDate: invoice.dueDate?.toISOString() ?? null,
+    amountExcl: invoice.amountExclCents / 100,
+    amountIncl: invoice.amountInclCents / 100,
+    hash: invoice.hash,
+    idempotencyKey: invoice.idempotencyKey,
+    createdBy: invoice.createdBy,
+    createdAt: invoice.createdAt.toISOString(),
+    invoiceUrl: getDebiteurenSharedLoginPath(`/?page=facturen&action=bekijk&id=${invoice.debiteurenFactuurId}`),
+  };
+}
+
+async function recordProjectDebiteurenInvoice({
+  projectId,
+  idempotencyKey,
+  invoiceType,
+  createdBy,
+  invoice,
+}: {
+  projectId: string;
+  idempotencyKey: string;
+  invoiceType: string;
+  createdBy: string;
+  invoice: {
+    id: number;
+    invoiceNumber: number;
+    customerId: number;
+    subject: string;
+    invoiceDate: string | null;
+    dueDate: string | null;
+    amountExcl: number;
+    amountIncl: number;
+    hash: string | null;
+  };
+}) {
+  return prisma.projectDebiteurenInvoice.upsert({
+    where: { idempotencyKey },
+    create: {
+      projectId,
+      debiteurenKlantId: invoice.customerId,
+      debiteurenFactuurId: invoice.id,
+      factuurnummer: invoice.invoiceNumber,
+      invoiceType,
+      subject: invoice.subject,
+      invoiceDate: dateFromDebiteuren(invoice.invoiceDate),
+      dueDate: dateFromDebiteuren(invoice.dueDate),
+      amountExclCents: moneyToCents(invoice.amountExcl),
+      amountInclCents: moneyToCents(invoice.amountIncl),
+      hash: invoice.hash,
+      idempotencyKey,
+      createdBy,
+    },
+    update: {
+      debiteurenKlantId: invoice.customerId,
+      debiteurenFactuurId: invoice.id,
+      factuurnummer: invoice.invoiceNumber,
+      invoiceType,
+      subject: invoice.subject,
+      invoiceDate: dateFromDebiteuren(invoice.invoiceDate),
+      dueDate: dateFromDebiteuren(invoice.dueDate),
+      amountExclCents: moneyToCents(invoice.amountExcl),
+      amountInclCents: moneyToCents(invoice.amountIncl),
+      hash: invoice.hash,
+    },
+  });
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -58,11 +143,22 @@ export async function POST(
     const actor = session?.user?.email || session?.user?.name || "devree-platform";
     const created = await createDebiteurenInvoice(build.payload, actor, build.idempotencyKey);
     const invoice = created.invoice && "id" in created.invoice ? created.invoice : null;
+    const platformInvoice = invoice
+      ? await recordProjectDebiteurenInvoice({
+          projectId: id,
+          idempotencyKey: build.idempotencyKey,
+          invoiceType: build.payload.invoiceType,
+          createdBy: actor,
+          invoice,
+        })
+      : null;
+
     return NextResponse.json({
       success: true,
       payload: build.payload,
       result: created.result,
       invoice,
+      platformInvoice: serializePlatformInvoice(platformInvoice),
       invoiceUrl: invoice?.id
         ? getDebiteurenSharedLoginPath(`/?page=facturen&action=bekijk&id=${invoice.id}`)
         : null,

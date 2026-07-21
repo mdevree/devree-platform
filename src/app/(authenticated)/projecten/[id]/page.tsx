@@ -319,8 +319,27 @@ interface DebiteurenData {
       laatsteFacturen: DebiteurenFactuur[];
     };
   } | null;
+  invoices?: ProjectDebiteurenInvoice[];
   debiteurenUrl?: string;
   error?: string;
+}
+
+interface ProjectDebiteurenInvoice {
+  id: string;
+  debiteurenKlantId: number;
+  debiteurenFactuurId: number;
+  factuurnummer: number | null;
+  invoiceType: string;
+  subject: string | null;
+  invoiceDate: string | null;
+  dueDate: string | null;
+  amountExcl: number;
+  amountIncl: number;
+  hash: string | null;
+  idempotencyKey: string;
+  createdBy: string | null;
+  createdAt: string;
+  invoiceUrl: string;
 }
 
 interface DebiteurenInvoicePreviewData {
@@ -357,6 +376,7 @@ interface DebiteurenInvoiceCreateData {
     amountIncl: number;
     hash: string | null;
   } | null;
+  platformInvoice: ProjectDebiteurenInvoice | null;
   invoiceUrl: string | null;
 }
 
@@ -1340,7 +1360,7 @@ export default function ProjectDetailPage() {
     try {
       const res = await fetch(`/api/projecten/${projectId}/debiteuren`, { method: "DELETE" });
       if (res.ok) {
-        setDebiteurenData({ link: null, summary: null });
+        setDebiteurenData({ link: null, summary: null, invoices: debiteurenData?.invoices || [] });
       } else {
         const data = await res.json();
         setDebiteurenError(data.error || "Ontkoppelen mislukt");
@@ -1988,6 +2008,38 @@ export default function ProjectDetailPage() {
                               <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
                             </a>
                           )}
+                        </div>
+                      </div>
+                    )}
+                    {(debiteurenData.invoices || []).length > 0 && (
+                      <div className="mt-3 rounded border border-emerald-100 bg-white p-3 text-xs">
+                        <p className="font-semibold text-gray-900">Via platform aangemaakte facturen</p>
+                        <div className="mt-2 divide-y divide-gray-100">
+                          {(debiteurenData.invoices || []).slice(0, 4).map((invoice) => (
+                            <div key={invoice.id} className="flex items-center justify-between gap-3 py-2">
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-gray-900">
+                                  #{invoice.factuurnummer || invoice.debiteurenFactuurId} · {invoice.subject || "Taxatiefactuur"}
+                                </p>
+                                <p className="text-gray-500">
+                                  Aangemaakt {formatDateFull(invoice.createdAt)}
+                                  {invoice.createdBy ? ` door ${invoice.createdBy}` : ""}
+                                </p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="font-semibold text-gray-900">{formatCurrency(invoice.amountIncl)}</p>
+                                <a
+                                  href={invoice.invoiceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 font-medium text-emerald-700 hover:underline"
+                                >
+                                  Open
+                                  <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                                </a>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

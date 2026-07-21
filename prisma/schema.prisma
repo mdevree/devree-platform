@@ -168,6 +168,7 @@ model Project {
   contacts            ProjectContact[]
   proposals           ProjectProposal[]
   debiteurenLink      ProjectDebiteurenLink?
+  debiteurenInvoices  ProjectDebiteurenInvoice[]
   tasks               Task[]
   taxatieMailArchives TaxatieMailArchive[]
   calls               Call[]
@@ -277,6 +278,31 @@ model ProjectDebiteurenLink {
 
   @@index([debiteurenKlantId])
   @@map("project_debiteuren_links")
+}
+
+model ProjectDebiteurenInvoice {
+  id                  String   @id @default(cuid())
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId           String
+  debiteurenKlantId   Int
+  debiteurenFactuurId Int
+  factuurnummer       Int?
+  invoiceType         String   @default("taxatie")
+  subject             String?  @db.Text
+  invoiceDate         DateTime?
+  dueDate             DateTime?
+  amountExclCents     Int
+  amountInclCents     Int
+  hash                String?
+  idempotencyKey      String   @unique
+  createdBy           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([debiteurenKlantId])
+  @@index([debiteurenFactuurId])
+  @@map("project_debiteuren_invoices")
 }
 
 model Call {

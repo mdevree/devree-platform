@@ -80,3 +80,16 @@ De platformroute weigert de request zonder exacte bevestiging. Daarna gebruikt
 het platform een vaste idempotency-key per project/taxatiefactuur:
 `project:{projectId}:taxatie-invoice:v1`. Daardoor maakt een retry of dubbelklik
 geen tweede factuur aan.
+
+Na een succesvolle debiteuren-response legt het platform de factuur ook vast in
+`project_debiteuren_invoices`. Die tabel is geen tweede factuurbron, maar een
+project-anker voor platformworkflow:
+
+- welke debiteurenfactuur bij het project hoort;
+- welk factuurnummer/bedrag terugkwam uit debiteuren;
+- welke idempotency-key gebruikt is;
+- wie de actie vanuit het platform uitvoerde.
+
+De projectkaart gebruikt deze historie om eerder via het platform aangemaakte
+taxatiefacturen te tonen met een directe debiteurenlink. De debiteurenadministratie
+blijft leidend voor betaling, openstaand saldo en factuurinhoud.
