@@ -611,6 +611,7 @@ export default function ProjectDetailPage() {
   const [debiteurenSearchResults, setDebiteurenSearchResults] = useState<DebiteurenKlant[]>([]);
   const [debiteurenSearchLoading, setDebiteurenSearchLoading] = useState(false);
   const [debiteurenLinkSaving, setDebiteurenLinkSaving] = useState(false);
+  const [debiteurenMauticSaving, setDebiteurenMauticSaving] = useState(false);
 
   // Samenvoegen (merge) modal
   const [showMerge, setShowMerge] = useState(false);
@@ -1266,6 +1267,30 @@ export default function ProjectDetailPage() {
     setDebiteurenLinkSaving(false);
   }
 
+  async function handleUpsertDebiteurenFromMautic() {
+    setDebiteurenMauticSaving(true);
+    setDebiteurenError("");
+    try {
+      const res = await fetch(`/api/projecten/${projectId}/debiteuren`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "upsert-from-mautic" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDebiteurenData(data);
+        setShowDebiteurenSearch(false);
+        setDebiteurenSearch("");
+        setDebiteurenSearchResults([]);
+      } else {
+        setDebiteurenError(data.error || "Aanmaken of koppelen vanuit Mautic mislukt");
+      }
+    } catch {
+      setDebiteurenError("Kan debiteuren niet bereiken");
+    }
+    setDebiteurenMauticSaving(false);
+  }
+
   async function handleUnlinkDebiteurenKlant() {
     setDebiteurenLinkSaving(true);
     setDebiteurenError("");
@@ -1779,17 +1804,31 @@ export default function ProjectDetailPage() {
             ) : (
               <div>
                 {!showDebiteurenSearch ? (
-                  <button
-                    onClick={() => {
-                      const defaultSearch = project.contactName || project.contactEmail || project.woningAdres || project.name;
-                      setShowDebiteurenSearch(true);
-                      handleDebiteurenSearch(defaultSearch);
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-dark"
-                  >
-                    <PlusIcon className="h-3.5 w-3.5" />
-                    Debiteurenklant koppelen
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleUpsertDebiteurenFromMautic}
+                      disabled={debiteurenMauticSaving || (!project.mauticContactId && project.contacts.length === 0)}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Maak of koppel een debiteurenklant via de genormaliseerde Mautic-contactgegevens"
+                    >
+                      <ArrowPathIcon className={`h-3.5 w-3.5 ${debiteurenMauticSaving ? "animate-spin" : ""}`} />
+                      Maak/koppel vanuit Mautic
+                    </button>
+                    <button
+                      onClick={() => {
+                        const defaultSearch = project.contactName || project.contactEmail || project.woningAdres || project.name;
+                        setShowDebiteurenSearch(true);
+                        handleDebiteurenSearch(defaultSearch);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-dark"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5" />
+                      Handmatig zoeken
+                    </button>
+                    {!project.mauticContactId && project.contacts.length === 0 && (
+                      <p className="basis-full text-xs text-gray-400">Koppel eerst een Mautic-contact aan dit project.</p>
+                    )}
+                  </div>
                 ) : (
                   <div>
                     <div className="flex gap-2">

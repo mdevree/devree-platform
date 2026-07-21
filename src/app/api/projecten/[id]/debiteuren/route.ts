@@ -6,7 +6,52 @@ import {
   getDebiteurenFactuurSamenvatting,
   getDebiteurenSharedLoginPath,
   isDebiteurenApiError,
+  upsertDebiteurenCustomerFromContact,
 } from "@/lib/debiteuren";
+import { getContactFull } from "@/lib/mautic";
+
+function klantAdres(summary: Awaited<ReturnType<typeof getDebiteurenFactuurSamenvatting>>) {
+  return [summary.klant.adres, summary.klant.postcode, summary.klant.plaats].filter(Boolean).join(", ") || null;
+}
+
+async function saveProjectDebiteurenLink({
+  projectId,
+  debiteurenKlantId,
+  linkedBy,
+}: {
+  projectId: string;
+  debiteurenKlantId: number;
+  linkedBy: string | null;
+}) {
+  const summary = await getDebiteurenFactuurSamenvatting(debiteurenKlantId);
+  const link = await prisma.projectDebiteurenLink.upsert({
+    where: { projectId },
+    create: {
+      projectId,
+      debiteurenKlantId,
+      klantNaam: summary.klant.naam,
+      klantEmail: summary.klant.email,
+      klantAdres: klantAdres(summary),
+      linkedBy,
+      lastCheckedAt: new Date(),
+    },
+    update: {
+      debiteurenKlantId,
+      klantNaam: summary.klant.naam,
+      klantEmail: summary.klant.email,
+      klantAdres: klantAdres(summary),
+      linkedBy,
+      linkedAt: new Date(),
+      lastCheckedAt: new Date(),
+    },
+  });
+
+  return {
+    link,
+    summary,
+    debiteurenUrl: getDebiteurenSharedLoginPath(`/?page=klanten&action=bewerk&id=${debiteurenKlantId}`),
+  };
+}
 
 export async function GET(
   request: NextRequest,
@@ -32,7 +77,7 @@ export async function GET(
       data: {
         klantNaam: summary.klant.naam,
         klantEmail: summary.klant.email,
-        klantAdres: [summary.klant.adres, summary.klant.postcode, summary.klant.plaats].filter(Boolean).join(", ") || null,
+        klantAdres: klantAdres(summary),
         lastCheckedAt: new Date(),
       },
     });
@@ -60,6 +105,82 @@ export async function POST(
   const session = await auth();
   const { id } = await params;
   const body = await request.json();
+
+  if (body?.action === "upsert-from-mautic") {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      select: {
+        mauticContactId: true,
+        contacts: {
+          select: { mauticContactId: true, role: true, addedAt: true },
+          orderBy: { addedAt: "asc" },
+        },
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Project niet gevonden" }, { status: 404 });
+    }
+
+    const requestedMauticContactId = body.mauticContactId !== undefined ? Number(body.mauticContactId) : null;
+    if (requestedMauticContactId !== null && (!Number.isInteger(requestedMauticContactId) || requestedMauticContactId <= 0)) {
+      return NextResponse.json({ error: "Ongeldig Mautic contact-id" }, { status: 400 });
+    }
+
+    const allowedContactIds = new Set([
+      ...project.contacts.map((contact) => contact.mauticContactId),
+      ...(project.mauticContactId ? [project.mauticContactId] : []),
+    ]);
+    if (requestedMauticContactId !== null && !allowedContactIds.has(requestedMauticContactId)) {
+      return NextResponse.json({ error: "Mautic contact is niet aan dit project gekoppeld" }, { status: 400 });
+    }
+
+    const opdrachtgever = project.contacts.find((contact) => contact.role === "opdrachtgever");
+    const mauticContactId = requestedMauticContactId
+      ?? opdrachtgever?.mauticContactId
+      ?? project.contacts[0]?.mauticContactId
+      ?? project.mauticContactId
+      ?? null;
+
+    if (!mauticContactId) {
+      return NextResponse.json({ error: "Geen Mautic contact gekoppeld aan dit project" }, { status: 400 });
+    }
+
+    try {
+      const contact = await getContactFull(mauticContactId);
+      if (!contact) {
+        return NextResponse.json({ error: "Mautic contact niet gevonden" }, { status: 404 });
+      }
+
+      const linkedBy = session?.user?.email || session?.user?.name || null;
+      const upsert = await upsertDebiteurenCustomerFromContact(
+        contact.contactV1,
+        linkedBy || "devree-platform"
+      );
+
+      if (!upsert.customer?.id) {
+        return NextResponse.json({ error: "Debiteuren klant is niet aangemaakt of gekoppeld", upsert }, { status: 502 });
+      }
+
+      const result = await saveProjectDebiteurenLink({
+        projectId: id,
+        debiteurenKlantId: upsert.customer.id,
+        linkedBy,
+      });
+
+      return NextResponse.json({
+        success: true,
+        ...result,
+        upsert,
+        mauticContactId,
+      });
+    } catch (error) {
+      const status = isDebiteurenApiError(error) ? error.status : 502;
+      const message = error instanceof Error ? error.message : "Debiteuren niet bereikbaar";
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
   const debiteurenKlantId = Number(body.debiteurenKlantId);
 
   if (!Number.isInteger(debiteurenKlantId) || debiteurenKlantId <= 0) {
@@ -67,34 +188,15 @@ export async function POST(
   }
 
   try {
-    const summary = await getDebiteurenFactuurSamenvatting(debiteurenKlantId);
-    const link = await prisma.projectDebiteurenLink.upsert({
-      where: { projectId: id },
-      create: {
-        projectId: id,
-        debiteurenKlantId,
-        klantNaam: summary.klant.naam,
-        klantEmail: summary.klant.email,
-        klantAdres: [summary.klant.adres, summary.klant.postcode, summary.klant.plaats].filter(Boolean).join(", ") || null,
-        linkedBy: session?.user?.email || session?.user?.name || null,
-        lastCheckedAt: new Date(),
-      },
-      update: {
-        debiteurenKlantId,
-        klantNaam: summary.klant.naam,
-        klantEmail: summary.klant.email,
-        klantAdres: [summary.klant.adres, summary.klant.postcode, summary.klant.plaats].filter(Boolean).join(", ") || null,
-        linkedBy: session?.user?.email || session?.user?.name || null,
-        linkedAt: new Date(),
-        lastCheckedAt: new Date(),
-      },
+    const result = await saveProjectDebiteurenLink({
+      projectId: id,
+      debiteurenKlantId,
+      linkedBy: session?.user?.email || session?.user?.name || null,
     });
 
     return NextResponse.json({
       success: true,
-      link,
-      summary,
-      debiteurenUrl: getDebiteurenSharedLoginPath(`/?page=klanten&action=bewerk&id=${debiteurenKlantId}`),
+      ...result,
     });
   } catch (error) {
     const status = isDebiteurenApiError(error) ? error.status : 502;

@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { ContactV1 } from "./contracts/contactV1";
 
 type DebiteurenKlant = {
   id: number;
@@ -45,6 +46,18 @@ export type DebiteurenSummaryResponse = {
   };
 };
 
+export type DebiteurenCustomerUpsertResponse = {
+  result: "existing" | "linked" | "created" | "review_required" | "validation_failed";
+  customer: {
+    id: number;
+    mauticContactId: number | null;
+    source: string | null;
+  } | null;
+  errors?: string[];
+  reason?: string;
+  candidateIds?: number[];
+};
+
 class DebiteurenApiError extends Error {
   constructor(message: string, public status: number) {
     super(message);
@@ -65,6 +78,15 @@ function getDebiteurenReadConfig() {
   const token = process.env.DEBITEUREN_READ_API_TOKEN;
   if (!token) {
     throw new DebiteurenApiError("Debiteuren read-API is niet geconfigureerd", 503);
+  }
+
+  return { baseUrl: getDebiteurenBaseUrl(), token };
+}
+
+function getDebiteurenWriteConfig() {
+  const token = process.env.DEBITEUREN_WRITE_API_TOKEN;
+  if (!token) {
+    throw new DebiteurenApiError("Debiteuren write-API is niet geconfigureerd", 503);
   }
 
   return { baseUrl: getDebiteurenBaseUrl(), token };
@@ -144,6 +166,35 @@ async function debiteurenGet<T>(resource: string, params: Record<string, string 
   return data as T;
 }
 
+async function debiteurenPost<T>(resource: string, body: unknown, actor: string): Promise<T> {
+  const { baseUrl, token } = getDebiteurenWriteConfig();
+  const url = new URL(baseUrl);
+  url.searchParams.set("page", "api");
+  url.searchParams.set("resource", resource);
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Debiteuren-Write-Token": token,
+      "X-Debiteuren-Actor": actor,
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = Array.isArray(data?.errors)
+      ? data.errors.join("; ")
+      : data?.error || data?.reason || "Debiteuren API fout";
+    throw new DebiteurenApiError(message, response.status);
+  }
+
+  return data as T;
+}
+
 export async function searchDebiteurenKlanten(query: string, limit = 8) {
   return debiteurenGet<DebiteurenSearchResponse>("klanten/search", {
     q: query,
@@ -155,6 +206,14 @@ export async function getDebiteurenFactuurSamenvatting(klantId: number) {
   return debiteurenGet<DebiteurenSummaryResponse>("klanten/factuur-samenvatting", {
     klant_id: klantId,
   });
+}
+
+export async function upsertDebiteurenCustomerFromContact(contact: ContactV1, actor: string) {
+  return debiteurenPost<DebiteurenCustomerUpsertResponse>(
+    `v1/customers/by-mautic/${contact.mauticContactId}`,
+    contact,
+    actor
+  );
 }
 
 export function getDebiteurenPublicUrl(path = "") {

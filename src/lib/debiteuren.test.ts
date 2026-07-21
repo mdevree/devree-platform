@@ -5,7 +5,9 @@ import test from "node:test";
 import {
   createDebiteurenSharedLoginUrl,
   searchDebiteurenKlanten,
+  upsertDebiteurenCustomerFromContact,
 } from "./debiteuren";
+import type { ContactV1 } from "./contracts/contactV1";
 
 const ENV_KEYS = [
   "DEBITEUREN_API_URL",
@@ -76,6 +78,67 @@ test("read-API gebruikt alleen de afzonderlijke read-header", async () => {
 
     const result = await searchDebiteurenKlanten("test");
     assert.deepEqual(result, { klanten: [] });
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnvironment(snapshot);
+  }
+});
+
+test("write-API gebruikt POST met write-token en actor", async () => {
+  const snapshot = snapshotEnvironment();
+  const originalFetch = global.fetch;
+  try {
+    process.env.DEBITEUREN_API_URL = "https://debiteuren.example.test";
+    process.env.DEBITEUREN_READ_API_TOKEN = "read-secret";
+    process.env.DEBITEUREN_WRITE_API_TOKEN = "write-secret";
+
+    const contact: ContactV1 = {
+      contractVersion: "ContactV1",
+      source: "mautic",
+      mauticContactId: 123,
+      aanhef: null,
+      initialen: "T.",
+      voornamen: "Test",
+      voornaam: "Test",
+      tussenvoegsel: null,
+      achternaam: "Relatie",
+      email: "test@example.invalid",
+      mobiel: null,
+      telefoon: null,
+      straat: "Dorpsstraat",
+      huisnummer: "12",
+      toevoeging: null,
+      aanvullendeAdresregel: null,
+      postcode: "1234 AB",
+      plaats: "Rotterdam",
+      land: "Nederland",
+      partner: null,
+      normalizationWarnings: [],
+    };
+
+    global.fetch = async (input, init) => {
+      const url = new URL(String(input));
+      const headers = new Headers(init?.headers);
+
+      assert.equal(init?.method, "POST");
+      assert.equal(url.searchParams.get("page"), "api");
+      assert.equal(url.searchParams.get("resource"), "v1/customers/by-mautic/123");
+      assert.equal(headers.get("X-Debiteuren-Write-Token"), "write-secret");
+      assert.equal(headers.get("X-Debiteuren-Actor"), "melvin@example.invalid");
+      assert.equal(headers.get("X-Debiteuren-Read-Token"), null);
+      assert.deepEqual(JSON.parse(String(init?.body)), contact);
+
+      return new Response(JSON.stringify({
+        result: "created",
+        customer: { id: 456, mauticContactId: 123, source: "mautic" },
+      }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    const result = await upsertDebiteurenCustomerFromContact(contact, "melvin@example.invalid");
+    assert.equal(result.customer?.id, 456);
   } finally {
     global.fetch = originalFetch;
     restoreEnvironment(snapshot);
