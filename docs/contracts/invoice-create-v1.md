@@ -20,6 +20,7 @@ Body:
 {
   "amountExcl": 650,
   "description": "Taxatierapport",
+  "subject": "Taxatie Voorbeeldstraat 1",
   "bank": "rabo",
   "invoiceDate": null,
   "dueDate": null,
@@ -33,6 +34,8 @@ Voorwaarden:
 - project moet type `TAXATIE` zijn;
 - project moet al een debiteurenklant-link hebben;
 - `amountExcl` wordt expliciet gevraagd en niet uit projectvelden geraden.
+- `description`, `subject`, `bank`, `invoiceDate` en `dueDate` kunnen door
+  kantoor worden aangepast vóór preview en aanmaak.
 
 ## Debiteuren-contract
 

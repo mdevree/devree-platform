@@ -30,6 +30,25 @@ test("bouwt taxatiefactuurpayload met expliciet bedrag en vaste idempotency-key"
   assert.deepEqual(result.payload.reference, { platformProjectId: "project-1", mauticContactId: 123 });
 });
 
+test("bouwt taxatiefactuurpayload met formulierdetails", () => {
+  const result = buildTaxatieInvoicePayload(PROJECT, {
+    amountExcl: "725.50",
+    subject: "Taxatie speciaal dossier",
+    description: "Taxatie validatie NWWI",
+    bank: "abn",
+    invoiceDate: "2026-07-21",
+    dueDate: "2026-08-04",
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.payload.subject, "Taxatie speciaal dossier");
+  assert.equal(result.payload.bank, "abn");
+  assert.equal(result.payload.invoiceDate, "2026-07-21");
+  assert.equal(result.payload.dueDate, "2026-08-04");
+  assert.deepEqual(result.payload.lines, [{ description: "Taxatie validatie NWWI", amountExcl: 725.5, vatRate: 0.21 }]);
+});
+
 test("weigert taxatiefactuurpayload zonder debiteurenlink", () => {
   const result = buildTaxatieInvoicePayload({ ...PROJECT, debiteurenLink: null }, { amountExcl: 650 });
 

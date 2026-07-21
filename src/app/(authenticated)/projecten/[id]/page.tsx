@@ -670,6 +670,11 @@ export default function ProjectDetailPage() {
   const [debiteurenLinkSaving, setDebiteurenLinkSaving] = useState(false);
   const [debiteurenMauticSaving, setDebiteurenMauticSaving] = useState(false);
   const [taxatieInvoiceAmount, setTaxatieInvoiceAmount] = useState("");
+  const [taxatieInvoiceSubject, setTaxatieInvoiceSubject] = useState("");
+  const [taxatieInvoiceDescription, setTaxatieInvoiceDescription] = useState("Taxatierapport");
+  const [taxatieInvoiceBank, setTaxatieInvoiceBank] = useState<"rabo" | "abn">("rabo");
+  const [taxatieInvoiceDate, setTaxatieInvoiceDate] = useState("");
+  const [taxatieInvoiceDueDate, setTaxatieInvoiceDueDate] = useState("");
   const [taxatieInvoicePreview, setTaxatieInvoicePreview] = useState<DebiteurenInvoicePreviewData | null>(null);
   const [taxatieInvoiceCreated, setTaxatieInvoiceCreated] = useState<DebiteurenInvoiceCreateData | null>(null);
   const [taxatieInvoiceLoading, setTaxatieInvoiceLoading] = useState(false);
@@ -1382,8 +1387,11 @@ export default function ProjectDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amountExcl: taxatieInvoiceAmount,
-          description: "Taxatierapport",
-          bank: "rabo",
+          subject: taxatieInvoiceSubject,
+          description: taxatieInvoiceDescription,
+          bank: taxatieInvoiceBank,
+          invoiceDate: taxatieInvoiceDate,
+          dueDate: taxatieInvoiceDueDate,
         }),
       });
       const data = await res.json();
@@ -1420,8 +1428,11 @@ export default function ProjectDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amountExcl: taxatieInvoiceAmount,
-          description: "Taxatierapport",
-          bank: "rabo",
+          subject: taxatieInvoiceSubject,
+          description: taxatieInvoiceDescription,
+          bank: taxatieInvoiceBank,
+          invoiceDate: taxatieInvoiceDate,
+          dueDate: taxatieInvoiceDueDate,
           confirmation: "FACTUUR",
         }),
       });
@@ -1939,6 +1950,27 @@ export default function ProjectDetailPage() {
                           className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         />
                       </div>
+                      <div className="min-w-[180px] flex-1">
+                        <label className="mb-1 block text-xs font-medium text-emerald-900">Omschrijving regel</label>
+                        <input
+                          type="text"
+                          value={taxatieInvoiceDescription}
+                          onChange={(e) => setTaxatieInvoiceDescription(e.target.value)}
+                          placeholder="Taxatierapport"
+                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                      <div className="min-w-[120px]">
+                        <label className="mb-1 block text-xs font-medium text-emerald-900">Bank</label>
+                        <select
+                          value={taxatieInvoiceBank}
+                          onChange={(e) => setTaxatieInvoiceBank(e.target.value === "abn" ? "abn" : "rabo")}
+                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                        >
+                          <option value="rabo">Rabo</option>
+                          <option value="abn">ABN</option>
+                        </select>
+                      </div>
                       <button
                         onClick={handleTaxatieInvoicePreview}
                         disabled={taxatieInvoiceLoading || !taxatieInvoiceAmount}
@@ -1947,6 +1979,36 @@ export default function ProjectDetailPage() {
                         <ArrowPathIcon className={`h-3.5 w-3.5 ${taxatieInvoiceLoading ? "animate-spin" : ""}`} />
                         Preview
                       </button>
+                    </div>
+                    <div className="mt-2 grid gap-2 md:grid-cols-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-emerald-900">Onderwerp</label>
+                        <input
+                          type="text"
+                          value={taxatieInvoiceSubject}
+                          onChange={(e) => setTaxatieInvoiceSubject(e.target.value)}
+                          placeholder="Automatisch op basis van projectadres"
+                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-emerald-900">Factuurdatum</label>
+                        <input
+                          type="date"
+                          value={taxatieInvoiceDate}
+                          onChange={(e) => setTaxatieInvoiceDate(e.target.value)}
+                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-emerald-900">Vervaldatum</label>
+                        <input
+                          type="date"
+                          value={taxatieInvoiceDueDate}
+                          onChange={(e) => setTaxatieInvoiceDueDate(e.target.value)}
+                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                        />
+                      </div>
                     </div>
                     {taxatieInvoiceError && (
                       <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
