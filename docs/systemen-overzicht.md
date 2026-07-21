@@ -15,14 +15,14 @@ private keys of API tokens.
 | Lokale repo | `/Users/melvin/LocalDev/DeVreeMakelaardij` |
 | Actieve werkmap debiteurenverbetering | `/Users/melvin/LocalDev/devree-platform-debiteuren-secops` |
 | GitHub | `git@github.com:mdevree/devree-platform.git` |
-| Productie-image | `ghcr.io/mdevree/devree-platform:04c7573` |
-| Live revision | `04c7573` |
+| Productie-image | `ghcr.io/mdevree/devree-platform:045268c` |
+| Live revision | `045268c` |
 | Server | `136.144.253.219` |
 | Stackpad | `/home/DeVreeMakelaardij/stacks/devree-platform` |
 | Deployscript | `/usr/local/sbin/deploy-devree-platform <tag>` |
 | Healthcheck | `http://127.0.0.1:3100/digitale-medewerker` op de server |
 | Runtime/CI | Node 24 in GitHub Actions en lokaal gecontroleerd met Node `v24.16.0` |
-| Status op 2026-07-21 | Container draait op image `04c7573`; loginroute `200`, beschermde routes `307`, API zonder sessie `401`, recente logs schoon |
+| Status op 2026-07-21 | Container draait op image `045268c`; loginroute `200`, beschermde routes `307`, API zonder sessie `401`, directe debiteurenfactuur-read vanuit container gecontroleerd, recente logs schoon |
 
 Lokale aandachtspunten:
 
@@ -45,6 +45,7 @@ Uitgevoerd na de debiteurenverbeteringen:
 | `e9b5278` | Adreswaarschuwingen uit Mautic kunnen in `/debiteurencontrole` als gecontroleerd worden gemarkeerd, inclusief notitie/auditvelden | `npm run verify` groen; productie-DB backup gemaakt; container `e9b5278`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; review-endpoint zonder sessie `401`; logs schoon |
 | `c6196c3` | Platformfacturen synchroniseren status, betaaldatum, verlopenstatus, laatste sync en syncmelding vanuit de debiteurensamenvatting | `npm run verify` groen; productie-DB backup gemaakt; container `c6196c3`; `/login` `200`; projectroute met `focus=debiteuren` `307`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
 | `04c7573` | Centrale debiteurencontrole toont verlopen/niet-gesynchroniseerde platformfacturen als aandachtspunt | `npm run verify` groen; container `04c7573`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
+| `045268c` | Platform haalt factuurstatussen direct op via `InvoiceReadV1` in plaats van via de klantsamenvatting | `npm run verify` groen; GitHub Actions-run `29866532137` groen; container `045268c`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; directe factuur-read vanuit container geeft gecontroleerd `404 not_found` voor niet-bestaande factuur; logs schoon |
 
 Back-ups vóór directe productie-DB wijzigingen:
 
@@ -57,7 +58,7 @@ Op `136.144.253.219` draaien onder andere:
 
 | Container | Image | Rol |
 | --- | --- | --- |
-| `devree-platform` | `ghcr.io/mdevree/devree-platform:04c7573` | Kantoorplatform |
+| `devree-platform` | `ghcr.io/mdevree/devree-platform:045268c` | Kantoorplatform |
 | `n8n-n8n-1` | `n8nio/n8n:latest` | Automatiseringen en webhooks |
 | `documenso-app` | `documenso/documenso:latest` | Digitaal ondertekenen |
 | `documenso-db` | `postgres:16-alpine` | Documenso database |
@@ -220,8 +221,27 @@ Te controleren:
 | --- | --- |
 | Lokale repo | `/Users/melvin/LocalDev/debiteuren-secops-work` |
 | GitHub | `https://github.com/mdevree/debiteuren-administratie.git` |
-| Laatste bekende codewijzigingen | ContactV1 customer-upsert API, gescheiden read/write/SSO tokens, taxatiefactuur preview/create API |
+| Productiepad | `/home/DeVreeMakelaardij/web/debiteuren.devreemakelaardij.nl/public_html` |
+| Live revision | `cd76d08` |
+| Laatste bekende codewijzigingen | ContactV1 customer-upsert API, gescheiden read/write/SSO tokens, taxatiefactuur preview/create API, direct `InvoiceReadV1` factuur-readcontract |
 | Platformkoppeling | `DEBITEUREN_API_URL`, `DEBITEUREN_READ_API_TOKEN`, `DEBITEUREN_WRITE_API_TOKEN`, `DEBITEUREN_SSO_SECRET`, `NEXT_PUBLIC_DEBITEUREN_URL` |
+
+Productiechecks debiteurensysteem 2026-07-21:
+
+| Commit | Wijziging | Controle |
+| --- | --- | --- |
+| `90ebea0` | `ContactV1` customer-upsert API voor genormaliseerde Mautic-/platformcontacten | Syntax en tests groen; live API zonder token `401`; bestaande routes blijven bereikbaar |
+| `3cf5e67` | `POST` customer-upserts met write-token en idempotente klantkoppeling | Syntax en tests groen; live zonder token `401`; geen testklanten aangemaakt |
+| `9771df5` | Taxatiefactuur preview/create contract voor platformkoppeling | Syntax en tests groen; live write-contract alleen met token; geen productiefactuur aangemaakt |
+| `cd76d08` | Direct `GET resource=v1/invoices/{invoiceId}` contract voor factuurstatussen | Lokale en live syntax groen; `tests/run.php` groen met 26 tests; live zonder token `401`; vanuit platformcontainer met read-token gecontroleerd `404 not_found` op niet-bestaande factuur |
+
+Operationele notitie:
+
+- De productiecheckout had geen bruikbare GitHub-auth voor `git pull` via HTTPS.
+  Commit `cd76d08` is daarom gecontroleerd live gezet via gerichte filecopy met
+  back-up, daarna is de servercheckout met een Git-bundle op exact dezelfde
+  commit gezet. `git status --short` was daarna schoon.
+  Back-up: `/home/DeVreeMakelaardij/backups/debiteuren-api-invoiceread-20260721223212/Api.php`.
 
 Actuele platformintegratie op 2026-07-21:
 
@@ -251,8 +271,6 @@ Actuele platformintegratie op 2026-07-21:
 
 Nog te controleren:
 
-- Productiepad en deploymethode van het losse debiteurensysteem expliciet in dit
-  overzicht opnemen.
 - Beslissen of verkoop- en aankoopfacturen dezelfde directe platformflow krijgen
   als taxatiefacturen.
 
