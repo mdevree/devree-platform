@@ -13,7 +13,7 @@ import type { ContactV1NormalizationWarning } from "@/lib/contracts/contactV1";
 import { getContactFull } from "@/lib/mautic";
 import {
   serializeProjectDebiteurenInvoice,
-  syncProjectDebiteurenInvoicesFromSummary,
+  syncProjectDebiteurenInvoices,
 } from "@/lib/projectDebiteurenInvoices";
 
 function klantAdres(summary: Awaited<ReturnType<typeof getDebiteurenFactuurSamenvatting>>) {
@@ -135,9 +135,8 @@ export async function GET(
       },
     });
 
-    const invoices = await syncProjectDebiteurenInvoicesFromSummary({
+    const invoices = await syncProjectDebiteurenInvoices({
       projectId: id,
-      summary,
     });
 
     return NextResponse.json({

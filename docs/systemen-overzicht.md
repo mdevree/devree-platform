@@ -243,6 +243,9 @@ Actuele platformintegratie op 2026-07-21:
   dubbele platformfacturen.
 - Platformfacturen bewaren debiteuren-factuurnummer, bedrag, status
   (`open`, `overdue`, `paid`), betaaldatum, hash, laatste sync en syncfout.
+- Factuurstatussen worden via het directe debiteurencontract
+  `GET resource=v1/invoices/{invoiceId}` opgehaald; de oudere
+  klantsamenvatting blijft voor klant/openstaand-overzicht.
 - Het platform gebruikt gescheiden debiteurengeheimen voor read-only API,
   write-API en SSO; het oude gedeelde token is geen fallback.
 
@@ -250,11 +253,8 @@ Nog te controleren:
 
 - Productiepad en deploymethode van het losse debiteurensysteem expliciet in dit
   overzicht opnemen.
-- Beslissen of verkoop- en aankoopfacturen dezelfde platformflow krijgen als
-  taxatiefacturen.
-- Bepalen of de debiteuren-API een direct factuurstatus-endpoint moet krijgen,
-  zodat het platform niet afhankelijk is van `laatsteFacturen` in de
-  klantsamenvatting.
+- Beslissen of verkoop- en aankoopfacturen dezelfde directe platformflow krijgen
+  als taxatiefacturen.
 
 ## Lokale mappen en bronstatus
 

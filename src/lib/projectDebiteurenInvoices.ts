@@ -1,8 +1,9 @@
 import type { ProjectDebiteurenInvoice } from "@prisma/client";
 import {
+  getDebiteurenInvoice,
   getDebiteurenSharedLoginPath,
+  isDebiteurenApiError,
   type DebiteurenFactuur,
-  type DebiteurenSummaryResponse,
 } from "./debiteuren";
 import { prisma } from "./prisma";
 
@@ -19,6 +20,16 @@ export function statusFromDebiteurenFactuur(factuur: Pick<DebiteurenFactuur, "be
   if (factuur.betaald) return "paid";
   if (factuur.verlopen) return "overdue";
   return "open";
+}
+
+function invoiceSyncError(error: unknown) {
+  if (isDebiteurenApiError(error) && error.status === 404) {
+    return "Niet gevonden via InvoiceReadV1 in debiteurensysteem";
+  }
+
+  return error instanceof Error
+    ? error.message
+    : "Factuurstatus kon niet worden opgehaald";
 }
 
 export function serializeProjectDebiteurenInvoice(invoice: ProjectDebiteurenInvoice) {
@@ -46,12 +57,10 @@ export function serializeProjectDebiteurenInvoice(invoice: ProjectDebiteurenInvo
   };
 }
 
-export async function syncProjectDebiteurenInvoicesFromSummary({
+export async function syncProjectDebiteurenInvoices({
   projectId,
-  summary,
 }: {
   projectId: string;
-  summary: DebiteurenSummaryResponse;
 }) {
   const platformInvoices = await prisma.projectDebiteurenInvoice.findMany({
     where: { projectId },
@@ -59,37 +68,47 @@ export async function syncProjectDebiteurenInvoicesFromSummary({
   if (platformInvoices.length === 0) return [];
 
   const now = new Date();
-  const facturenById = new Map(summary.samenvatting.laatsteFacturen.map((factuur) => [factuur.id, factuur]));
 
-  await Promise.all(platformInvoices.map((invoice) => {
-    const factuur = facturenById.get(invoice.debiteurenFactuurId);
-    if (!factuur) {
+  await Promise.all(platformInvoices.map(async (invoice) => {
+    try {
+      const response = await getDebiteurenInvoice(invoice.debiteurenFactuurId);
+      const factuur = response.invoice;
+      if (!factuur) {
+        return prisma.projectDebiteurenInvoice.update({
+          where: { id: invoice.id },
+          data: {
+            lastSyncedAt: now,
+            syncError: "Niet gevonden via InvoiceReadV1 in debiteurensysteem",
+          },
+        });
+      }
+
+      return prisma.projectDebiteurenInvoice.update({
+        where: { id: invoice.id },
+        data: {
+          factuurnummer: factuur.factuurnummer,
+          subject: factuur.betreft || invoice.subject,
+          invoiceDate: dateFromDebiteuren(factuur.datum),
+          dueDate: dateFromDebiteuren(factuur.vervaldatum),
+          amountExclCents: moneyToCents(factuur.bedragExcl),
+          amountInclCents: moneyToCents(factuur.bedragIncl),
+          status: factuur.status || statusFromDebiteurenFactuur(factuur),
+          paidAt: dateFromDebiteuren(factuur.betaaldOp),
+          overdue: factuur.verlopen,
+          hash: factuur.hash,
+          lastSyncedAt: now,
+          syncError: null,
+        },
+      });
+    } catch (error) {
       return prisma.projectDebiteurenInvoice.update({
         where: { id: invoice.id },
         data: {
           lastSyncedAt: now,
-          syncError: "Niet gevonden in recente debiteuren-factuursamenvatting",
+          syncError: invoiceSyncError(error),
         },
       });
     }
-
-    return prisma.projectDebiteurenInvoice.update({
-      where: { id: invoice.id },
-      data: {
-        factuurnummer: factuur.factuurnummer,
-        subject: factuur.betreft || invoice.subject,
-        invoiceDate: dateFromDebiteuren(factuur.datum),
-        dueDate: dateFromDebiteuren(factuur.vervaldatum),
-        amountExclCents: moneyToCents(factuur.bedragExcl),
-        amountInclCents: moneyToCents(factuur.bedragIncl),
-        status: statusFromDebiteurenFactuur(factuur),
-        paidAt: dateFromDebiteuren(factuur.betaaldOp),
-        overdue: factuur.verlopen,
-        hash: factuur.hash,
-        lastSyncedAt: now,
-        syncError: null,
-      },
-    });
   }));
 
   return prisma.projectDebiteurenInvoice.findMany({

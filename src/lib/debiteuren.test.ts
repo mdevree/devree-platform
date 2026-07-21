@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   createDebiteurenSharedLoginUrl,
   createDebiteurenInvoice,
+  getDebiteurenInvoice,
   previewDebiteurenInvoice,
   searchDebiteurenKlanten,
   upsertDebiteurenCustomerFromContact,
@@ -237,6 +238,54 @@ test("invoice-create stuurt stabiele idempotency-key mee", async () => {
 
     const result = await createDebiteurenInvoice(payload, "melvin@example.invalid", "project-1:taxatie:v1");
     assert.equal(result.result, "created");
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnvironment(snapshot);
+  }
+});
+
+test("invoice-read gebruikt read-token en InvoiceReadV1 resource", async () => {
+  const snapshot = snapshotEnvironment();
+  const originalFetch = global.fetch;
+  try {
+    process.env.DEBITEUREN_API_URL = "https://debiteuren.example.test";
+    process.env.DEBITEUREN_READ_API_TOKEN = "read-secret";
+
+    global.fetch = async (input, init) => {
+      const url = new URL(String(input));
+      const headers = new Headers(init?.headers);
+
+      assert.equal(init?.method, undefined);
+      assert.equal(url.searchParams.get("resource"), "v1/invoices/789");
+      assert.equal(headers.get("X-Debiteuren-Read-Token"), "read-secret");
+      assert.equal(headers.get("X-Debiteuren-Write-Token"), null);
+
+      return new Response(JSON.stringify({
+        result: "ok",
+        invoice: {
+          id: 789,
+          factuurnummer: 2026001,
+          betreft: "Taxatie",
+          datum: "2026-07-21",
+          vervaldatum: "2026-08-04",
+          betaaldOp: null,
+          bedragIncl: 786.5,
+          bedragExcl: 650,
+          betaald: false,
+          verlopen: false,
+          status: "open",
+          score: null,
+          hash: "abc123",
+          herinneringen: { herinnering1: null, herinnering2: null, laatsteAanmaning: null },
+        },
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    const result = await getDebiteurenInvoice(789);
+    assert.equal(result.invoice?.status, "open");
   } finally {
     global.fetch = originalFetch;
     restoreEnvironment(snapshot);

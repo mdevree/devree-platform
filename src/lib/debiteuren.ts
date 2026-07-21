@@ -14,6 +14,8 @@ type DebiteurenKlant = {
 export type DebiteurenFactuur = {
   id: number;
   factuurnummer: number;
+  customerId?: number;
+  secondaryCustomerId?: number;
   betreft: string;
   datum: string | null;
   vervaldatum: string | null;
@@ -22,6 +24,7 @@ export type DebiteurenFactuur = {
   bedragExcl: number;
   betaald: boolean;
   verlopen: boolean;
+  status?: "paid" | "overdue" | "open";
   score: number | null;
   hash: string | null;
   herinneringen: {
@@ -44,6 +47,12 @@ export type DebiteurenSummaryResponse = {
     verlopenFacturen: number;
     laatsteFacturen: DebiteurenFactuur[];
   };
+};
+
+export type DebiteurenInvoiceReadResponse = {
+  result: "ok" | "not_found";
+  invoice: DebiteurenFactuur | null;
+  errors?: string[];
 };
 
 export type DebiteurenCustomerUpsertResponse = {
@@ -270,6 +279,10 @@ export async function getDebiteurenFactuurSamenvatting(klantId: number) {
   return debiteurenGet<DebiteurenSummaryResponse>("klanten/factuur-samenvatting", {
     klant_id: klantId,
   });
+}
+
+export async function getDebiteurenInvoice(factuurId: number) {
+  return debiteurenGet<DebiteurenInvoiceReadResponse>(`v1/invoices/${factuurId}`);
 }
 
 export async function upsertDebiteurenCustomerFromContact(contact: ContactV1, actor: string) {
