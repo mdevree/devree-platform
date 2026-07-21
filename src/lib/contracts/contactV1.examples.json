@@ -1,0 +1,167 @@
+[
+  {
+    "name": "volledig-contact",
+    "payload": {
+      "contractVersion": "ContactV1",
+      "source": "mautic",
+      "mauticContactId": 12345,
+      "aanhef": "De heer",
+      "initialen": "M.",
+      "voornamen": "Melvin",
+      "voornaam": "Melvin",
+      "tussenvoegsel": "de",
+      "achternaam": "Vree",
+      "email": "melvin@example.invalid",
+      "mobiel": "0612345678",
+      "telefoon": "0101234567",
+      "straat": "Dorpsstraat",
+      "huisnummer": "12",
+      "toevoeging": "A",
+      "aanvullendeAdresregel": null,
+      "postcode": "1234 AB",
+      "plaats": "Rotterdam",
+      "land": "Nederland",
+      "partner": null,
+      "normalizationWarnings": []
+    }
+  },
+  {
+    "name": "ontbrekend-huisnummer",
+    "payload": {
+      "contractVersion": "ContactV1",
+      "source": "mautic",
+      "mauticContactId": 12346,
+      "aanhef": "Mevrouw",
+      "initialen": "A.",
+      "voornamen": "Anne",
+      "voornaam": "Anne",
+      "tussenvoegsel": null,
+      "achternaam": "Jansen",
+      "email": "anne@example.invalid",
+      "mobiel": null,
+      "telefoon": "0107654321",
+      "straat": "Langeweg",
+      "huisnummer": null,
+      "toevoeging": null,
+      "aanvullendeAdresregel": null,
+      "postcode": "3011 AA",
+      "plaats": "Rotterdam",
+      "land": "Nederland",
+      "partner": null,
+      "normalizationWarnings": [
+        {
+          "code": "missing_house_number",
+          "field": "huisnummer",
+          "message": "Mautic bevat geen apart huisnummer."
+        }
+      ]
+    }
+  },
+  {
+    "name": "samengesteld-address1",
+    "payload": {
+      "contractVersion": "ContactV1",
+      "source": "mautic",
+      "mauticContactId": 12347,
+      "aanhef": "De heer",
+      "initialen": "P.",
+      "voornamen": "Pieter",
+      "voornaam": "Pieter",
+      "tussenvoegsel": null,
+      "achternaam": "Bakker",
+      "email": "pieter@example.invalid",
+      "mobiel": "0611111111",
+      "telefoon": null,
+      "straat": "Bergweg",
+      "huisnummer": "12",
+      "toevoeging": "bis",
+      "aanvullendeAdresregel": null,
+      "postcode": "3037 AB",
+      "plaats": "Rotterdam",
+      "land": "Nederland",
+      "partner": null,
+      "normalizationWarnings": [
+        {
+          "code": "parsed_address1",
+          "field": "straat",
+          "message": "Straat, huisnummer en toevoeging zijn uit address1 afgeleid."
+        }
+      ]
+    }
+  },
+  {
+    "name": "buitenlandse-postcode",
+    "payload": {
+      "contractVersion": "ContactV1",
+      "source": "mautic",
+      "mauticContactId": 12348,
+      "aanhef": null,
+      "initialen": "C.",
+      "voornamen": "Claire",
+      "voornaam": "Claire",
+      "tussenvoegsel": null,
+      "achternaam": "Dupont",
+      "email": "claire@example.invalid",
+      "mobiel": "+33123456789",
+      "telefoon": null,
+      "straat": "Rue Exemple",
+      "huisnummer": "4",
+      "toevoeging": null,
+      "aanvullendeAdresregel": "Appartement 2",
+      "postcode": "75001",
+      "plaats": "Paris",
+      "land": "Frankrijk",
+      "partner": null,
+      "normalizationWarnings": [
+        {
+          "code": "foreign_postcode",
+          "field": "postcode",
+          "message": "Postcode is niet als Nederlandse postcode genormaliseerd."
+        }
+      ]
+    }
+  },
+  {
+    "name": "partnercontact",
+    "payload": {
+      "contractVersion": "ContactV1",
+      "source": "mautic",
+      "mauticContactId": 12349,
+      "aanhef": "Mevrouw",
+      "initialen": "S.",
+      "voornamen": "Sanne",
+      "voornaam": "Sanne",
+      "tussenvoegsel": null,
+      "achternaam": "Van Dijk",
+      "email": "sanne@example.invalid",
+      "mobiel": "0622222222",
+      "telefoon": null,
+      "straat": "Kade",
+      "huisnummer": "8",
+      "toevoeging": null,
+      "aanvullendeAdresregel": null,
+      "postcode": "3016 DR",
+      "plaats": "Rotterdam",
+      "land": "Nederland",
+      "partner": {
+        "mauticContactId": 12350,
+        "aanhef": "De heer",
+        "initialen": "T.",
+        "voornamen": "Thomas",
+        "voornaam": "Thomas",
+        "tussenvoegsel": null,
+        "achternaam": "Van Dijk",
+        "email": "thomas@example.invalid",
+        "mobiel": "0633333333",
+        "telefoon": null
+      },
+      "normalizationWarnings": [
+        {
+          "code": "partner_present",
+          "field": "partner",
+          "message": "Partnercontact is apart meegeleverd en moet expliciet gekoppeld worden."
+        }
+      ]
+    }
+  }
+]
