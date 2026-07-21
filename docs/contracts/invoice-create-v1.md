@@ -4,8 +4,8 @@ Laatst bijgewerkt: 2026-07-21.
 
 Dit is het platformcontract voor factuurvoorbereiding richting het
 debiteurensysteem. De eerste platformroute gebruikt alleen `preview`, zodat
-kantoor een taxatiefactuur kan controleren voordat er een echte factuur wordt
-aangemaakt.
+kantoor een projectfactuur kan controleren voordat er een echte factuur wordt
+aangemaakt. Dezelfde route ondersteunt taxatie-, verkoop- en aankoopprojecten.
 
 ## Platformroute
 
@@ -31,11 +31,21 @@ Body:
 Voorwaarden:
 
 - gebruiker moet ingelogd zijn;
-- project moet type `TAXATIE` zijn;
+- project moet type `TAXATIE`, `VERKOOP` of `AANKOOP` zijn;
 - project moet al een debiteurenklant-link hebben;
-- `amountExcl` wordt expliciet gevraagd en niet uit projectvelden geraden.
+- `amountExcl` wordt expliciet gevraagd en niet uit projectvelden geraden;
 - `description`, `subject`, `bank`, `invoiceDate` en `dueDate` kunnen door
   kantoor worden aangepast vóór preview en aanmaak.
+
+Het platform leidt `invoiceType` af uit het projecttype en vertrouwt daarvoor
+niet op de browserpayload. Defaults wanneer kantoor onderwerp/omschrijving leeg
+laat:
+
+| Projecttype | `invoiceType` | Standaard onderwerp | Standaard regelomschrijving |
+| --- | --- | --- | --- |
+| `TAXATIE` | `taxatie` | `Taxatie <adres of projectnaam>` | `Taxatierapport` |
+| `VERKOOP` | `verkoop` | `Verkoopbegeleiding <adres of projectnaam>` | `Courtage verkoop` |
+| `AANKOOP` | `aankoop` | `Aankoopbegeleiding <adres of projectnaam>` | `Aankoopbegeleiding` |
 
 ## Debiteuren-contract
 
@@ -80,9 +90,9 @@ Body is gelijk aan de previewroute, met extra veld:
 ```
 
 De platformroute weigert de request zonder exacte bevestiging. Daarna gebruikt
-het platform een vaste idempotency-key per project/taxatiefactuur:
-`project:{projectId}:taxatie-invoice:v1`. Daardoor maakt een retry of dubbelklik
-geen tweede factuur aan.
+het platform een vaste idempotency-key per project en factuurtype:
+`project:{projectId}:{invoiceType}-invoice:v1`. Daardoor maakt een retry of
+dubbelklik geen tweede factuur aan.
 
 Als `project_debiteuren_invoices` al een rij met deze idempotency-key bevat,
 roept het platform de debiteuren-create-route niet opnieuw aan. De API geeft dan

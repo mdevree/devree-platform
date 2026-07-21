@@ -45,7 +45,7 @@ import {
   VERKOOPSTART_LABELS,
 } from "@/lib/projectTypes";
 import { AANKOOP_WERKGEBIED_DEFAULT, aankoopTarievenFromProject } from "@/lib/otdAankoop";
-import { getTaxatieInvoiceIdempotencyKey } from "@/lib/debiteurenInvoicePayload";
+import { getProjectInvoiceIdempotencyKey, type ProjectInvoiceType } from "@/lib/debiteurenInvoicePayload";
 import TaxatieControlePanel from "./TaxatieControlePanel";
 
 const MAUTIC_URL =
@@ -70,6 +70,25 @@ const OTD_PROPOSAL_OPTIONS = [
     description: "Akkoord vastleggen met latere start.",
   },
 ];
+
+function projectInvoiceType(projectType?: string | null): ProjectInvoiceType | null {
+  if (projectType === "TAXATIE") return "taxatie";
+  if (projectType === "VERKOOP") return "verkoop";
+  if (projectType === "AANKOOP") return "aankoop";
+  return null;
+}
+
+function projectInvoiceTitle(invoiceType: ProjectInvoiceType | null) {
+  if (invoiceType === "verkoop") return "Verkoopfactuur voorbereiden";
+  if (invoiceType === "aankoop") return "Aankoopfactuur voorbereiden";
+  return "Taxatiefactuur voorbereiden";
+}
+
+function projectInvoiceDefaultDescription(invoiceType: ProjectInvoiceType | null) {
+  if (invoiceType === "verkoop") return "Courtage verkoop";
+  if (invoiceType === "aankoop") return "Aankoopbegeleiding";
+  return "Taxatierapport";
+}
 
 interface User {
   id: string;
@@ -695,21 +714,22 @@ export default function ProjectDetailPage() {
   const [debiteurenLinkSaving, setDebiteurenLinkSaving] = useState(false);
   const [debiteurenMauticSaving, setDebiteurenMauticSaving] = useState(false);
   const [debiteurenMauticWarnings, setDebiteurenMauticWarnings] = useState<ContactNormalizationWarning[]>([]);
-  const [taxatieInvoiceAmount, setTaxatieInvoiceAmount] = useState("");
-  const [taxatieInvoiceSubject, setTaxatieInvoiceSubject] = useState("");
-  const [taxatieInvoiceDescription, setTaxatieInvoiceDescription] = useState("Taxatierapport");
-  const [taxatieInvoiceBank, setTaxatieInvoiceBank] = useState<"rabo" | "abn">("rabo");
-  const [taxatieInvoiceDate, setTaxatieInvoiceDate] = useState("");
-  const [taxatieInvoiceDueDate, setTaxatieInvoiceDueDate] = useState("");
-  const [taxatieInvoicePreview, setTaxatieInvoicePreview] = useState<DebiteurenInvoicePreviewData | null>(null);
-  const [taxatieInvoiceCreated, setTaxatieInvoiceCreated] = useState<DebiteurenInvoiceCreateData | null>(null);
-  const [taxatieInvoiceLoading, setTaxatieInvoiceLoading] = useState(false);
-  const [taxatieInvoiceCreating, setTaxatieInvoiceCreating] = useState(false);
-  const [taxatieInvoiceError, setTaxatieInvoiceError] = useState("");
+  const [projectInvoiceAmount, setProjectInvoiceAmount] = useState("");
+  const [projectInvoiceSubject, setProjectInvoiceSubject] = useState("");
+  const [projectInvoiceDescription, setProjectInvoiceDescription] = useState("");
+  const [projectInvoiceBank, setProjectInvoiceBank] = useState<"rabo" | "abn">("rabo");
+  const [projectInvoiceDate, setProjectInvoiceDate] = useState("");
+  const [projectInvoiceDueDate, setProjectInvoiceDueDate] = useState("");
+  const [projectInvoicePreview, setProjectInvoicePreview] = useState<DebiteurenInvoicePreviewData | null>(null);
+  const [projectInvoiceCreated, setProjectInvoiceCreated] = useState<DebiteurenInvoiceCreateData | null>(null);
+  const [projectInvoiceLoading, setProjectInvoiceLoading] = useState(false);
+  const [projectInvoiceCreating, setProjectInvoiceCreating] = useState(false);
+  const [projectInvoiceError, setProjectInvoiceError] = useState("");
+  const currentProjectInvoiceType = projectInvoiceType(project?.type);
 
-  const existingTaxatiePlatformInvoice = debiteurenData?.invoices?.find(
-    (invoice) => invoice.idempotencyKey === getTaxatieInvoiceIdempotencyKey(projectId)
-  ) || null;
+  const existingProjectPlatformInvoice = currentProjectInvoiceType ? debiteurenData?.invoices?.find(
+    (invoice) => invoice.idempotencyKey === getProjectInvoiceIdempotencyKey(projectId, currentProjectInvoiceType)
+  ) || null : null;
 
   // Samenvoegen (merge) modal
   const [showMerge, setShowMerge] = useState(false);
@@ -1409,43 +1429,43 @@ export default function ProjectDetailPage() {
     setDebiteurenLinkSaving(false);
   }
 
-  async function handleTaxatieInvoicePreview() {
-    setTaxatieInvoiceLoading(true);
-    setTaxatieInvoiceError("");
-    setTaxatieInvoicePreview(null);
-    setTaxatieInvoiceCreated(null);
+  async function handleProjectInvoicePreview() {
+    setProjectInvoiceLoading(true);
+    setProjectInvoiceError("");
+    setProjectInvoicePreview(null);
+    setProjectInvoiceCreated(null);
     try {
       const res = await fetch(`/api/projecten/${projectId}/debiteuren/invoice-preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amountExcl: taxatieInvoiceAmount,
-          subject: taxatieInvoiceSubject,
-          description: taxatieInvoiceDescription,
-          bank: taxatieInvoiceBank,
-          invoiceDate: taxatieInvoiceDate,
-          dueDate: taxatieInvoiceDueDate,
+          amountExcl: projectInvoiceAmount,
+          subject: projectInvoiceSubject,
+          description: projectInvoiceDescription,
+          bank: projectInvoiceBank,
+          invoiceDate: projectInvoiceDate,
+          dueDate: projectInvoiceDueDate,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        setTaxatieInvoicePreview(data);
+        setProjectInvoicePreview(data);
       } else {
-        setTaxatieInvoiceError(data.error || "Taxatiefactuur-preview mislukt");
+        setProjectInvoiceError(data.error || "Factuur-preview mislukt");
       }
     } catch {
-      setTaxatieInvoiceError("Kan taxatiefactuur-preview niet ophalen");
+      setProjectInvoiceError("Kan factuur-preview niet ophalen");
     }
-    setTaxatieInvoiceLoading(false);
+    setProjectInvoiceLoading(false);
   }
 
-  async function handleCreateTaxatieInvoice() {
-    if (!taxatieInvoicePreview?.preview.invoice) {
-      setTaxatieInvoiceError("Maak eerst een preview voordat je de factuur aanmaakt");
+  async function handleCreateProjectInvoice() {
+    if (!projectInvoicePreview?.preview.invoice) {
+      setProjectInvoiceError("Maak eerst een preview voordat je de factuur aanmaakt");
       return;
     }
-    if (existingTaxatiePlatformInvoice) {
-      setTaxatieInvoiceError("Deze taxatiefactuur is al via het platform aangemaakt.");
+    if (existingProjectPlatformInvoice) {
+      setProjectInvoiceError("Deze factuur is al via het platform aangemaakt.");
       return;
     }
 
@@ -1453,37 +1473,37 @@ export default function ProjectDetailPage() {
       "Deze actie maakt definitief een factuur aan in debiteuren. Typ FACTUUR om door te gaan."
     );
     if (confirmation !== "FACTUUR") {
-      setTaxatieInvoiceError("Factuuraanmaak geannuleerd: bevestiging was niet exact FACTUUR.");
+      setProjectInvoiceError("Factuuraanmaak geannuleerd: bevestiging was niet exact FACTUUR.");
       return;
     }
 
-    setTaxatieInvoiceCreating(true);
-    setTaxatieInvoiceError("");
+    setProjectInvoiceCreating(true);
+    setProjectInvoiceError("");
     try {
       const res = await fetch(`/api/projecten/${projectId}/debiteuren/invoice-create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amountExcl: taxatieInvoiceAmount,
-          subject: taxatieInvoiceSubject,
-          description: taxatieInvoiceDescription,
-          bank: taxatieInvoiceBank,
-          invoiceDate: taxatieInvoiceDate,
-          dueDate: taxatieInvoiceDueDate,
+          amountExcl: projectInvoiceAmount,
+          subject: projectInvoiceSubject,
+          description: projectInvoiceDescription,
+          bank: projectInvoiceBank,
+          invoiceDate: projectInvoiceDate,
+          dueDate: projectInvoiceDueDate,
           confirmation: "FACTUUR",
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        setTaxatieInvoiceCreated(data);
+        setProjectInvoiceCreated(data);
         await fetchDebiteuren();
       } else {
-        setTaxatieInvoiceError(data.error || "Taxatiefactuur aanmaken mislukt");
+        setProjectInvoiceError(data.error || "Factuur aanmaken mislukt");
       }
     } catch {
-      setTaxatieInvoiceError("Kan taxatiefactuur niet aanmaken");
+      setProjectInvoiceError("Kan factuur niet aanmaken");
     }
-    setTaxatieInvoiceCreating(false);
+    setProjectInvoiceCreating(false);
   }
 
   // --- Samenvoegen ---
@@ -2001,19 +2021,19 @@ export default function ProjectDetailPage() {
                   </div>
                 )}
 
-                {project.type === "TAXATIE" && (
+                {currentProjectInvoiceType && (
                   <div className="mt-3 rounded-md border border-emerald-100 bg-emerald-50 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Taxatiefactuur voorbereiden</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{projectInvoiceTitle(currentProjectInvoiceType)}</p>
                     <p className="mt-1 text-xs text-emerald-700/80">
                       Controleer eerst de preview. Aanmaken vraagt daarna om expliciete bevestiging.
                     </p>
-                    {existingTaxatiePlatformInvoice && (
+                    {existingProjectPlatformInvoice && (
                       <div className="mt-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
-                        Deze taxatiefactuur is al via het platform aangemaakt als
-                        {" "}#{existingTaxatiePlatformInvoice.factuurnummer || existingTaxatiePlatformInvoice.debiteurenFactuurId}.
+                        Deze factuur is al via het platform aangemaakt als
+                        {" "}#{existingProjectPlatformInvoice.factuurnummer || existingProjectPlatformInvoice.debiteurenFactuurId}.
                         {" "}
                         <a
-                          href={existingTaxatiePlatformInvoice.invoiceUrl}
+                          href={existingProjectPlatformInvoice.invoiceUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-semibold text-green-900 hover:underline"
@@ -2029,8 +2049,8 @@ export default function ProjectDetailPage() {
                           type="number"
                           min="0"
                           step="0.01"
-                          value={taxatieInvoiceAmount}
-                          onChange={(e) => setTaxatieInvoiceAmount(e.target.value)}
+                          value={projectInvoiceAmount}
+                          onChange={(e) => setProjectInvoiceAmount(e.target.value)}
                           placeholder="650,00"
                           className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         />
@@ -2039,17 +2059,17 @@ export default function ProjectDetailPage() {
                         <label className="mb-1 block text-xs font-medium text-emerald-900">Omschrijving regel</label>
                         <input
                           type="text"
-                          value={taxatieInvoiceDescription}
-                          onChange={(e) => setTaxatieInvoiceDescription(e.target.value)}
-                          placeholder="Taxatierapport"
+                          value={projectInvoiceDescription}
+                          onChange={(e) => setProjectInvoiceDescription(e.target.value)}
+                          placeholder={projectInvoiceDefaultDescription(currentProjectInvoiceType)}
                           className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         />
                       </div>
                       <div className="min-w-[120px]">
                         <label className="mb-1 block text-xs font-medium text-emerald-900">Bank</label>
                         <select
-                          value={taxatieInvoiceBank}
-                          onChange={(e) => setTaxatieInvoiceBank(e.target.value === "abn" ? "abn" : "rabo")}
+                          value={projectInvoiceBank}
+                          onChange={(e) => setProjectInvoiceBank(e.target.value === "abn" ? "abn" : "rabo")}
                           className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         >
                           <option value="rabo">Rabo</option>
@@ -2057,11 +2077,11 @@ export default function ProjectDetailPage() {
                         </select>
                       </div>
                       <button
-                        onClick={handleTaxatieInvoicePreview}
-                        disabled={taxatieInvoiceLoading || !taxatieInvoiceAmount}
+                        onClick={handleProjectInvoicePreview}
+                        disabled={projectInvoiceLoading || !projectInvoiceAmount}
                         className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <ArrowPathIcon className={`h-3.5 w-3.5 ${taxatieInvoiceLoading ? "animate-spin" : ""}`} />
+                        <ArrowPathIcon className={`h-3.5 w-3.5 ${projectInvoiceLoading ? "animate-spin" : ""}`} />
                         Preview
                       </button>
                     </div>
@@ -2070,8 +2090,8 @@ export default function ProjectDetailPage() {
                         <label className="mb-1 block text-xs font-medium text-emerald-900">Onderwerp</label>
                         <input
                           type="text"
-                          value={taxatieInvoiceSubject}
-                          onChange={(e) => setTaxatieInvoiceSubject(e.target.value)}
+                          value={projectInvoiceSubject}
+                          onChange={(e) => setProjectInvoiceSubject(e.target.value)}
                           placeholder="Automatisch op basis van projectadres"
                           className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         />
@@ -2080,8 +2100,8 @@ export default function ProjectDetailPage() {
                         <label className="mb-1 block text-xs font-medium text-emerald-900">Factuurdatum</label>
                         <input
                           type="date"
-                          value={taxatieInvoiceDate}
-                          onChange={(e) => setTaxatieInvoiceDate(e.target.value)}
+                          value={projectInvoiceDate}
+                          onChange={(e) => setProjectInvoiceDate(e.target.value)}
                           className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         />
                       </div>
@@ -2089,33 +2109,33 @@ export default function ProjectDetailPage() {
                         <label className="mb-1 block text-xs font-medium text-emerald-900">Vervaldatum</label>
                         <input
                           type="date"
-                          value={taxatieInvoiceDueDate}
-                          onChange={(e) => setTaxatieInvoiceDueDate(e.target.value)}
+                          value={projectInvoiceDueDate}
+                          onChange={(e) => setProjectInvoiceDueDate(e.target.value)}
                           className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                         />
                       </div>
                     </div>
-                    {taxatieInvoiceError && (
+                    {projectInvoiceError && (
                       <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
-                        {taxatieInvoiceError}
+                        {projectInvoiceError}
                       </div>
                     )}
-                    {taxatieInvoicePreview?.preview.invoice && (
+                    {projectInvoicePreview?.preview.invoice && (
                       <div className="mt-3 rounded border border-emerald-100 bg-white p-3 text-xs">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="font-semibold text-gray-900">{taxatieInvoicePreview.preview.invoice.subject}</p>
+                            <p className="font-semibold text-gray-900">{projectInvoicePreview.preview.invoice.subject}</p>
                             <p className="mt-1 text-gray-500">
-                              Vervaldatum {formatDateFull(taxatieInvoicePreview.preview.invoice.dueDate)}
+                              Vervaldatum {formatDateFull(projectInvoicePreview.preview.invoice.dueDate)}
                             </p>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="font-semibold text-gray-900">{formatCurrency(taxatieInvoicePreview.preview.invoice.amountIncl)}</p>
+                            <p className="font-semibold text-gray-900">{formatCurrency(projectInvoicePreview.preview.invoice.amountIncl)}</p>
                             <p className="text-gray-500">incl. btw</p>
                           </div>
                         </div>
                         <div className="mt-2 divide-y divide-gray-100">
-                          {taxatieInvoicePreview.preview.invoice.lines.map((line) => (
+                          {projectInvoicePreview.preview.invoice.lines.map((line) => (
                             <div key={line.description} className="flex justify-between gap-3 py-1.5">
                               <span className="text-gray-600">{line.description}</span>
                               <span className="font-medium text-gray-900">{formatCurrency(line.amountExcl)} excl.</span>
@@ -2126,29 +2146,29 @@ export default function ProjectDetailPage() {
                           <p className="text-[11px] text-gray-500">
                             Definitief aanmaken gebruikt een idempotency-key; opnieuw klikken maakt geen dubbele factuur.
                           </p>
-                          {!existingTaxatiePlatformInvoice && (
+                          {!existingProjectPlatformInvoice && (
                             <button
-                              onClick={handleCreateTaxatieInvoice}
-                              disabled={taxatieInvoiceCreating}
+                              onClick={handleCreateProjectInvoice}
+                              disabled={projectInvoiceCreating}
                               className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <BanknotesIcon className="h-3.5 w-3.5" />
-                              {taxatieInvoiceCreating ? "Aanmaken..." : "Factuur aanmaken"}
+                              {projectInvoiceCreating ? "Aanmaken..." : "Factuur aanmaken"}
                             </button>
                           )}
                         </div>
                       </div>
                     )}
-                    {taxatieInvoiceCreated?.invoice && (
+                    {projectInvoiceCreated?.invoice && (
                       <div className="mt-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span>
-                            Factuur #{taxatieInvoiceCreated.invoice.invoiceNumber} is aangemaakt:
-                            {" "}{formatCurrency(taxatieInvoiceCreated.invoice.amountIncl)} incl. btw.
+                            Factuur #{projectInvoiceCreated.invoice.invoiceNumber} is aangemaakt:
+                            {" "}{formatCurrency(projectInvoiceCreated.invoice.amountIncl)} incl. btw.
                           </span>
-                          {taxatieInvoiceCreated.invoiceUrl && (
+                          {projectInvoiceCreated.invoiceUrl && (
                             <a
-                              href={taxatieInvoiceCreated.invoiceUrl}
+                              href={projectInvoiceCreated.invoiceUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 font-semibold text-green-900 hover:underline"
@@ -2160,15 +2180,15 @@ export default function ProjectDetailPage() {
                         </div>
                       </div>
                     )}
-                    {taxatieInvoiceCreated?.platformInvoice && !taxatieInvoiceCreated.invoice && (
+                    {projectInvoiceCreated?.platformInvoice && !projectInvoiceCreated.invoice && (
                       <div className="mt-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span>
-                            {taxatieInvoiceCreated.message || "Deze taxatiefactuur was al aangemaakt"}:
-                            {" "}#{taxatieInvoiceCreated.platformInvoice.factuurnummer || taxatieInvoiceCreated.platformInvoice.debiteurenFactuurId}.
+                            {projectInvoiceCreated.message || "Deze factuur was al aangemaakt"}:
+                            {" "}#{projectInvoiceCreated.platformInvoice.factuurnummer || projectInvoiceCreated.platformInvoice.debiteurenFactuurId}.
                           </span>
                           <a
-                            href={taxatieInvoiceCreated.invoiceUrl || taxatieInvoiceCreated.platformInvoice.invoiceUrl}
+                            href={projectInvoiceCreated.invoiceUrl || projectInvoiceCreated.platformInvoice.invoiceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 font-semibold text-green-900 hover:underline"
@@ -2187,7 +2207,7 @@ export default function ProjectDetailPage() {
                             <div key={invoice.id} className="flex items-center justify-between gap-3 py-2">
                               <div className="min-w-0">
                                 <p className="truncate font-medium text-gray-900">
-                                  #{invoice.factuurnummer || invoice.debiteurenFactuurId} · {invoice.subject || "Taxatiefactuur"}
+                                  #{invoice.factuurnummer || invoice.debiteurenFactuurId} · {invoice.subject || "Factuur"}
                                 </p>
                                 <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-gray-500">
                                   {invoiceStatusBadge(invoice)}

@@ -5,7 +5,7 @@ import {
   previewDebiteurenInvoice,
   isDebiteurenApiError,
 } from "@/lib/debiteuren";
-import { buildTaxatieInvoicePayload } from "@/lib/debiteurenInvoicePayload";
+import { buildProjectInvoicePayload } from "@/lib/debiteurenInvoicePayload";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
@@ -44,7 +44,7 @@ export async function POST(
     return NextResponse.json({ error: "Project niet gevonden" }, { status: 404 });
   }
 
-  const build = buildTaxatieInvoicePayload(project, body);
+  const build = buildProjectInvoicePayload(project, body);
   if (!build.ok) {
     return NextResponse.json({ error: build.error }, { status: build.status });
   }

@@ -224,7 +224,7 @@ Te controleren:
 | GitHub | `https://github.com/mdevree/debiteuren-administratie.git` |
 | Productiepad | `/home/DeVreeMakelaardij/web/debiteuren.devreemakelaardij.nl/public_html` |
 | Live revision | `cd76d08` |
-| Laatste bekende codewijzigingen | ContactV1 customer-upsert API, gescheiden read/write/SSO tokens, taxatiefactuur preview/create API, direct `InvoiceReadV1` factuur-readcontract |
+| Laatste bekende codewijzigingen | ContactV1 customer-upsert API, gescheiden read/write/SSO tokens, projectfactuur preview/create API, direct `InvoiceReadV1` factuur-readcontract |
 | Platformkoppeling | `DEBITEUREN_API_URL`, `DEBITEUREN_READ_API_TOKEN`, `DEBITEUREN_WRITE_API_TOKEN`, `DEBITEUREN_SSO_SECRET`, `NEXT_PUBLIC_DEBITEUREN_URL` |
 
 Productiechecks debiteurensysteem 2026-07-21:
@@ -259,9 +259,11 @@ Actuele platformintegratie op 2026-07-21:
   - recent via het platform aangemaakte facturen.
 - Projectdetailpagina's openen vanaf de controlepagina direct op het
   facturatieblok via `?focus=debiteuren`.
-- Taxatiefacturen kunnen vanuit het platform worden voorbereid, gepreviewd en
-  pas na expliciete `FACTUUR` bevestiging aangemaakt. De idempotency-key voorkomt
-  dubbele platformfacturen.
+- Taxatie-, verkoop- en aankoopfacturen kunnen vanuit het project worden
+  voorbereid, gepreviewd en pas na expliciete `FACTUUR` bevestiging aangemaakt.
+  De idempotency-key voorkomt dubbele platformfacturen per project en
+  factuurtype. Bedragen worden nog bewust handmatig ingevoerd; automatische
+  courtage-/tariefberekening is een aparte businessregelstap.
 - Platformfacturen bewaren debiteuren-factuurnummer, bedrag, status
   (`open`, `overdue`, `paid`), betaaldatum, hash, laatste sync en syncfout.
 - Factuurstatussen worden via het directe debiteurencontract
@@ -272,8 +274,10 @@ Actuele platformintegratie op 2026-07-21:
 
 Nog te controleren:
 
-- Beslissen of verkoop- en aankoopfacturen dezelfde directe platformflow krijgen
-  als taxatiefacturen.
+- Beslissen wanneer verkoop- en aankoopprojecten centraal als
+  "klaar voor facturatie" in `/debiteurencontrole` moeten verschijnen.
+- Businessregels vastleggen voor automatische verkoopcourtage of
+  aankooppakketbedragen, voordat het platform bedragen zelf gaat voorstellen.
 
 ## Lokale mappen en bronstatus
 

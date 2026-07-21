@@ -6,7 +6,7 @@ import {
   getDebiteurenSharedLoginPath,
   isDebiteurenApiError,
 } from "@/lib/debiteuren";
-import { buildTaxatieInvoicePayload } from "@/lib/debiteurenInvoicePayload";
+import { buildProjectInvoicePayload } from "@/lib/debiteurenInvoicePayload";
 import {
   dateFromDebiteuren,
   moneyToCents,
@@ -123,7 +123,7 @@ export async function POST(
     return NextResponse.json({ error: "Project niet gevonden" }, { status: 404 });
   }
 
-  const build = buildTaxatieInvoicePayload(project, body);
+  const build = buildProjectInvoicePayload(project, body);
   if (!build.ok) {
     return NextResponse.json({ error: build.error }, { status: build.status });
   }
@@ -142,7 +142,7 @@ export async function POST(
         invoice: null,
         platformInvoice: serializePlatformInvoice(existingPlatformInvoice),
         invoiceUrl: getDebiteurenSharedLoginPath(`/?page=facturen&action=bekijk&id=${existingPlatformInvoice.debiteurenFactuurId}`),
-        message: "Deze taxatiefactuur is al via het platform aangemaakt",
+        message: "Deze factuur is al via het platform aangemaakt",
       });
     }
 

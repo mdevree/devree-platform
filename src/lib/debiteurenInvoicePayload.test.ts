@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildProjectInvoicePayload,
   buildTaxatieInvoicePayload,
+  getProjectInvoiceIdempotencyKey,
   getTaxatieInvoiceIdempotencyKey,
-  type TaxatieInvoiceProject,
+  type ProjectInvoiceProject,
 } from "./debiteurenInvoicePayload";
 
-const PROJECT: TaxatieInvoiceProject = {
+const PROJECT: ProjectInvoiceProject = {
   id: "project-1",
   type: "TAXATIE",
   name: "Taxatie Voorbeeldstraat 1",
@@ -36,6 +38,7 @@ test("bouwt taxatiefactuurpayload met expliciet bedrag en vaste idempotency-key"
 
 test("taxatiefactuur idempotency-key is gedeeld tussen API en UI", () => {
   assert.equal(getTaxatieInvoiceIdempotencyKey("project-1"), "project:project-1:taxatie-invoice:v1");
+  assert.equal(getProjectInvoiceIdempotencyKey("project-1", "verkoop"), "project:project-1:verkoop-invoice:v1");
 });
 
 test("bouwt taxatiefactuurpayload met formulierdetails", () => {
@@ -74,5 +77,37 @@ test("weigert taxatiefactuurpayload zonder positief bedrag", () => {
     ok: false,
     status: 400,
     error: "amountExcl is verplicht en moet positief zijn",
+  });
+});
+
+test("bouwt verkoopfactuurpayload vanuit verkoopproject", () => {
+  const result = buildProjectInvoicePayload({ ...PROJECT, type: "VERKOOP" }, { amountExcl: "4500" });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.idempotencyKey, "project:project-1:verkoop-invoice:v1");
+  assert.equal(result.payload.invoiceType, "verkoop");
+  assert.equal(result.payload.subject, "Verkoopbegeleiding Voorbeeldstraat 1, 3011 AA, Rotterdam");
+  assert.deepEqual(result.payload.lines, [{ description: "Courtage verkoop", amountExcl: 4500, vatRate: 0.21 }]);
+});
+
+test("bouwt aankoopfactuurpayload vanuit aankoopproject", () => {
+  const result = buildProjectInvoicePayload({ ...PROJECT, type: "AANKOOP", woningAdres: null }, { amountExcl: "3000" });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.idempotencyKey, "project:project-1:aankoop-invoice:v1");
+  assert.equal(result.payload.invoiceType, "aankoop");
+  assert.equal(result.payload.subject, "Aankoopbegeleiding Taxatie Voorbeeldstraat 1");
+  assert.deepEqual(result.payload.lines, [{ description: "Aankoopbegeleiding", amountExcl: 3000, vatRate: 0.21 }]);
+});
+
+test("weigert factuurpayload voor onbekend projecttype", () => {
+  const result = buildProjectInvoicePayload({ ...PROJECT, type: "BEHEER" }, { amountExcl: 100 });
+
+  assert.deepEqual(result, {
+    ok: false,
+    status: 400,
+    error: "Factuuractie is alleen voor taxatie-, verkoop- en aankoopprojecten beschikbaar",
   });
 });

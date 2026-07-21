@@ -1,6 +1,6 @@
 import type { DebiteurenInvoiceCreateV1 } from "./debiteuren";
 
-export type TaxatieInvoiceProject = {
+export type ProjectInvoiceProject = {
   id: string;
   type: string;
   name: string;
@@ -18,20 +18,38 @@ export type TaxatieInvoiceProject = {
   } | null;
 };
 
-export type BuildTaxatieInvoicePayloadResult =
+export type TaxatieInvoiceProject = ProjectInvoiceProject;
+
+export type ProjectInvoiceType = "taxatie" | "verkoop" | "aankoop";
+
+export type BuildProjectInvoicePayloadResult =
   | { ok: true; payload: DebiteurenInvoiceCreateV1; idempotencyKey: string }
   | { ok: false; status: number; error: string };
 
+export type BuildTaxatieInvoicePayloadResult = BuildProjectInvoicePayloadResult;
+
 export function getTaxatieInvoiceIdempotencyKey(projectId: string) {
-  return `project:${projectId}:taxatie-invoice:v1`;
+  return getProjectInvoiceIdempotencyKey(projectId, "taxatie");
+}
+
+export function getProjectInvoiceIdempotencyKey(projectId: string, invoiceType: ProjectInvoiceType) {
+  return `project:${projectId}:${invoiceType}-invoice:v1`;
 }
 
 export function buildTaxatieInvoicePayload(
-  project: TaxatieInvoiceProject,
+  project: ProjectInvoiceProject,
   input: unknown
 ): BuildTaxatieInvoicePayloadResult {
-  if (project.type !== "TAXATIE") {
-    return { ok: false, status: 400, error: "Factuuractie is nu alleen voor taxatieprojecten beschikbaar" };
+  return buildProjectInvoicePayload(project, input);
+}
+
+export function buildProjectInvoicePayload(
+  project: ProjectInvoiceProject,
+  input: unknown
+): BuildProjectInvoicePayloadResult {
+  const invoiceType = invoiceTypeFromProject(project.type);
+  if (!invoiceType) {
+    return { ok: false, status: 400, error: "Factuuractie is alleen voor taxatie-, verkoop- en aankoopprojecten beschikbaar" };
   }
 
   if (!project.debiteurenLink) {
@@ -49,19 +67,22 @@ export function buildTaxatieInvoicePayload(
     ?? project.contacts[0]?.mauticContactId
     ?? project.mauticContactId
     ?? null;
-  const address = [project.woningAdres, project.woningPostcode, project.woningPlaats].filter(Boolean).join(", ");
-  const subject = clippedSubject(text(body.subject) ?? `Taxatie ${address || project.name}`);
-  const description = text(body.description) ?? "Taxatierapport";
+  const address = project.woningAdres
+    ? [project.woningAdres, project.woningPostcode, project.woningPlaats].filter(Boolean).join(", ")
+    : "";
+  const defaults = invoiceDefaults(invoiceType, address || project.name);
+  const subject = clippedSubject(text(body.subject) ?? defaults.subject);
+  const description = text(body.description) ?? defaults.description;
   const bank = body.bank === "abn" ? "abn" : "rabo";
 
   return {
     ok: true,
-    idempotencyKey: getTaxatieInvoiceIdempotencyKey(project.id),
+    idempotencyKey: getProjectInvoiceIdempotencyKey(project.id, invoiceType),
     payload: {
       contractVersion: "InvoiceCreateV1",
       source: "devree-platform",
       customerId: project.debiteurenLink.debiteurenKlantId,
-      invoiceType: "taxatie",
+      invoiceType,
       subject,
       invoiceDate: dateOrNull(body.invoiceDate),
       dueDate: dateOrNull(body.dueDate),
@@ -79,6 +100,34 @@ export function buildTaxatieInvoicePayload(
         mauticContactId,
       },
     },
+  };
+}
+
+function invoiceTypeFromProject(projectType: string): ProjectInvoiceType | null {
+  if (projectType === "TAXATIE") return "taxatie";
+  if (projectType === "VERKOOP") return "verkoop";
+  if (projectType === "AANKOOP") return "aankoop";
+  return null;
+}
+
+function invoiceDefaults(invoiceType: ProjectInvoiceType, projectLabel: string) {
+  if (invoiceType === "verkoop") {
+    return {
+      subject: `Verkoopbegeleiding ${projectLabel}`,
+      description: "Courtage verkoop",
+    };
+  }
+
+  if (invoiceType === "aankoop") {
+    return {
+      subject: `Aankoopbegeleiding ${projectLabel}`,
+      description: "Aankoopbegeleiding",
+    };
+  }
+
+  return {
+    subject: `Taxatie ${projectLabel}`,
+    description: "Taxatierapport",
   };
 }
 
