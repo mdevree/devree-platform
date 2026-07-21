@@ -113,3 +113,44 @@ test("buildDebiteurenControle houdt afgehandelde adreschecks buiten aandachtstel
   assert.equal(result.reviewedLinksWithWarnings.length, 1);
   assert.equal(result.reviewedLinksWithWarnings[0].link.review?.reviewedBy, "melvin@example.invalid");
 });
+
+test("buildDebiteurenControle zet verlopen platformfacturen in de issue-lijst", () => {
+  const result = buildDebiteurenControle([
+    {
+      ...BASE_PROJECT,
+      id: "project-invoice-issue",
+      name: "Taxatie Met Verlopen Factuur",
+      debiteurenLink: {
+        id: "link-invoice-issue",
+        debiteurenKlantId: 789,
+        klantNaam: "Test Klant",
+        klantEmail: "test@example.invalid",
+        klantAdres: "Voorbeeldstraat 1",
+        mauticContactId: 123,
+        contactWarnings: [],
+        normalizationCheckedAt: new Date("2026-07-21T13:00:00Z"),
+        contactWarningsReviewedAt: null,
+        contactWarningsReviewedBy: null,
+        contactWarningsReviewNote: null,
+        linkedAt: new Date("2026-07-21T13:00:00Z"),
+        lastCheckedAt: new Date("2026-07-21T13:00:00Z"),
+      },
+      debiteurenInvoices: [{
+        id: "invoice-1",
+        debiteurenFactuurId: 9001,
+        factuurnummer: 2026001,
+        invoiceType: "taxatie",
+        amountInclCents: 78650,
+        status: "overdue",
+        paidAt: null,
+        overdue: true,
+        lastSyncedAt: new Date("2026-07-21T15:00:00Z"),
+        syncError: null,
+        createdAt: new Date("2026-07-21T14:00:00Z"),
+      }],
+    },
+  ]);
+
+  assert.equal(result.summary.platformInvoiceIssues, 1);
+  assert.equal(result.platformInvoiceIssues[0].invoice.status, "overdue");
+});

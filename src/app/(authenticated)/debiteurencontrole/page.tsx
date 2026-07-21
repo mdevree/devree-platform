@@ -28,30 +28,18 @@ type DebiteurenControle = {
     unlinkedWithMautic: number;
     linksWithWarnings: number;
     reviewedLinksWithWarnings: number;
+    platformInvoiceIssues: number;
     taxatieReadyForInvoice: number;
     platformInvoices: number;
   };
   linksWithWarnings: LinkWarningItem[];
   reviewedLinksWithWarnings: LinkWarningItem[];
+  platformInvoiceIssues: InvoiceItem[];
   unlinkedWithMautic: ProjectBase[];
   taxatieReadyForInvoice: Array<ProjectBase & {
     link: { debiteurenKlantId: number | null; klantNaam: string | null };
   }>;
-  recentInvoices: Array<ProjectBase & {
-    invoice: {
-      id: string;
-      debiteurenFactuurId: number;
-      factuurnummer: number | null;
-      invoiceType: string;
-      amountIncl: number;
-      status: string | null;
-      paidAt: string | null;
-      overdue: boolean;
-      lastSyncedAt: string | null;
-      syncError: string | null;
-      createdAt: string;
-    };
-  }>;
+  recentInvoices: InvoiceItem[];
 };
 
 type LinkWarningItem = ProjectBase & {
@@ -70,6 +58,22 @@ type LinkWarningItem = ProjectBase & {
       } | null;
     };
     warnings: Array<{ code: string; field: string | null; message: string }>;
+};
+
+type InvoiceItem = ProjectBase & {
+  invoice: {
+    id: string;
+    debiteurenFactuurId: number;
+    factuurnummer: number | null;
+    invoiceType: string;
+    amountIncl: number;
+    status: string | null;
+    paidAt: string | null;
+    overdue: boolean;
+    lastSyncedAt: string | null;
+    syncError: string | null;
+    createdAt: string;
+  };
 };
 
 function fmtDate(value?: string | null) {
@@ -184,7 +188,10 @@ export default function DebiteurenControlePage() {
 
   const needsAttention = useMemo(() => {
     if (!data) return 0;
-    return data.summary.unlinkedWithMautic + data.summary.linksWithWarnings + data.summary.taxatieReadyForInvoice;
+    return data.summary.unlinkedWithMautic
+      + data.summary.linksWithWarnings
+      + data.summary.platformInvoiceIssues
+      + data.summary.taxatieReadyForInvoice;
   }, [data]);
 
   if (loading) {
@@ -221,11 +228,12 @@ export default function DebiteurenControlePage() {
 
       {data && (
         <>
-          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
             <Stat label="Actieve projecten" value={data.summary.activeProjects} />
             <Stat label="Gekoppeld" value={data.summary.linkedProjects} tone="good" />
             <Stat label="Zonder link" value={data.summary.unlinkedWithMautic} tone={data.summary.unlinkedWithMautic ? "warn" : "good"} />
             <Stat label="Adreschecks" value={data.summary.linksWithWarnings} tone={data.summary.linksWithWarnings ? "warn" : "good"} />
+            <Stat label="Factuurstatus" value={data.summary.platformInvoiceIssues} tone={data.summary.platformInvoiceIssues ? "warn" : "good"} />
             <Stat label="Taxatie klaar" value={data.summary.taxatieReadyForInvoice} tone={data.summary.taxatieReadyForInvoice ? "warn" : "good"} />
             <Stat label="Aandacht" value={needsAttention} tone={needsAttention ? "warn" : "good"} />
           </div>
@@ -288,6 +296,36 @@ export default function DebiteurenControlePage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white">
+            <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3">
+              <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
+              <div>
+                <h2 className="font-semibold text-gray-900">Factuurstatus controleren</h2>
+                <p className="text-xs text-gray-500">Via het platform aangemaakte facturen die verlopen zijn of niet goed konden synchroniseren.</p>
+              </div>
+            </div>
+            {data.platformInvoiceIssues.length === 0 ? (
+              <p className="px-4 py-5 text-sm text-gray-500">Geen verlopen of niet-gesynchroniseerde platformfacturen.</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {data.platformInvoiceIssues.map((item) => (
+                  <div key={item.invoice.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <ProjectLink project={item} />
+                    <div className="shrink-0 text-right text-sm">
+                      <p className="font-semibold text-gray-900">
+                        #{item.invoice.factuurnummer || item.invoice.debiteurenFactuurId} · {fmtCurrency(item.invoice.amountIncl)}
+                      </p>
+                      <p className="mt-0.5 flex justify-end">
+                        <InvoiceStatus invoice={item.invoice} />
+                      </p>
+                      {item.invoice.syncError && <p className="mt-0.5 max-w-[260px] text-xs text-amber-700">{item.invoice.syncError}</p>}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>

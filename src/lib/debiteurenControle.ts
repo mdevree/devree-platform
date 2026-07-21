@@ -169,6 +169,31 @@ export function buildDebiteurenControle(projects: DebiteurenControleProject[]) {
     .sort((a, b) => Date.parse(b.invoice.createdAt) - Date.parse(a.invoice.createdAt))
     .slice(0, 20);
 
+  const platformInvoiceIssues = activeProjects
+    .flatMap((project) => project.debiteurenInvoices.flatMap((invoice) => {
+      const status = invoice.status || (invoice.overdue ? "overdue" : "open");
+      if (!invoice.syncError && status !== "overdue") return [];
+
+      return [{
+        ...projectBase(project),
+        invoice: {
+          id: invoice.id,
+          debiteurenFactuurId: invoice.debiteurenFactuurId,
+          factuurnummer: invoice.factuurnummer,
+          invoiceType: invoice.invoiceType,
+          amountIncl: invoice.amountInclCents / 100,
+          status,
+          paidAt: invoice.paidAt?.toISOString() ?? null,
+          overdue: invoice.overdue,
+          lastSyncedAt: invoice.lastSyncedAt?.toISOString() ?? null,
+          syncError: invoice.syncError,
+          createdAt: invoice.createdAt.toISOString(),
+        },
+      }];
+    }))
+    .sort((a, b) => Date.parse(b.invoice.lastSyncedAt || b.invoice.createdAt) - Date.parse(a.invoice.lastSyncedAt || a.invoice.createdAt))
+    .slice(0, 50);
+
   return {
     summary: {
       activeProjects: activeProjects.length,
@@ -176,11 +201,13 @@ export function buildDebiteurenControle(projects: DebiteurenControleProject[]) {
       unlinkedWithMautic: unlinkedWithMautic.length,
       linksWithWarnings: openLinksWithWarnings.length,
       reviewedLinksWithWarnings: reviewedLinksWithWarnings.length,
+      platformInvoiceIssues: platformInvoiceIssues.length,
       taxatieReadyForInvoice: taxatieReadyForInvoice.length,
       platformInvoices: recentInvoices.length,
     },
     linksWithWarnings: openLinksWithWarnings,
     reviewedLinksWithWarnings,
+    platformInvoiceIssues,
     unlinkedWithMautic,
     taxatieReadyForInvoice,
     recentInvoices,
