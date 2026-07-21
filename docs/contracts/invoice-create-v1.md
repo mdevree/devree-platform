@@ -62,3 +62,21 @@ Het platform stuurt naar debiteuren:
 Preview gebruikt de write-token omdat dezelfde payload later zonder vormwijziging
 naar de create-route kan. De create-route vereist daarnaast een stabiele
 `X-Debiteuren-Idempotency-Key`.
+
+## Definitief aanmaken
+
+```http
+POST /api/projecten/{id}/debiteuren/invoice-create
+Content-Type: application/json
+```
+
+Body is gelijk aan de previewroute, met extra veld:
+
+```json
+{ "confirmation": "FACTUUR" }
+```
+
+De platformroute weigert de request zonder exacte bevestiging. Daarna gebruikt
+het platform een vaste idempotency-key per project/taxatiefactuur:
+`project:{projectId}:taxatie-invoice:v1`. Daardoor maakt een retry of dubbelklik
+geen tweede factuur aan.

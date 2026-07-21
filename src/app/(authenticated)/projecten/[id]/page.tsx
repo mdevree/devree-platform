@@ -344,6 +344,22 @@ interface DebiteurenInvoicePreviewData {
   };
 }
 
+interface DebiteurenInvoiceCreateData {
+  result: string;
+  invoice: {
+    id: number;
+    invoiceNumber: number;
+    customerId: number;
+    subject: string;
+    invoiceDate: string | null;
+    dueDate: string | null;
+    amountExcl: number;
+    amountIncl: number;
+    hash: string | null;
+  } | null;
+  invoiceUrl: string | null;
+}
+
 type ActiveTab = "taken" | "telefonie" | "woning" | "kijkers" | "dossier" | "taxatieControle";
 
 interface KijkerLead {
@@ -635,7 +651,9 @@ export default function ProjectDetailPage() {
   const [debiteurenMauticSaving, setDebiteurenMauticSaving] = useState(false);
   const [taxatieInvoiceAmount, setTaxatieInvoiceAmount] = useState("");
   const [taxatieInvoicePreview, setTaxatieInvoicePreview] = useState<DebiteurenInvoicePreviewData | null>(null);
+  const [taxatieInvoiceCreated, setTaxatieInvoiceCreated] = useState<DebiteurenInvoiceCreateData | null>(null);
   const [taxatieInvoiceLoading, setTaxatieInvoiceLoading] = useState(false);
+  const [taxatieInvoiceCreating, setTaxatieInvoiceCreating] = useState(false);
   const [taxatieInvoiceError, setTaxatieInvoiceError] = useState("");
 
   // Samenvoegen (merge) modal
@@ -1337,6 +1355,7 @@ export default function ProjectDetailPage() {
     setTaxatieInvoiceLoading(true);
     setTaxatieInvoiceError("");
     setTaxatieInvoicePreview(null);
+    setTaxatieInvoiceCreated(null);
     try {
       const res = await fetch(`/api/projecten/${projectId}/debiteuren/invoice-preview`, {
         method: "POST",
@@ -1357,6 +1376,46 @@ export default function ProjectDetailPage() {
       setTaxatieInvoiceError("Kan taxatiefactuur-preview niet ophalen");
     }
     setTaxatieInvoiceLoading(false);
+  }
+
+  async function handleCreateTaxatieInvoice() {
+    if (!taxatieInvoicePreview?.preview.invoice) {
+      setTaxatieInvoiceError("Maak eerst een preview voordat je de factuur aanmaakt");
+      return;
+    }
+
+    const confirmation = window.prompt(
+      "Deze actie maakt definitief een factuur aan in debiteuren. Typ FACTUUR om door te gaan."
+    );
+    if (confirmation !== "FACTUUR") {
+      setTaxatieInvoiceError("Factuuraanmaak geannuleerd: bevestiging was niet exact FACTUUR.");
+      return;
+    }
+
+    setTaxatieInvoiceCreating(true);
+    setTaxatieInvoiceError("");
+    try {
+      const res = await fetch(`/api/projecten/${projectId}/debiteuren/invoice-create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amountExcl: taxatieInvoiceAmount,
+          description: "Taxatierapport",
+          bank: "rabo",
+          confirmation: "FACTUUR",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTaxatieInvoiceCreated(data);
+        await fetchDebiteuren();
+      } else {
+        setTaxatieInvoiceError(data.error || "Taxatiefactuur aanmaken mislukt");
+      }
+    } catch {
+      setTaxatieInvoiceError("Kan taxatiefactuur niet aanmaken");
+    }
+    setTaxatieInvoiceCreating(false);
   }
 
   // --- Samenvoegen ---
@@ -1845,7 +1904,7 @@ export default function ProjectDetailPage() {
                   <div className="mt-3 rounded-md border border-emerald-100 bg-emerald-50 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Taxatiefactuur voorbereiden</p>
                     <p className="mt-1 text-xs text-emerald-700/80">
-                      Preview-only: er wordt nog geen factuur aangemaakt.
+                      Controleer eerst de preview. Aanmaken vraagt daarna om expliciete bevestiging.
                     </p>
                     <div className="mt-3 flex flex-wrap items-end gap-2">
                       <div className="min-w-[160px] flex-1">
@@ -1895,6 +1954,40 @@ export default function ProjectDetailPage() {
                               <span className="font-medium text-gray-900">{formatCurrency(line.amountExcl)} excl.</span>
                             </div>
                           ))}
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-emerald-100 pt-3">
+                          <p className="text-[11px] text-gray-500">
+                            Definitief aanmaken gebruikt een idempotency-key; opnieuw klikken maakt geen dubbele factuur.
+                          </p>
+                          <button
+                            onClick={handleCreateTaxatieInvoice}
+                            disabled={taxatieInvoiceCreating}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <BanknotesIcon className="h-3.5 w-3.5" />
+                            {taxatieInvoiceCreating ? "Aanmaken..." : "Factuur aanmaken"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {taxatieInvoiceCreated?.invoice && (
+                      <div className="mt-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span>
+                            Factuur #{taxatieInvoiceCreated.invoice.invoiceNumber} is aangemaakt:
+                            {" "}{formatCurrency(taxatieInvoiceCreated.invoice.amountIncl)} incl. btw.
+                          </span>
+                          {taxatieInvoiceCreated.invoiceUrl && (
+                            <a
+                              href={taxatieInvoiceCreated.invoiceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 font-semibold text-green-900 hover:underline"
+                            >
+                              Open factuur
+                              <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                            </a>
+                          )}
                         </div>
                       </div>
                     )}

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAuthorized } from "@/lib/apiAuth";
 import {
-  previewDebiteurenInvoice,
+  createDebiteurenInvoice,
+  getDebiteurenSharedLoginPath,
   isDebiteurenApiError,
 } from "@/lib/debiteuren";
 import { buildTaxatieInvoicePayload } from "@/lib/debiteurenInvoicePayload";
@@ -19,6 +20,10 @@ export async function POST(
   const session = await auth();
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
+
+  if (!body || typeof body !== "object" || Array.isArray(body) || body.confirmation !== "FACTUUR") {
+    return NextResponse.json({ error: "Typ FACTUUR om de factuur definitief aan te maken" }, { status: 400 });
+  }
 
   const project = await prisma.project.findUnique({
     where: { id },
@@ -51,8 +56,17 @@ export async function POST(
 
   try {
     const actor = session?.user?.email || session?.user?.name || "devree-platform";
-    const preview = await previewDebiteurenInvoice(build.payload, actor);
-    return NextResponse.json({ success: true, payload: build.payload, preview });
+    const created = await createDebiteurenInvoice(build.payload, actor, build.idempotencyKey);
+    const invoice = created.invoice && "id" in created.invoice ? created.invoice : null;
+    return NextResponse.json({
+      success: true,
+      payload: build.payload,
+      result: created.result,
+      invoice,
+      invoiceUrl: invoice?.id
+        ? getDebiteurenSharedLoginPath(`/?page=facturen&action=bekijk&id=${invoice.id}`)
+        : null,
+    });
   } catch (error) {
     const status = isDebiteurenApiError(error) ? error.status : 502;
     const message = error instanceof Error ? error.message : "Debiteuren niet bereikbaar";
