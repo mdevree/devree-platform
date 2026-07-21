@@ -11,6 +11,10 @@ import {
 } from "@/lib/debiteuren";
 import type { ContactV1NormalizationWarning } from "@/lib/contracts/contactV1";
 import { getContactFull } from "@/lib/mautic";
+import {
+  serializeProjectDebiteurenInvoice,
+  syncProjectDebiteurenInvoicesFromSummary,
+} from "@/lib/projectDebiteurenInvoices";
 
 function klantAdres(summary: Awaited<ReturnType<typeof getDebiteurenFactuurSamenvatting>>) {
   return [summary.klant.adres, summary.klant.postcode, summary.klant.plaats].filter(Boolean).join(", ") || null;
@@ -27,23 +31,7 @@ async function getProjectDebiteurenInvoices(projectId: string) {
     take: 10,
   });
 
-  return invoices.map((invoice) => ({
-    id: invoice.id,
-    debiteurenKlantId: invoice.debiteurenKlantId,
-    debiteurenFactuurId: invoice.debiteurenFactuurId,
-    factuurnummer: invoice.factuurnummer,
-    invoiceType: invoice.invoiceType,
-    subject: invoice.subject,
-    invoiceDate: invoice.invoiceDate?.toISOString() ?? null,
-    dueDate: invoice.dueDate?.toISOString() ?? null,
-    amountExcl: invoice.amountExclCents / 100,
-    amountIncl: invoice.amountInclCents / 100,
-    hash: invoice.hash,
-    idempotencyKey: invoice.idempotencyKey,
-    createdBy: invoice.createdBy,
-    createdAt: invoice.createdAt.toISOString(),
-    invoiceUrl: getDebiteurenSharedLoginPath(`/?page=facturen&action=bekijk&id=${invoice.debiteurenFactuurId}`),
-  }));
+  return invoices.map(serializeProjectDebiteurenInvoice);
 }
 
 async function saveProjectDebiteurenLink({
@@ -61,7 +49,6 @@ async function saveProjectDebiteurenLink({
   } | null;
 }) {
   const summary = await getDebiteurenFactuurSamenvatting(debiteurenKlantId);
-  const invoices = await getProjectDebiteurenInvoices(projectId);
   const contactWarnings = normalization
     ? normalization.warnings as Prisma.InputJsonValue
     : Prisma.JsonNull;
@@ -113,7 +100,7 @@ async function saveProjectDebiteurenLink({
   return {
     link,
     summary,
-    invoices,
+    invoices: await getProjectDebiteurenInvoices(projectId),
     debiteurenUrl: getDebiteurenSharedLoginPath(`/?page=klanten&action=bewerk&id=${debiteurenKlantId}`),
   };
 }
@@ -127,12 +114,12 @@ export async function GET(
   }
 
   const { id } = await params;
-  const invoices = await getProjectDebiteurenInvoices(id);
   const link = await prisma.projectDebiteurenLink.findUnique({
     where: { projectId: id },
   });
 
   if (!link) {
+    const invoices = await getProjectDebiteurenInvoices(id);
     return NextResponse.json({ link: null, summary: null, invoices });
   }
 
@@ -148,13 +135,19 @@ export async function GET(
       },
     });
 
+    const invoices = await syncProjectDebiteurenInvoicesFromSummary({
+      projectId: id,
+      summary,
+    });
+
     return NextResponse.json({
       link: updatedLink,
       summary,
-      invoices,
+      invoices: invoices.map(serializeProjectDebiteurenInvoice),
       debiteurenUrl: getDebiteurenSharedLoginPath(`/?page=klanten&action=bewerk&id=${link.debiteurenKlantId}`),
     });
   } catch (error) {
+    const invoices = await getProjectDebiteurenInvoices(id);
     const status = isDebiteurenApiError(error) ? error.status : 502;
     const message = error instanceof Error ? error.message : "Debiteuren niet bereikbaar";
     return NextResponse.json({ link, summary: null, invoices, error: message }, { status });

@@ -1,0 +1,6 @@
+ALTER TABLE `project_debiteuren_invoices`
+  ADD COLUMN IF NOT EXISTS `status` VARCHAR(191) NULL AFTER `amountInclCents`,
+  ADD COLUMN IF NOT EXISTS `paidAt` DATETIME(3) NULL AFTER `status`,
+  ADD COLUMN IF NOT EXISTS `overdue` BOOLEAN NOT NULL DEFAULT FALSE AFTER `paidAt`,
+  ADD COLUMN IF NOT EXISTS `lastSyncedAt` DATETIME(3) NULL AFTER `idempotencyKey`,
+  ADD COLUMN IF NOT EXISTS `syncError` TEXT NULL AFTER `lastSyncedAt`;

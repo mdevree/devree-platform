@@ -300,8 +300,13 @@ model ProjectDebiteurenInvoice {
   dueDate             DateTime?
   amountExclCents     Int
   amountInclCents     Int
+  status              String?
+  paidAt              DateTime?
+  overdue             Boolean  @default(false)
   hash                String?
   idempotencyKey      String   @unique
+  lastSyncedAt        DateTime?
+  syncError           String?  @db.Text
   createdBy           String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

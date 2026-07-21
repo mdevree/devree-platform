@@ -336,8 +336,13 @@ interface ProjectDebiteurenInvoice {
   dueDate: string | null;
   amountExcl: number;
   amountIncl: number;
+  status: string | null;
+  paidAt: string | null;
+  overdue: boolean;
   hash: string | null;
   idempotencyKey: string;
+  lastSyncedAt: string | null;
+  syncError: string | null;
   createdBy: string | null;
   createdAt: string;
   invoiceUrl: string;
@@ -1621,6 +1626,17 @@ export default function ProjectDetailPage() {
     return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(amount);
   }
 
+  function invoiceStatusBadge(invoice: Pick<ProjectDebiteurenInvoice, "status" | "overdue">) {
+    const status = invoice.status || (invoice.overdue ? "overdue" : "open");
+    if (status === "paid") {
+      return <span className="rounded-full bg-green-100 px-1.5 py-0.5 font-medium text-green-700">Betaald</span>;
+    }
+    if (status === "overdue") {
+      return <span className="rounded-full bg-red-100 px-1.5 py-0.5 font-medium text-red-700">Verlopen</span>;
+    }
+    return <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-700">Open</span>;
+  }
+
   function isOverdue(dateStr: string | null) {
     if (!dateStr) return false;
     return new Date(dateStr) < new Date();
@@ -2173,10 +2189,16 @@ export default function ProjectDetailPage() {
                                 <p className="truncate font-medium text-gray-900">
                                   #{invoice.factuurnummer || invoice.debiteurenFactuurId} · {invoice.subject || "Taxatiefactuur"}
                                 </p>
-                                <p className="text-gray-500">
-                                  Aangemaakt {formatDateFull(invoice.createdAt)}
-                                  {invoice.createdBy ? ` door ${invoice.createdBy}` : ""}
+                                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-gray-500">
+                                  {invoiceStatusBadge(invoice)}
+                                  <span>
+                                    Aangemaakt {formatDateFull(invoice.createdAt)}
+                                    {invoice.createdBy ? ` door ${invoice.createdBy}` : ""}
+                                  </span>
                                 </p>
+                                {invoice.paidAt && <p className="mt-0.5 text-green-700">Betaald op {formatDateFull(invoice.paidAt)}</p>}
+                                {invoice.lastSyncedAt && <p className="mt-0.5 text-gray-400">Status bijgewerkt {formatDateFull(invoice.lastSyncedAt)}</p>}
+                                {invoice.syncError && <p className="mt-0.5 text-amber-700">{invoice.syncError}</p>}
                               </div>
                               <div className="shrink-0 text-right">
                                 <p className="font-semibold text-gray-900">{formatCurrency(invoice.amountIncl)}</p>
@@ -2200,13 +2222,22 @@ export default function ProjectDetailPage() {
 
                 <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
                   <span>Laatst gecontroleerd: {formatDateFull(debiteurenData.link.lastCheckedAt)}</span>
-                  <button
-                    onClick={handleUnlinkDebiteurenKlant}
-                    disabled={debiteurenLinkSaving}
-                    className="font-medium text-gray-500 hover:text-red-600 disabled:opacity-50"
-                  >
-                    Ontkoppelen
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={fetchDebiteuren}
+                      disabled={debiteurenLoading}
+                      className="font-medium text-gray-500 hover:text-primary disabled:opacity-50"
+                    >
+                      Ververs
+                    </button>
+                    <button
+                      onClick={handleUnlinkDebiteurenKlant}
+                      disabled={debiteurenLinkSaving}
+                      className="font-medium text-gray-500 hover:text-red-600 disabled:opacity-50"
+                    >
+                      Ontkoppelen
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (

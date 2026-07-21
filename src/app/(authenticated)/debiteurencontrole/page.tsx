@@ -44,6 +44,11 @@ type DebiteurenControle = {
       factuurnummer: number | null;
       invoiceType: string;
       amountIncl: number;
+      status: string | null;
+      paidAt: string | null;
+      overdue: boolean;
+      lastSyncedAt: string | null;
+      syncError: string | null;
       createdAt: string;
     };
   }>;
@@ -80,6 +85,18 @@ function fmtDate(value?: string | null) {
 
 function fmtCurrency(value: number) {
   return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(value);
+}
+
+function InvoiceStatus({ invoice }: { invoice: DebiteurenControle["recentInvoices"][number]["invoice"] }) {
+  const status = invoice.status || (invoice.overdue ? "overdue" : "open");
+  const className = status === "paid"
+    ? "bg-green-100 text-green-700"
+    : status === "overdue"
+      ? "bg-red-100 text-red-700"
+      : "bg-amber-100 text-amber-700";
+  const label = status === "paid" ? "Betaald" : status === "overdue" ? "Verlopen" : "Open";
+
+  return <span className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${className}`}>{label}</span>;
 }
 
 function Stat({ label, value, tone = "default" }: { label: string; value: number | string; tone?: "default" | "warn" | "good" }) {
@@ -339,6 +356,11 @@ export default function DebiteurenControlePage() {
                       <p className="font-semibold text-gray-900">
                         #{item.invoice.factuurnummer || item.invoice.debiteurenFactuurId} · {fmtCurrency(item.invoice.amountIncl)}
                       </p>
+                      <p className="mt-0.5 flex justify-end">
+                        <InvoiceStatus invoice={item.invoice} />
+                      </p>
+                      {item.invoice.paidAt && <p className="mt-0.5 text-xs text-green-700">Betaald {fmtDate(item.invoice.paidAt)}</p>}
+                      {item.invoice.syncError && <p className="mt-0.5 max-w-[220px] text-xs text-amber-700">{item.invoice.syncError}</p>}
                       <a
                         href={`/api/debiteuren/login?returnTo=${encodeURIComponent(`/?page=facturen&action=bekijk&id=${item.invoice.debiteurenFactuurId}`)}`}
                         target="_blank"

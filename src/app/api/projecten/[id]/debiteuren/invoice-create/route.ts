@@ -7,36 +7,16 @@ import {
   isDebiteurenApiError,
 } from "@/lib/debiteuren";
 import { buildTaxatieInvoicePayload } from "@/lib/debiteurenInvoicePayload";
+import {
+  dateFromDebiteuren,
+  moneyToCents,
+  serializeProjectDebiteurenInvoice,
+} from "@/lib/projectDebiteurenInvoices";
 import { prisma } from "@/lib/prisma";
-
-function moneyToCents(value: number) {
-  return Math.round(value * 100);
-}
-
-function dateFromDebiteuren(value: string | null) {
-  if (!value) return null;
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00.000Z`) : null;
-}
 
 function serializePlatformInvoice(invoice: Awaited<ReturnType<typeof recordProjectDebiteurenInvoice>> | null) {
   if (!invoice) return null;
-  return {
-    id: invoice.id,
-    debiteurenKlantId: invoice.debiteurenKlantId,
-    debiteurenFactuurId: invoice.debiteurenFactuurId,
-    factuurnummer: invoice.factuurnummer,
-    invoiceType: invoice.invoiceType,
-    subject: invoice.subject,
-    invoiceDate: invoice.invoiceDate?.toISOString() ?? null,
-    dueDate: invoice.dueDate?.toISOString() ?? null,
-    amountExcl: invoice.amountExclCents / 100,
-    amountIncl: invoice.amountInclCents / 100,
-    hash: invoice.hash,
-    idempotencyKey: invoice.idempotencyKey,
-    createdBy: invoice.createdBy,
-    createdAt: invoice.createdAt.toISOString(),
-    invoiceUrl: getDebiteurenSharedLoginPath(`/?page=facturen&action=bekijk&id=${invoice.debiteurenFactuurId}`),
-  };
+  return serializeProjectDebiteurenInvoice(invoice);
 }
 
 async function recordProjectDebiteurenInvoice({
@@ -75,8 +55,13 @@ async function recordProjectDebiteurenInvoice({
       dueDate: dateFromDebiteuren(invoice.dueDate),
       amountExclCents: moneyToCents(invoice.amountExcl),
       amountInclCents: moneyToCents(invoice.amountIncl),
+      status: "open",
+      paidAt: null,
+      overdue: false,
       hash: invoice.hash,
       idempotencyKey,
+      lastSyncedAt: null,
+      syncError: null,
       createdBy,
     },
     update: {
@@ -89,7 +74,11 @@ async function recordProjectDebiteurenInvoice({
       dueDate: dateFromDebiteuren(invoice.dueDate),
       amountExclCents: moneyToCents(invoice.amountExcl),
       amountInclCents: moneyToCents(invoice.amountIncl),
+      status: "open",
+      paidAt: null,
+      overdue: false,
       hash: invoice.hash,
+      syncError: null,
     },
   });
 }

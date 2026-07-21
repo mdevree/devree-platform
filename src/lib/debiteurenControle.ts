@@ -37,6 +37,11 @@ export type DebiteurenControleProject = {
     factuurnummer: number | null;
     invoiceType: string;
     amountInclCents: number;
+    status: string | null;
+    paidAt: Date | null;
+    overdue: boolean;
+    lastSyncedAt: Date | null;
+    syncError: string | null;
     createdAt: Date;
   }>;
 };
@@ -153,6 +158,11 @@ export function buildDebiteurenControle(projects: DebiteurenControleProject[]) {
         factuurnummer: invoice.factuurnummer,
         invoiceType: invoice.invoiceType,
         amountIncl: invoice.amountInclCents / 100,
+        status: invoice.status,
+        paidAt: invoice.paidAt?.toISOString() ?? null,
+        overdue: invoice.overdue,
+        lastSyncedAt: invoice.lastSyncedAt?.toISOString() ?? null,
+        syncError: invoice.syncError,
         createdAt: invoice.createdAt.toISOString(),
       },
     })))

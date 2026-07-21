@@ -11,7 +11,7 @@ type DebiteurenKlant = {
   plaats: string | null;
 };
 
-type DebiteurenFactuur = {
+export type DebiteurenFactuur = {
   id: number;
   factuurnummer: number;
   betreft: string;
