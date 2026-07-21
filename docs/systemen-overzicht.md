@@ -200,7 +200,7 @@ Te controleren:
 | Lokale repo | `/Users/melvin/LocalDev/debiteuren-administratie` |
 | GitHub | `https://github.com/mdevree/debiteuren-administratie.git` |
 | Lokale status op 2026-07-12 | `main`, geen lokale wijzigingen |
-| Platformkoppeling | `DEBITEUREN_API_URL`, `DEBITEUREN_API_TOKEN`, `NEXT_PUBLIC_DEBITEUREN_URL` |
+| Platformkoppeling | `DEBITEUREN_API_URL`, `DEBITEUREN_READ_API_TOKEN`, `DEBITEUREN_WRITE_API_TOKEN`, `DEBITEUREN_SSO_SECRET`, `NEXT_PUBLIC_DEBITEUREN_URL` |
 
 Te controleren:
 

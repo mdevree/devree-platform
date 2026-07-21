@@ -1094,7 +1094,9 @@ CREATE TABLE time_entries (
 | `CALL_NOTE_WEBHOOK_URL` | Optionele webhook URL die wordt aangeroepen bij het opslaan van een gespreksnotitie |
 | `NEXT_PUBLIC_DEBITEUREN_URL` | Externe link naar het debiteuren/facturatie systeem (zichtbaar in sidebar) |
 | `DEBITEUREN_API_URL` | Server-side basis-URL van debiteuren voor de interne facturatie API |
-| `DEBITEUREN_API_TOKEN` | Gedeeld geheim voor de interne debiteuren API en korte shared-login tokens |
+| `DEBITEUREN_READ_API_TOKEN` | Afzonderlijk geheim voor read-only requests naar de debiteuren-API |
+| `DEBITEUREN_WRITE_API_TOKEN` | Gereserveerd afzonderlijk geheim voor toekomstige schrijfacties naar de debiteuren-API |
+| `DEBITEUREN_SSO_SECRET` | Afzonderlijk HMAC-geheim voor korte shared-login tokens |
 | `N8N_URL` | Basis-URL voor n8n webhooks, gebruikt als fallback door sommige integraties |
 | `AI_CALL_START_WEBHOOK_URL` | n8n start-webhook voor digitale medewerker calls |
 | `AI_INFO_EMAIL_WEBHOOK_URL` | n8n webhook voor interne info-mail na AI-callresultaat |

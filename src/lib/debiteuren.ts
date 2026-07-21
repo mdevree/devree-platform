@@ -51,18 +51,32 @@ class DebiteurenApiError extends Error {
   }
 }
 
-function getDebiteurenConfig() {
+function getDebiteurenBaseUrl() {
   const baseUrl = process.env.DEBITEUREN_API_URL || process.env.NEXT_PUBLIC_DEBITEUREN_URL;
-  const token = process.env.DEBITEUREN_API_TOKEN;
 
-  if (!baseUrl || !token) {
-    throw new DebiteurenApiError("Debiteuren API is niet geconfigureerd", 503);
+  if (!baseUrl) {
+    throw new DebiteurenApiError("Debiteuren basis-URL is niet geconfigureerd", 503);
   }
 
-  return {
-    baseUrl: baseUrl.replace(/\/$/, ""),
-    token,
-  };
+  return baseUrl.replace(/\/$/, "");
+}
+
+function getDebiteurenReadConfig() {
+  const token = process.env.DEBITEUREN_READ_API_TOKEN;
+  if (!token) {
+    throw new DebiteurenApiError("Debiteuren read-API is niet geconfigureerd", 503);
+  }
+
+  return { baseUrl: getDebiteurenBaseUrl(), token };
+}
+
+function getDebiteurenSsoConfig() {
+  const secret = process.env.DEBITEUREN_SSO_SECRET;
+  if (!secret) {
+    throw new DebiteurenApiError("Debiteuren shared login is niet geconfigureerd", 503);
+  }
+
+  return { baseUrl: getDebiteurenBaseUrl(), secret };
 }
 
 function base64UrlEncode(value: string | Buffer) {
@@ -80,7 +94,7 @@ export function createDebiteurenSharedLoginUrl({
   email?: string | null;
   returnTo?: string;
 }) {
-  const { baseUrl, token } = getDebiteurenConfig();
+  const { baseUrl, secret } = getDebiteurenSsoConfig();
   const now = Math.floor(Date.now() / 1000);
   const safeReturnTo = sanitizeDebiteurenReturnTo(returnTo);
   const payload = base64UrlEncode(JSON.stringify({
@@ -94,7 +108,7 @@ export function createDebiteurenSharedLoginUrl({
     nonce: crypto.randomBytes(18).toString("base64url"),
     returnTo: safeReturnTo,
   }));
-  const signature = crypto.createHmac("sha256", token).update(payload).digest("base64url");
+  const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
   const url = new URL(baseUrl);
   url.searchParams.set("page", "platform-login");
   url.searchParams.set("token", `${payload}.${signature}`);
@@ -103,7 +117,7 @@ export function createDebiteurenSharedLoginUrl({
 }
 
 async function debiteurenGet<T>(resource: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
-  const { baseUrl, token } = getDebiteurenConfig();
+  const { baseUrl, token } = getDebiteurenReadConfig();
   const url = new URL(baseUrl);
   url.searchParams.set("page", "api");
   url.searchParams.set("resource", resource);
@@ -117,7 +131,7 @@ async function debiteurenGet<T>(resource: string, params: Record<string, string 
   const response = await fetch(url.toString(), {
     headers: {
       Accept: "application/json",
-      "X-Debiteuren-Api-Token": token,
+      "X-Debiteuren-Read-Token": token,
     },
     cache: "no-store",
   });
