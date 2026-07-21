@@ -323,6 +323,27 @@ interface DebiteurenData {
   error?: string;
 }
 
+interface DebiteurenInvoicePreviewData {
+  preview: {
+    result: string;
+    invoice: {
+      subject: string;
+      invoiceDate: string;
+      dueDate: string;
+      paymentTerms: string;
+      amountExcl: number;
+      amountIncl: number;
+      lines: Array<{
+        description: string;
+        amountExcl: number;
+        vatRate: number;
+        vatAmount: number;
+        amountIncl: number;
+      }>;
+    } | null;
+  };
+}
+
 type ActiveTab = "taken" | "telefonie" | "woning" | "kijkers" | "dossier" | "taxatieControle";
 
 interface KijkerLead {
@@ -612,6 +633,10 @@ export default function ProjectDetailPage() {
   const [debiteurenSearchLoading, setDebiteurenSearchLoading] = useState(false);
   const [debiteurenLinkSaving, setDebiteurenLinkSaving] = useState(false);
   const [debiteurenMauticSaving, setDebiteurenMauticSaving] = useState(false);
+  const [taxatieInvoiceAmount, setTaxatieInvoiceAmount] = useState("");
+  const [taxatieInvoicePreview, setTaxatieInvoicePreview] = useState<DebiteurenInvoicePreviewData | null>(null);
+  const [taxatieInvoiceLoading, setTaxatieInvoiceLoading] = useState(false);
+  const [taxatieInvoiceError, setTaxatieInvoiceError] = useState("");
 
   // Samenvoegen (merge) modal
   const [showMerge, setShowMerge] = useState(false);
@@ -1308,6 +1333,32 @@ export default function ProjectDetailPage() {
     setDebiteurenLinkSaving(false);
   }
 
+  async function handleTaxatieInvoicePreview() {
+    setTaxatieInvoiceLoading(true);
+    setTaxatieInvoiceError("");
+    setTaxatieInvoicePreview(null);
+    try {
+      const res = await fetch(`/api/projecten/${projectId}/debiteuren/invoice-preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amountExcl: taxatieInvoiceAmount,
+          description: "Taxatierapport",
+          bank: "rabo",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTaxatieInvoicePreview(data);
+      } else {
+        setTaxatieInvoiceError(data.error || "Taxatiefactuur-preview mislukt");
+      }
+    } catch {
+      setTaxatieInvoiceError("Kan taxatiefactuur-preview niet ophalen");
+    }
+    setTaxatieInvoiceLoading(false);
+  }
+
   // --- Samenvoegen ---
   async function handleMergeSearch(query: string) {
     setMergeSearch(query);
@@ -1787,6 +1838,66 @@ export default function ProjectDetailPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {project.type === "TAXATIE" && (
+                  <div className="mt-3 rounded-md border border-emerald-100 bg-emerald-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Taxatiefactuur voorbereiden</p>
+                    <p className="mt-1 text-xs text-emerald-700/80">
+                      Preview-only: er wordt nog geen factuur aangemaakt.
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-end gap-2">
+                      <div className="min-w-[160px] flex-1">
+                        <label className="mb-1 block text-xs font-medium text-emerald-900">Bedrag excl. btw</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={taxatieInvoiceAmount}
+                          onChange={(e) => setTaxatieInvoiceAmount(e.target.value)}
+                          placeholder="650,00"
+                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        onClick={handleTaxatieInvoicePreview}
+                        disabled={taxatieInvoiceLoading || !taxatieInvoiceAmount}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <ArrowPathIcon className={`h-3.5 w-3.5 ${taxatieInvoiceLoading ? "animate-spin" : ""}`} />
+                        Preview
+                      </button>
+                    </div>
+                    {taxatieInvoiceError && (
+                      <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
+                        {taxatieInvoiceError}
+                      </div>
+                    )}
+                    {taxatieInvoicePreview?.preview.invoice && (
+                      <div className="mt-3 rounded border border-emerald-100 bg-white p-3 text-xs">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900">{taxatieInvoicePreview.preview.invoice.subject}</p>
+                            <p className="mt-1 text-gray-500">
+                              Vervaldatum {formatDateFull(taxatieInvoicePreview.preview.invoice.dueDate)}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="font-semibold text-gray-900">{formatCurrency(taxatieInvoicePreview.preview.invoice.amountIncl)}</p>
+                            <p className="text-gray-500">incl. btw</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 divide-y divide-gray-100">
+                          {taxatieInvoicePreview.preview.invoice.lines.map((line) => (
+                            <div key={line.description} className="flex justify-between gap-3 py-1.5">
+                              <span className="text-gray-600">{line.description}</span>
+                              <span className="font-medium text-gray-900">{formatCurrency(line.amountExcl)} excl.</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
