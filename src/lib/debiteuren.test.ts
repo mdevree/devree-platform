@@ -4,8 +4,11 @@ import test from "node:test";
 
 import {
   createDebiteurenSharedLoginUrl,
+  createDebiteurenInvoice,
+  previewDebiteurenInvoice,
   searchDebiteurenKlanten,
   upsertDebiteurenCustomerFromContact,
+  type DebiteurenInvoiceCreateV1,
 } from "./debiteuren";
 import type { ContactV1 } from "./contracts/contactV1";
 
@@ -139,6 +142,101 @@ test("write-API gebruikt POST met write-token en actor", async () => {
 
     const result = await upsertDebiteurenCustomerFromContact(contact, "melvin@example.invalid");
     assert.equal(result.customer?.id, 456);
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnvironment(snapshot);
+  }
+});
+
+test("invoice-preview gebruikt write-token maar geen idempotency-key", async () => {
+  const snapshot = snapshotEnvironment();
+  const originalFetch = global.fetch;
+  try {
+    process.env.DEBITEUREN_API_URL = "https://debiteuren.example.test";
+    process.env.DEBITEUREN_WRITE_API_TOKEN = "write-secret";
+
+    const payload: DebiteurenInvoiceCreateV1 = {
+      contractVersion: "InvoiceCreateV1",
+      source: "devree-platform",
+      customerId: 456,
+      invoiceType: "taxatie",
+      subject: "Taxatie Voorbeeldstraat 1",
+      invoiceDate: null,
+      dueDate: null,
+      bank: "rabo",
+      lines: [{ description: "Taxatierapport", amountExcl: 650, vatRate: 0.21 }],
+      extra: null,
+      reference: { platformProjectId: "project-1", mauticContactId: 123 },
+    };
+
+    global.fetch = async (input, init) => {
+      const url = new URL(String(input));
+      const headers = new Headers(init?.headers);
+
+      assert.equal(init?.method, "POST");
+      assert.equal(url.searchParams.get("resource"), "v1/invoices/preview");
+      assert.equal(headers.get("X-Debiteuren-Write-Token"), "write-secret");
+      assert.equal(headers.get("X-Debiteuren-Actor"), "melvin@example.invalid");
+      assert.equal(headers.get("X-Debiteuren-Idempotency-Key"), null);
+      assert.deepEqual(JSON.parse(String(init?.body)), payload);
+
+      return new Response(JSON.stringify({
+        result: "preview",
+        invoice: { amountExcl: 650, amountIncl: 786.5 },
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    const result = await previewDebiteurenInvoice(payload, "melvin@example.invalid");
+    assert.equal(result.result, "preview");
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnvironment(snapshot);
+  }
+});
+
+test("invoice-create stuurt stabiele idempotency-key mee", async () => {
+  const snapshot = snapshotEnvironment();
+  const originalFetch = global.fetch;
+  try {
+    process.env.DEBITEUREN_API_URL = "https://debiteuren.example.test";
+    process.env.DEBITEUREN_WRITE_API_TOKEN = "write-secret";
+
+    const payload: DebiteurenInvoiceCreateV1 = {
+      contractVersion: "InvoiceCreateV1",
+      source: "devree-platform",
+      customerId: 456,
+      invoiceType: "taxatie",
+      subject: "Taxatie Voorbeeldstraat 1",
+      invoiceDate: "2026-07-21",
+      dueDate: null,
+      bank: "rabo",
+      lines: [{ description: "Taxatierapport", amountExcl: 650, vatRate: 0.21 }],
+      extra: null,
+      reference: { platformProjectId: "project-1", mauticContactId: 123 },
+    };
+
+    global.fetch = async (input, init) => {
+      const url = new URL(String(input));
+      const headers = new Headers(init?.headers);
+
+      assert.equal(url.searchParams.get("resource"), "v1/invoices");
+      assert.equal(headers.get("X-Debiteuren-Idempotency-Key"), "project-1:taxatie:v1");
+      assert.equal(headers.get("X-Debiteuren-Read-Token"), null);
+
+      return new Response(JSON.stringify({
+        result: "created",
+        invoice: { id: 789, invoiceNumber: 2026001, customerId: 456 },
+      }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    const result = await createDebiteurenInvoice(payload, "melvin@example.invalid", "project-1:taxatie:v1");
+    assert.equal(result.result, "created");
   } finally {
     global.fetch = originalFetch;
     restoreEnvironment(snapshot);

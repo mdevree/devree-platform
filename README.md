@@ -1095,7 +1095,7 @@ CREATE TABLE time_entries (
 | `NEXT_PUBLIC_DEBITEUREN_URL` | Externe link naar het debiteuren/facturatie systeem (zichtbaar in sidebar) |
 | `DEBITEUREN_API_URL` | Server-side basis-URL van debiteuren voor de interne facturatie API |
 | `DEBITEUREN_READ_API_TOKEN` | Afzonderlijk geheim voor read-only requests naar de debiteuren-API |
-| `DEBITEUREN_WRITE_API_TOKEN` | Gereserveerd afzonderlijk geheim voor toekomstige schrijfacties naar de debiteuren-API |
+| `DEBITEUREN_WRITE_API_TOKEN` | Afzonderlijk geheim voor schrijfacties naar de debiteuren-API, zoals Mautic-klantkoppeling en factuurpreview/-aanmaak |
 | `DEBITEUREN_SSO_SECRET` | Afzonderlijk HMAC-geheim voor korte shared-login tokens |
 | `N8N_URL` | Basis-URL voor n8n webhooks, gebruikt als fallback door sommige integraties |
 | `AI_CALL_START_WEBHOOK_URL` | n8n start-webhook voor digitale medewerker calls |

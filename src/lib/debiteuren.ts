@@ -58,6 +58,64 @@ export type DebiteurenCustomerUpsertResponse = {
   candidateIds?: number[];
 };
 
+export type DebiteurenInvoiceLine = {
+  description: string;
+  amountExcl: number;
+  vatRate: number;
+};
+
+export type DebiteurenInvoiceCreateV1 = {
+  contractVersion: "InvoiceCreateV1";
+  source: "devree-platform";
+  customerId: number;
+  invoiceType: "taxatie" | "verkoop" | "aankoop" | "overig";
+  subject: string;
+  invoiceDate: string | null;
+  dueDate: string | null;
+  bank: "rabo" | "abn";
+  lines: DebiteurenInvoiceLine[];
+  extra: string | null;
+  reference: {
+    platformProjectId: string | null;
+    mauticContactId: number | null;
+  } | null;
+};
+
+export type DebiteurenInvoicePreview = {
+  customerId: number;
+  customerName: string;
+  addressBlock: string;
+  subject: string;
+  invoiceType: string;
+  invoiceDate: string;
+  dueDate: string;
+  bank: string;
+  paymentTerms: string;
+  extra: string | null;
+  lines: Array<DebiteurenInvoiceLine & {
+    vatAmount: number;
+    amountIncl: number;
+  }>;
+  amountExcl: number;
+  amountIncl: number;
+};
+
+export type DebiteurenInvoiceResponse = {
+  result: "preview" | "created" | "existing" | "validation_failed" | "idempotency_conflict" | "processing" | "not_found";
+  invoice: DebiteurenInvoicePreview | {
+    id: number;
+    invoiceNumber: number;
+    customerId: number;
+    subject: string;
+    invoiceDate: string | null;
+    dueDate: string | null;
+    amountExcl: number;
+    amountIncl: number;
+    hash: string | null;
+  } | null;
+  errors?: string[];
+};
+
 class DebiteurenApiError extends Error {
   constructor(message: string, public status: number) {
     super(message);
@@ -166,7 +224,12 @@ async function debiteurenGet<T>(resource: string, params: Record<string, string 
   return data as T;
 }
 
-async function debiteurenPost<T>(resource: string, body: unknown, actor: string): Promise<T> {
+async function debiteurenPost<T>(
+  resource: string,
+  body: unknown,
+  actor: string,
+  extraHeaders: Record<string, string> = {}
+): Promise<T> {
   const { baseUrl, token } = getDebiteurenWriteConfig();
   const url = new URL(baseUrl);
   url.searchParams.set("page", "api");
@@ -179,6 +242,7 @@ async function debiteurenPost<T>(resource: string, body: unknown, actor: string)
       "Content-Type": "application/json",
       "X-Debiteuren-Write-Token": token,
       "X-Debiteuren-Actor": actor,
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
     cache: "no-store",
@@ -214,6 +278,16 @@ export async function upsertDebiteurenCustomerFromContact(contact: ContactV1, ac
     contact,
     actor
   );
+}
+
+export async function previewDebiteurenInvoice(payload: DebiteurenInvoiceCreateV1, actor: string) {
+  return debiteurenPost<DebiteurenInvoiceResponse>("v1/invoices/preview", payload, actor);
+}
+
+export async function createDebiteurenInvoice(payload: DebiteurenInvoiceCreateV1, actor: string, idempotencyKey: string) {
+  return debiteurenPost<DebiteurenInvoiceResponse>("v1/invoices", payload, actor, {
+    "X-Debiteuren-Idempotency-Key": idempotencyKey,
+  });
 }
 
 export function getDebiteurenPublicUrl(path = "") {

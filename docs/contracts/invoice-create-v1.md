@@ -1,0 +1,64 @@
+# Contract: InvoiceCreateV1
+
+Laatst bijgewerkt: 2026-07-21.
+
+Dit is het platformcontract voor factuurvoorbereiding richting het
+debiteurensysteem. De eerste platformroute gebruikt alleen `preview`, zodat
+kantoor een taxatiefactuur kan controleren voordat er een echte factuur wordt
+aangemaakt.
+
+## Platformroute
+
+```http
+POST /api/projecten/{id}/debiteuren/invoice-preview
+Content-Type: application/json
+```
+
+Body:
+
+```json
+{
+  "amountExcl": 650,
+  "description": "Taxatierapport",
+  "bank": "rabo",
+  "invoiceDate": null,
+  "dueDate": null,
+  "extra": null
+}
+```
+
+Voorwaarden:
+
+- gebruiker moet ingelogd zijn;
+- project moet type `TAXATIE` zijn;
+- project moet al een debiteurenklant-link hebben;
+- `amountExcl` wordt expliciet gevraagd en niet uit projectvelden geraden.
+
+## Debiteuren-contract
+
+Het platform stuurt naar debiteuren:
+
+```json
+{
+  "contractVersion": "InvoiceCreateV1",
+  "source": "devree-platform",
+  "customerId": 123,
+  "invoiceType": "taxatie",
+  "subject": "Taxatie Voorbeeldstraat 1",
+  "invoiceDate": null,
+  "dueDate": null,
+  "bank": "rabo",
+  "lines": [
+    { "description": "Taxatierapport", "amountExcl": 650, "vatRate": 0.21 }
+  ],
+  "extra": null,
+  "reference": {
+    "platformProjectId": "project-id",
+    "mauticContactId": 12345
+  }
+}
+```
+
+Preview gebruikt de write-token omdat dezelfde payload later zonder vormwijziging
+naar de create-route kan. De create-route vereist daarnaast een stabiele
+`X-Debiteuren-Idempotency-Key`.
