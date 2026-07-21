@@ -1,6 +1,6 @@
 # De Vree Makelaardij systemenoverzicht
 
-Laatst bijgewerkt: 2026-07-12.
+Laatst bijgewerkt: 2026-07-21.
 
 Dit document legt vast welke systemen onderdeel zijn van de De Vree Makelaardij
 stack, waar de broncode of configuratie staat, hoe productie draait en welke
@@ -13,14 +13,16 @@ private keys of API tokens.
 | --- | --- |
 | Doel | Centraal kantoorplatform voor agenda, projecten, OTD/voorstellen, taken, kansen, telefonie, WhatsApp, Mautic, Realworks-sync en digitale medewerker |
 | Lokale repo | `/Users/melvin/LocalDev/DeVreeMakelaardij` |
+| Actieve werkmap debiteurenverbetering | `/Users/melvin/LocalDev/devree-platform-debiteuren-secops` |
 | GitHub | `git@github.com:mdevree/devree-platform.git` |
-| Productie-image | `ghcr.io/mdevree/devree-platform:3741a1f` |
-| Live revision | `3741a1f983cf7d1f4c0907a36d472182172d54eb` |
+| Productie-image | `ghcr.io/mdevree/devree-platform:04c7573` |
+| Live revision | `04c7573` |
 | Server | `136.144.253.219` |
 | Stackpad | `/home/DeVreeMakelaardij/stacks/devree-platform` |
 | Deployscript | `/usr/local/sbin/deploy-devree-platform <tag>` |
 | Healthcheck | `http://127.0.0.1:3100/digitale-medewerker` op de server |
-| Status op 2026-07-12 | Container draait, deploylog meldt succesvolle deploy om 12:39 CEST |
+| Runtime/CI | Node 24 in GitHub Actions en lokaal gecontroleerd met Node `v24.16.0` |
+| Status op 2026-07-21 | Container draait op image `04c7573`; loginroute `200`, beschermde routes `307`, API zonder sessie `401`, recente logs schoon |
 
 Lokale aandachtspunten:
 
@@ -29,14 +31,33 @@ Lokale aandachtspunten:
   directe `git ls-remote` faalde lokaal door GitHub SSH-auth.
 - CI bouwt en pusht een GHCR-image op `main`. De workflow kan productie bijwerken
   als `DEVREE_DEPLOY_SSH_KEY` in GitHub Actions bestaat.
+- Op 2026-07-21 is de debiteurenintegratie in kleine commits live gezet en na
+  iedere stap gecontroleerd. GitHub Actions meldt nog een waarschuwing dat enkele
+  Docker actions intern Node 20 targeten, maar ze worden door de workflow op Node
+  24 uitgevoerd.
+
+### Productiechecks 2026-07-21
+
+Uitgevoerd na de debiteurenverbeteringen:
+
+| Commit | Wijziging | Controle |
+| --- | --- | --- |
+| `e9b5278` | Adreswaarschuwingen uit Mautic kunnen in `/debiteurencontrole` als gecontroleerd worden gemarkeerd, inclusief notitie/auditvelden | `npm run verify` groen; productie-DB backup gemaakt; container `e9b5278`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; review-endpoint zonder sessie `401`; logs schoon |
+| `c6196c3` | Platformfacturen synchroniseren status, betaaldatum, verlopenstatus, laatste sync en syncmelding vanuit de debiteurensamenvatting | `npm run verify` groen; productie-DB backup gemaakt; container `c6196c3`; `/login` `200`; projectroute met `focus=debiteuren` `307`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
+| `04c7573` | Centrale debiteurencontrole toont verlopen/niet-gesynchroniseerde platformfacturen als aandachtspunt | `npm run verify` groen; container `04c7573`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
+
+Back-ups vóór directe productie-DB wijzigingen:
+
+- `/home/DeVreeMakelaardij/backups/devree-platform-pre-debiteuren-warning-review-20260721215920.sql`
+- `/home/DeVreeMakelaardij/backups/devree-platform-pre-debiteuren-invoice-status-sync-20260721220956.sql`
 
 ## Productiecontainers op platformserver
 
-Op 2026-07-12 draaiden op `136.144.253.219` onder andere:
+Op `136.144.253.219` draaien onder andere:
 
 | Container | Image | Rol |
 | --- | --- | --- |
-| `devree-platform` | `ghcr.io/mdevree/devree-platform:3741a1f` | Kantoorplatform |
+| `devree-platform` | `ghcr.io/mdevree/devree-platform:04c7573` | Kantoorplatform |
 | `n8n-n8n-1` | `n8nio/n8n:latest` | Automatiseringen en webhooks |
 | `documenso-app` | `documenso/documenso:latest` | Digitaal ondertekenen |
 | `documenso-db` | `postgres:16-alpine` | Documenso database |
@@ -197,22 +218,50 @@ Te controleren:
 
 | Onderdeel | Waarde |
 | --- | --- |
-| Lokale repo | `/Users/melvin/LocalDev/debiteuren-administratie` |
+| Lokale repo | `/Users/melvin/LocalDev/debiteuren-secops-work` |
 | GitHub | `https://github.com/mdevree/debiteuren-administratie.git` |
-| Lokale status op 2026-07-12 | `main`, geen lokale wijzigingen |
+| Laatste bekende codewijzigingen | ContactV1 customer-upsert API, gescheiden read/write/SSO tokens, taxatiefactuur preview/create API |
 | Platformkoppeling | `DEBITEUREN_API_URL`, `DEBITEUREN_READ_API_TOKEN`, `DEBITEUREN_WRITE_API_TOKEN`, `DEBITEUREN_SSO_SECRET`, `NEXT_PUBLIC_DEBITEUREN_URL` |
 
-Te controleren:
+Actuele platformintegratie op 2026-07-21:
 
-- Productiepad en deploymethode.
-- API-contract tussen debiteurensysteem en platform.
+- Contacten uit Mautic lopen via het vaste `ContactV1` contract en worden zowel
+  in het platform als in het debiteurensysteem genormaliseerd. Twijfels over
+  huisnummer, toevoeging, postcode/plaats of samengestelde adresregels worden
+  als `normalizationWarnings` opgeslagen.
+- `/debiteurencontrole` toont:
+  - projecten met Mautic-contact maar zonder debiteurenlink;
+  - open adresnormalisatiechecks;
+  - afgehandelde adresnormalisatiechecks met reviewer/notitie;
+  - taxatieprojecten die klaarstaan voor facturatie;
+  - verlopen of niet-gesynchroniseerde platformfacturen;
+  - recent via het platform aangemaakte facturen.
+- Projectdetailpagina's openen vanaf de controlepagina direct op het
+  facturatieblok via `?focus=debiteuren`.
+- Taxatiefacturen kunnen vanuit het platform worden voorbereid, gepreviewd en
+  pas na expliciete `FACTUUR` bevestiging aangemaakt. De idempotency-key voorkomt
+  dubbele platformfacturen.
+- Platformfacturen bewaren debiteuren-factuurnummer, bedrag, status
+  (`open`, `overdue`, `paid`), betaaldatum, hash, laatste sync en syncfout.
+- Het platform gebruikt gescheiden debiteurengeheimen voor read-only API,
+  write-API en SSO; het oude gedeelde token is geen fallback.
+
+Nog te controleren:
+
+- Productiepad en deploymethode van het losse debiteurensysteem expliciet in dit
+  overzicht opnemen.
+- Beslissen of verkoop- en aankoopfacturen dezelfde platformflow krijgen als
+  taxatiefacturen.
+- Bepalen of de debiteuren-API een direct factuurstatus-endpoint moet krijgen,
+  zodat het platform niet afhankelijk is van `laatsteFacturen` in de
+  klantsamenvatting.
 
 ## Lokale mappen en bronstatus
 
 | Map | Status/interpretatie |
 | --- | --- |
 | `/Users/melvin/LocalDev/DeVreeMakelaardij` | Hoofdrepo voor platform |
-| `/Users/melvin/LocalDev/debiteuren-administratie` | Losse GitHub repo |
+| `/Users/melvin/LocalDev/debiteuren-secops-work` | Losse debiteurenadministratie GitHub repo |
 | `/Users/melvin/LocalDev/DeVreeMakelaardij-marketobjects` | Lokale kopie/werkmap, geen Git-repo |
 | `/Users/melvin/LocalDev/devree-platform-dashboard-work2` | Lokale kopie/werkmap, geen Git-repo |
 | `/Users/melvin/LocalDev/devree-platform-dashboard-work` | Lokale kopie/werkmap, geen Git-repo |
