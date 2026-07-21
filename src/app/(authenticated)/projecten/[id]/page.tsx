@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -582,6 +582,8 @@ export default function ProjectDetailPage() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const projectId = params.id as string;
+  const facturatieRef = useRef<HTMLDivElement | null>(null);
+  const focusDebiteuren = searchParams.get("focus") === "debiteuren";
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -594,6 +596,15 @@ export default function ProjectDetailPage() {
       setActiveTab(tab as ActiveTab);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!focusDebiteuren || loading || !facturatieRef.current) return;
+    const timeout = window.setTimeout(() => {
+      facturatieRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+
+    return () => window.clearTimeout(timeout);
+  }, [focusDebiteuren, loading]);
 
   // Woning
   const [woning, setWoning] = useState<WoningData | null>(null);
@@ -1847,7 +1858,15 @@ export default function ProjectDetailPage() {
           )}
 
           {/* Facturatie */}
-          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div
+            id="facturatie"
+            ref={facturatieRef}
+            className={`mt-4 rounded-lg border p-4 transition-colors ${
+              focusDebiteuren
+                ? "border-emerald-300 bg-emerald-50/60 ring-2 ring-emerald-100"
+                : "border-gray-200 bg-gray-50"
+            }`}
+          >
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">

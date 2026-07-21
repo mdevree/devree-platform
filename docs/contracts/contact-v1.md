@@ -90,3 +90,5 @@ De versieerbare voorbeeldpayloads staan in
 - De warnings worden ook opgeslagen op `project_debiteuren_links` en centraal
   zichtbaar gemaakt op `/debiteurencontrole`, samen met projecten die wel een
   Mautic-contact maar nog geen debiteurenlink hebben.
+- Links vanuit `/debiteurencontrole` openen projecten met
+  `?focus=debiteuren`, zodat de facturatiekaart direct zichtbaar is.

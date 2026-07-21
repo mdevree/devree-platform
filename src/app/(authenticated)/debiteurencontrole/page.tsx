@@ -82,10 +82,14 @@ function Stat({ label, value, tone = "default" }: { label: string; value: number
   );
 }
 
+function projectDebiteurenHref(projectId: string) {
+  return `/projecten/${projectId}?focus=debiteuren`;
+}
+
 function ProjectLink({ project }: { project: ProjectBase }) {
   return (
     <div className="min-w-0">
-      <Link href={`/projecten/${project.id}`} className="font-medium text-gray-900 hover:text-primary hover:underline">
+      <Link href={projectDebiteurenHref(project.id)} className="font-medium text-gray-900 hover:text-primary hover:underline">
         {project.name}
       </Link>
       <p className="mt-0.5 truncate text-xs text-gray-500">
@@ -96,6 +100,10 @@ function ProjectLink({ project }: { project: ProjectBase }) {
           Mautic: {project.mauticContactIds.join(", ")}
         </p>
       )}
+      <Link href={projectDebiteurenHref(project.id)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+        Open facturatieblok
+        <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+      </Link>
     </div>
   );
 }
