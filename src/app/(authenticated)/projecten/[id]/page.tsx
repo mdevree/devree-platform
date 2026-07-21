@@ -343,6 +343,12 @@ interface ProjectDebiteurenInvoice {
   invoiceUrl: string;
 }
 
+interface ContactNormalizationWarning {
+  code: string;
+  field: string | null;
+  message: string;
+}
+
 interface DebiteurenInvoicePreviewData {
   preview: {
     result: string;
@@ -672,6 +678,7 @@ export default function ProjectDetailPage() {
   const [debiteurenSearchLoading, setDebiteurenSearchLoading] = useState(false);
   const [debiteurenLinkSaving, setDebiteurenLinkSaving] = useState(false);
   const [debiteurenMauticSaving, setDebiteurenMauticSaving] = useState(false);
+  const [debiteurenMauticWarnings, setDebiteurenMauticWarnings] = useState<ContactNormalizationWarning[]>([]);
   const [taxatieInvoiceAmount, setTaxatieInvoiceAmount] = useState("");
   const [taxatieInvoiceSubject, setTaxatieInvoiceSubject] = useState("");
   const [taxatieInvoiceDescription, setTaxatieInvoiceDescription] = useState("Taxatierapport");
@@ -1330,6 +1337,7 @@ export default function ProjectDetailPage() {
       const data = await res.json();
       if (res.ok) {
         setDebiteurenData(data);
+        setDebiteurenMauticWarnings(Array.isArray(data.contactWarnings) ? data.contactWarnings : []);
         setShowDebiteurenSearch(false);
         setDebiteurenSearch("");
         setDebiteurenSearchResults([]);
@@ -1354,6 +1362,7 @@ export default function ProjectDetailPage() {
       const data = await res.json();
       if (res.ok) {
         setDebiteurenData(data);
+        setDebiteurenMauticWarnings(Array.isArray(data.contactWarnings) ? data.contactWarnings : []);
         setShowDebiteurenSearch(false);
         setDebiteurenSearch("");
         setDebiteurenSearchResults([]);
@@ -1373,6 +1382,7 @@ export default function ProjectDetailPage() {
       const res = await fetch(`/api/projecten/${projectId}/debiteuren`, { method: "DELETE" });
       if (res.ok) {
         setDebiteurenData({ link: null, summary: null, invoices: debiteurenData?.invoices || [] });
+        setDebiteurenMauticWarnings([]);
       } else {
         const data = await res.json();
         setDebiteurenError(data.error || "Ontkoppelen mislukt");
@@ -1880,6 +1890,20 @@ export default function ProjectDetailPage() {
             {(debiteurenError || debiteurenData?.error) && (
               <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 {debiteurenError || debiteurenData?.error}
+              </div>
+            )}
+
+            {debiteurenMauticWarnings.length > 0 && (
+              <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <p className="font-semibold">Controleer Mautic-adresnormalisatie</p>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {debiteurenMauticWarnings.map((warning, index) => (
+                    <li key={`${warning.code}-${warning.field || "contact"}-${index}`}>
+                      {warning.message}
+                      {warning.field ? ` (${warning.field})` : ""}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

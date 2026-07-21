@@ -84,3 +84,6 @@ De versieerbare voorbeeldpayloads staan in
   `review_required` teruggeven.
 - Onzekere adresparsing: waarde bewaren in het best passende veld en een
   `normalizationWarnings` item toevoegen.
+- Bij Mautic -> debiteuren koppelen toont het platform deze warnings direct in
+  de facturatiekaart, zodat kantoor het adres kan controleren voordat het verder
+  factureert.

@@ -203,6 +203,7 @@ export async function POST(
         ...result,
         upsert,
         mauticContactId,
+        contactWarnings: contact.contactV1.normalizationWarnings,
       });
     } catch (error) {
       const status = isDebiteurenApiError(error) ? error.status : 502;
