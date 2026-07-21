@@ -41,6 +41,30 @@ aangemaakt of gekoppeld.
 | `partner` | object/null | Partnercontact, niet stil samenvoegen |
 | `normalizationWarnings` | array | Twijfel expliciet melden, niet raden |
 
+## Mautic bronvelden
+
+Het platform geeft ruwe Mautic-waarden aan de normalisatiefunctie door. De
+actuele facturatie-aliassen in Mautic zijn:
+
+| Mautic alias | ContactV1 veld |
+| --- | --- |
+| `id` | `mauticContactId` |
+| `firstname` | `voornaam`, `voornamen`, fallback voor `initialen` |
+| `lastname` | `tussenvoegsel`, `achternaam` |
+| `email` | `email` |
+| `mobile` | `mobiel` |
+| `phone` | `telefoon` |
+| `address1` | `straat`, fallback parse voor `huisnummer` en `toevoeging` |
+| `address2` | `aanvullendeAdresregel`, behalve bij duplicaat postcode/plaats |
+| `zipcode` | `postcode` |
+| `city` | `plaats` |
+| `country` | `land` |
+| `huisnummer` | `huisnummer` |
+| `huisnummer_toevoeging` | `toevoeging` |
+| `otd_aanhef` | `aanhef` |
+| `otd_initialen` | `initialen` |
+| `otd_voornamen` | `voornamen` |
+
 ## Voorbeelden
 
 De versieerbare voorbeeldpayloads staan in

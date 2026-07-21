@@ -4,6 +4,8 @@
  */
 
 import { normalizePhoneNumber, type PhoneFormats } from "./phone";
+import { normalizeMauticContactToContactV1 } from "./contactNormalization";
+import type { ContactV1 } from "./contracts/contactV1";
 
 const MAUTIC_URL = process.env.MAUTIC_URL || "https://connect.devreemakelaardij.nl";
 const MAUTIC_CLIENT_ID = process.env.MAUTIC_CLIENT_ID || "";
@@ -129,6 +131,8 @@ export interface MauticContactFull extends MauticContact {
   zipcode: string | null;
   country: string | null;
   website: string | null;
+  huisnummer: string | null;
+  huisnummerToevoeging: string | null;
   // Opdracht tot dienstverlening velden uit Realworks
   otdAanhef: string | null;
   otdInitialen: string | null;
@@ -136,6 +140,7 @@ export interface MauticContactFull extends MauticContact {
   otdGeboorteplaats: string | null;
   otdBurgerlijkeStaat: string | null;
   geboortedatum: string | null;
+  contactV1: ContactV1;
   // AI data profiel veld (JSON string opgeslagen in een custom veld)
   aiProfile: string | null;
   // AI sub-velden (gegenereerd door AI-workflow op basis van Mautic data + interacties)
@@ -269,6 +274,8 @@ export async function createContact(data: {
   address1?: string;
   zipcode?: string;
   city?: string;
+  huisnummer?: string;
+  huisnummer_toevoeging?: string;
   otd_aanhef?: string;
   otd_initialen?: string;
   otd_voornamen?: string;
@@ -342,58 +349,88 @@ export async function getContactFull(contactId: number): Promise<MauticContactFu
 
   const data = await response.json();
   const contact = data.contact;
-  const fields = contact.fields?.all || {};
+  return mapMauticContactFull(contact);
+}
 
-  // Tags ophalen
-  const tags: string[] = (contact.tags || []).map((t: { tag: string }) => t.tag);
-
-  const boolField = (val: unknown): boolean | null => {
-    if (val === null || val === undefined || val === "") return null;
-    return val === "1" || val === 1 || val === true;
-  };
+export function mapMauticContactFull(contact: Record<string, unknown>, fallbackId?: number): MauticContactFull {
+  const fields = (contact.fields as Record<string, Record<string, unknown>>)?.all || {};
+  const id = numberField(contact.id) ?? fallbackId ?? 0;
+  const firstname = stringField(fields.firstname) ?? "";
+  const lastname = stringField(fields.lastname) ?? "";
+  const otdAanhef = stringField(fields.otd_aanhef);
+  const otdInitialen = stringField(fields.otd_initialen);
+  const otdVoornamen = stringField(fields.otd_voornamen);
+  const huisnummer = stringField(fields.huisnummer);
+  const huisnummerToevoeging = stringField(fields.huisnummer_toevoeging);
+  const address1 = stringField(fields.address1);
+  const address2 = stringField(fields.address2);
+  const city = stringField(fields.city);
+  const zipcode = stringField(fields.zipcode);
+  const country = stringField(fields.country);
+  const tags: string[] = ((contact.tags as { tag: string }[] | undefined) || []).map((t) => t.tag);
 
   return {
-    id: contact.id,
-    firstname: fields.firstname || "",
-    lastname: fields.lastname || "",
-    email: fields.email || null,
-    phone: fields.phone || null,
-    mobile: fields.mobile || null,
-    company: fields.company || null,
-    points: contact.points || 0,
-    lastActive: fields.last_active || null,
-    address1: fields.address1 || null,
-    address2: fields.address2 || null,
-    city: fields.city || null,
-    state: fields.state || null,
-    zipcode: fields.zipcode || null,
-    country: fields.country || null,
-    website: fields.website || null,
-    otdAanhef: fields.otd_aanhef || null,
-    otdInitialen: fields.otd_initialen || null,
-    otdVoornamen: fields.otd_voornamen || null,
-    otdGeboorteplaats: fields.otd_geboorteplaats || null,
-    otdBurgerlijkeStaat: fields.otd_burgerlijke_staat || null,
-    geboortedatum: fields.geboortedatum || null,
-    aiProfile: fields.ai_profiel_data || null,
-    aiCurrentSituation: fields.ai_current_situation || null,
-    aiHousingMotivation: fields.ai_housing_motivation || null,
-    aiBudgetIndication: fields.ai_budget_indication || null,
-    aiTimeline: fields.ai_timeline || null,
-    aiFamilyStatus: fields.ai_family_status || null,
-    aiLifestylePreference: fields.ai_lifestyle_preference || null,
-    bezichtigingNotities: fields.bezichtiging_notities || null,
-    bezichtigingInteresse: fields.bezichtiging_interesse != null ? Number(fields.bezichtiging_interesse) : null,
-    contactTypeBezichtiger: fields.contact_type_bezichtiger || null,
-    afspraakIntakeAntwoord: fields.afspraak_intake_antwoord || null,
-    zoekerData: fields.zoeker_data || null,
+    id,
+    firstname,
+    lastname,
+    email: stringField(fields.email),
+    phone: stringField(fields.phone),
+    mobile: stringField(fields.mobile),
+    company: stringField(fields.company),
+    points: numberField(contact.points) ?? 0,
+    lastActive: stringField(fields.last_active),
+    address1,
+    address2,
+    city,
+    state: stringField(fields.state),
+    zipcode,
+    country,
+    website: stringField(fields.website),
+    huisnummer,
+    huisnummerToevoeging,
+    otdAanhef,
+    otdInitialen,
+    otdVoornamen,
+    otdGeboorteplaats: stringField(fields.otd_geboorteplaats),
+    otdBurgerlijkeStaat: stringField(fields.otd_burgerlijke_staat),
+    geboortedatum: stringField(fields.otd_geboortedatum) ?? stringField(fields.geboortedatum),
+    contactV1: normalizeMauticContactToContactV1({
+      id,
+      firstname,
+      lastname,
+      email: stringField(fields.email),
+      mobile: stringField(fields.mobile),
+      phone: stringField(fields.phone),
+      address1,
+      address2,
+      zipcode,
+      city,
+      country,
+      aanhef: otdAanhef,
+      initialen: otdInitialen,
+      voornamen: otdVoornamen,
+      huisnummer,
+      huisnummer_toevoeging: huisnummerToevoeging,
+    }),
+    aiProfile: stringField(fields.ai_profiel_data),
+    aiCurrentSituation: stringField(fields.ai_current_situation),
+    aiHousingMotivation: stringField(fields.ai_housing_motivation),
+    aiBudgetIndication: stringField(fields.ai_budget_indication),
+    aiTimeline: stringField(fields.ai_timeline),
+    aiFamilyStatus: stringField(fields.ai_family_status),
+    aiLifestylePreference: stringField(fields.ai_lifestyle_preference),
+    bezichtigingNotities: stringField(fields.bezichtiging_notities),
+    bezichtigingInteresse: numField(fields.bezichtiging_interesse),
+    contactTypeBezichtiger: stringField(fields.contact_type_bezichtiger),
+    afspraakIntakeAntwoord: stringField(fields.afspraak_intake_antwoord),
+    zoekerData: stringField(fields.zoeker_data),
     kijkerEigenWoning: boolField(fields.kijker_eigen_woning),
     kijkerOverwegtVerkoop: boolField(fields.kijker_overweegt_verkoop),
-    kijkerHypotheekStatus: fields.kijker_hypotheek_status || null,
-    kijkerAanvragerType: fields.kijker_aanvrager_type || null,
-    kijkerLeadHerkomst: fields.kijker_lead_herkomst || null,
+    kijkerHypotheekStatus: stringField(fields.kijker_hypotheek_status),
+    kijkerAanvragerType: stringField(fields.kijker_aanvrager_type),
+    kijkerLeadHerkomst: stringField(fields.kijker_lead_herkomst),
     tags,
-    dateAdded: contact.dateAdded || null,
+    dateAdded: stringField(contact.dateAdded),
   };
 }
 
@@ -470,6 +507,23 @@ export async function searchContactByEmail(email: string): Promise<MauticContact
 
   const contactId = parseInt(contactIds[0]);
   return mapBasicContact(contacts[contactIds[0]], contactId);
+}
+
+function stringField(val: unknown): string | null {
+  if (val === null || val === undefined) return null;
+  const value = String(val).trim();
+  return value === "" ? null : value;
+}
+
+function numberField(val: unknown): number | null {
+  if (val === null || val === undefined || val === "") return null;
+  const n = Number(val);
+  return Number.isNaN(n) ? null : n;
+}
+
+function boolField(val: unknown): boolean | null {
+  if (val === null || val === undefined || val === "") return null;
+  return val === "1" || val === 1 || val === true;
 }
 
 /**
