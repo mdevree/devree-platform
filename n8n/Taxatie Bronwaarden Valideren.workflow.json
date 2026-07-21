@@ -1,0 +1,61 @@
+{
+  "id": "TaxatieBronwaardenValideren01",
+  "name": "Taxatie — Bronwaarden Valideren",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\nconst projectId = String(input.projectId || '').trim();\nconst actor = String(input.actor || 'document-verwerker').trim();\nconst raw = Array.isArray(input.observations) ? input.observations : (Array.isArray(input.bronwaarden) ? input.bronwaarden : []);\nif (!projectId) throw new Error('projectId is verplicht');\nif (!raw.length) throw new Error('Minimaal één bronwaarde is verplicht');\nconst observations = raw.map((item, index) => {\n  if (!item || typeof item !== 'object') throw new Error(`Bronwaarde ${index + 1} is ongeldig`);\n  const field = String(item.field || '').trim();\n  if (!field) throw new Error(`Bronwaarde ${index + 1}: field ontbreekt`);\n  if (item.value === undefined || item.value === null || item.value === '') throw new Error(`Bronwaarde ${index + 1}: value ontbreekt`);\n  if (!item.source || typeof item.source !== 'object' || !String(item.source.type || '').trim()) throw new Error(`Bronwaarde ${index + 1}: source.type ontbreekt`);\n  return {\n    id: item.id || undefined,\n    field,\n    value: item.value,\n    unit: item.unit || undefined,\n    observedAt: item.observedAt || new Date().toISOString(),\n    source: {\n      type: String(item.source.type),\n      document: item.source.document || undefined,\n      path: item.source.path || undefined,\n      page: item.source.page || undefined,\n      field: item.source.field || undefined,\n      uri: item.source.uri || undefined,\n      extract: item.source.extract || undefined\n    }\n  };\n});\nreturn [{ json: { projectId, actor, observations } }];"
+      },
+      "id": "validate-payload",
+      "name": "Valideer bronwaarden-payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.PLATFORM_BASE_URL || 'https://kantoor.devreemakelaardij.nl').replace(/\\/$/, '') + '/api/taxaties/bronwaarden' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "post-platform",
+      "name": "Registreer en detecteer conflicten",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [[{ "node": "Valideer bronwaarden-payload", "type": "main", "index": 0 }]]
+    },
+    "Valideer bronwaarden-payload": {
+      "main": [[{ "node": "Registreer en detecteer conflicten", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "description": "Herbruikbare subworkflow voor taxatie-documentflows. Registreert bronwaarden met herkomst in dossier.json via het kantoorplatform, detecteert conflicten en kiest nooit automatisch een waarde. Bevestiging gebeurt door de taxateur in het Taxatiecontrole-paneel."
+}

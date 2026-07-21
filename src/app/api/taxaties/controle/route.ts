@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
 import { TAXATIE_CHECKLIST_ITEMS } from "@/lib/taxatieMail";
+import { loadProjectTaxatieDossier } from "@/lib/taxatieDossierService";
+import { sourceValidationSummary } from "@/lib/taxatieSourceConflicts";
 
 export async function GET(request: NextRequest) {
   if (!await isAuthorized(request)) {
@@ -29,9 +31,30 @@ export async function GET(request: NextRequest) {
     }),
   ]);
 
+  let sourceValidation;
+  try {
+    const dossierDocument = await loadProjectTaxatieDossier(projectId);
+    sourceValidation = {
+      available: true,
+      dossierPath: dossierDocument.path,
+      exists: dossierDocument.exists,
+      ...sourceValidationSummary(dossierDocument.dossier),
+    };
+  } catch (error) {
+    sourceValidation = {
+      available: false,
+      error: error instanceof Error ? error.message : "Bronwaardecontrole ophalen mislukt",
+      fields: [],
+      openConflicts: [],
+      unresolvedFields: [],
+      exportReady: false,
+    };
+  }
+
   return NextResponse.json({
     checklist: TAXATIE_CHECKLIST_ITEMS,
     archives,
     tasks,
+    sourceValidation,
   });
 }

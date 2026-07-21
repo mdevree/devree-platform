@@ -10,6 +10,7 @@ Centraal kantoor platform dat alle systemen van De Vree Makelaardij met elkaar v
 - **Digitale medewerker** — Beheerbare agentprofielen, taakprofielen, outbound AI-belkaarten voor bezichtigingsopvolging, Mautic, n8n info-mail en concept follow-up
 - **Taken** — Kanban + tabeloverzicht, per makelaar en centraal voor binnendienst, met tijdregistratie per taak
 - **Projecten** — Woningdossiers (Verkoop / Aankoop / Taxatie) gekoppeld aan taken, gesprekken, Mautic contacten en Notion. Bevat dossier tab met commerciële gegevens, kadastrale info, kosten, voorstel-flow en opdracht tot dienstverlening. Projecten kunnen worden samengevoegd
+- **Taxatie-bronwaarden** — Generieke conflictvalidatie in `dossier.json`, taxateursreview in het projectpaneel, audit trail en geblokkeerde exports totdat bronwaarden expliciet zijn bevestigd
 - **Contacten** — Mautic CRM overzicht met zoekfunctie, contactdetails bewerken, AI data profiel en email activiteit. Nieuw contact aanmaken direct vanuit de pagina
 - **Pipeline** — Kanban-board op basis van `verkoopgesprek_status` uit Mautic, met interesse-scores en AI profielen
 - **Kansen** — Actielijst op basis van Realworks-objectmutaties, zoekprofielen en Mautic websitegedrag. Signaleert o.a. actieve interesse en nieuwe woningmatches
@@ -574,6 +575,20 @@ Verwerkt alle call statussen: `ringing`, `in-progress`, `ended`. Zoekt automatis
 }
 ```
 
+### Taxaties `/api/taxaties`
+
+| Methode | Endpoint | Omschrijving |
+|---------|----------|--------------|
+| `GET` | `/api/taxaties/controle?projectId=...` | Checklist, mailarchief, taken en bronwaarde-review voor het projectpaneel |
+| `POST` | `/api/taxaties/bronwaarden` | Registreer idempotente bronwaarnemingen vanuit n8n en detecteer conflicten |
+| `POST` | `/api/taxaties/conflicten/bevestig` | Laat een ingelogde taxateur een bronwaarde kiezen of handmatig invoeren |
+| `GET` | `/api/taxaties/dossier?projectId=...` | Lees `dossier.json` met validatiesamenvatting |
+| `GET` | `/api/taxaties/dossier?projectId=...&view=export` | Exportweergave; blokkeert bij `conflict` of `unresolved` |
+| `POST` | `/api/taxaties/mail-match` | Match en classificeer een inkomende taxatiemail |
+| `POST` | `/api/taxaties/mail-archive-result` | Verwerk het resultaat van de n8n-mailarchivering |
+
+Zie [docs/taxatie-bronwaarde-conflicten.md](docs/taxatie-bronwaarde-conflicten.md) voor het `dossier.json`-model, n8n-contract, reviewproces, exportblokkade en uitbreidingsregels.
+
 ---
 
 ### Mautic `/api/mautic`
@@ -1107,6 +1122,8 @@ CREATE TABLE time_entries (
 | `REALWORKS_BACKUP_CAPTURE_WEBHOOK_URL` | Optionele n8n forward-url voor Realworks backup/discovery captures |
 | `GOTENBERG_URL` | HTML-naar-PDF service voor agenda-cheatsheets |
 | `NEXTCLOUD_URL` / `NEXTCLOUD_USER` / `NEXTCLOUD_APP_PASSWORD` / `NEXTCLOUD_BASE_PATH` | Nextcloud-opslag voor gegenereerde cheatsheets |
+| `TAXATIE_NEXTCLOUD_ROOT` | Optionele map vóór het jaar/adrespad van taxatiedossiers; leeg als het WebDAV-account al in de taxatieroot start |
+| `TAXATIE_NEXTCLOUD_WEBDAV_URL` | Optionele directe WebDAV-basis-URL voor taxatiedossiers; anders wordt `NEXTCLOUD_URL` met `NEXTCLOUD_USER` gebruikt |
 | `FRIDU_RADAR_API_URL` / `FRIDU_RADAR_API_KEY` / `FRIDU_RADAR_TIMEOUT_MS` | Optionele Fridu Radar-verrijking voor buurtdata |
 
 ---

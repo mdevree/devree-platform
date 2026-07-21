@@ -40,10 +40,60 @@ interface TaxatieTask {
   updatedAt: string;
 }
 
+interface SourceReference {
+  type: string;
+  document?: string;
+  path?: string;
+  page?: number;
+  field?: string;
+  extract?: string;
+}
+
+interface SourceObservation {
+  id: string;
+  value: string | number | boolean;
+  normalizedValue: string | number | boolean;
+  unit?: string;
+  source: SourceReference;
+  observedAt?: string;
+  recordedAt: string;
+  recordedBy: string;
+}
+
+interface SourceValidationField {
+  key: string;
+  label: string;
+  dataType: "string" | "number" | "boolean" | "date";
+  unit?: string;
+  status: "unresolved" | "conflict" | "confirmed";
+  sourceValues: SourceObservation[];
+  distinctValues: Array<string | number | boolean>;
+  taxateur_bevestigd: {
+    active: boolean;
+    value: string | number | boolean;
+    confirmedBy: string;
+    confirmedAt: string;
+    method: "source" | "manual";
+  } | null;
+  lastEvaluatedAt: string;
+}
+
+interface SourceValidationData {
+  available: boolean;
+  error?: string;
+  dossierPath?: string;
+  exists?: boolean;
+  fields: SourceValidationField[];
+  openConflicts: string[];
+  unresolvedFields: string[];
+  exportReady: boolean;
+}
+
 interface TaxatieControleData {
   checklist: ChecklistItem[];
   archives: TaxatieArchive[];
   tasks: TaxatieTask[];
+  sourceValidation: SourceValidationData;
 }
 
 function statusTone(status: string) {
@@ -64,10 +114,22 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function sourceLabel(source: SourceReference) {
+  const location = [source.document || source.path, source.page ? `pagina ${source.page}` : null, source.field]
+    .filter(Boolean)
+    .join(" · ");
+  return location || source.type;
+}
+
 export default function TaxatieControlePanel({ projectId }: { projectId: string }) {
   const [data, setData] = useState<TaxatieControleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [savingField, setSavingField] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [manualValues, setManualValues] = useState<Record<string, string>>({});
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -87,6 +149,36 @@ export default function TaxatieControlePanel({ projectId }: { projectId: string 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const confirmSourceValue = useCallback(async (
+    field: SourceValidationField,
+    selection: { sourceValueId: string } | { manualValue: string }
+  ) => {
+    setSavingField(field.key);
+    setReviewError(null);
+    try {
+      const response = await fetch("/api/taxaties/conflicten/bevestig", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          field: field.key,
+          ...selection,
+          note: reviewNotes[field.key] || undefined,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Bronwaarde bevestigen mislukt");
+      setManualValues((current) => ({ ...current, [field.key]: "" }));
+      setReviewNotes((current) => ({ ...current, [field.key]: "" }));
+      setEditingField(null);
+      await fetchData();
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : "Bronwaarde bevestigen mislukt");
+    } finally {
+      setSavingField(null);
+    }
+  }, [fetchData, projectId, reviewNotes]);
 
   const taskByChecklistKey = useMemo(() => {
     const map = new Map<string, TaxatieTask>();
@@ -108,6 +200,8 @@ export default function TaxatieControlePanel({ projectId }: { projectId: string 
   const reviewCount = (data?.archives || []).filter((archive) =>
     ["ambiguous", "unmatched"].includes(archive.matchStatus) || ["review_needed", "failed"].includes(archive.archiveStatus)
   ).length;
+  const openSourceValueCount = (data?.sourceValidation?.openConflicts.length || 0) +
+    (data?.sourceValidation?.unresolvedFields.length || 0);
 
   if (loading) {
     return (
@@ -131,9 +225,9 @@ export default function TaxatieControlePanel({ projectId }: { projectId: string 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Taxatiecontrole</p>
-            <h3 className="mt-1 text-lg font-semibold text-gray-900">Mailarchief en werkblad-taken</h3>
+            <h3 className="mt-1 text-lg font-semibold text-gray-900">Dossier-, bronwaarde- en werkbladcontrole</h3>
             <p className="mt-1 text-sm text-gray-500">
-              Controleer hier per taxatie welke mails zijn gekoppeld, welke stukken zijn opgeslagen en welke checklisttaken zijn bijgewerkt.
+              Controleer hier welke stukken zijn opgeslagen, welke checklisttaken zijn bijgewerkt en welke bronwaarden nog taxateursbevestiging nodig hebben.
             </p>
           </div>
           <button
@@ -146,7 +240,7 @@ export default function TaxatieControlePanel({ projectId }: { projectId: string 
           </button>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Mails</p>
             <p className="mt-1 text-2xl font-semibold text-gray-900">{data?.archives.length || 0}</p>
@@ -159,7 +253,130 @@ export default function TaxatieControlePanel({ projectId }: { projectId: string 
             <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Taxatietaken</p>
             <p className="mt-1 text-2xl font-semibold text-gray-900">{data?.tasks.length || 0}</p>
           </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Open bronwaarden</p>
+            <p className={`mt-1 text-2xl font-semibold ${openSourceValueCount ? "text-red-700" : "text-green-700"}`}>
+              {openSourceValueCount}
+            </p>
+          </div>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Review bronwaarden</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Een waarde stroomt pas door naar rapport- en exportvelden nadat een taxateur haar hier bevestigt.
+            </p>
+          </div>
+          {data?.sourceValidation?.available && (
+            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${data.sourceValidation.exportReady ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+              {data.sourceValidation.exportReady ? "Export gereed" : "Export geblokkeerd"}
+            </span>
+          )}
+        </div>
+
+        {!data?.sourceValidation?.available ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {data?.sourceValidation?.error || "Bronwaardecontrole is nog niet beschikbaar."}
+          </div>
+        ) : (data.sourceValidation.fields.length === 0 ? (
+          <div className="mt-4 rounded-lg border border-dashed border-gray-300 p-5 text-sm text-gray-500">
+            Nog geen bronwaarden geregistreerd in dossier.json.
+          </div>
+        ) : (
+          <div className="mt-4 space-y-4">
+            {reviewError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{reviewError}</div>
+            )}
+            {data.sourceValidation.fields.map((field) => {
+              const isOpen = field.status !== "confirmed";
+              const showReview = isOpen || editingField === field.key;
+              const saving = savingField === field.key;
+              return (
+                <div key={field.key} className={`rounded-lg border p-4 ${field.status === "conflict" ? "border-red-200 bg-red-50/40" : field.status === "unresolved" ? "border-amber-200 bg-amber-50/40" : "border-green-200 bg-green-50/40"}`}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{field.label}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {field.sourceValues.length} bron{field.sourceValues.length === 1 ? "" : "nen"} · {field.distinctValues.length} unieke waarde{field.distinctValues.length === 1 ? "" : "n"}
+                      </p>
+                    </div>
+                    <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-medium ${field.status === "conflict" ? "bg-red-100 text-red-700" : field.status === "unresolved" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
+                      {field.status}
+                    </span>
+                  </div>
+
+                  {field.status === "confirmed" && field.taxateur_bevestigd?.active && !showReview ? (
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-green-800">
+                        Bevestigd: <strong>{String(field.taxateur_bevestigd.value)} {field.unit || ""}</strong> door {field.taxateur_bevestigd.confirmedBy} op {formatDate(field.taxateur_bevestigd.confirmedAt)}.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setEditingField(field.key)}
+                        className="w-fit rounded-lg border border-green-300 bg-white px-3 py-1.5 text-xs font-medium text-green-800 hover:bg-green-50"
+                      >
+                        Bevestiging herzien
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-3 grid gap-2">
+                        {field.sourceValues.map((sourceValue) => (
+                          <div key={sourceValue.id} className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-900">{String(sourceValue.value)} {sourceValue.unit || field.unit || ""}</p>
+                              <p className="mt-1 text-xs text-gray-500">{sourceLabel(sourceValue.source)}</p>
+                              {sourceValue.source.extract && <p className="mt-1 text-xs text-gray-600">“{sourceValue.source.extract}”</p>}
+                              <p className="mt-1 text-[11px] text-gray-400">Geregistreerd {formatDate(sourceValue.recordedAt)} door {sourceValue.recordedBy}</p>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => confirmSourceValue(field, { sourceValueId: sourceValue.id })}
+                              className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {saving ? "Opslaan..." : "Bevestig deze waarde"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      {showReview && (
+                        <div className="mt-3 grid gap-2 border-t border-gray-200 pt-3 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto]">
+                          <input
+                            type="text"
+                            inputMode={field.dataType === "number" ? "decimal" : "text"}
+                            value={manualValues[field.key] || ""}
+                            onChange={(event) => setManualValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                            placeholder={`Handmatige waarde${field.unit ? ` (${field.unit})` : ""}`}
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <input
+                            type="text"
+                            value={reviewNotes[field.key] || ""}
+                            onChange={(event) => setReviewNotes((current) => ({ ...current, [field.key]: event.target.value }))}
+                            placeholder="Toelichting (optioneel)"
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <button
+                            type="button"
+                            disabled={saving || !(manualValues[field.key] || "").trim()}
+                            onClick={() => confirmSourceValue(field, { manualValue: manualValues[field.key] })}
+                            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Handmatig bevestigen
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
