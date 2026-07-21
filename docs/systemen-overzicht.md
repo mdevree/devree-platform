@@ -15,14 +15,14 @@ private keys of API tokens.
 | Lokale repo | `/Users/melvin/LocalDev/DeVreeMakelaardij` |
 | Actieve werkmap debiteurenverbetering | `/Users/melvin/LocalDev/devree-platform-debiteuren-secops` |
 | GitHub | `git@github.com:mdevree/devree-platform.git` |
-| Productie-image | `ghcr.io/mdevree/devree-platform:045268c` |
-| Live revision | `045268c` |
+| Productie-image | `ghcr.io/mdevree/devree-platform:<short-sha>` via GitHub Actions op `main` |
+| Laatste functionele app-revision | `045268c` |
 | Server | `136.144.253.219` |
 | Stackpad | `/home/DeVreeMakelaardij/stacks/devree-platform` |
 | Deployscript | `/usr/local/sbin/deploy-devree-platform <tag>` |
 | Healthcheck | `http://127.0.0.1:3100/digitale-medewerker` op de server |
 | Runtime/CI | Node 24 in GitHub Actions en lokaal gecontroleerd met Node `v24.16.0` |
-| Status op 2026-07-21 | Container draait op image `045268c`; loginroute `200`, beschermde routes `307`, API zonder sessie `401`, directe debiteurenfactuur-read vanuit container gecontroleerd, recente logs schoon |
+| Status op 2026-07-21 | Appcode `045268c` gecontroleerd; latere docs-only deploys kunnen een hogere image-tag hebben zonder runtimewijziging. Loginroute `200`, beschermde routes `307`, API zonder sessie `401`, directe debiteurenfactuur-read vanuit container gecontroleerd, recente logs schoon |
 
 Lokale aandachtspunten:
 
@@ -46,6 +46,7 @@ Uitgevoerd na de debiteurenverbeteringen:
 | `c6196c3` | Platformfacturen synchroniseren status, betaaldatum, verlopenstatus, laatste sync en syncmelding vanuit de debiteurensamenvatting | `npm run verify` groen; productie-DB backup gemaakt; container `c6196c3`; `/login` `200`; projectroute met `focus=debiteuren` `307`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
 | `04c7573` | Centrale debiteurencontrole toont verlopen/niet-gesynchroniseerde platformfacturen als aandachtspunt | `npm run verify` groen; container `04c7573`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
 | `045268c` | Platform haalt factuurstatussen direct op via `InvoiceReadV1` in plaats van via de klantsamenvatting | `npm run verify` groen; GitHub Actions-run `29866532137` groen; container `045268c`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; directe factuur-read vanuit container geeft gecontroleerd `404 not_found` voor niet-bestaande factuur; logs schoon |
+| `6ae5674` | Documenteert de live `InvoiceReadV1`-status en debiteurenproductiepad; geen runtimewijziging | GitHub Actions-run `29867054524` groen; container `6ae5674`; `/login` `200`; `/debiteurencontrole` `307`; `/api/debiteuren/controle` `401`; logs schoon |
 
 Back-ups vóór directe productie-DB wijzigingen:
 
@@ -58,7 +59,7 @@ Op `136.144.253.219` draaien onder andere:
 
 | Container | Image | Rol |
 | --- | --- | --- |
-| `devree-platform` | `ghcr.io/mdevree/devree-platform:045268c` | Kantoorplatform |
+| `devree-platform` | `ghcr.io/mdevree/devree-platform:<short-sha>` | Kantoorplatform |
 | `n8n-n8n-1` | `n8nio/n8n:latest` | Automatiseringen en webhooks |
 | `documenso-app` | `documenso/documenso:latest` | Digitaal ondertekenen |
 | `documenso-db` | `postgres:16-alpine` | Documenso database |
