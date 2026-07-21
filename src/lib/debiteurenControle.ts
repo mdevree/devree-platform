@@ -25,6 +25,9 @@ export type DebiteurenControleProject = {
     mauticContactId: number | null;
     contactWarnings: unknown;
     normalizationCheckedAt: Date | null;
+    contactWarningsReviewedAt: Date | null;
+    contactWarningsReviewedBy: string | null;
+    contactWarningsReviewNote: string | null;
     linkedAt: Date;
     lastCheckedAt: Date | null;
   } | null;
@@ -101,16 +104,29 @@ export function buildDebiteurenControle(projects: DebiteurenControleProject[]) {
       return [{
         ...projectBase(project),
         link: {
+          id: project.debiteurenLink.id,
           debiteurenKlantId: project.debiteurenLink.debiteurenKlantId,
           klantNaam: project.debiteurenLink.klantNaam,
           klantEmail: project.debiteurenLink.klantEmail,
           klantAdres: project.debiteurenLink.klantAdres,
           mauticContactId: project.debiteurenLink.mauticContactId,
           normalizationCheckedAt: project.debiteurenLink.normalizationCheckedAt?.toISOString() ?? null,
+          review: project.debiteurenLink.contactWarningsReviewedAt ? {
+            reviewedAt: project.debiteurenLink.contactWarningsReviewedAt.toISOString(),
+            reviewedBy: project.debiteurenLink.contactWarningsReviewedBy,
+            note: project.debiteurenLink.contactWarningsReviewNote,
+          } : null,
         },
         warnings,
       }];
-    })
+    });
+
+  const openLinksWithWarnings = linksWithWarnings
+    .filter((item) => !item.link.review)
+    .slice(0, 50);
+
+  const reviewedLinksWithWarnings = linksWithWarnings
+    .filter((item) => !!item.link.review)
     .slice(0, 50);
 
   const taxatieReadyForInvoice = activeProjects
@@ -148,11 +164,13 @@ export function buildDebiteurenControle(projects: DebiteurenControleProject[]) {
       activeProjects: activeProjects.length,
       linkedProjects: linkedProjects.length,
       unlinkedWithMautic: unlinkedWithMautic.length,
-      linksWithWarnings: linksWithWarnings.length,
+      linksWithWarnings: openLinksWithWarnings.length,
+      reviewedLinksWithWarnings: reviewedLinksWithWarnings.length,
       taxatieReadyForInvoice: taxatieReadyForInvoice.length,
       platformInvoices: recentInvoices.length,
     },
-    linksWithWarnings,
+    linksWithWarnings: openLinksWithWarnings,
+    reviewedLinksWithWarnings,
     unlinkedWithMautic,
     taxatieReadyForInvoice,
     recentInvoices,

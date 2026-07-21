@@ -275,6 +275,9 @@ model ProjectDebiteurenLink {
   mauticContactId   Int?
   contactWarnings   Json?
   normalizationCheckedAt DateTime?
+  contactWarningsReviewedAt DateTime?
+  contactWarningsReviewedBy String?
+  contactWarningsReviewNote String?   @db.Text
   linkedBy          String?
   linkedAt          DateTime  @default(now())
   lastCheckedAt     DateTime?

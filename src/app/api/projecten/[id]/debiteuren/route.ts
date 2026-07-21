@@ -16,6 +16,10 @@ function klantAdres(summary: Awaited<ReturnType<typeof getDebiteurenFactuurSamen
   return [summary.klant.adres, summary.klant.postcode, summary.klant.plaats].filter(Boolean).join(", ") || null;
 }
 
+function normalizedWarningsChanged(current: unknown, next: ContactV1NormalizationWarning[] | null) {
+  return JSON.stringify(current ?? null) !== JSON.stringify(next ?? null);
+}
+
 async function getProjectDebiteurenInvoices(projectId: string) {
   const invoices = await prisma.projectDebiteurenInvoice.findMany({
     where: { projectId },
@@ -62,6 +66,18 @@ async function saveProjectDebiteurenLink({
     ? normalization.warnings as Prisma.InputJsonValue
     : Prisma.JsonNull;
   const normalizationCheckedAt = normalization ? new Date() : null;
+  const existingLink = await prisma.projectDebiteurenLink.findUnique({
+    where: { projectId },
+    select: { contactWarnings: true },
+  });
+  const shouldClearReview = !normalization || normalizedWarningsChanged(existingLink?.contactWarnings ?? null, normalization.warnings);
+  const reviewData = shouldClearReview
+    ? {
+        contactWarningsReviewedAt: null,
+        contactWarningsReviewedBy: null,
+        contactWarningsReviewNote: null,
+      }
+    : {};
   const link = await prisma.projectDebiteurenLink.upsert({
     where: { projectId },
     create: {
@@ -73,6 +89,9 @@ async function saveProjectDebiteurenLink({
       mauticContactId: normalization?.mauticContactId ?? null,
       contactWarnings,
       normalizationCheckedAt,
+      contactWarningsReviewedAt: null,
+      contactWarningsReviewedBy: null,
+      contactWarningsReviewNote: null,
       linkedBy,
       lastCheckedAt: new Date(),
     },
@@ -84,6 +103,7 @@ async function saveProjectDebiteurenLink({
       mauticContactId: normalization?.mauticContactId ?? null,
       contactWarnings,
       normalizationCheckedAt,
+      ...reviewData,
       linkedBy,
       linkedAt: new Date(),
       lastCheckedAt: new Date(),

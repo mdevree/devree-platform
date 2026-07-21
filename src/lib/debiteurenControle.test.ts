@@ -60,6 +60,9 @@ test("buildDebiteurenControle groepeert debiteurenrisico's", () => {
         mauticContactId: 123,
         contactWarnings: [{ code: "parsed_address1", field: "straat", message: "Adresregel opgesplitst" }],
         normalizationCheckedAt: new Date("2026-07-21T13:00:00Z"),
+        contactWarningsReviewedAt: null,
+        contactWarningsReviewedBy: null,
+        contactWarningsReviewNote: null,
         linkedAt: new Date("2026-07-21T13:00:00Z"),
         lastCheckedAt: new Date("2026-07-21T13:00:00Z"),
       },
@@ -76,5 +79,37 @@ test("buildDebiteurenControle groepeert debiteurenrisico's", () => {
   assert.equal(result.summary.linkedProjects, 1);
   assert.equal(result.summary.unlinkedWithMautic, 1);
   assert.equal(result.summary.linksWithWarnings, 1);
+  assert.equal(result.summary.reviewedLinksWithWarnings, 0);
   assert.equal(result.summary.taxatieReadyForInvoice, 1);
+});
+
+test("buildDebiteurenControle houdt afgehandelde adreschecks buiten aandachtstelling", () => {
+  const result = buildDebiteurenControle([
+    {
+      ...BASE_PROJECT,
+      id: "project-reviewed",
+      name: "Taxatie Gecontroleerd",
+      debiteurenLink: {
+        id: "link-reviewed",
+        debiteurenKlantId: 790,
+        klantNaam: "Gecontroleerde Klant",
+        klantEmail: "review@example.invalid",
+        klantAdres: "Voorbeeldstraat 2",
+        mauticContactId: 123,
+        contactWarnings: [{ code: "parsed_address1", field: "straat", message: "Adresregel opgesplitst" }],
+        normalizationCheckedAt: new Date("2026-07-21T13:00:00Z"),
+        contactWarningsReviewedAt: new Date("2026-07-21T14:00:00Z"),
+        contactWarningsReviewedBy: "melvin@example.invalid",
+        contactWarningsReviewNote: "Adres klopt in debiteuren.",
+        linkedAt: new Date("2026-07-21T13:00:00Z"),
+        lastCheckedAt: new Date("2026-07-21T13:00:00Z"),
+      },
+    },
+  ]);
+
+  assert.equal(result.summary.linksWithWarnings, 0);
+  assert.equal(result.summary.reviewedLinksWithWarnings, 1);
+  assert.equal(result.linksWithWarnings.length, 0);
+  assert.equal(result.reviewedLinksWithWarnings.length, 1);
+  assert.equal(result.reviewedLinksWithWarnings[0].link.review?.reviewedBy, "melvin@example.invalid");
 });

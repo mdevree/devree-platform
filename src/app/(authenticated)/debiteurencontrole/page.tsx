@@ -27,20 +27,12 @@ type DebiteurenControle = {
     linkedProjects: number;
     unlinkedWithMautic: number;
     linksWithWarnings: number;
+    reviewedLinksWithWarnings: number;
     taxatieReadyForInvoice: number;
     platformInvoices: number;
   };
-  linksWithWarnings: Array<ProjectBase & {
-    link: {
-      debiteurenKlantId: number;
-      klantNaam: string | null;
-      klantEmail: string | null;
-      klantAdres: string | null;
-      mauticContactId: number | null;
-      normalizationCheckedAt: string | null;
-    };
-    warnings: Array<{ code: string; field: string | null; message: string }>;
-  }>;
+  linksWithWarnings: LinkWarningItem[];
+  reviewedLinksWithWarnings: LinkWarningItem[];
   unlinkedWithMautic: ProjectBase[];
   taxatieReadyForInvoice: Array<ProjectBase & {
     link: { debiteurenKlantId: number | null; klantNaam: string | null };
@@ -55,6 +47,24 @@ type DebiteurenControle = {
       createdAt: string;
     };
   }>;
+};
+
+type LinkWarningItem = ProjectBase & {
+    link: {
+      id: string;
+      debiteurenKlantId: number;
+      klantNaam: string | null;
+      klantEmail: string | null;
+      klantAdres: string | null;
+      mauticContactId: number | null;
+      normalizationCheckedAt: string | null;
+      review: {
+        reviewedAt: string;
+        reviewedBy: string | null;
+        note: string | null;
+      } | null;
+    };
+    warnings: Array<{ code: string; field: string | null; message: string }>;
 };
 
 function fmtDate(value?: string | null) {
@@ -111,6 +121,7 @@ function ProjectLink({ project }: { project: ProjectBase }) {
 export default function DebiteurenControlePage() {
   const [data, setData] = useState<DebiteurenControle | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewingLinkId, setReviewingLinkId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function load() {
@@ -131,6 +142,28 @@ export default function DebiteurenControlePage() {
   useEffect(() => {
     load();
   }, []);
+
+  async function markWarningReviewed(linkId: string) {
+    const note = window.prompt("Optionele notitie bij deze adrescheck:", "");
+    if (note === null) return;
+
+    setReviewingLinkId(linkId);
+    setError("");
+    try {
+      const res = await fetch(`/api/debiteuren/controle/warnings/${encodeURIComponent(linkId)}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Adrescheck kon niet worden afgehandeld");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Onbekende fout");
+    } finally {
+      setReviewingLinkId(null);
+    }
+  }
 
   const needsAttention = useMemo(() => {
     if (!data) return 0;
@@ -195,16 +228,49 @@ export default function DebiteurenControlePage() {
                 {data.linksWithWarnings.map((item) => (
                   <div key={item.id} className="grid gap-3 px-4 py-3 lg:grid-cols-[1fr_1.2fr]">
                     <ProjectLink project={item} />
-                    <div className="space-y-1 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      <p className="font-semibold">{item.link.klantNaam || `Klant #${item.link.debiteurenKlantId}`}</p>
-                      {item.warnings.map((warning, index) => (
-                        <p key={`${warning.code}-${index}`}>
-                          {warning.message}{warning.field ? ` (${warning.field})` : ""}
-                        </p>
-                      ))}
+                    <div className="space-y-3">
+                      <div className="space-y-1 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <p className="font-semibold">{item.link.klantNaam || `Klant #${item.link.debiteurenKlantId}`}</p>
+                        {item.warnings.map((warning, index) => (
+                          <p key={`${warning.code}-${index}`}>
+                            {warning.message}{warning.field ? ` (${warning.field})` : ""}
+                          </p>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => markWarningReviewed(item.link.id)}
+                        disabled={reviewingLinkId === item.link.id}
+                        className="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50"
+                      >
+                        {reviewingLinkId === item.link.id ? "Opslaan..." : "Markeer gecontroleerd"}
+                      </button>
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            {data.reviewedLinksWithWarnings.length > 0 && (
+              <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Gecontroleerd ({data.summary.reviewedLinksWithWarnings})
+                </p>
+                <div className="mt-2 divide-y divide-gray-200 rounded-md border border-gray-200 bg-white">
+                  {data.reviewedLinksWithWarnings.map((item) => (
+                    <div key={item.id} className="grid gap-2 px-3 py-2 text-xs lg:grid-cols-[1fr_1.2fr]">
+                      <ProjectLink project={item} />
+                      <div className="text-gray-600">
+                        <p>
+                          Afgehandeld op {fmtDate(item.link.review?.reviewedAt)}
+                          {item.link.review?.reviewedBy ? ` door ${item.link.review.reviewedBy}` : ""}
+                        </p>
+                        {item.link.review?.note && (
+                          <p className="mt-1 italic text-gray-500">{item.link.review.note}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </section>
