@@ -88,17 +88,28 @@ function renderPartyField(label: string, value: unknown, { required = false }: {
   `;
 }
 
+function cleanLegalNamePart(value: string | null | undefined) {
+  return value
+    ?.replace(/^\s*(?:geachte\s+)?(?:de\s+heer|heer|dhr\.?|mevrouw|mw\.?)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim() || null;
+}
+
+function opdrachtgeverLegalName(opdrachtgever: Opdrachtgever) {
+  const juridischeAchternaam = cleanLegalNamePart(opdrachtgever.achternaam || opdrachtgever.naam);
+  return [cleanLegalNamePart(opdrachtgever.initialen), juridischeAchternaam]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim() || cleanLegalNamePart(opdrachtgever.naam) || opdrachtgever.naam;
+}
+
 export function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
   return opdrachtgevers.map((opdrachtgever, index) => {
     const woonplaats = opdrachtgever.woonplaats || opdrachtgever.postcodePlaats?.replace(/^\d{4}\s?[A-Z]{2}\s*/i, "") || null;
     const postcode = opdrachtgever.postcode || opdrachtgever.postcodePlaats?.match(/^\d{4}\s?[A-Z]{2}/i)?.[0] || null;
     const straat = opdrachtgever.straat || opdrachtgever.adres;
-    const juridischeAchternaam = opdrachtgever.achternaam || opdrachtgever.naam;
-    const juridischeNaam = [opdrachtgever.aanhef, opdrachtgever.initialen, juridischeAchternaam]
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim() || opdrachtgever.naam;
+    const juridischeNaam = opdrachtgeverLegalName(opdrachtgever);
 
     return `
       <section class="party-block">
@@ -120,12 +131,7 @@ export function renderOpdrachtgeverBlokken(opdrachtgevers: Opdrachtgever[]) {
 
 export function renderHandtekeningen(opdrachtgevers: Opdrachtgever[]) {
   const opdrachtgeverBlocks = opdrachtgevers.map((opdrachtgever, index) => {
-    const juridischeAchternaam = opdrachtgever.achternaam || opdrachtgever.naam;
-    const juridischeNaam = [opdrachtgever.aanhef, opdrachtgever.initialen, juridischeAchternaam]
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim() || opdrachtgever.naam;
+    const juridischeNaam = opdrachtgeverLegalName(opdrachtgever);
 
     return `
       <div class="signature">
