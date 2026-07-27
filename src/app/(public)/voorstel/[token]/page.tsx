@@ -104,6 +104,8 @@ export default async function ProposalPage(
   const energielabelOfferKosten = energielabelKosten > 0 ? energielabelKosten : 350;
   const energielabelLabel = energielabelKosten > 0 ? euro(energielabelKosten) : `${euro(energielabelOfferKosten)} indien nodig`;
   const quickscanKosten = project.kostenBouwkundig && project.kostenBouwkundig > 0 ? project.kostenBouwkundig : 0;
+  const intrekkingskosten = project.kostenIntrekking ?? 600;
+  const bedenktijdkosten = project.kostenBedenktijd ?? 350;
   const energielabelChoice = proposal.selectedEnergielabelChoice
     || (energielabelKosten > 0 ? "VIA_MAKELAAR" : "AANWEZIG_OF_ZELF");
   const quickscanChoice = proposal.selectedQuickscanChoice
@@ -196,7 +198,19 @@ export default async function ProposalPage(
                 <dd className="mt-1 font-semibold text-gray-900">{formatAanvaarding(project.aanvaarding)}</dd>
               </div>
               <div>
-                <dt className="text-xs text-gray-500">Verkoopmethode</dt>
+                <dt className="flex items-center gap-1 text-xs text-gray-500">
+                  Verkoopmethode
+                  <a
+                    href="https://www.devreemakelaardij.nl/vragen/biedtermijn-inschrijving-woningen/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Lees meer over biedtermijn en inschrijving"
+                    title="Lees meer over biedtermijn en inschrijving"
+                    className="inline-flex size-4 items-center justify-center rounded-full border border-gray-300 text-[10px] font-semibold leading-none text-gray-500 hover:border-emerald-700 hover:text-emerald-800"
+                  >
+                    i
+                  </a>
+                </dt>
                 <dd className="mt-1 font-semibold text-gray-900">{verkoopmethode}</dd>
               </div>
             </dl>
@@ -223,7 +237,7 @@ export default async function ProposalPage(
           </aside>
         </div>
 
-        <section className={`mt-5 grid gap-4 ${quickscanKosten > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+        <section className={`mt-5 grid gap-4 ${quickscanKosten > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Publiciteitskosten</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
@@ -264,6 +278,23 @@ export default async function ProposalPage(
               </p>
             </div>
           )}
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Intrekking en bedenktijd</p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Deze bedragen staan juridisch in de opdracht voor uitzonderingssituaties, bijvoorbeeld intrekken na gemaakte werkzaamheden of ontbinding binnen de wettelijke bedenktijd.
+            </p>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-500">Bij intrekking</dt>
+                <dd className="text-right font-medium text-gray-900">{euro(intrekkingskosten)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-500">Binnen bedenktijd</dt>
+                <dd className="text-right font-medium text-gray-900">{euro(bedenktijdkosten)}</dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-xs leading-5 text-gray-500">Dit zijn geen kosten die u normaal vooraf betaalt.</p>
+          </div>
         </section>
 
         <section className="mt-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
