@@ -953,6 +953,7 @@ export default function ProjectDetailPage() {
   const [woning, setWoning] = useState<WoningData | null>(null);
   const [woningLoading, setWoningLoading] = useState(false);
   const [woningError, setWoningError] = useState<string | null>(null);
+  const [woningLookupId, setWoningLookupId] = useState<string | null>(null);
   const [woningStatusSaving, setWoningStatusSaving] = useState(false);
   const [woningStatusMessage, setWoningStatusMessage] = useState("");
   const [websiteEdit, setWebsiteEdit] = useState<WoningWebsiteEdit>(() => emptyWebsiteEdit());
@@ -1144,6 +1145,7 @@ export default function ProjectDetailPage() {
   }, [projectId]);
 
   const fetchWoning = useCallback(async (realworksId: string) => {
+    setWoningLookupId(realworksId);
     setWoningLoading(true);
     setWoningError(null);
     setWoning(null);
@@ -1210,10 +1212,10 @@ export default function ProjectDetailPage() {
 
   // Laad woning zodra de woning-tab actief wordt
   useEffect(() => {
-    if (activeTab === "woning" && project?.realworksId && !woning && !woningLoading) {
+    if (activeTab === "woning" && project?.realworksId && woningLookupId !== project.realworksId && !woningLoading) {
       fetchWoning(project.realworksId);
     }
-  }, [activeTab, project?.realworksId, woning, woningLoading, fetchWoning]);
+  }, [activeTab, project?.realworksId, woningLookupId, woningLoading, fetchWoning]);
 
   useEffect(() => {
     if (!project) return;
