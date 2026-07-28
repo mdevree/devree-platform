@@ -29,6 +29,8 @@ import {
   LinkSlashIcon,
   ArrowPathIcon,
   ArrowDownTrayIcon,
+  PlayCircleIcon,
+  SparklesIcon,
   DocumentTextIcon,
   BanknotesIcon,
   ChevronDownIcon,
@@ -961,6 +963,7 @@ export default function ProjectDetailPage() {
   const [websiteEditMessage, setWebsiteEditMessage] = useState("");
   const [websiteJsonCopied, setWebsiteJsonCopied] = useState(false);
   const [websitePasteText, setWebsitePasteText] = useState("");
+  const [websiteWorkflowAction, setWebsiteWorkflowAction] = useState<"aanmelding" | "ai" | null>(null);
 
   // Kijkers & bezichtigingen
   const [kijkersData, setKijkersData] = useState<BezichtigingenData | null>(null);
@@ -1363,6 +1366,48 @@ export default function ProjectDetailPage() {
       setWebsiteEditMessage("Kan WordPress niet bereiken");
     } finally {
       setWebsiteEditSaving(false);
+    }
+  }
+
+  async function handleStartWebsiteWorkflow(action: "aanmelding" | "ai") {
+    if (!project?.id) return;
+    if (action === "aanmelding" && !websitePasteText.trim()) {
+      setWebsiteEditMessage("Plak eerst de Realworks JSON uit de e-mail.");
+      return;
+    }
+
+    setWebsiteWorkflowAction(action);
+    setWebsiteEditMessage("");
+    try {
+      const res = await fetch(`/api/projecten/${project.id}/woning-workflows`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          payload: action === "aanmelding" ? buildWebsiteWorkflowPayload() : {
+            realworksId: project.realworksId,
+            wpPostId: woning?.id || null,
+            title: websiteEdit.title || woning?.title || project.name,
+          },
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setWebsiteEditMessage(data?.error || "Workflow starten mislukt");
+        return;
+      }
+      setWebsiteEditMessage(
+        action === "aanmelding"
+          ? "Woning-workflow gestart. Controleer over enkele momenten met Vernieuwen."
+          : "AI-aanvulling gestart. Controleer over enkele momenten met Vernieuwen.",
+      );
+      if (action === "ai" && project.realworksId) {
+        setTimeout(() => fetchWoning(project.realworksId!), 3000);
+      }
+    } catch {
+      setWebsiteEditMessage("Kan n8n niet bereiken");
+    } finally {
+      setWebsiteWorkflowAction(null);
     }
   }
 
@@ -2192,6 +2237,24 @@ export default function ProjectDetailPage() {
             >
               <ClipboardDocumentListIcon className="h-4 w-4" />
               {websiteJsonCopied ? "Gekopieerd" : "JSON kopieren"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleStartWebsiteWorkflow("aanmelding")}
+              disabled={websiteWorkflowAction !== null || !websitePasteText.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <PlayCircleIcon className="h-4 w-4" />
+              {websiteWorkflowAction === "aanmelding" ? "Starten..." : "Woning-workflow starten"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleStartWebsiteWorkflow("ai")}
+              disabled={websiteWorkflowAction !== null || !canSaveToWordPress}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <SparklesIcon className="h-4 w-4" />
+              {websiteWorkflowAction === "ai" ? "Starten..." : "AI aanvullen"}
             </button>
             <button
               type="button"

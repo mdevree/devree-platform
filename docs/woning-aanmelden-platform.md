@@ -6,6 +6,14 @@ Deze werkwijze is bedoeld voor baliemedewerkers die tijdens Melvins vakantie won
 
 Ja: plak de Realworks JSON uit de e-mail gewoon in het kantoorplatform.
 
+Haal de JSON in Realworks zo op:
+
+```text
+Realworks -> object/project -> E-mail opstellen -> Template -> Woning -> Website update (kopie)
+```
+
+Kopieer daarna de tekst uit de e-mailbody. Verzenden vanuit Realworks is niet nodig als de tekst in het platform wordt geplakt.
+
 Ga naar:
 
 ```text
@@ -22,16 +30,11 @@ Gebruik daar de sectie `Website aanmelding`.
 4. Plak de volledige Realworks JSON uit de e-mail in `Realworks JSON uit e-mail plakken`.
 5. Klik `Inlezen in velden`.
 6. Controleer de ingevulde velden en pas aan waar nodig.
-7. Klik `JSON kopieren`.
-8. Mail de gekopieerde JSON naar `workflow@devreemakelaardij.nl`.
-9. Open n8n en start de woning-aanmeldworkflow:
+7. Klik `Woning-workflow starten`.
+8. Controleer na enkele momenten in het platform opnieuw de tab `Woning` met `Vernieuwen`.
+9. Zodra de woning gevonden wordt, kunnen velden voortaan direct via `Opslaan op website` worden aangepast.
 
-```text
-https://automation.devreemakelaardij.nl/workflow/AyzR4DQEG3wF-Vu4po2Ed
-```
-
-10. Controleer daarna in het platform opnieuw de tab `Woning`.
-11. Zodra de woning gevonden wordt, kunnen velden voortaan direct via `Opslaan op website` worden aangepast.
+De knop start de n8n-workflow achter de schermen. Baliemedewerkers hoeven dus geen toegang tot n8n te hebben.
 
 ## Bestaande woning aanpassen
 
@@ -44,13 +47,7 @@ https://automation.devreemakelaardij.nl/workflow/AyzR4DQEG3wF-Vu4po2Ed
 
 ## AI-velden aanvullen
 
-De workflow `Wordpress ai woningen aanvullen` vult lege AI-tekstvelden aan voor bestaande WordPress-woningen:
-
-```text
-https://automation.devreemakelaardij.nl/workflow/aKZc4pkTcoTH-cpkOpFNl
-```
-
-Gebruik deze workflow nadat een woning in WordPress staat en er een aanbiedingstekst is ingevuld. Daarna kunnen de gegenereerde velden in het kantoorplatform worden nagekeken en aangepast.
+Klik in dezelfde `Woning`-tab op `AI aanvullen` nadat een woning in WordPress staat en er een aanbiedingstekst is ingevuld. Daarna kunnen de gegenereerde velden in het kantoorplatform worden nagekeken en aangepast.
 
 Belangrijk: de AI-workflow overschrijft alleen lege AI-velden. Als een baliemedewerker zelf tekst in het platform invult en opslaat, blijft die tekst leidend.
 
