@@ -148,8 +148,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * PATCH /api/wordpress/woning
- * Werkt ACF-velden bij op een woning in WordPress
- * Body: { wpPostId: number, acf: Partial<WoningACF> }
+ * Werkt velden bij op een woning in WordPress.
+ * Body: { wpPostId: number, title?: string, slug?: string, postStatus?: string, acf: Partial<WoningACF> }
  *
  * Vereist WP_API_USER en WP_API_PASSWORD in .env (WordPress Application Password)
  */
@@ -159,7 +159,13 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { wpPostId, acf } = body as { wpPostId: number; acf: Partial<WoningACF> };
+  const { wpPostId, title, slug, postStatus, acf } = body as {
+    wpPostId: number;
+    title?: string;
+    slug?: string;
+    postStatus?: string;
+    acf: Partial<WoningACF>;
+  };
 
   if (!wpPostId || !acf || typeof acf !== "object") {
     return NextResponse.json({ error: "wpPostId en acf zijn verplicht" }, { status: 400 });
@@ -168,6 +174,11 @@ export async function PATCH(request: NextRequest) {
   try {
     const auth = wpAuthHeader();
 
+    const payload: Record<string, unknown> = { acf };
+    if (typeof title === "string") payload.title = title;
+    if (typeof slug === "string") payload.slug = slug;
+    if (typeof postStatus === "string") payload.status = postStatus;
+
     const res = await fetch(`${WP_BASE_URL}/woning/${wpPostId}`, {
       method: "POST", // WordPress REST API gebruikt POST voor updates
       headers: {
@@ -175,7 +186,7 @@ export async function PATCH(request: NextRequest) {
         Accept: "application/json",
         Authorization: auth,
       },
-      body: JSON.stringify({ acf }),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {

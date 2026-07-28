@@ -172,6 +172,11 @@ interface WoningData {
     aantal_kamers?: number;
     bouwjaar?: string;
     bouwvorm?: string;
+    woonhuissoort?: string;
+    woonhuistype?: string;
+    energielabel_datum?: string;
+    gemeente?: string;
+    provincie?: string;
     energieklasse?: string;
     straat?: string;
     huisnummer?: string;
@@ -179,7 +184,13 @@ interface WoningData {
     plaats?: string;
     wijk?: string;
     realworks_id?: string;
+    aanbiedingstekst?: string;
     intro_tekst_ai?: string;
+    woning_beschrijving_ai?: string;
+    buiten_beschrijving_ai?: string;
+    indeling_beschrijving_ai?: string;
+    locatie_beschrijving_ai?: string;
+    meta_description_ai?: string;
     floorplanner_fml?: string;
     tour_360_url?: string;
     woning_video_url?: string;
@@ -191,6 +202,54 @@ interface WoningData {
     coordinaten_y?: string;
     [key: string]: unknown;
   };
+}
+
+interface WoningWebsiteEdit {
+  title: string;
+  slug: string;
+  postStatus: string;
+  realworks_id: string;
+  status: string;
+  koopsom: string;
+  koopprijs_label: string;
+  huurprijs: string;
+  koopconditie: string;
+  aanvaarding: string;
+  woonoppervlakte: string;
+  kadastrale_oppervlakte: string;
+  inhoud: string;
+  aantal_kamers: string;
+  bouwjaar: string;
+  bouwvorm: string;
+  woonhuissoort: string;
+  woonhuistype: string;
+  energieklasse: string;
+  energielabel_datum: string;
+  straat: string;
+  huisnummer: string;
+  postcode: string;
+  plaats: string;
+  gemeente: string;
+  provincie: string;
+  wijk: string;
+  coordinaten_x: string;
+  coordinaten_y: string;
+  ligging: string;
+  isolatievormen: string;
+  verwarming: string;
+  voorzieningen: string;
+  aanbiedingstekst: string;
+  intro_tekst_ai: string;
+  woning_beschrijving_ai: string;
+  buiten_beschrijving_ai: string;
+  indeling_beschrijving_ai: string;
+  locatie_beschrijving_ai: string;
+  meta_description_ai: string;
+  floorplanner_fml: string;
+  tour_360_url: string;
+  woning_video_url: string;
+  foto_urls: string;
+  interne_notitie: string;
 }
 
 interface ProjectContact {
@@ -295,6 +354,266 @@ interface Project {
   calls: Call[];
   createdAt: string;
   updatedAt: string;
+}
+
+const WEBSITE_POST_STATUS_OPTIONS = [
+  { value: "publish", label: "Gepubliceerd" },
+  { value: "draft", label: "Concept" },
+  { value: "pending", label: "Wacht op review" },
+  { value: "private", label: "Prive" },
+];
+
+const WEBSITE_TEXT_FIELDS: Array<{ key: keyof WoningWebsiteEdit; label: string; rows?: number }> = [
+  { key: "aanbiedingstekst", label: "Aanbiedingstekst", rows: 7 },
+  { key: "intro_tekst_ai", label: "Intro tekst AI", rows: 3 },
+  { key: "woning_beschrijving_ai", label: "Woning beschrijving AI", rows: 5 },
+  { key: "indeling_beschrijving_ai", label: "Indeling beschrijving AI", rows: 5 },
+  { key: "buiten_beschrijving_ai", label: "Buiten beschrijving AI", rows: 4 },
+  { key: "locatie_beschrijving_ai", label: "Locatie beschrijving AI", rows: 4 },
+  { key: "meta_description_ai", label: "Meta description AI", rows: 2 },
+];
+
+function valueAsString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function numericOrNull(value: string): number | null {
+  const clean = value.replace(/\./g, "").replace(",", ".").trim();
+  if (!clean) return null;
+  const number = Number(clean);
+  return Number.isFinite(number) ? number : null;
+}
+
+function textOrEmpty(value: string): string {
+  return value.trim();
+}
+
+function emptyWebsiteEdit(): WoningWebsiteEdit {
+  return {
+    title: "",
+    slug: "",
+    postStatus: "publish",
+    realworks_id: "",
+    status: "Beschikbaar",
+    koopsom: "",
+    koopprijs_label: "",
+    huurprijs: "",
+    koopconditie: "",
+    aanvaarding: "",
+    woonoppervlakte: "",
+    kadastrale_oppervlakte: "",
+    inhoud: "",
+    aantal_kamers: "",
+    bouwjaar: "",
+    bouwvorm: "",
+    woonhuissoort: "",
+    woonhuistype: "",
+    energieklasse: "",
+    energielabel_datum: "",
+    straat: "",
+    huisnummer: "",
+    postcode: "",
+    plaats: "",
+    gemeente: "",
+    provincie: "",
+    wijk: "",
+    coordinaten_x: "",
+    coordinaten_y: "",
+    ligging: "",
+    isolatievormen: "",
+    verwarming: "",
+    voorzieningen: "",
+    aanbiedingstekst: "",
+    intro_tekst_ai: "",
+    woning_beschrijving_ai: "",
+    buiten_beschrijving_ai: "",
+    indeling_beschrijving_ai: "",
+    locatie_beschrijving_ai: "",
+    meta_description_ai: "",
+    floorplanner_fml: "",
+    tour_360_url: "",
+    woning_video_url: "",
+    foto_urls: "",
+    interne_notitie: "",
+  };
+}
+
+function websiteEditFromData(project: Project, woning: WoningData | null): WoningWebsiteEdit {
+  const acf = woning?.acf || {};
+  return {
+    ...emptyWebsiteEdit(),
+    title: woning?.title || project.name || "",
+    slug: woning?.slug || "",
+    realworks_id: valueAsString(acf.realworks_id || project.realworksId || ""),
+    status: valueAsString(acf.status || "Beschikbaar"),
+    koopsom: valueAsString(acf.koopsom ?? project.vraagprijs ?? ""),
+    koopprijs_label: valueAsString(acf.koopprijs_label || ""),
+    huurprijs: valueAsString(acf.huurprijs || ""),
+    koopconditie: valueAsString(acf.koopconditie || ""),
+    aanvaarding: valueAsString(acf.aanvaarding || project.aanvaarding || ""),
+    woonoppervlakte: valueAsString(acf.woonoppervlakte || project.woningOppervlakte || ""),
+    kadastrale_oppervlakte: valueAsString(acf.kadastrale_oppervlakte || project.kadGrootte || ""),
+    inhoud: valueAsString(acf.inhoud || ""),
+    aantal_kamers: valueAsString(acf.aantal_kamers || ""),
+    bouwjaar: valueAsString(acf.bouwjaar || ""),
+    bouwvorm: valueAsString(acf.bouwvorm || ""),
+    woonhuissoort: valueAsString(acf.woonhuissoort || ""),
+    woonhuistype: valueAsString(acf.woonhuistype || ""),
+    energieklasse: valueAsString(acf.energieklasse || ""),
+    energielabel_datum: valueAsString(acf.energielabel_datum || ""),
+    straat: valueAsString(acf.straat || project.woningAdres || ""),
+    huisnummer: valueAsString(acf.huisnummer || ""),
+    postcode: valueAsString(acf.postcode || project.woningPostcode || ""),
+    plaats: valueAsString(acf.plaats || project.woningPlaats || ""),
+    gemeente: valueAsString(acf.gemeente || project.kadGemeente || ""),
+    provincie: valueAsString(acf.provincie || ""),
+    wijk: valueAsString(acf.wijk || ""),
+    coordinaten_x: valueAsString(acf.coordinaten_x || ""),
+    coordinaten_y: valueAsString(acf.coordinaten_y || ""),
+    ligging: valueAsString(acf.ligging || ""),
+    isolatievormen: valueAsString(acf.isolatievormen || ""),
+    verwarming: valueAsString(acf.verwarming || ""),
+    voorzieningen: valueAsString(acf.voorzieningen || ""),
+    aanbiedingstekst: valueAsString(acf.aanbiedingstekst || ""),
+    intro_tekst_ai: valueAsString(acf.intro_tekst_ai || ""),
+    woning_beschrijving_ai: valueAsString(acf.woning_beschrijving_ai || ""),
+    buiten_beschrijving_ai: valueAsString(acf.buiten_beschrijving_ai || ""),
+    indeling_beschrijving_ai: valueAsString(acf.indeling_beschrijving_ai || ""),
+    locatie_beschrijving_ai: valueAsString(acf.locatie_beschrijving_ai || ""),
+    meta_description_ai: valueAsString(acf.meta_description_ai || ""),
+    floorplanner_fml: valueAsString(acf.floorplanner_fml || ""),
+    tour_360_url: valueAsString(acf.tour_360_url || ""),
+    woning_video_url: valueAsString(acf.woning_video_url || ""),
+    foto_urls: woning?.featuredImage || "",
+  };
+}
+
+function acfFromWebsiteEdit(edit: WoningWebsiteEdit) {
+  return {
+    realworks_id: textOrEmpty(edit.realworks_id),
+    status: textOrEmpty(edit.status),
+    koopsom: numericOrNull(edit.koopsom),
+    koopprijs_label: textOrEmpty(edit.koopprijs_label),
+    huurprijs: numericOrNull(edit.huurprijs),
+    koopconditie: textOrEmpty(edit.koopconditie),
+    aanvaarding: textOrEmpty(edit.aanvaarding),
+    woonoppervlakte: numericOrNull(edit.woonoppervlakte),
+    kadastrale_oppervlakte: numericOrNull(edit.kadastrale_oppervlakte),
+    inhoud: numericOrNull(edit.inhoud),
+    aantal_kamers: numericOrNull(edit.aantal_kamers),
+    bouwjaar: textOrEmpty(edit.bouwjaar),
+    bouwvorm: textOrEmpty(edit.bouwvorm),
+    woonhuissoort: textOrEmpty(edit.woonhuissoort),
+    woonhuistype: textOrEmpty(edit.woonhuistype),
+    energieklasse: textOrEmpty(edit.energieklasse),
+    energielabel_datum: textOrEmpty(edit.energielabel_datum),
+    straat: textOrEmpty(edit.straat),
+    huisnummer: textOrEmpty(edit.huisnummer),
+    postcode: textOrEmpty(edit.postcode),
+    plaats: textOrEmpty(edit.plaats),
+    gemeente: textOrEmpty(edit.gemeente),
+    provincie: textOrEmpty(edit.provincie),
+    wijk: textOrEmpty(edit.wijk),
+    coordinaten_x: textOrEmpty(edit.coordinaten_x),
+    coordinaten_y: textOrEmpty(edit.coordinaten_y),
+    ligging: textOrEmpty(edit.ligging),
+    isolatievormen: textOrEmpty(edit.isolatievormen),
+    verwarming: textOrEmpty(edit.verwarming),
+    voorzieningen: textOrEmpty(edit.voorzieningen),
+    aanbiedingstekst: edit.aanbiedingstekst,
+    intro_tekst_ai: edit.intro_tekst_ai,
+    woning_beschrijving_ai: edit.woning_beschrijving_ai,
+    buiten_beschrijving_ai: edit.buiten_beschrijving_ai,
+    indeling_beschrijving_ai: edit.indeling_beschrijving_ai,
+    locatie_beschrijving_ai: edit.locatie_beschrijving_ai,
+    meta_description_ai: edit.meta_description_ai,
+    floorplanner_fml: textOrEmpty(edit.floorplanner_fml),
+    tour_360_url: textOrEmpty(edit.tour_360_url),
+    woning_video_url: textOrEmpty(edit.woning_video_url),
+  };
+}
+
+function normalizeRealworksPaste(raw: string) {
+  return raw
+    .replace(/\u00a0/g, " ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'");
+}
+
+function pastedValue(raw: string, key: string): string {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const quoted = raw.match(new RegExp(`"${escapedKey}"\\s*:\\s*"([^"]*)"`, "i"));
+  if (quoted) return quoted[1].trim();
+  const bare = raw.match(new RegExp(`"${escapedKey}"\\s*:\\s*([^,}\\n\\r]*)`, "i"));
+  return bare ? bare[1].replace(/^"+|"+$/g, "").trim() : "";
+}
+
+function pastedNumber(raw: string, key: string): string {
+  return pastedValue(raw, key).replace(/[^\d.,-]/g, "");
+}
+
+function pastedHouseNumber(raw: string): string {
+  const hoofdnummer = pastedValue(raw, "hoofdnummer");
+  const toevoeging = pastedValue(raw, "toevoeging");
+  return [hoofdnummer, toevoeging].filter(Boolean).join("");
+}
+
+function pastedPhotoUrls(raw: string): string {
+  const urls = Array.from(raw.matchAll(/"link"\s*:\s*"([^"]+)"/gi))
+    .map((match) => match[1])
+    .filter((url) => /^https?:\/\//i.test(url));
+  return Array.from(new Set(urls)).join("\n");
+}
+
+function titleFromPastedAddress(raw: string, fallback: string) {
+  const street = pastedValue(raw, "straat");
+  const number = pastedHouseNumber(raw);
+  const city = pastedValue(raw, "plaats");
+  return [[street, number].filter(Boolean).join(" "), city].filter(Boolean).join(", ") || fallback;
+}
+
+function websiteEditFromRealworksPaste(current: WoningWebsiteEdit, rawInput: string): WoningWebsiteEdit {
+  const raw = normalizeRealworksPaste(rawInput);
+  const koopprijs = pastedNumber(raw, "koopprijs");
+  const prijsvoorvoegsel = pastedValue(raw, "koopprijsvoorvoegsel");
+  const koopconditie = pastedValue(raw, "koopconditie");
+  const fotoUrls = pastedPhotoUrls(raw);
+  const status = pastedValue(raw, "status");
+
+  return {
+    ...current,
+    title: titleFromPastedAddress(raw, current.title),
+    realworks_id: pastedValue(raw, "id") || current.realworks_id,
+    status: status || current.status,
+    straat: pastedValue(raw, "straat") || current.straat,
+    huisnummer: pastedHouseNumber(raw) || current.huisnummer,
+    postcode: pastedValue(raw, "postcode") || current.postcode,
+    plaats: pastedValue(raw, "plaats") || current.plaats,
+    provincie: pastedValue(raw, "provincie") || current.provincie,
+    koopsom: koopprijs || current.koopsom,
+    koopprijs_label: [prijsvoorvoegsel, koopprijs ? `EUR ${koopprijs}` : "", koopconditie].filter(Boolean).join(" ") || current.koopprijs_label,
+    koopconditie: koopconditie || current.koopconditie,
+    aanvaarding: pastedValue(raw, "aanvaarding") || current.aanvaarding,
+    aantal_kamers: pastedNumber(raw, "aantalKamers") || current.aantal_kamers,
+    bouwjaar: pastedValue(raw, "bouwjaar") || current.bouwjaar,
+    bouwvorm: pastedValue(raw, "bouwvorm") || current.bouwvorm,
+    energieklasse: pastedValue(raw, "energieklasse") || current.energieklasse,
+    energielabel_datum: pastedValue(raw, "energiedatum").slice(0, 10) || current.energielabel_datum,
+    inhoud: pastedNumber(raw, "inhoud") || current.inhoud,
+    kadastrale_oppervlakte: pastedNumber(raw, "totaleKadestraleOppervlakte") || current.kadastrale_oppervlakte,
+    woonoppervlakte: pastedNumber(raw, "woonoppervlakte") || current.woonoppervlakte,
+    woonhuissoort: pastedValue(raw, "woonhuissoort") || current.woonhuissoort,
+    woonhuistype: pastedValue(raw, "woonhuistype") || current.woonhuistype,
+    isolatievormen: pastedValue(raw, "isolatievormen") || current.isolatievormen,
+    ligging: pastedValue(raw, "liggingen") || current.ligging,
+    verwarming: pastedValue(raw, "verwarmingsoorten") || current.verwarming,
+    voorzieningen: pastedValue(raw, "voorzieningenWonen") || current.voorzieningen,
+    foto_urls: fotoUrls || current.foto_urls,
+    interne_notitie: fotoUrls
+      ? `Geimporteerd uit Realworks JSON met ${fotoUrls.split("\n").length} media-link(s).`
+      : current.interne_notitie,
+  };
 }
 
 interface DebiteurenKlant {
@@ -636,6 +955,11 @@ export default function ProjectDetailPage() {
   const [woningError, setWoningError] = useState<string | null>(null);
   const [woningStatusSaving, setWoningStatusSaving] = useState(false);
   const [woningStatusMessage, setWoningStatusMessage] = useState("");
+  const [websiteEdit, setWebsiteEdit] = useState<WoningWebsiteEdit>(() => emptyWebsiteEdit());
+  const [websiteEditSaving, setWebsiteEditSaving] = useState(false);
+  const [websiteEditMessage, setWebsiteEditMessage] = useState("");
+  const [websiteJsonCopied, setWebsiteJsonCopied] = useState(false);
+  const [websitePasteText, setWebsitePasteText] = useState("");
 
   // Kijkers & bezichtigingen
   const [kijkersData, setKijkersData] = useState<BezichtigingenData | null>(null);
@@ -891,6 +1215,13 @@ export default function ProjectDetailPage() {
     }
   }, [activeTab, project?.realworksId, woning, woningLoading, fetchWoning]);
 
+  useEffect(() => {
+    if (!project) return;
+    setWebsiteEdit(websiteEditFromData(project, woning));
+    setWebsiteEditMessage("");
+    setWebsiteJsonCopied(false);
+  }, [project, woning]);
+
   // Laad kijkers & bezichtigingen zodra de kijkers-tab actief wordt
   useEffect(() => {
     if (activeTab === "kijkers" && projectId && !kijkersData && !kijkersLoading) {
@@ -924,6 +1255,113 @@ export default function ProjectDetailPage() {
       setWoningStatusMessage("Netwerkfout");
     }
     setWoningStatusSaving(false);
+  }
+
+  function updateWebsiteEditField(key: keyof WoningWebsiteEdit, value: string) {
+    setWebsiteEdit((current) => ({ ...current, [key]: value }));
+    setWebsiteEditMessage("");
+    setWebsiteJsonCopied(false);
+  }
+
+  function handleImportWebsitePaste() {
+    if (!websitePasteText.trim()) {
+      setWebsiteEditMessage("Plak eerst de Realworks JSON uit de e-mail.");
+      return;
+    }
+    setWebsiteEdit((current) => websiteEditFromRealworksPaste(current, websitePasteText));
+    const photoCount = pastedPhotoUrls(normalizeRealworksPaste(websitePasteText)).split("\n").filter(Boolean).length;
+    setWebsiteEditMessage(`Realworks JSON ingelezen${photoCount ? ` met ${photoCount} foto-link(s)` : ""}.`);
+    setWebsiteJsonCopied(false);
+  }
+
+  function buildWebsiteWorkflowPayload() {
+    if (!project) return null;
+    const fotoUrls = websiteEdit.foto_urls
+      .split(/\r?\n/)
+      .map((url) => url.trim())
+      .filter(Boolean);
+
+    return {
+      source: "devree-platform",
+      action: woning ? "woning_website_update" : "woning_website_aanmelding",
+      generatedAt: new Date().toISOString(),
+      project: {
+        id: project.id,
+        name: project.name,
+        realworksId: project.realworksId,
+        realworksSystemId: project.realworksId,
+        contactName: project.contactName,
+        contactEmail: project.contactEmail,
+        contactPhone: project.contactPhone,
+      },
+      wordpress: woning
+        ? { wpPostId: woning.id, link: woning.link, slug: woning.slug }
+        : { wpPostId: null, link: null, slug: websiteEdit.slug || null },
+      post: {
+        title: websiteEdit.title,
+        slug: websiteEdit.slug || null,
+        status: websiteEdit.postStatus,
+      },
+      acf: acfFromWebsiteEdit(websiteEdit),
+      media: {
+        fotoUrls,
+        featuredImageUrl: fotoUrls[0] || woning?.featuredImage || null,
+      },
+      originalRealworksJson: websitePasteText.trim() || null,
+      note: websiteEdit.interne_notitie || null,
+    };
+  }
+
+  async function handleCopyWebsiteWorkflowPayload() {
+    const payload = buildWebsiteWorkflowPayload();
+    if (!payload || !navigator.clipboard?.writeText) return;
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
+      .then(() => {
+        setWebsiteJsonCopied(true);
+        setWebsiteEditMessage("Workflow-JSON gekopieerd");
+        setTimeout(() => setWebsiteJsonCopied(false), 2500);
+      })
+      .catch(() => setWebsiteEditMessage("Kopieren mislukt"));
+  }
+
+  async function handleSaveWebsiteWoning() {
+    if (!woning) {
+      setWebsiteEditMessage("Deze woning bestaat nog niet in WordPress. Kopieer eerst de workflow-JSON voor aanmelding.");
+      return;
+    }
+    const realworksId = project?.realworksId;
+    setWebsiteEditSaving(true);
+    setWebsiteEditMessage("");
+    try {
+      const res = await fetch("/api/wordpress/woning", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wpPostId: woning.id,
+          title: websiteEdit.title,
+          slug: websiteEdit.slug || undefined,
+          postStatus: websiteEdit.postStatus || undefined,
+          acf: acfFromWebsiteEdit(websiteEdit),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setWebsiteEditMessage(data.error || "Opslaan naar WordPress mislukt");
+        return;
+      }
+      setWoning((current) => current ? {
+        ...current,
+        title: websiteEdit.title || current.title,
+        slug: websiteEdit.slug || current.slug,
+        acf: { ...current.acf, ...(data.acf || acfFromWebsiteEdit(websiteEdit)) },
+      } : current);
+      setWebsiteEditMessage("Websitevelden opgeslagen");
+      if (realworksId) await fetchWoning(realworksId);
+    } catch {
+      setWebsiteEditMessage("Kan WordPress niet bereiken");
+    } finally {
+      setWebsiteEditSaving(false);
+    }
   }
 
   function openEdit() {
@@ -1676,6 +2114,223 @@ export default function ProjectDetailPage() {
       return <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Geannuleerd</span>;
     }
     return <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{reason || "Onbekend"}</span>;
+  }
+
+  function WebsiteInput({
+    field,
+    label,
+    type = "text",
+    placeholder,
+  }: {
+    field: keyof WoningWebsiteEdit;
+    label: string;
+    type?: string;
+    placeholder?: string;
+  }) {
+    return (
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium text-gray-600">{label}</span>
+        <input
+          type={type}
+          value={websiteEdit[field]}
+          onChange={(e) => updateWebsiteEditField(field, e.target.value)}
+          placeholder={placeholder}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+        />
+      </label>
+    );
+  }
+
+  function WebsiteTextarea({
+    field,
+    label,
+    rows = 3,
+    placeholder,
+  }: {
+    field: keyof WoningWebsiteEdit;
+    label: string;
+    rows?: number;
+    placeholder?: string;
+  }) {
+    return (
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium text-gray-600">{label}</span>
+        <textarea
+          value={websiteEdit[field]}
+          onChange={(e) => updateWebsiteEditField(field, e.target.value)}
+          rows={rows}
+          placeholder={placeholder}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+        />
+      </label>
+    );
+  }
+
+  function renderWebsiteWoningEditor() {
+    if (!project?.realworksId) return null;
+    const canSaveToWordPress = Boolean(woning?.id);
+
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Website aanmelding</p>
+            <h3 className="mt-1 text-base font-semibold text-gray-900">Woningvelden bewerken</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {canSaveToWordPress
+                ? "Wijzigingen gaan direct naar de WordPress-woning. De JSON blijft beschikbaar voor workflow of controle."
+                : "Plak de Realworks JSON uit de e-mail, controleer de velden en kopieer daarna de workflow-JSON."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleCopyWebsiteWorkflowPayload}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <ClipboardDocumentListIcon className="h-4 w-4" />
+              {websiteJsonCopied ? "Gekopieerd" : "JSON kopieren"}
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveWebsiteWoning}
+              disabled={!canSaveToWordPress || websiteEditSaving}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CheckIcon className="h-4 w-4" />
+              {websiteEditSaving ? "Opslaan..." : "Opslaan op website"}
+            </button>
+          </div>
+        </div>
+
+        {websiteEditMessage && (
+          <p className={`mb-4 rounded-lg px-3 py-2 text-xs ${
+            websiteEditMessage.toLowerCase().includes("mislukt") || websiteEditMessage.toLowerCase().includes("niet")
+              ? "bg-amber-50 text-amber-700"
+              : "bg-green-50 text-green-700"
+          }`}>
+            {websiteEditMessage}
+          </p>
+        )}
+
+        <div className="mb-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-600">Realworks JSON uit e-mail plakken</span>
+            <textarea
+              value={websitePasteText}
+              onChange={(e) => setWebsitePasteText(e.target.value)}
+              rows={5}
+              placeholder="Plak hier de volledige woning-JSON inclusief media."
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-xs focus:border-primary focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleImportWebsitePaste}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            Inlezen in velden
+          </button>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Basis</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <WebsiteInput field="title" label="Titel op website" />
+                </div>
+                <WebsiteInput field="slug" label="Slug" placeholder="optioneel" />
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">Publicatiestatus</span>
+                  <select
+                    value={websiteEdit.postStatus}
+                    onChange={(e) => updateWebsiteEditField("postStatus", e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  >
+                    {WEBSITE_POST_STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <WebsiteInput field="realworks_id" label="Realworks ID" />
+                <WebsiteInput field="status" label="Website status" placeholder="Beschikbaar" />
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Adres</p>
+              <div className="grid grid-cols-2 gap-3">
+                <WebsiteInput field="straat" label="Straat" />
+                <WebsiteInput field="huisnummer" label="Huisnummer" />
+                <WebsiteInput field="postcode" label="Postcode" />
+                <WebsiteInput field="plaats" label="Plaats" />
+                <WebsiteInput field="gemeente" label="Gemeente" />
+                <WebsiteInput field="provincie" label="Provincie" />
+                <WebsiteInput field="wijk" label="Wijk" />
+                <WebsiteInput field="ligging" label="Ligging" />
+                <WebsiteInput field="coordinaten_x" label="Coordinaten X" />
+                <WebsiteInput field="coordinaten_y" label="Coordinaten Y" />
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Prijs en kenmerken</p>
+              <div className="grid grid-cols-2 gap-3">
+                <WebsiteInput field="koopsom" label="Koopsom" type="number" />
+                <WebsiteInput field="koopprijs_label" label="Prijslabel" placeholder="k.k. / v.o.n. / op aanvraag" />
+                <WebsiteInput field="huurprijs" label="Huurprijs" type="number" />
+                <WebsiteInput field="koopconditie" label="Koopconditie" />
+                <WebsiteInput field="aanvaarding" label="Aanvaarding" />
+                <WebsiteInput field="woonoppervlakte" label="Woonoppervlakte" type="number" />
+                <WebsiteInput field="kadastrale_oppervlakte" label="Perceeloppervlakte" type="number" />
+                <WebsiteInput field="inhoud" label="Inhoud" type="number" />
+                <WebsiteInput field="aantal_kamers" label="Aantal kamers" type="number" />
+                <WebsiteInput field="bouwjaar" label="Bouwjaar" />
+                <WebsiteInput field="bouwvorm" label="Bouwvorm" />
+                <WebsiteInput field="woonhuissoort" label="Woonhuissoort" />
+                <WebsiteInput field="woonhuistype" label="Woonhuistype" />
+                <WebsiteInput field="energieklasse" label="Energielabel" />
+                <WebsiteInput field="energielabel_datum" label="Datum energielabel" />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Voorzieningen</p>
+              <div className="space-y-3">
+                <WebsiteTextarea field="voorzieningen" label="Voorzieningen" rows={3} />
+                <WebsiteTextarea field="verwarming" label="Verwarming" rows={2} />
+                <WebsiteTextarea field="isolatievormen" label="Isolatievormen" rows={2} />
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Teksten en AI</p>
+              <div className="space-y-3">
+                {WEBSITE_TEXT_FIELDS.map((field) => (
+                  <WebsiteTextarea key={field.key} field={field.key} label={field.label} rows={field.rows} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Media</p>
+              <div className="space-y-3">
+                <WebsiteInput field="floorplanner_fml" label="Floorplanner URL" />
+                <WebsiteInput field="tour_360_url" label="360 tour URL" />
+                <WebsiteInput field="woning_video_url" label="Video URL" />
+                <WebsiteTextarea field="foto_urls" label="Foto-URL's voor workflow" rows={4} placeholder="Een URL per regel" />
+                <WebsiteTextarea field="interne_notitie" label="Interne notitie voor aanmelding" rows={3} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading) return <div className="py-12 text-center text-gray-500">Project laden...</div>;
@@ -2729,21 +3384,25 @@ export default function ProjectDetailPage() {
               <p className="text-gray-400">Woning laden...</p>
             </div>
           ) : woningError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-              <p className="text-sm font-medium text-red-700">{woningError}</p>
-              <p className="mt-1 text-xs text-red-500">Realworks ID: {project.realworksId}</p>
-              <button
-                onClick={() => fetchWoning(project.realworksId!)}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-              >
-                <ArrowPathIcon className="h-3.5 w-3.5" />
-                Opnieuw proberen
-              </button>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+                <p className="text-sm font-medium text-red-700">{woningError}</p>
+                <p className="mt-1 text-xs text-red-500">Realworks ID: {project.realworksId}</p>
+                <button
+                  onClick={() => fetchWoning(project.realworksId!)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                >
+                  <ArrowPathIcon className="h-3.5 w-3.5" />
+                  Opnieuw proberen
+                </button>
+              </div>
+              {renderWebsiteWoningEditor()}
             </div>
           ) : woning ? (
-            <div className="grid grid-cols-3 gap-4">
-              {/* Foto + basis info */}
-              <div className="col-span-2 space-y-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                {/* Foto + basis info */}
+                <div className="col-span-2 space-y-4">
                 {/* Foto */}
                 {woning.featuredImage && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -2878,10 +3537,10 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
                 )}
-              </div>
+                </div>
 
-              {/* Rechter kolom: status + prijs */}
-              <div className="space-y-4">
+                {/* Rechter kolom: status + prijs */}
+                <div className="space-y-4">
                 {/* Status wijzigen */}
                 <div className="rounded-xl border border-gray-200 bg-white p-4">
                   <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Status op website</p>
@@ -2968,7 +3627,9 @@ export default function ProjectDetailPage() {
                     )}
                   </dl>
                 </div>
+                </div>
               </div>
+              {renderWebsiteWoningEditor()}
             </div>
           ) : null}
         </div>
