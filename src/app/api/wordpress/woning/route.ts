@@ -77,6 +77,72 @@ export interface WoningPost {
   };
 }
 
+function sameRealworksId(value: unknown, realworksId: string) {
+  return typeof value === "string" && value.trim().toLowerCase() === realworksId.trim().toLowerCase();
+}
+
+function matchesRealworksId(woning: WoningPost, realworksId: string) {
+  return sameRealworksId(woning.realworks_id, realworksId) || sameRealworksId(woning.acf?.realworks_id, realworksId);
+}
+
+async function fetchWoningWithFeaturedMedia(woning: WoningPost) {
+  const url = new URL(`${WP_BASE_URL}/woning/${woning.id}`);
+  url.searchParams.set("_embed", "wp:featuredmedia");
+
+  const res = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  if (!res.ok) return woning;
+  return await res.json() as WoningPost;
+}
+
+async function findWoningByRealworksId(realworksId: string): Promise<{ woning: WoningPost | null; errorStatus?: number }> {
+  const directUrl = new URL(`${WP_BASE_URL}/woning`);
+  directUrl.searchParams.set("realworks_id", realworksId);
+  directUrl.searchParams.set("per_page", "1");
+  directUrl.searchParams.set("_embed", "wp:featuredmedia");
+
+  const directRes = await fetch(directUrl.toString(), {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  if (!directRes.ok) return { woning: null, errorStatus: directRes.status };
+
+  const directWoningen: WoningPost[] = await directRes.json();
+  if (directWoningen?.length) return { woning: directWoningen[0] };
+
+  // De WordPress realworks_id filter is niet altijd betrouwbaar voor nieuwe
+  // posts. Doorzoek daarom recent aanbod en match zelf op ACF realworks_id.
+  for (let page = 1; page <= 5; page++) {
+    const fallbackUrl = new URL(`${WP_BASE_URL}/woning`);
+    fallbackUrl.searchParams.set("per_page", "100");
+    fallbackUrl.searchParams.set("page", String(page));
+    fallbackUrl.searchParams.set("orderby", "date");
+    fallbackUrl.searchParams.set("order", "desc");
+    fallbackUrl.searchParams.set("_fields", "id,slug,link,title,realworks_id,acf");
+
+    const fallbackRes = await fetch(fallbackUrl.toString(), {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (!fallbackRes.ok) {
+      if (fallbackRes.status === 400) break;
+      return { woning: null, errorStatus: fallbackRes.status };
+    }
+
+    const woningen: WoningPost[] = await fallbackRes.json();
+    const match = woningen.find((woning) => matchesRealworksId(woning, realworksId));
+    if (match) return { woning: await fetchWoningWithFeaturedMedia(match) };
+    if (woningen.length < 100) break;
+  }
+
+  return { woning: null };
+}
+
 /**
  * GET /api/wordpress/woning?realworksId=SE11776
  * Haalt woning op van WordPress op basis van Realworks ID
@@ -94,26 +160,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const url = new URL(`${WP_BASE_URL}/woning`);
-    url.searchParams.set("realworks_id", realworksId);
-    url.searchParams.set("per_page", "1");
-    url.searchParams.set("_embed", "wp:featuredmedia");
+    const { woning, errorStatus } = await findWoningByRealworksId(realworksId);
 
-    const res = await fetch(url.toString(), {
-      headers: { Accept: "application/json" },
-      next: { revalidate: 300 }, // 5 minuten cache
-    });
-
-    if (!res.ok) {
+    if (errorStatus) {
       return NextResponse.json(
-        { error: `WordPress API fout: ${res.status}` },
-        { status: res.status }
+        { error: `WordPress API fout: ${errorStatus}` },
+        { status: errorStatus }
       );
     }
 
-    const woningen: WoningPost[] = await res.json();
-
-    if (!woningen || woningen.length === 0) {
+    if (!woning) {
       // "Niet gevonden" is een normaal resultaat van deze lookup: veel
       // agenda-objecten (gesprekken, taxaties, niet-gepubliceerde woningen)
       // hebben een objectcode die niet als woning op de website staat. Geef
@@ -121,8 +177,6 @@ export async function GET(request: NextRequest) {
       // niet volloopt met 404-netwerkfouten.
       return NextResponse.json({ found: false, error: "Geen woning gevonden met dit Realworks ID" });
     }
-
-    const woning = woningen[0];
 
     // Featured image: probeer _embedded, dan og_image als fallback
     const featuredImage =
