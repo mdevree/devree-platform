@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 
 const STALE_AFTER_HOURS = 48;
 const OWN_BROKER_PATTERN = "%de vree%";
+const CITY_ALIASES: Record<string, string> = {
+  hoogvliet: "Hoogvliet Rotterdam",
+};
 
 type MarketStatsRow = {
   active_colleague_objects: bigint | number | null;
@@ -14,7 +17,8 @@ type MarketStatsRow = {
 function normalizeCity(value: string | null) {
   const city = value?.trim();
   if (!city) return null;
-  return city.slice(0, 80);
+  const normalized = city.slice(0, 80);
+  return CITY_ALIASES[normalized.toLowerCase()] ?? normalized;
 }
 
 function toNumber(value: bigint | number | null | undefined) {
