@@ -43,6 +43,11 @@ function boolOrNull(value: boolean | number | string | null | undefined): boolea
   return null;
 }
 
+function identityValue(value: string | number | null | undefined): string | null {
+  const normalized = value == null ? "" : String(value).trim();
+  return normalized || null;
+}
+
 export async function POST(req: NextRequest) {
   if (!(await isAuthorized(req)))
     return NextResponse.json({ error: "Niet geautoriseerd" }, { status: 401 });
@@ -57,7 +62,7 @@ export async function POST(req: NextRequest) {
   const systemids = items.map((i) => i.systemid);
   const existing = await prisma.agendaAfspraak.findMany({
     where: { systemid: { in: systemids } },
-    select: { systemid: true, alastupd: true, gcalEventId: true },
+    select: { systemid: true, alastupd: true, gcalEventId: true, agrcode: true, relationRelationid: true },
   });
   const existingMap = new Map(existing.map((e) => [e.systemid, e]));
 
@@ -67,6 +72,26 @@ export async function POST(req: NextRequest) {
     const prev = existingMap.get(item.systemid);
     const isNew = !prev;
     const isUpdated = prev && prev.alastupd !== item.alastupd;
+    const contactIdentityChanged = Boolean(
+      prev &&
+      (identityValue(prev.agrcode) !== identityValue(item.agrcode) ||
+        identityValue(prev.relationRelationid) !== identityValue(item.relation_relationid))
+    );
+    const resetContactEnrichment = contactIdentityChanged
+      ? {
+          contactNaam: null,
+          contactEmail: null,
+          contactTelefoon: null,
+          mauticContactId: null,
+          leadId: null,
+          enrichedAt: null,
+          enrichmentStatus: null,
+          cheatsheetStatus: null,
+          cheatsheetPath: null,
+          cheatsheetUrl: null,
+          cheatsheetGeneratedAt: null,
+        }
+      : {};
 
     if (isNew || isUpdated) changed.push(item);
 
@@ -112,6 +137,7 @@ export async function POST(req: NextRequest) {
         agallday: boolOrNull(item.agallday),
         aginactive: boolOrNull(item.aginactive),
         alastupd: item.alastupd,
+        ...resetContactEnrichment,
       },
     });
   }
