@@ -10,6 +10,10 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   TrashIcon,
+  VideoCameraIcon,
+  EyeIcon,
+  ClipboardDocumentIcon,
+  PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 
 // ── Types (deelverzameling van /api/agenda/[id]/context) ─────────────────────
@@ -89,6 +93,27 @@ type MauticContactOption = {
   mobile: string | null;
 };
 
+type AppointmentConfirmation = {
+  id: string;
+  status: string;
+  publicUrl: string | null;
+  previewUrl: string | null;
+  woningUrl: string | null;
+  whatsappBody: string;
+  videoPath: string | null;
+  videoOriginalName: string | null;
+  sentAt: string | null;
+  openedAt: string | null;
+  lastOpenedAt: string | null;
+  openCount: number;
+  videoStartCount: number;
+  videoCompleteCount: number;
+  confirmedAt: string | null;
+  cancelledAt: string | null;
+  deliveryError: string | null;
+  events?: Array<{ id: string; eventType: string; createdAt: string }>;
+};
+
 function formatDatumTijd(d: string | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleString("nl-NL", {
@@ -139,6 +164,10 @@ export default function BezichtigingDetailPaneel({
   const [mauticZoekt, setMauticZoekt] = useState(false);
   const [mauticKoppelt, setMauticKoppelt] = useState<number | null>(null);
   const [mauticMelding, setMauticMelding] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<AppointmentConfirmation | null>(null);
+  const [confirmationLoading, setConfirmationLoading] = useState(false);
+  const [confirmationBusy, setConfirmationBusy] = useState<"create" | "upload" | "send" | null>(null);
+  const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
 
   const laad = useCallback(async () => {
     setLoading(true);
@@ -160,6 +189,92 @@ export default function BezichtigingDetailPaneel({
   useEffect(() => {
     laad();
   }, [laad]);
+
+  const laadConfirmation = useCallback(async () => {
+    setConfirmationLoading(true);
+    try {
+      const res = await fetch(`/api/agenda/${afspraakId}/appointment-confirmation`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setConfirmation(data.confirmation || null);
+    } finally {
+      setConfirmationLoading(false);
+    }
+  }, [afspraakId]);
+
+  useEffect(() => {
+    laadConfirmation();
+  }, [laadConfirmation]);
+
+  async function maakConfirmation() {
+    setConfirmationBusy("create");
+    setConfirmationMessage(null);
+    try {
+      const res = await fetch(`/api/agenda/${afspraakId}/appointment-confirmation`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setConfirmationMessage(data.error || "Bevestiging maken mislukt.");
+        return;
+      }
+      setConfirmation(data.confirmation);
+      setConfirmationMessage("Bevestigingslink klaar. Controleer de preview en upload de video.");
+    } catch {
+      setConfirmationMessage("Bevestiging maken mislukt.");
+    } finally {
+      setConfirmationBusy(null);
+    }
+  }
+
+  async function uploadConfirmationVideo(file: File | null) {
+    if (!file) return;
+    setConfirmationBusy("upload");
+    setConfirmationMessage(null);
+    try {
+      const formData = new FormData();
+      formData.set("video", file);
+      const res = await fetch(`/api/agenda/${afspraakId}/appointment-confirmation/video`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setConfirmationMessage(data.error || "Video uploaden mislukt.");
+        return;
+      }
+      setConfirmation(data.confirmation);
+      setConfirmationMessage("Video toegevoegd. Open de preview om te controleren.");
+    } catch {
+      setConfirmationMessage("Video uploaden mislukt.");
+    } finally {
+      setConfirmationBusy(null);
+    }
+  }
+
+  async function verstuurConfirmation() {
+    setConfirmationBusy("send");
+    setConfirmationMessage(null);
+    try {
+      const res = await fetch(`/api/agenda/${afspraakId}/appointment-confirmation/send`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setConfirmation(data.confirmation || confirmation);
+        setConfirmationMessage(data.error || "WhatsApp verzenden mislukt.");
+        return;
+      }
+      setConfirmation(data.confirmation);
+      setConfirmationMessage("WhatsApp-bevestiging verzonden.");
+    } catch {
+      setConfirmationMessage("WhatsApp verzenden mislukt.");
+    } finally {
+      setConfirmationBusy(null);
+    }
+  }
+
+  async function kopieerConfirmationLink() {
+    if (!confirmation?.publicUrl) return;
+    await navigator.clipboard?.writeText(confirmation.publicUrl).catch(() => {});
+    setConfirmationMessage("Link gekopieerd.");
+  }
 
   async function genereerPdf() {
     setPdfBezig(true);
@@ -366,6 +481,117 @@ export default function BezichtigingDetailPaneel({
                 Verwijderen
               </button>
             </div>
+
+            <section className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Persoonlijke bevestiging</h3>
+                  <p className="mt-1 text-xs text-gray-600">
+                    WhatsApp-link met video, bevestigen/annuleren en tracking voor deze bezichtiging.
+                  </p>
+                </div>
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  {confirmationLoading ? "Laadt..." : confirmation?.status || "nog niet gemaakt"}
+                </span>
+              </div>
+
+              {!confirmation ? (
+                <button
+                  onClick={maakConfirmation}
+                  disabled={confirmationBusy !== null}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+                >
+                  <VideoCameraIcon className="h-4 w-4" />
+                  {confirmationBusy === "create" ? "Maakt..." : "Bevestiging maken"}
+                </button>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
+                    <div className="rounded-md bg-white px-2 py-1.5">
+                      <p className="font-medium text-gray-900">{confirmation.openCount}</p>
+                      <p>openingen</p>
+                    </div>
+                    <div className="rounded-md bg-white px-2 py-1.5">
+                      <p className="font-medium text-gray-900">{confirmation.videoStartCount}</p>
+                      <p>video gestart</p>
+                    </div>
+                    <div className="rounded-md bg-white px-2 py-1.5">
+                      <p className="font-medium text-gray-900">{confirmation.videoCompleteCount}</p>
+                      <p>video af</p>
+                    </div>
+                    <div className="rounded-md bg-white px-2 py-1.5">
+                      <p className="font-medium text-gray-900">
+                        {confirmation.confirmedAt ? "ja" : confirmation.cancelledAt ? "annulering" : "nee"}
+                      </p>
+                      <p>reactie</p>
+                    </div>
+                  </div>
+
+                  {confirmation.publicUrl && (
+                    <p className="truncate rounded-md bg-white px-2 py-1.5 text-xs text-gray-600">
+                      {confirmation.publicUrl}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-white px-3 py-2 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
+                      <VideoCameraIcon className="h-4 w-4" />
+                      {confirmationBusy === "upload" ? "Uploadt..." : confirmation.videoPath ? "Vervang MP4" : "Upload MP4"}
+                      <input
+                        type="file"
+                        accept="video/mp4"
+                        className="hidden"
+                        disabled={confirmationBusy !== null}
+                        onChange={(event) => uploadConfirmationVideo(event.target.files?.[0] || null)}
+                      />
+                    </label>
+                    {confirmation.previewUrl && (
+                      <a
+                        href={confirmation.previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
+                      >
+                        <EyeIcon className="h-4 w-4" />
+                        Preview
+                      </a>
+                    )}
+                    {confirmation.publicUrl && (
+                      <button
+                        onClick={kopieerConfirmationLink}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
+                      >
+                        <ClipboardDocumentIcon className="h-4 w-4" />
+                        Link kopiëren
+                      </button>
+                    )}
+                    <button
+                      onClick={verstuurConfirmation}
+                      disabled={confirmationBusy !== null || !confirmation.videoPath}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+                    >
+                      <PaperAirplaneIcon className="h-4 w-4" />
+                      {confirmationBusy === "send" ? "Verstuurt..." : "WhatsApp sturen"}
+                    </button>
+                  </div>
+
+                  {confirmation.videoOriginalName && (
+                    <p className="text-xs text-gray-600">Video: {confirmation.videoOriginalName}</p>
+                  )}
+                  {confirmation.woningUrl && (
+                    <a href={confirmation.woningUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
+                      Specifieke woningpagina controleren
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {(confirmationMessage || confirmation?.deliveryError) && (
+                <p className={`mt-3 text-xs ${confirmation?.deliveryError ? "text-red-600" : "text-gray-600"}`}>
+                  {confirmationMessage || confirmation?.deliveryError}
+                </p>
+              )}
+            </section>
 
             {(pdfMelding || a?.cheatsheetStatus) && (
               <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">

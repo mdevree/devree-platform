@@ -1161,6 +1161,7 @@ model AgendaAfspraak {
   cheatsheetPath        String? // Nextcloud WebDAV-pad
   cheatsheetUrl         String? // optionele directe (share)link
   cheatsheetGeneratedAt DateTime?
+  appointmentConfirmations AppointmentConfirmation[]
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -1170,6 +1171,77 @@ model AgendaAfspraak {
   @@index([projectId])
   @@index([leadId])
   @@map("agenda_afspraken")
+}
+
+model AppointmentConfirmation {
+  id                  String                       @id @default(cuid())
+  agendaAfspraak      AgendaAfspraak               @relation(fields: [agendaAfspraakId], references: [id], onDelete: Cascade)
+  agendaAfspraakId    String
+  events              AppointmentConfirmationEvent[]
+  tokenHash           String                       @unique
+  publicUrl           String?                      @db.Text
+  previewUrl          String?                      @db.Text
+  status              String                       @default("draft") // draft | ready | sent | confirmed | cancel_requested | cancelled | expired
+  recipientName       String?
+  recipientPhone      String?
+  recipientEmail      String?
+  mauticContactId     Int?
+  projectId           String?
+  woningTitle         String?
+  woningAdres         String?
+  woningUrl           String?                      @db.Text
+  appointmentStart    DateTime?
+  appointmentEnd      DateTime?
+  medewerker          String?
+  whatsappBody        String                       @db.Text
+  videoPath           String?                      @db.Text
+  videoOriginalName   String?
+  videoMimeType       String?
+  videoSizeBytes      Int?
+  sentAt              DateTime?
+  openedAt            DateTime?
+  lastOpenedAt        DateTime?
+  openCount           Int                          @default(0)
+  videoStartedAt      DateTime?
+  videoCompletedAt    DateTime?
+  videoStartCount     Int                          @default(0)
+  videoCompleteCount  Int                          @default(0)
+  confirmedAt         DateTime?
+  cancelledAt         DateTime?
+  waConversationId    String?
+  waMessageId         String?
+  deliveryError       String?                      @db.Text
+  createdBy           String                       @default("platform")
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+
+  @@unique([agendaAfspraakId])
+  @@index([status])
+  @@index([mauticContactId])
+  @@index([projectId])
+  @@index([appointmentStart])
+  @@map("appointment_confirmations")
+}
+
+model AppointmentConfirmationEvent {
+  id              String                  @id @default(cuid())
+  confirmation    AppointmentConfirmation @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
+  confirmationId  String
+  eventType       String
+  sessionId       String?
+  activeSeconds   Int?
+  path            String?                 @db.Text
+  referrer        String?                 @db.Text
+  userAgent       String?                 @db.Text
+  ipHash          String?
+  viewport        String?
+  createdAt       DateTime                @default(now())
+
+  @@index([confirmationId])
+  @@index([eventType])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("appointment_confirmation_events")
 }
 
 model FacebookTrigger {
