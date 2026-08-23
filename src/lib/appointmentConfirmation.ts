@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import path from "path";
-import { Prisma } from "@prisma/client";
+import { AppointmentConfirmation, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { addContactPoints, addMauticTags } from "@/lib/mautic";
 
@@ -104,6 +104,88 @@ export function formatAppointmentDateTime(date: Date | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatNotificationDateTime(date: Date | null | undefined) {
+  if (!date) return null;
+  return new Intl.DateTimeFormat("nl-NL", {
+    timeZone: "Europe/Amsterdam",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function appointmentObjectLabel(confirmation: AppointmentConfirmation) {
+  return confirmation.woningAdres || confirmation.woningTitle || "Onbekende woning";
+}
+
+export async function notifyOfficeAppointmentAction({
+  confirmation,
+  action,
+  actionAt,
+}: {
+  confirmation: AppointmentConfirmation;
+  action: "confirmed" | "cancel_requested";
+  actionAt: Date;
+}) {
+  const webhookUrl = process.env.AI_INFO_EMAIL_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const objectLabel = appointmentObjectLabel(confirmation);
+  const actionLabel = action === "confirmed" ? "Bevestigd" : "Annulering aangevraagd";
+  const subject =
+    action === "confirmed"
+      ? `Bezichtiging bevestigd: ${objectLabel}`
+      : `Annulering bezichtiging aangevraagd: ${objectLabel}`;
+  const appointmentLabel = formatAppointmentDateTime(confirmation.appointmentStart) || "Onbekend";
+  const actionAtLabel = formatNotificationDateTime(actionAt) || "";
+
+  const html = `
+    <h2>${escapeHtml(actionLabel)}</h2>
+    <p>Er is een actie uitgevoerd op de afspraakbevestigingspagina.</p>
+    <p>
+      <strong>Woning:</strong> ${escapeHtml(objectLabel)}<br>
+      <strong>Afspraak:</strong> ${escapeHtml(appointmentLabel)}<br>
+      <strong>Actie:</strong> ${escapeHtml(actionLabel)}<br>
+      <strong>Actietijd:</strong> ${escapeHtml(actionAtLabel)}
+    </p>
+    <p>
+      <strong>Naam:</strong> ${escapeHtml(confirmation.recipientName || "Onbekend")}<br>
+      <strong>E-mail:</strong> ${escapeHtml(confirmation.recipientEmail || "")}<br>
+      <strong>Telefoon:</strong> ${escapeHtml(confirmation.recipientPhone || "")}
+    </p>
+    <p>
+      ${confirmation.publicUrl ? `<a href="${escapeHtml(confirmation.publicUrl)}">Open afspraakpagina</a><br>` : ""}
+      ${confirmation.woningUrl ? `<a href="${escapeHtml(confirmation.woningUrl)}">Open woning op website</a>` : ""}
+    </p>
+  `;
+
+  await fetch(webhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(process.env.N8N_WEBHOOK_SECRET ? { "x-webhook-secret": process.env.N8N_WEBHOOK_SECRET } : {}),
+    },
+    body: JSON.stringify({
+      to: "info@devreemakelaardij.nl",
+      subject,
+      html,
+    }),
+  }).catch((error) => {
+    console.error("Afspraakbevestiging notificatiemail mislukt:", error);
+  });
 }
 
 export function buildAppointmentWhatsappBody(input: {

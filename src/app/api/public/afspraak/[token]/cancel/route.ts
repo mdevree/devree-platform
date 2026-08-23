@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { appointmentTokenHash, recordAppointmentEvent } from "@/lib/appointmentConfirmation";
+import { appointmentTokenHash, notifyOfficeAppointmentAction, recordAppointmentEvent } from "@/lib/appointmentConfirmation";
 
 export async function POST(
   request: NextRequest,
@@ -26,13 +26,20 @@ export async function POST(
     rawPayload: { source: "public_cancel" },
   });
 
+  const cancelledAt = confirmation.cancelledAt || new Date();
   const updated = await prisma.appointmentConfirmation.update({
     where: { id: confirmation.id },
     data: {
       status: "cancel_requested",
-      cancelledAt: confirmation.cancelledAt || new Date(),
+      cancelledAt,
       deliveryError: null,
     },
+  });
+
+  await notifyOfficeAppointmentAction({
+    confirmation: updated,
+    action: "cancel_requested",
+    actionAt: cancelledAt,
   });
 
   return NextResponse.json({ success: true, status: updated.status });
