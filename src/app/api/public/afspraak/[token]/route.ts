@@ -12,11 +12,18 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
-  const preview = request.nextUrl.searchParams.get("preview") === "1" && isValidAppointmentPreview(
+  const previewRequested = request.nextUrl.searchParams.get("preview") === "1";
+  const preview = previewRequested && isValidAppointmentPreview(
     token,
     request.nextUrl.searchParams.get("previewUntil") || undefined,
     request.nextUrl.searchParams.get("previewSig") || undefined
   );
+  if (previewRequested && !preview) {
+    return NextResponse.json(
+      { error: "Deze previewlink is verlopen" },
+      { status: 403, headers: appointmentCorsHeaders(request) }
+    );
+  }
   const confirmation = await prisma.appointmentConfirmation.findUnique({
     where: { tokenHash: appointmentTokenHash(token) },
     select: {

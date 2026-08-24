@@ -21,11 +21,13 @@ export default async function AppointmentPage({
 }) {
   const { token } = await params;
   const query = await searchParams;
-  const preview = query.preview === "1" && isValidAppointmentPreview(
+  const previewRequested = query.preview === "1";
+  const preview = previewRequested && isValidAppointmentPreview(
     token,
     typeof query.previewUntil === "string" ? query.previewUntil : undefined,
     typeof query.previewSig === "string" ? query.previewSig : undefined
   );
+  if (previewRequested && !preview) notFound();
 
   const confirmation = await prisma.appointmentConfirmation.findUnique({
     where: { tokenHash: appointmentTokenHash(token) },

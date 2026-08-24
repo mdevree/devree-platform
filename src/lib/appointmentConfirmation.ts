@@ -45,6 +45,16 @@ export function publicAppointmentUrl(token: string) {
   return `${publicBaseUrl()}/afspraak/${encodeURIComponent(token)}`;
 }
 
+export function appointmentTokenFromPublicUrl(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const match = new URL(value).pathname.match(/^\/afspraak\/([A-Za-z0-9_-]+)\/?$/);
+    return match?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+
 export function platformAppointmentUrl(token: string) {
   return `${platformBaseUrl()}/afspraak/${encodeURIComponent(token)}`;
 }

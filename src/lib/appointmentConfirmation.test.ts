@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   appointmentTokenHash,
+  appointmentTokenFromPublicUrl,
   buildAppointmentWhatsappBody,
   createAppointmentToken,
   isValidAppointmentPreview,
@@ -14,6 +15,15 @@ test("maakt veilige afspraak tokens en hashes", () => {
   assert.match(token, /^[A-Za-z0-9_-]+$/);
   assert.equal(appointmentTokenHash(token).length, 64);
   assert.notEqual(appointmentTokenHash(token), token);
+});
+
+test("haalt het token alleen uit een geldige publieke afspraaklink", () => {
+  assert.equal(
+    appointmentTokenFromPublicUrl("https://www.devreemakelaardij.nl/afspraak/test_token-1"),
+    "test_token-1"
+  );
+  assert.equal(appointmentTokenFromPublicUrl("https://www.devreemakelaardij.nl/aanbod/"), null);
+  assert.equal(appointmentTokenFromPublicUrl("geen-url"), null);
 });
 
 test("preview URL is tijdelijk geldig", () => {

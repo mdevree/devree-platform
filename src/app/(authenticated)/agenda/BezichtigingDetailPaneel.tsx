@@ -487,7 +487,7 @@ export default function BezichtigingDetailPaneel({
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Persoonlijke bevestiging</h3>
                   <p className="mt-1 text-xs text-gray-600">
-                    WhatsApp-link met video, bevestigen/annuleren en tracking voor deze bezichtiging.
+                    WhatsApp-link met video, contactgegevens, annuleren en tracking voor deze bezichtiging.
                   </p>
                 </div>
                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-emerald-700">
@@ -545,17 +545,15 @@ export default function BezichtigingDetailPaneel({
                         onChange={(event) => uploadConfirmationVideo(event.target.files?.[0] || null)}
                       />
                     </label>
-                    {confirmation.previewUrl && (
-                      <a
-                        href={confirmation.previewUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
-                      >
-                        <EyeIcon className="h-4 w-4" />
-                        Preview
-                      </a>
-                    )}
+                    <a
+                      href={`/api/agenda/${afspraakId}/appointment-confirmation/preview`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                      Preview
+                    </a>
                     {confirmation.publicUrl && (
                       <button
                         onClick={kopieerConfirmationLink}
