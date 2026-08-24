@@ -62,7 +62,7 @@ function previewSignature(token: string, previewUntil: number) {
 
 export function publicAppointmentPreviewUrl(token: string, now = Date.now()) {
   const previewUntil = now + PREVIEW_MAX_AGE_MS;
-  const url = new URL(platformAppointmentUrl(token));
+  const url = new URL(publicAppointmentUrl(token));
   url.searchParams.set("preview", "1");
   url.searchParams.set("previewUntil", String(previewUntil));
   url.searchParams.set("previewSig", previewSignature(token, previewUntil));

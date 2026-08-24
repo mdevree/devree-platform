@@ -6,6 +6,7 @@ import {
   appointmentTokenHash,
   recordAppointmentEvent,
 } from "@/lib/appointmentConfirmation";
+import { appointmentCorsHeaders, appointmentCorsOptions } from "@/lib/appointmentCors";
 
 function cleanString(value: unknown, maxLength = 4000) {
   if (typeof value !== "string") return null;
@@ -32,7 +33,7 @@ export async function POST(
   const body = await request.json().catch(() => ({}));
   const eventType = cleanString(body.eventType, 64);
   if (!eventType || !APPOINTMENT_EVENT_TYPES.has(eventType)) {
-    return NextResponse.json({ error: "Ongeldig event" }, { status: 400 });
+    return NextResponse.json({ error: "Ongeldig event" }, { status: 400, headers: appointmentCorsHeaders(request) });
   }
 
   const confirmation = await prisma.appointmentConfirmation.findUnique({
@@ -40,7 +41,7 @@ export async function POST(
     select: { id: true, mauticContactId: true },
   });
   if (!confirmation) {
-    return NextResponse.json({ error: "Afspraak niet gevonden" }, { status: 404 });
+    return NextResponse.json({ error: "Afspraak niet gevonden" }, { status: 404, headers: appointmentCorsHeaders(request) });
   }
 
   await recordAppointmentEvent({
@@ -57,5 +58,9 @@ export async function POST(
     rawPayload: body,
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true }, { headers: appointmentCorsHeaders(request) });
+}
+
+export function OPTIONS(request: NextRequest) {
+  return appointmentCorsOptions(request);
 }
