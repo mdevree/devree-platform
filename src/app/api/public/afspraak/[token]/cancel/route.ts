@@ -14,10 +14,6 @@ export async function POST(
   if (!confirmation) {
     return NextResponse.json({ error: "Afspraak niet gevonden" }, { status: 404, headers: appointmentCorsHeaders(request) });
   }
-  if (confirmation.status === "confirmed") {
-    return NextResponse.json({ error: "Deze afspraak is al bevestigd" }, { status: 409, headers: appointmentCorsHeaders(request) });
-  }
-
   await recordAppointmentEvent({
     confirmationId: confirmation.id,
     mauticContactId: confirmation.mauticContactId,
