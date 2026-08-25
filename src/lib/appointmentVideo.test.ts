@@ -29,3 +29,13 @@ test("voegt alleen voor HDR tonemapping en BT.709-metadata toe", () => {
   assert.equal(sdrArgs.includes("-color_primaries"), false);
   assert.deepEqual(hdrArgs.slice(-1), ["out.mp4"]);
 });
+
+test("neemt alleen een vooraf gevalideerde audiostream mee", () => {
+  const withoutAudio = appointmentMovFfmpegArgs("in.mov", "out.mp4", false);
+  const withAudio = appointmentMovFfmpegArgs("in.mov", "out.mp4", false, 2);
+
+  assert.equal(withoutAudio.includes("-c:a"), false);
+  assert.equal(withoutAudio.includes("0:a?"), false);
+  assert.equal(withAudio.includes("0:2"), true);
+  assert.equal(withAudio.includes("-c:a"), true);
+});

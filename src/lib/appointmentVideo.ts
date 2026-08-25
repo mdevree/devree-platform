@@ -8,6 +8,9 @@ export type AppointmentVideoUploadKind = "mp4" | "mov";
 
 type VideoProbe = {
   streams?: Array<{
+    index?: number;
+    codec_type?: string;
+    codec_name?: string;
     color_transfer?: string;
     color_primaries?: string;
   }>;
@@ -28,7 +31,7 @@ export function appointmentVideoUploadKind(name: string, mimeType: string): Appo
 }
 
 export function isHdrVideoProbe(probe: VideoProbe) {
-  const video = probe.streams?.[0];
+  const video = probe.streams?.find((stream) => stream.codec_type === "video") || probe.streams?.[0];
   return (
     video?.color_transfer === "smpte2084" ||
     video?.color_transfer === "arib-std-b67" ||
@@ -36,7 +39,12 @@ export function isHdrVideoProbe(probe: VideoProbe) {
   );
 }
 
-export function appointmentMovFfmpegArgs(inputPath: string, outputPath: string, hdr: boolean) {
+export function appointmentMovFfmpegArgs(
+  inputPath: string,
+  outputPath: string,
+  hdr: boolean,
+  audioStreamIndex: number | null = null
+) {
   const filter = hdr
     ? [
         "zscale=t=linear:npl=100",
@@ -58,8 +66,7 @@ export function appointmentMovFfmpegArgs(inputPath: string, outputPath: string, 
     inputPath,
     "-map",
     "0:v:0",
-    "-map",
-    "0:a?",
+    ...(audioStreamIndex == null ? [] : ["-map", `0:${audioStreamIndex}`]),
     "-map_metadata",
     "-1",
     "-vf",
@@ -70,10 +77,7 @@ export function appointmentMovFfmpegArgs(inputPath: string, outputPath: string, 
     "veryfast",
     "-crf",
     "23",
-    "-c:a",
-    "aac",
-    "-b:a",
-    "128k",
+    ...(audioStreamIndex == null ? [] : ["-c:a", "aac", "-b:a", "128k"]),
     "-movflags",
     "+faststart",
     ...(hdr
@@ -98,10 +102,8 @@ export async function convertAppointmentMovToMp4(inputPath: string, outputPath: 
     [
       "-v",
       "error",
-      "-select_streams",
-      "v:0",
       "-show_entries",
-      "stream=color_transfer,color_primaries",
+      "stream=index,codec_type,codec_name,color_transfer,color_primaries",
       "-of",
       "json",
       inputPath,
@@ -109,10 +111,22 @@ export async function convertAppointmentMovToMp4(inputPath: string, outputPath: 
     { timeout: 30_000, maxBuffer: 1024 * 1024 }
   );
   const probe = JSON.parse(stdout) as VideoProbe;
-  if (!probe.streams?.length) throw new Error("Geen videostream gevonden");
+  const video = probe.streams?.find((stream) => stream.codec_type === "video");
+  if (!video) throw new Error("Geen videostream gevonden");
+  const audio = probe.streams?.find(
+    (stream) =>
+      stream.codec_type === "audio" &&
+      typeof stream.index === "number" &&
+      Boolean(stream.codec_name) &&
+      !["none", "unknown"].includes(stream.codec_name!)
+  );
 
-  await execFileAsync("ffmpeg", appointmentMovFfmpegArgs(inputPath, outputPath, isHdrVideoProbe(probe)), {
-    timeout: 180_000,
-    maxBuffer: 2 * 1024 * 1024,
-  });
+  await execFileAsync(
+    "ffmpeg",
+    appointmentMovFfmpegArgs(inputPath, outputPath, isHdrVideoProbe(probe), audio?.index ?? null),
+    {
+      timeout: 180_000,
+      maxBuffer: 2 * 1024 * 1024,
+    }
+  );
 }
