@@ -1,18 +1,11 @@
-import { mkdir, unlink, writeFile } from "fs/promises";
-import path from "path";
+import { mkdir, stat, unlink, writeFile } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { appointmentVideoPath, appointmentVideoUploadDir } from "@/lib/appointmentConfirmation";
+import { appointmentVideoUploadKind, convertAppointmentMovToMp4 } from "@/lib/appointmentVideo";
 
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
-
-function safeExtension(name: string, mimeType: string) {
-  const ext = path.extname(name).toLowerCase();
-  if (ext === ".mp4") return ".mp4";
-  if (mimeType === "video/mp4") return ".mp4";
-  return null;
-}
 
 export async function POST(
   req: NextRequest,
@@ -35,9 +28,9 @@ export async function POST(
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Geen videobestand ontvangen" }, { status: 400 });
   }
-  const extension = safeExtension(file.name, file.type);
-  if (!extension || file.type !== "video/mp4") {
-    return NextResponse.json({ error: "Alleen MP4-video's worden ondersteund" }, { status: 400 });
+  const uploadKind = appointmentVideoUploadKind(file.name, file.type);
+  if (!uploadKind) {
+    return NextResponse.json({ error: "Alleen MP4- en MOV-video's worden ondersteund" }, { status: 400 });
   }
   if (file.size > MAX_VIDEO_BYTES) {
     return NextResponse.json({ error: "Video is groter dan 80 MB" }, { status: 400 });
@@ -45,27 +38,46 @@ export async function POST(
 
   const uploadDir = appointmentVideoUploadDir();
   await mkdir(uploadDir, { recursive: true });
-  const filename = `${confirmation.id}-${Date.now()}${extension}`;
+  const uploadId = `${confirmation.id}-${Date.now()}`;
+  const filename = `${uploadId}.mp4`;
   const fullPath = appointmentVideoPath(filename);
+  const sourcePath = uploadKind === "mov" ? appointmentVideoPath(`${uploadId}.source.mov`) : null;
   const bytes = Buffer.from(await file.arrayBuffer());
-  await writeFile(fullPath, bytes);
 
-  if (confirmation.videoPath && confirmation.videoPath !== fullPath) {
-    unlink(confirmation.videoPath).catch(() => {});
+  try {
+    if (sourcePath) {
+      await writeFile(sourcePath, bytes);
+      await convertAppointmentMovToMp4(sourcePath, fullPath);
+    } else {
+      await writeFile(fullPath, bytes);
+    }
+
+    const convertedFile = await stat(fullPath);
+    const updated = await prisma.appointmentConfirmation.update({
+      where: { id: confirmation.id },
+      data: {
+        status: confirmation.status === "draft" ? "ready" : confirmation.status,
+        videoPath: fullPath,
+        videoOriginalName: file.name,
+        videoMimeType: "video/mp4",
+        videoSizeBytes: convertedFile.size,
+        deliveryError: null,
+      },
+      include: { events: { orderBy: { createdAt: "desc" }, take: 20 } },
+    });
+
+    if (confirmation.videoPath && confirmation.videoPath !== fullPath) {
+      unlink(confirmation.videoPath).catch(() => {});
+    }
+    return NextResponse.json({ confirmation: updated });
+  } catch (error) {
+    unlink(fullPath).catch(() => {});
+    console.error("Afspraakvideo verwerken mislukt:", error);
+    return NextResponse.json(
+      { error: "De video kon niet worden verwerkt. Controleer het MOV- of MP4-bestand." },
+      { status: 422 }
+    );
+  } finally {
+    if (sourcePath) unlink(sourcePath).catch(() => {});
   }
-
-  const updated = await prisma.appointmentConfirmation.update({
-    where: { id: confirmation.id },
-    data: {
-      status: confirmation.status === "draft" ? "ready" : confirmation.status,
-      videoPath: fullPath,
-      videoOriginalName: file.name,
-      videoMimeType: file.type,
-      videoSizeBytes: file.size,
-      deliveryError: null,
-    },
-    include: { events: { orderBy: { createdAt: "desc" }, take: 20 } },
-  });
-
-  return NextResponse.json({ confirmation: updated });
 }

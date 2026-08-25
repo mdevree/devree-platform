@@ -536,10 +536,10 @@ export default function BezichtigingDetailPaneel({
                   <div className="flex flex-wrap gap-2">
                     <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-white px-3 py-2 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
                       <VideoCameraIcon className="h-4 w-4" />
-                      {confirmationBusy === "upload" ? "Uploadt..." : confirmation.videoPath ? "Vervang MP4" : "Upload MP4"}
+                      {confirmationBusy === "upload" ? "Verwerkt..." : confirmation.videoPath ? "Vervang video" : "Upload video"}
                       <input
                         type="file"
-                        accept="video/mp4"
+                        accept="video/mp4,video/quicktime,.mp4,.mov"
                         className="hidden"
                         disabled={confirmationBusy !== null}
                         onChange={(event) => uploadConfirmationVideo(event.target.files?.[0] || null)}
@@ -572,6 +572,9 @@ export default function BezichtigingDetailPaneel({
                       {confirmationBusy === "send" ? "Verstuurt..." : "WhatsApp sturen"}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500">
+                    MP4 of MOV, maximaal 80 MB. MOV wordt automatisch omgezet; iPhone HDR-kleuren worden gecorrigeerd.
+                  </p>
 
                   {confirmation.videoOriginalName && (
                     <p className="text-xs text-gray-600">Video: {confirmation.videoOriginalName}</p>

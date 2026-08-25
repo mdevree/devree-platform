@@ -23,6 +23,8 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+RUN apk add --no-cache ffmpeg
+
 ARG APP_COMMIT_SHA=""
 ARG APP_BUILD_TIME=""
 ARG APP_IMAGE_TAG=""

@@ -7,7 +7,7 @@ Gebruik dit voor bezichtigingen waarbij u vooraf via WhatsApp een persoonlijke b
 1. Open het kantoorplatform en ga naar **Agenda**.
 2. Open de betreffende bezichtiging.
 3. Klik bij **Persoonlijke bevestiging** op **Bevestiging maken**.
-4. Upload een MP4-video van maximaal 80 MB. Horizontale en verticale video's worden automatisch in de juiste verhouding getoond.
+4. Upload de originele MP4- of MOV-video van maximaal 80 MB. MOV wordt automatisch naar een webvriendelijke MP4 omgezet. HDR-video's van bijvoorbeeld een iPhone worden daarbij naar normale webkleuren omgezet. Horizontale en verticale video's worden automatisch in de juiste verhouding getoond.
 5. Klik op **Preview** en controleer de video, afspraakgegevens, woninglink en contactgegevens.
 6. Klik op **WhatsApp sturen** wanneer alles klopt.
 
