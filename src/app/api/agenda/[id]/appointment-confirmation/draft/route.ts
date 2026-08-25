@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
+import { getContact } from "@/lib/mautic";
 
 const PURPOSE = "afspraak_link";
 
@@ -14,18 +15,71 @@ export async function POST(
   }
 
   const { id } = await params;
-  const confirmation = await prisma.appointmentConfirmation.findUnique({
+  const storedConfirmation = await prisma.appointmentConfirmation.findUnique({
     where: { agendaAfspraakId: id },
+    include: {
+      agendaAfspraak: {
+        select: {
+          contactNaam: true,
+          contactTelefoon: true,
+          contactEmail: true,
+          mauticContactId: true,
+          projectId: true,
+        },
+      },
+    },
   });
-  if (!confirmation) {
+  if (!storedConfirmation) {
     return NextResponse.json({ error: "Bevestiging niet gevonden" }, { status: 404 });
   }
-  if (!confirmation.videoPath) {
+  if (!storedConfirmation.videoPath) {
     return NextResponse.json({ error: "Upload eerst een video" }, { status: 400 });
   }
-  if (!confirmation.recipientPhone) {
+
+  const mauticContactId = storedConfirmation.agendaAfspraak.mauticContactId ?? storedConfirmation.mauticContactId;
+  const mauticContact = !storedConfirmation.agendaAfspraak.contactTelefoon && mauticContactId
+    ? await getContact(mauticContactId).catch(() => null)
+    : null;
+  const mauticName = mauticContact
+    ? `${mauticContact.firstname} ${mauticContact.lastname}`.trim() || null
+    : null;
+  const recipientPhone = storedConfirmation.agendaAfspraak.contactTelefoon
+    || mauticContact?.mobile
+    || mauticContact?.phone
+    || storedConfirmation.recipientPhone;
+  const recipientName = storedConfirmation.agendaAfspraak.contactNaam
+    || mauticName
+    || storedConfirmation.recipientName;
+  const recipientEmail = storedConfirmation.agendaAfspraak.contactEmail
+    || mauticContact?.email
+    || storedConfirmation.recipientEmail;
+
+  if (!recipientPhone) {
     return NextResponse.json({ error: "Geen telefoonnummer op deze afspraak" }, { status: 400 });
   }
+
+  if (recipientPhone !== storedConfirmation.agendaAfspraak.contactTelefoon) {
+    await prisma.agendaAfspraak.update({
+      where: { id },
+      data: {
+        contactNaam: recipientName,
+        contactTelefoon: recipientPhone,
+        contactEmail: recipientEmail,
+        mauticContactId,
+      },
+    });
+  }
+  const confirmation = await prisma.appointmentConfirmation.update({
+    where: { id: storedConfirmation.id },
+    data: {
+      recipientName,
+      recipientPhone,
+      recipientEmail,
+      mauticContactId,
+      projectId: storedConfirmation.agendaAfspraak.projectId ?? storedConfirmation.projectId,
+      deliveryError: null,
+    },
+  });
 
   const existing = await prisma.followUpDraft.findUnique({
     where: { agendaAfspraakId_purpose: { agendaAfspraakId: id, purpose: PURPOSE } },
