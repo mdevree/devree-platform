@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { appointmentVideoPath, appointmentVideoUploadDir } from "@/lib/appointmentConfirmation";
-import { appointmentVideoUploadKind, convertAppointmentMovToMp4 } from "@/lib/appointmentVideo";
+import {
+  appointmentVideoUploadKind,
+  convertAppointmentMovToMp4,
+  generateAppointmentPosters,
+  removeAppointmentVideoFiles,
+} from "@/lib/appointmentVideo";
 
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
 
@@ -52,6 +57,7 @@ export async function POST(
       await writeFile(fullPath, bytes);
     }
 
+    await generateAppointmentPosters(fullPath);
     const convertedFile = await stat(fullPath);
     const updated = await prisma.appointmentConfirmation.update({
       where: { id: confirmation.id },
@@ -61,17 +67,18 @@ export async function POST(
         videoOriginalName: file.name,
         videoMimeType: "video/mp4",
         videoSizeBytes: convertedFile.size,
+        videoPosterIndex: 0,
         deliveryError: null,
       },
       include: { events: { orderBy: { createdAt: "desc" }, take: 20 } },
     });
 
     if (confirmation.videoPath && confirmation.videoPath !== fullPath) {
-      unlink(confirmation.videoPath).catch(() => {});
+      removeAppointmentVideoFiles(confirmation.videoPath).catch(() => {});
     }
     return NextResponse.json({ confirmation: updated });
   } catch (error) {
-    unlink(fullPath).catch(() => {});
+    removeAppointmentVideoFiles(fullPath).catch(() => {});
     console.error("Afspraakvideo verwerken mislukt:", error);
     return NextResponse.json(
       { error: "De video kon niet worden verwerkt. Controleer het MOV- of MP4-bestand." },

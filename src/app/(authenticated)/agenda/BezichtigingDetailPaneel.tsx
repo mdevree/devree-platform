@@ -102,6 +102,7 @@ type AppointmentConfirmation = {
   whatsappBody: string;
   videoPath: string | null;
   videoOriginalName: string | null;
+  videoPosterIndex: number;
   sentAt: string | null;
   openedAt: string | null;
   lastOpenedAt: string | null;
@@ -111,6 +112,7 @@ type AppointmentConfirmation = {
   confirmedAt: string | null;
   cancelledAt: string | null;
   deliveryError: string | null;
+  updatedAt: string;
   events?: Array<{ id: string; eventType: string; createdAt: string }>;
 };
 
@@ -172,7 +174,7 @@ export default function BezichtigingDetailPaneel({
   const [confirmation, setConfirmation] = useState<AppointmentConfirmation | null>(null);
   const [confirmationDraft, setConfirmationDraft] = useState<AppointmentConfirmationDraft | null>(null);
   const [confirmationLoading, setConfirmationLoading] = useState(false);
-  const [confirmationBusy, setConfirmationBusy] = useState<"create" | "upload" | "draft" | null>(null);
+  const [confirmationBusy, setConfirmationBusy] = useState<"create" | "upload" | "poster" | "draft" | null>(null);
   const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
 
   const laad = useCallback(async () => {
@@ -272,6 +274,29 @@ export default function BezichtigingDetailPaneel({
       setConfirmationMessage("WhatsApp-concept staat klaar in de Digitale medewerker.");
     } catch {
       setConfirmationMessage("WhatsApp-concept maken mislukt.");
+    } finally {
+      setConfirmationBusy(null);
+    }
+  }
+
+  async function kiesVideoPoster(index: number) {
+    setConfirmationBusy("poster");
+    setConfirmationMessage(null);
+    try {
+      const res = await fetch(`/api/agenda/${afspraakId}/appointment-confirmation/poster`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setConfirmationMessage(data.error || "Videobeeld kiezen mislukt.");
+        return;
+      }
+      setConfirmation(data.confirmation);
+      setConfirmationMessage("Videobeeld opgeslagen.");
+    } catch {
+      setConfirmationMessage("Videobeeld kiezen mislukt.");
     } finally {
       setConfirmationBusy(null);
     }
@@ -595,6 +620,39 @@ export default function BezichtigingDetailPaneel({
 
                   {confirmation.videoOriginalName && (
                     <p className="text-xs text-gray-600">Video: {confirmation.videoOriginalName}</p>
+                  )}
+                  {confirmation.videoPath && (
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-gray-700">Kies het videobeeld</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[0, 1, 2].map((index) => {
+                          const selected = confirmation.videoPosterIndex === index;
+                          return (
+                            <button
+                              key={index}
+                              type="button"
+                              aria-pressed={selected}
+                              aria-label={`Videobeeld ${index + 1}${selected ? ", geselecteerd" : ""}`}
+                              disabled={confirmationBusy !== null}
+                              onClick={() => kiesVideoPoster(index)}
+                              className={`overflow-hidden rounded-md bg-black ring-2 transition disabled:opacity-60 ${
+                                selected ? "ring-emerald-600" : "ring-transparent hover:ring-emerald-300"
+                              }`}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={`/api/agenda/${afspraakId}/appointment-confirmation/poster/${index}?v=${encodeURIComponent(confirmation.updatedAt)}`}
+                                alt=""
+                                className="h-24 w-full object-contain"
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-1.5 text-xs text-gray-500">
+                        Het geselecteerde beeld staat stil totdat de bezoeker de video afspeelt.
+                      </p>
+                    </div>
                   )}
                   {confirmation.woningUrl && (
                     <a href={confirmation.woningUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">

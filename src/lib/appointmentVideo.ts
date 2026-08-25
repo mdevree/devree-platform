@@ -1,10 +1,13 @@
 import { execFile } from "child_process";
+import { unlink } from "fs/promises";
 import path from "path";
 import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 
 export type AppointmentVideoUploadKind = "mp4" | "mov";
+
+export const APPOINTMENT_POSTER_TIMESTAMPS = [0.2, 0.6, 1.0] as const;
 
 type VideoProbe = {
   streams?: Array<{
@@ -129,4 +132,55 @@ export async function convertAppointmentMovToMp4(inputPath: string, outputPath: 
       maxBuffer: 2 * 1024 * 1024,
     }
   );
+}
+
+export function appointmentPosterPath(videoPath: string, index: number) {
+  if (!Number.isInteger(index) || index < 0 || index >= APPOINTMENT_POSTER_TIMESTAMPS.length) {
+    throw new Error("Ongeldige posterindex");
+  }
+  return `${videoPath}.poster-${index}.jpg`;
+}
+
+export function appointmentPosterPaths(videoPath: string) {
+  return APPOINTMENT_POSTER_TIMESTAMPS.map((_, index) => appointmentPosterPath(videoPath, index));
+}
+
+export async function generateAppointmentPosters(videoPath: string) {
+  const outputPaths = appointmentPosterPaths(videoPath);
+  try {
+    for (const [index, outputPath] of outputPaths.entries()) {
+      await execFileAsync(
+        "ffmpeg",
+        [
+          "-hide_banner",
+          "-loglevel",
+          "error",
+          "-y",
+          "-ss",
+          String(APPOINTMENT_POSTER_TIMESTAMPS[index]),
+          "-i",
+          videoPath,
+          "-frames:v",
+          "1",
+          "-vf",
+          "scale='min(960,iw)':-2",
+          "-q:v",
+          "3",
+          outputPath,
+        ],
+        { timeout: 30_000, maxBuffer: 1024 * 1024 }
+      );
+    }
+    return outputPaths;
+  } catch (error) {
+    await Promise.all(outputPaths.map((outputPath) => unlink(outputPath).catch(() => {})));
+    throw error;
+  }
+}
+
+export async function removeAppointmentVideoFiles(videoPath: string) {
+  await Promise.all([
+    unlink(videoPath).catch(() => {}),
+    ...appointmentPosterPaths(videoPath).map((posterPath) => unlink(posterPath).catch(() => {})),
+  ]);
 }

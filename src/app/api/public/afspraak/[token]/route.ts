@@ -32,9 +32,12 @@ export async function GET(
       woningTitle: true,
       woningAdres: true,
       woningUrl: true,
+      woningImageUrl: true,
       appointmentStart: true,
+      appointmentEnd: true,
       medewerker: true,
       videoPath: true,
+      videoPosterIndex: true,
     },
   });
 
@@ -53,9 +56,21 @@ export async function GET(
         woningTitle: confirmation.woningTitle,
         woningAdres: confirmation.woningAdres,
         woningUrl: confirmation.woningUrl,
+        woningImageUrl: confirmation.woningImageUrl,
         appointmentLabel: formatAppointmentDateTime(confirmation.appointmentStart),
+        appointmentStart: confirmation.appointmentStart,
+        appointmentEnd: confirmation.appointmentEnd,
         medewerker: confirmation.medewerker,
         hasVideo: Boolean(confirmation.videoPath),
+        posterUrl: confirmation.videoPath
+          ? `/api/public/afspraak/${encodeURIComponent(token)}/poster`
+          : null,
+        calendarUrl: confirmation.appointmentStart
+          ? `/api/public/afspraak/${encodeURIComponent(token)}/calendar`
+          : null,
+        mapsUrl: confirmation.woningAdres
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(confirmation.woningAdres)}`
+          : null,
       },
       preview,
     },

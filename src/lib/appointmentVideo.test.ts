@@ -2,9 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   appointmentMovFfmpegArgs,
+  appointmentPosterPath,
+  appointmentPosterPaths,
   appointmentVideoUploadKind,
   isHdrVideoProbe,
 } from "./appointmentVideo";
+
+test("leidt drie vaste posterpaden af van het videobestand", () => {
+  assert.deepEqual(appointmentPosterPaths("/uploads/video.mp4"), [
+    "/uploads/video.mp4.poster-0.jpg",
+    "/uploads/video.mp4.poster-1.jpg",
+    "/uploads/video.mp4.poster-2.jpg",
+  ]);
+  assert.throws(() => appointmentPosterPath("/uploads/video.mp4", 3), /Ongeldige posterindex/);
+});
 
 test("accepteert MP4 en MOV op extensie of MIME-type", () => {
   assert.equal(appointmentVideoUploadKind("bevestiging.mp4", "video/mp4"), "mp4");

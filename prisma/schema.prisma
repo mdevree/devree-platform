@@ -1190,6 +1190,7 @@ model AppointmentConfirmation {
   woningTitle         String?
   woningAdres         String?
   woningUrl           String?                      @db.Text
+  woningImageUrl      String?                      @db.Text
   appointmentStart    DateTime?
   appointmentEnd      DateTime?
   medewerker          String?
@@ -1198,6 +1199,7 @@ model AppointmentConfirmation {
   videoOriginalName   String?
   videoMimeType       String?
   videoSizeBytes      Int?
+  videoPosterIndex    Int                          @default(0)
   sentAt              DateTime?
   openedAt            DateTime?
   lastOpenedAt        DateTime?

@@ -15,6 +15,8 @@ export const APPOINTMENT_EVENT_TYPES = new Set([
   "confirm_click",
   "cancel_click",
   "woning_click",
+  "route_click",
+  "calendar_click",
 ]);
 
 export function createAppointmentToken() {
@@ -114,6 +116,55 @@ export function formatAppointmentDateTime(date: Date | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatIcalDate(date: Date) {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function escapeIcalText(value: string) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+export function buildAppointmentCalendar(input: {
+  id: string;
+  address: string;
+  start: Date;
+  end?: Date | null;
+  publicUrl?: string | null;
+  woningUrl?: string | null;
+  now?: Date;
+}) {
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.address)}`;
+  const description = [
+    "Uw bezichtiging met De Vree Makelaardij.",
+    input.woningUrl ? `Woning: ${input.woningUrl}` : null,
+    `Route: ${mapsUrl}`,
+    "Vragen? Bel 0181 - 611 919 of mail info@devreemakelaardij.nl.",
+  ].filter(Boolean).join("\n");
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//De Vree Makelaardij//Bezichtiging//NL",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:afspraak-${input.id}@devreemakelaardij.nl`,
+    `DTSTAMP:${formatIcalDate(input.now || new Date())}`,
+    `DTSTART:${formatIcalDate(input.start)}`,
+    ...(input.end ? [`DTEND:${formatIcalDate(input.end)}`] : []),
+    `SUMMARY:${escapeIcalText(`Bezichtiging ${input.address}`)}`,
+    `LOCATION:${escapeIcalText(input.address)}`,
+    `DESCRIPTION:${escapeIcalText(description)}`,
+    ...(input.publicUrl ? [`URL:${input.publicUrl}`] : []),
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  return `${lines.join("\r\n")}\r\n`;
 }
 
 function escapeHtml(value: unknown) {

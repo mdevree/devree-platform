@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   appointmentTokenHash,
   appointmentTokenFromPublicUrl,
+  buildAppointmentCalendar,
   buildAppointmentWhatsappBody,
   createAppointmentToken,
   isValidAppointmentPreview,
@@ -62,6 +63,24 @@ test("bouwt WhatsApptekst met woning, afspraakdatum en publieke link", () => {
   assert.match(body, /Met vriendelijke groet,\n\nMelvin de Vree\nDe Vree Makelaardij$/);
 });
 
+test("bouwt een agenda-item met echte begin- en eindtijd", () => {
+  const calendar = buildAppointmentCalendar({
+    id: "confirmation-id",
+    address: "Raaigras 6, 3206 JK Spijkenisse",
+    start: new Date("2026-08-27T13:00:00.000Z"),
+    end: new Date("2026-08-27T13:45:00.000Z"),
+    publicUrl: "https://www.devreemakelaardij.nl/afspraak/abc",
+    woningUrl: "https://www.devreemakelaardij.nl/woning/raaigras-6/",
+    now: new Date("2026-08-25T10:00:00.000Z"),
+  });
+
+  assert.match(calendar, /DTSTART:20260827T130000Z\r\n/);
+  assert.match(calendar, /DTEND:20260827T134500Z\r\n/);
+  assert.match(calendar, /LOCATION:Raaigras 6\\, 3206 JK Spijkenisse/);
+  assert.match(calendar, /google\.com\/maps\/search/);
+  assert.match(calendar, /URL:https:\/\/www\.devreemakelaardij\.nl\/afspraak\/abc/);
+});
+
 test("stuurt kantoor een e-mail bij bevestigen of annuleren", async () => {
   const oldWebhookUrl = process.env.AI_INFO_EMAIL_WEBHOOK_URL;
   const oldWebhookSecret = process.env.N8N_WEBHOOK_SECRET;
@@ -94,6 +113,7 @@ test("stuurt kantoor een e-mail bij bevestigen of annuleren", async () => {
         woningTitle: "Raaigras 6",
         woningAdres: "Raaigras 6, 3206 JK Spijkenisse",
         woningUrl: "https://www.devreemakelaardij.nl/aanbod/spijkenisse-raaigras-6/",
+        woningImageUrl: null,
         appointmentStart: new Date("2026-08-27T13:00:00.000Z"),
         appointmentEnd: null,
         medewerker: "Melvin de Vree",
@@ -102,6 +122,7 @@ test("stuurt kantoor een e-mail bij bevestigen of annuleren", async () => {
         videoOriginalName: null,
         videoMimeType: null,
         videoSizeBytes: null,
+        videoPosterIndex: 0,
         sentAt: null,
         openedAt: null,
         lastOpenedAt: null,
