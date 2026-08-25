@@ -29,12 +29,17 @@ export async function GET(
   }
 
   const { id } = await params;
-  const confirmation = await prisma.appointmentConfirmation.findUnique({
-    where: { agendaAfspraakId: id },
-    include: { events: { orderBy: { createdAt: "desc" }, take: 20 } },
-  });
+  const [confirmation, draft] = await Promise.all([
+    prisma.appointmentConfirmation.findUnique({
+      where: { agendaAfspraakId: id },
+      include: { events: { orderBy: { createdAt: "desc" }, take: 20 } },
+    }),
+    prisma.followUpDraft.findUnique({
+      where: { agendaAfspraakId_purpose: { agendaAfspraakId: id, purpose: "afspraak_link" } },
+    }),
+  ]);
 
-  return NextResponse.json({ confirmation: serializeConfirmation(confirmation) });
+  return NextResponse.json({ confirmation: serializeConfirmation(confirmation), draft });
 }
 
 export async function POST(
@@ -77,11 +82,12 @@ export async function POST(
     : null;
   const woningAdres = buildAdres(afspraak.project) || afspraak.aglocation || woning?.titel || afspraak.agdescr || null;
   const woningTitle = woning?.titel || afspraak.project?.name || afspraak.agdescr || null;
+  const medewerker = afspraak.medewerkerFullname ?? afspraak.agowner;
   const whatsappBody = buildAppointmentWhatsappBody({
-    name: afspraak.contactNaam,
     woningTitle,
     woningAdres,
     appointmentStart: afspraak.agbegin,
+    medewerker,
     publicUrl,
   });
 
@@ -99,7 +105,7 @@ export async function POST(
           woningUrl: woning?.link ?? null,
           appointmentStart: afspraak.agbegin,
           appointmentEnd: afspraak.agend,
-          medewerker: afspraak.medewerkerFullname ?? afspraak.agowner,
+          medewerker,
           whatsappBody,
           deliveryError: null,
         },
@@ -121,7 +127,7 @@ export async function POST(
       woningUrl: woning?.link ?? null,
       appointmentStart: afspraak.agbegin,
       appointmentEnd: afspraak.agend,
-      medewerker: afspraak.medewerkerFullname ?? afspraak.agowner,
+      medewerker,
       whatsappBody,
         },
         include: { events: { orderBy: { createdAt: "desc" }, take: 20 } },

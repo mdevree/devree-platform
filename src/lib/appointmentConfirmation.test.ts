@@ -48,16 +48,18 @@ test("preview URL is tijdelijk geldig", () => {
 
 test("bouwt WhatsApptekst met woning, afspraakdatum en publieke link", () => {
   const body = buildAppointmentWhatsappBody({
-    name: "Vincent Jansen",
-    woningAdres: "Raaigras 6, Spijkenisse",
+    woningTitle: "Raaigras 6 SPIJKENISSE",
+    woningAdres: "Raaigras 6, 3206 JK, SPIJKENISSE",
     appointmentStart: new Date("2026-08-27T13:00:00.000Z"),
+    medewerker: "Melvin de Vree",
     publicUrl: "https://www.devreemakelaardij.nl/afspraak/abc",
   });
 
-  assert.match(body, /Goedemiddag Vincent/);
-  assert.match(body, /Raaigras 6, Spijkenisse/);
+  assert.match(body, /^Goedemiddag,\n\n/);
+  assert.match(body, /Aanstaande donderdag hebben wij een afspraak voor de bezichtiging van Raaigras 6 in Spijkenisse\./);
   assert.match(body, /https:\/\/www\.devreemakelaardij\.nl\/afspraak\/abc/);
-  assert.match(body, /Komt de afspraak toch niet uit/);
+  assert.match(body, /Anders zie ik u donderdag om 15\.00 uur bij de woning\./);
+  assert.match(body, /Met vriendelijke groet,\n\nMelvin de Vree\nDe Vree Makelaardij$/);
 });
 
 test("stuurt kantoor een e-mail bij bevestigen of annuleren", async () => {

@@ -204,6 +204,13 @@ export default function AiBelassistentDashboard() {
   const [prepareResult, setPrepareResult] = useState<PrepareBezichtigingenResult | null>(null);
   const [prepareLastRun, setPrepareLastRun] = useState<PrepareLastRun>(null);
 
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get("tab");
+    if (["overzicht", "bellen", "concepten", "kennis", "profiel"].includes(requestedTab || "")) {
+      setActiveTab(requestedTab as TabKey);
+    }
+  }, []);
+
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === selectedJobId) || jobs[0] || null,
     [jobs, selectedJobId]

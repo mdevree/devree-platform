@@ -678,18 +678,37 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) 
       where: { id: conversation.id },
       data: { lastMessageAt: new Date(), status: "OPEN" },
     });
-    return prisma.followUpDraft.update({
+    const sentAt = new Date();
+    const updateDraft = prisma.followUpDraft.update({
       where: { id },
       data: {
         status: "sent",
         reviewedBy: reviewedBy || draft.reviewedBy,
-        reviewedAt: draft.reviewedAt || new Date(),
-        sentAt: new Date(),
+        reviewedAt: draft.reviewedAt || sentAt,
+        sentAt,
         waConversationId: conversation.id,
         waMessageId: message.id,
         deliveryError: null,
       },
     });
+    if (draft.purpose === "afspraak_link" && draft.agendaAfspraakId) {
+      const [updatedDraft] = await prisma.$transaction([
+        updateDraft,
+        prisma.appointmentConfirmation.updateMany({
+          where: { agendaAfspraakId: draft.agendaAfspraakId },
+          data: {
+            status: "sent",
+            sentAt,
+            whatsappBody: draft.body,
+            waConversationId: conversation.id,
+            waMessageId: message.id,
+            deliveryError: null,
+          },
+        }),
+      ]);
+      return updatedDraft;
+    }
+    return updateDraft;
   } catch (error) {
     const detail =
       error instanceof WhatsAppError && error.detail

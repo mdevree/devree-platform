@@ -114,6 +114,11 @@ type AppointmentConfirmation = {
   events?: Array<{ id: string; eventType: string; createdAt: string }>;
 };
 
+type AppointmentConfirmationDraft = {
+  id: string;
+  status: string;
+};
+
 function formatDatumTijd(d: string | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleString("nl-NL", {
@@ -165,8 +170,9 @@ export default function BezichtigingDetailPaneel({
   const [mauticKoppelt, setMauticKoppelt] = useState<number | null>(null);
   const [mauticMelding, setMauticMelding] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<AppointmentConfirmation | null>(null);
+  const [confirmationDraft, setConfirmationDraft] = useState<AppointmentConfirmationDraft | null>(null);
   const [confirmationLoading, setConfirmationLoading] = useState(false);
-  const [confirmationBusy, setConfirmationBusy] = useState<"create" | "upload" | "send" | null>(null);
+  const [confirmationBusy, setConfirmationBusy] = useState<"create" | "upload" | "draft" | null>(null);
   const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
 
   const laad = useCallback(async () => {
@@ -197,6 +203,7 @@ export default function BezichtigingDetailPaneel({
       if (!res.ok) return;
       const data = await res.json();
       setConfirmation(data.confirmation || null);
+      setConfirmationDraft(data.draft || null);
     } finally {
       setConfirmationLoading(false);
     }
@@ -217,6 +224,7 @@ export default function BezichtigingDetailPaneel({
         return;
       }
       setConfirmation(data.confirmation);
+      setConfirmationDraft(null);
       setConfirmationMessage("Bevestigingslink klaar. Controleer de preview en upload de video.");
     } catch {
       setConfirmationMessage("Bevestiging maken mislukt.");
@@ -250,21 +258,20 @@ export default function BezichtigingDetailPaneel({
     }
   }
 
-  async function verstuurConfirmation() {
-    setConfirmationBusy("send");
+  async function maakWhatsappConcept() {
+    setConfirmationBusy("draft");
     setConfirmationMessage(null);
     try {
-      const res = await fetch(`/api/agenda/${afspraakId}/appointment-confirmation/send`, { method: "POST" });
+      const res = await fetch(`/api/agenda/${afspraakId}/appointment-confirmation/draft`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setConfirmation(data.confirmation || confirmation);
-        setConfirmationMessage(data.error || "WhatsApp verzenden mislukt.");
+        setConfirmationMessage(data.error || "WhatsApp-concept maken mislukt.");
         return;
       }
-      setConfirmation(data.confirmation);
-      setConfirmationMessage("WhatsApp-bevestiging verzonden.");
+      setConfirmationDraft(data.draft);
+      setConfirmationMessage("WhatsApp-concept staat klaar in de Digitale medewerker.");
     } catch {
-      setConfirmationMessage("WhatsApp verzenden mislukt.");
+      setConfirmationMessage("WhatsApp-concept maken mislukt.");
     } finally {
       setConfirmationBusy(null);
     }
@@ -563,14 +570,24 @@ export default function BezichtigingDetailPaneel({
                         Link kopiëren
                       </button>
                     )}
-                    <button
-                      onClick={verstuurConfirmation}
-                      disabled={confirmationBusy !== null || !confirmation.videoPath}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
-                    >
-                      <PaperAirplaneIcon className="h-4 w-4" />
-                      {confirmationBusy === "send" ? "Verstuurt..." : "WhatsApp sturen"}
-                    </button>
+                    {confirmationDraft ? (
+                      <a
+                        href="/digitale-medewerker?tab=concepten"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800"
+                      >
+                        <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                        Open WhatsApp-concept
+                      </a>
+                    ) : (
+                      <button
+                        onClick={maakWhatsappConcept}
+                        disabled={confirmationBusy !== null || !confirmation.videoPath}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+                      >
+                        <PaperAirplaneIcon className="h-4 w-4" />
+                        {confirmationBusy === "draft" ? "Maakt concept..." : "WhatsApp-concept maken"}
+                      </button>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500">
                     MP4 of MOV, maximaal 80 MB. MOV wordt automatisch omgezet; iPhone HDR-kleuren worden gecorrigeerd.

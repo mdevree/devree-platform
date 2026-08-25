@@ -199,27 +199,55 @@ export async function notifyOfficeAppointmentAction({
 }
 
 export function buildAppointmentWhatsappBody(input: {
-  name?: string | null;
   woningTitle?: string | null;
   woningAdres?: string | null;
   appointmentStart?: Date | null;
+  medewerker?: string | null;
   publicUrl: string;
 }) {
-  const firstName = input.name?.trim().split(/\s+/)[0] || null;
-  const greeting = firstName ? `Goedemiddag ${firstName}` : "Goedemiddag";
-  const woning = input.woningAdres || input.woningTitle || "de woning";
-  const dateLabel = formatAppointmentDateTime(input.appointmentStart);
-  const appointmentLine = dateLabel
-    ? `De afspraak staat gepland op ${dateLabel}.`
-    : "De afspraak staat gepland zoals afgesproken.";
+  const address = input.woningAdres?.trim();
+  const addressParts = address?.match(/^(.+?),\s*\d{4}\s*[A-Z]{2},?\s*(.+)$/i);
+  const plaats = addressParts?.[2]
+    ?.toLocaleLowerCase("nl-NL")
+    .replace(/(^|[\s-])\p{L}/gu, (letter) => letter.toLocaleUpperCase("nl-NL"));
+  const woning = addressParts
+    ? `${addressParts[1]} in ${plaats}`
+    : input.woningTitle || address || "de woning";
+  const afspraak = input.appointmentStart
+    ? {
+        dag: new Intl.DateTimeFormat("nl-NL", {
+          timeZone: "Europe/Amsterdam",
+          weekday: "long",
+        }).format(input.appointmentStart),
+        tijd: new Intl.DateTimeFormat("nl-NL", {
+          timeZone: "Europe/Amsterdam",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        })
+          .format(input.appointmentStart)
+          .replace(":", "."),
+      }
+    : null;
+  const medewerker = input.medewerker?.trim() || null;
 
   return [
-    `${greeting}, hierbij de bevestiging van uw bezichtiging bij ${woning}.`,
-    `Ik heb een korte video voor u opgenomen: ${input.publicUrl}`,
-    appointmentLine,
-    "Komt de afspraak toch niet uit, dan kunt u dat via de link eenvoudig aan ons doorgeven.",
+    "Goedemiddag,",
+    "",
+    afspraak
+      ? `Aanstaande ${afspraak.dag} hebben wij een afspraak voor de bezichtiging van ${woning}.`
+      : `Binnenkort hebben wij een afspraak voor de bezichtiging van ${woning}.`,
+    "",
+    "Ik heb een korte video voor u opgenomen:",
+    input.publicUrl,
+    "",
+    afspraak
+      ? `Mocht de afspraak toch niet uitkomen, dan kunt u dit eenvoudig via deze pagina aan ons doorgeven. Anders zie ik u ${afspraak.dag} om ${afspraak.tijd} uur bij de woning.`
+      : "Mocht de afspraak toch niet uitkomen, dan kunt u dit eenvoudig via deze pagina aan ons doorgeven. Anders zie ik u op het afgesproken tijdstip bij de woning.",
     "",
     "Met vriendelijke groet,",
+    "",
+    ...(medewerker ? [medewerker] : []),
     "De Vree Makelaardij",
   ].join("\n");
 }
