@@ -145,6 +145,19 @@ test("parseert gelabelde Realworks-kadastertekst", () => {
   );
 });
 
+test("verwijdert Realworks-label en gemeentecode uit kadaster-gridtekst", () => {
+  assert.deepEqual(
+    normalizeKadasterText("Kadastraal bekend Spijkenisse 922 D 5000 groot 143 m²"),
+    {
+      gemeente: "Spijkenisse",
+      sectie: "D",
+      nummer: "5000",
+      grootteM2: "143",
+      rawText: "Kadastraal bekend Spijkenisse 922 D 5000 groot 143 m²",
+    },
+  );
+});
+
 test("rekent hectare, are en centiare om naar vierkante meters", () => {
   assert.equal(normalizeKadasterText("Nissewaard C 978 1 ha 2 are 3 ca")?.grootteM2, "10203");
 });

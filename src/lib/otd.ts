@@ -353,7 +353,10 @@ export function normalizeKadasterText(rawValue: unknown): OtdKadasterRegel | nul
   }
 
   return {
-    gemeente: parts.slice(0, sectionIndex).join(" "),
+    gemeente: parts.slice(0, sectionIndex).join(" ")
+      .replace(/^kadastraal(?:\s+bekend)?\s+/i, "")
+      .replace(/\s+\d{2,4}$/, "")
+      .trim(),
     sectie: parts[sectionIndex].toUpperCase(),
     nummer: parts[sectionIndex + 1],
     grootteM2,

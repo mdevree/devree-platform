@@ -43,7 +43,10 @@ export async function POST(request: NextRequest) {
           const rawText = stringValue(record.rawText ?? record.text);
           const normalized = normalizeKadasterText(rawText);
           return {
-            gemeente: stringValue(record.gemeente) ?? normalized?.gemeente,
+            // De gridtekst bevat soms het label "Kadastraal bekend" en de
+            // gemeentecode (bijv. 922). De serverparser kent die structuur en
+            // is daarom leidend boven de oudere extensie-parser.
+            gemeente: normalized?.gemeente ?? stringValue(record.gemeente),
             sectie: stringValue(record.sectie) ?? normalized?.sectie,
             nummer: stringValue(record.nummer) ?? normalized?.nummer,
             grootteM2: stringValue(record.grootteM2 ?? record.grootte ?? record.oppervlakte) ?? normalized?.grootteM2,
