@@ -50,7 +50,7 @@ Het platform koppelt kadasterdata primair op Realworks object `_systemid`.
   "eventType": "kadaster.grid",
   "traceId": "kadaster_grid_...",
   "payloadVersion": "2026-07-07",
-  "extensionVersion": "1.9",
+  "extensionVersion": "1.11",
   "capturedAt": "2026-07-12T12:00:00.000Z",
   "sourceUrl": "https://crm.realworks.nl/...",
   "realworksSystemId": "10409219",
@@ -89,7 +89,10 @@ Het platform koppelt kadasterdata primair op Realworks object `_systemid`.
 ## Foutgedrag
 
 - Geen `realworksSystemId`: HTTP 400 of quarantaine.
-- Geen rows/rawText: HTTP 400 of genegeerd event.
+- Geen complete regel met gemeente, sectie en perceelnummer: HTTP 422; de
+  extensie meldt de reden en mag dit niet als succesvolle verwerking tonen.
+- De extensie bepaalt de kadasterkolommen aan de hand van de actuele
+  Realworks-gridheaders en bewaart spaties tussen losse HTML-elementen.
 - Meerdere of onzekere kadasterregels: markeren als controlepunt.
 - Bestaande handmatige projectcorrecties mogen niet stil overschreven worden
   zonder duidelijke bronprioriteit.

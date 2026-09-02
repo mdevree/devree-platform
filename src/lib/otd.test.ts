@@ -132,6 +132,27 @@ test("parseert eenvoudige kadastertekst naar OTD-velden", () => {
   });
 });
 
+test("parseert gelabelde Realworks-kadastertekst", () => {
+  assert.deepEqual(
+    normalizeKadasterText("Kadastrale gemeente: Spijkenisse Sectie: G Perceelnummer: 4753 Grootte: 1 are 23 centiare"),
+    {
+      gemeente: "Spijkenisse",
+      sectie: "G",
+      nummer: "4753",
+      grootteM2: "123",
+      rawText: "Kadastrale gemeente: Spijkenisse Sectie: G Perceelnummer: 4753 Grootte: 1 are 23 centiare",
+    },
+  );
+});
+
+test("rekent hectare, are en centiare om naar vierkante meters", () => {
+  assert.equal(normalizeKadasterText("Nissewaard C 978 1 ha 2 are 3 ca")?.grootteM2, "10203");
+});
+
+test("weigert een onvolledige kadasterregel als verwerkbare regel", () => {
+  assert.equal(firstCompleteKadasterRegel([{ rawText: "onvolledige kadastertekst" }]), null);
+});
+
 test("parseert Realworks kadaster-save velden naar OTD-velden", () => {
   assert.deepEqual(kadasterRegelFromRealworksFields({
     kadlisnr: "SE11905",

@@ -40,13 +40,15 @@ export async function POST(request: NextRequest) {
         if (typeof row === "string") return normalizeKadasterText(row);
         if (row && typeof row === "object") {
           const record = row as Record<string, unknown>;
+          const rawText = stringValue(record.rawText ?? record.text);
+          const normalized = normalizeKadasterText(rawText);
           return {
-            gemeente: stringValue(record.gemeente),
-            sectie: stringValue(record.sectie),
-            nummer: stringValue(record.nummer),
-            grootteM2: stringValue(record.grootteM2 ?? record.grootte ?? record.oppervlakte),
+            gemeente: stringValue(record.gemeente) ?? normalized?.gemeente,
+            sectie: stringValue(record.sectie) ?? normalized?.sectie,
+            nummer: stringValue(record.nummer) ?? normalized?.nummer,
+            grootteM2: stringValue(record.grootteM2 ?? record.grootte ?? record.oppervlakte) ?? normalized?.grootteM2,
             eigendomssituatie: stringValue(record.eigendomssituatie),
-            rawText: stringValue(record.rawText ?? record.text),
+            rawText,
           };
         }
         return null;
@@ -61,10 +63,11 @@ export async function POST(request: NextRequest) {
   const kadaster = firstCompleteKadasterRegel(rows);
   if (!kadaster) {
     return NextResponse.json({
-      success: true,
+      success: false,
       ignored: true,
-      ignoredReason: "Geen bruikbare kadasterregel gevonden",
-    }, { headers: CORS_HEADERS });
+      error: "Geen complete kadasterregel gevonden (gemeente, sectie en perceelnummer zijn verplicht)",
+      rows,
+    }, { status: 422, headers: CORS_HEADERS });
   }
 
   const project = await prisma.project.findFirst({

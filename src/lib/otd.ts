@@ -305,10 +305,48 @@ export function normalizeKadasterText(rawValue: unknown): OtdKadasterRegel | nul
   const rawText = stringValue(rawValue)?.replace(/\s+/g, " ");
   if (!rawText) return null;
 
-  const oppervlakteMatch = rawText.match(/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|ha|are|ca)/i);
-  const withoutSize = rawText.replace(/\b\d+(?:[.,]\d+)?\s*(?:m2|m²|ha|are|ca)/ig, " ").trim();
-  const parts = withoutSize.split(/\s+/).filter(Boolean);
-  const sectionIndex = parts.findIndex((part) => /^[A-Z]{1,3}$/i.test(part));
+  const directM2 = rawText.match(/(\d+(?:[.,]\d+)?)\s*(?:m2|m²)(?=\s|$|[,.])/i);
+  const hectares = rawText.match(/(\d+(?:[.,]\d+)?)\s*(?:ha|hectare)\b/i);
+  const ares = rawText.match(/(\d+(?:[.,]\d+)?)\s*(?:a|are)\b/i);
+  const centiares = rawText.match(/(\d+(?:[.,]\d+)?)\s*(?:ca|centiare)\b/i);
+  const parseNumber = (match: RegExpMatchArray | null) => Number.parseFloat((match?.[1] ?? "0").replace(",", ".")) || 0;
+  const grootteM2 = directM2?.[1]?.replace(",", ".")
+    ?? ((hectares || ares || centiares)
+      ? String((parseNumber(hectares) * 10000) + (parseNumber(ares) * 100) + parseNumber(centiares))
+      : null);
+
+  const withoutSize = rawText
+    .replace(/\b\d+(?:[.,]\d+)?\s*(?:m2|m²|ha|hectare|a|are|ca|centiare)(?=\s|$|[,.])/ig, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const labelled = withoutSize.match(
+    /(?:kadastrale\s+)?gemeente\s*[:\-]?\s*(.+?)\s+sectie\s*[:\-]?\s*([A-Z]{1,3})\s+(?:(?:perceel(?:nummer)?|nummer)\s*[:\-]?\s*)?([0-9][A-Z0-9./-]*)/i,
+  );
+  if (labelled) {
+    return {
+      gemeente: labelled[1].trim(),
+      sectie: labelled[2].toUpperCase(),
+      nummer: labelled[3],
+      grootteM2,
+      rawText,
+    };
+  }
+
+  const parts = withoutSize
+    .replace(/\b(?:sectie|perceelnummer|perceel|nummer|groot|grootte|oppervlakte)\b\s*[:\-]?/ig, " ")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/^[,;:]|[,;:]$/g, ""))
+    .filter(Boolean);
+  let sectionIndex = parts.findIndex((part) => /^[A-Z]{1,3}$/.test(part));
+  if (sectionIndex <= 0) {
+    sectionIndex = parts.findIndex((part, index) => (
+      index > 0
+      && /^[A-Za-z]$/.test(part)
+      && /^[0-9]/.test(parts[index + 1] ?? "")
+    ));
+  }
 
   if (sectionIndex <= 0 || !parts[sectionIndex + 1]) {
     return { rawText };
@@ -318,7 +356,7 @@ export function normalizeKadasterText(rawValue: unknown): OtdKadasterRegel | nul
     gemeente: parts.slice(0, sectionIndex).join(" "),
     sectie: parts[sectionIndex].toUpperCase(),
     nummer: parts[sectionIndex + 1],
-    grootteM2: oppervlakteMatch?.[1]?.replace(",", ".") ?? null,
+    grootteM2,
     rawText,
   };
 }
@@ -355,7 +393,7 @@ export function kadasterRegelFromRealworksFields(fields: Record<string, unknown>
 }
 
 export function firstCompleteKadasterRegel(rows: OtdKadasterRegel[]): OtdKadasterRegel | null {
-  return rows.find((row) => row.gemeente && row.sectie && row.nummer) ?? rows[0] ?? null;
+  return rows.find((row) => row.gemeente && row.sectie && row.nummer) ?? null;
 }
 
 export function projectUpdateDataFromOtd(data: OtdProjectData) {

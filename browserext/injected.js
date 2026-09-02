@@ -257,6 +257,13 @@
   function stripHtml(value) {
     const div = document.createElement('div');
     div.innerHTML = value || '';
+    // Realworks zet onderdelen van een kadastrale aanduiding regelmatig in
+    // losse HTML-elementen. textContent plakt die zonder scheiding aan elkaar
+    // (bijv. "SpijkenisseG2356"), waardoor de parser niets meer herkent.
+    div.querySelectorAll('br').forEach((element) => element.replaceWith(document.createTextNode(' ')));
+    div.querySelectorAll('div, p, li, dt, dd, td, th, tr').forEach((element) => {
+      element.appendChild(document.createTextNode(' '));
+    });
     return (div.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
@@ -310,7 +317,12 @@
   function valueFromBodyPreview(body, key) {
     if (!body) return '';
     try {
-      const params = new URLSearchParams(body);
+      let requestBody = body;
+      if (String(body).trim().startsWith('{')) {
+        const parsed = JSON.parse(body);
+        requestBody = parsed?.request || body;
+      }
+      const params = new URLSearchParams(requestBody);
       return params.get(key) || '';
     } catch {
       const match = String(body).match(new RegExp(`${key}=([^&]+)`));
@@ -318,17 +330,74 @@
     }
   }
 
+  function parseKadasterSizeM2(text) {
+    const directM2 = text.match(/(\d+(?:[.,]\d+)?)\s*(?:m2|m²)(?=\s|$|[,.])/i);
+    if (directM2) return directM2[1].replace(',', '.');
+
+    const hectares = text.match(/(\d+(?:[.,]\d+)?)\s*(?:ha|hectare)\b/i);
+    const ares = text.match(/(\d+(?:[.,]\d+)?)\s*(?:a|are)\b/i);
+    const centiares = text.match(/(\d+(?:[.,]\d+)?)\s*(?:ca|centiare)\b/i);
+    if (!hectares && !ares && !centiares) return '';
+
+    const number = (match) => Number.parseFloat((match?.[1] || '0').replace(',', '.')) || 0;
+    return String((number(hectares) * 10000) + (number(ares) * 100) + number(centiares));
+  }
+
+  function kadasterColumnIndex(requestBody, label, fallback) {
+    let request = requestBody || '';
+    try {
+      if (String(request).trim().startsWith('{')) {
+        const parsed = JSON.parse(request);
+        request = parsed?.request || request;
+      }
+    } catch {}
+
+    const params = new URLSearchParams(request);
+    for (const [key, value] of params.entries()) {
+      const match = key.match(/^_grid_header_(\d+)$/);
+      if (!match) continue;
+      if (stripHtml(value).toLowerCase() === label.toLowerCase()) return Number(match[1]);
+    }
+    return fallback;
+  }
+
   function parseKadasterText(rawText) {
     const text = stripHtml(rawText || '').replace(/\s+/g, ' ').trim();
     if (!text) return null;
 
-    const sizeMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|ha|are|ca)/i);
-    const parts = text
-      .replace(/\b\d+(?:[.,]\d+)?\s*(?:m2|m²|ha|are|ca)/ig, ' ')
+    const grootteM2 = parseKadasterSizeM2(text);
+    const withoutSize = text
+      .replace(/\b\d+(?:[.,]\d+)?\s*(?:m2|m²|ha|hectare|a|are|ca|centiare)(?=\s|$|[,.])/ig, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const labelled = withoutSize.match(
+      /(?:kadastrale\s+)?gemeente\s*[:\-]?\s*(.+?)\s+sectie\s*[:\-]?\s*([A-Z]{1,3})\s+(?:(?:perceel(?:nummer)?|nummer)\s*[:\-]?\s*)?([0-9][A-Z0-9./-]*)/i,
+    );
+    if (labelled) {
+      return {
+        gemeente: labelled[1].trim(),
+        sectie: labelled[2].toUpperCase(),
+        nummer: labelled[3],
+        grootteM2,
+        rawText: text,
+      };
+    }
+
+    const parts = withoutSize
+      .replace(/\b(?:sectie|perceelnummer|perceel|nummer|groot|grootte|oppervlakte)\b\s*[:\-]?/ig, ' ')
       .trim()
       .split(/\s+/)
+      .map((part) => part.replace(/^[,;:]|[,;:]$/g, ''))
       .filter(Boolean);
-    const sectionIndex = parts.findIndex((part) => /^[A-Z]{1,3}$/i.test(part));
+    let sectionIndex = parts.findIndex((part) => /^[A-Z]{1,3}$/.test(part));
+    if (sectionIndex <= 0) {
+      sectionIndex = parts.findIndex((part, index) => (
+        index > 0
+        && /^[A-Za-z]$/.test(part)
+        && /^[0-9]/.test(parts[index + 1] || '')
+      ));
+    }
 
     if (sectionIndex <= 0 || !parts[sectionIndex + 1]) {
       return { rawText: text };
@@ -338,21 +407,24 @@
       gemeente: parts.slice(0, sectionIndex).join(' '),
       sectie: parts[sectionIndex].toUpperCase(),
       nummer: parts[sectionIndex + 1],
-      grootteM2: sizeMatch?.[1]?.replace(',', '.') || '',
+      grootteM2,
       rawText: text,
     };
   }
 
-  function parseKadasterGrid(responseText) {
+  function parseKadasterGrid(responseText, requestBody) {
     let rows;
     try { rows = JSON.parse(responseText); } catch { return null; }
     if (!Array.isArray(rows)) return null;
 
+    const kadasterIndex = kadasterColumnIndex(requestBody, 'Kadaster', 1);
+    const eigendomIndex = kadasterColumnIndex(requestBody, 'Eigendomssituatie', 2);
+
     return rows
       .map((row) => {
         const columns = row.columns || [];
-        const kadasterText = stripHtml(columns[1]?.content || '');
-        const eigendomssituatie = stripHtml(columns[2]?.content || '');
+        const kadasterText = stripHtml(columns[kadasterIndex]?.content || '');
+        const eigendomssituatie = stripHtml(columns[eigendomIndex]?.content || '');
         const parsed = parseKadasterText(kadasterText || columns.map((column) => column.content || '').join(' '));
         if (!parsed?.rawText) return null;
         return {
@@ -369,7 +441,7 @@
     const request = capture.request_body_preview || '';
     if (!request.includes('_entity=broker.kadaster') && !request.includes('getKadasterForGrid')) return;
 
-    const rows = parseKadasterGrid(responseText);
+    const rows = parseKadasterGrid(responseText, request);
     if (!rows?.length) return;
 
     window.postMessage({

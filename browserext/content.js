@@ -247,9 +247,20 @@ window.addEventListener('message', (event) => {
     sourceUrl: window.location.href,
     objectCode: objectCode || data.objectCode || '',
     ...data,
-  }).then((res) => {
-    if (res?.ok) console.log('[Realworks Kadaster Sync] ✓ Verstuurd');
-    else if (res) console.warn('[Realworks Kadaster Sync] Fout:', res.status);
+  }).then(async (res) => {
+    if (!res) {
+      console.warn('[Realworks Kadaster Sync] Niet verstuurd: webhook-secret ontbreekt');
+      return;
+    }
+
+    const result = await res.clone().json().catch(() => null);
+    if (res.ok && result?.success && !result?.ignored) {
+      console.log('[Realworks Kadaster Sync] ✓ Verstuurd');
+      return;
+    }
+
+    const reason = result?.error || result?.ignoredReason || `platform antwoordde ${res.status}`;
+    console.warn('[Realworks Kadaster Sync] Niet verwerkt:', reason);
   }).catch((err) => console.warn('[Realworks Kadaster Sync] Netwerkfout:', err));
 
   if (storageKey) {
