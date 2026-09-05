@@ -364,6 +364,66 @@
       ],
       "id": "TaxatieMailExecuteTrigger01",
       "name": "When Executed by Workflow 1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const match = $json;\nconst mail = $('Normaliseer taxatiemail').item.json;\nconst full = `${mail.subject || ''}\\n${mail.bodyText || ''}`;\nif (!/taxatierapport\\s+gereed/i.test(full)) return [];\nconst taxcode = full.match(/\\bT\\d{5,}\\b/i)?.[0] || null;\nconst validationId = full.match(/\\b\\d{12,16}\\b/)?.[0] || null;\nconst postcode = full.match(/\\b\\d{4}\\s?[A-Z]{2}\\b/i)?.[0]?.replace(/\\s/g, '').toUpperCase() || null;\nreturn [{ json: { archiveId: match.archiveId, projectId: match.selected?.projectId || null, address: match.selected?.name || null, postcode, taxcode, validationId, occurredAt: mail.receivedAt, subject: mail.subject } }];"
+      },
+      "id": "PrepareNwwiReadyEvent",
+      "name": "Herken NWWI gereed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kantoor.devreemakelaardij.nl/api/integraties/nwwi/validation-event",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "SendNwwiReadyEvent",
+      "name": "Activeer gevalideerde kennis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [420, 520],
+      "credentials": { "httpHeaderAuth": { "id": "PlatformWebhookSecret01", "name": "Platform Webhook Secret" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!$json.activated || !$json.notionPageId) return [];\nreturn [{ json: { notionPageId: $json.notionPageId.replace(/-/g, ''), validatedAt: $json.validatedAt } }];"
+      },
+      "id": "PrepareNotionValidationUpdate",
+      "name": "Bereid Notion validatiestatus voor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 520]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $json.notionPageId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Notion-Version", "value": "2022-06-28" }, { "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: { Status: { status: { name: 'Gereed' } }, 'Validatiedatum NWWI': { date: { start: $json.validatedAt } } } }) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "UpdateNotionValidationStatus",
+      "name": "Werk Notion validatie bij",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [940, 520],
+      "credentials": { "notionApi": { "id": "C4x1jyPX4boX03Se", "name": "Notion account" } }
     }
   ],
   "connections": {
@@ -410,6 +470,11 @@
           },
           {
             "node": "Bereid PDF-bijlagen voor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Herken NWWI gereed",
             "type": "main",
             "index": 0
           }
@@ -510,6 +575,15 @@
           }
         ]
       ]
+    },
+    "Herken NWWI gereed": {
+      "main": [[{ "node": "Activeer gevalideerde kennis", "type": "main", "index": 0 }]]
+    },
+    "Activeer gevalideerde kennis": {
+      "main": [[{ "node": "Bereid Notion validatiestatus voor", "type": "main", "index": 0 }]]
+    },
+    "Bereid Notion validatiestatus voor": {
+      "main": [[{ "node": "Werk Notion validatie bij", "type": "main", "index": 0 }]]
     }
   },
   "settings": {

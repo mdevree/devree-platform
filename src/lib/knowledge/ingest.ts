@@ -51,9 +51,12 @@ export async function ingestKnowledge(input: KnowledgeImport, withEmbeddings = t
     } catch {}
   }
   return prisma.$transaction(async (tx) => {
-    const source = await tx.knowledgeSource.upsert({
-      where: { slug: input.slug },
-      create: {
+    const existing = await tx.knowledgeSource.findFirst({ where: { OR: [
+      { slug: input.slug },
+      ...(input.notionPageId ? [{ notionPageId: input.notionPageId }] : []),
+      ...(input.realworksTaxcode ? [{ realworksTaxcode: input.realworksTaxcode }] : []),
+    ] } });
+    const values = {
         slug: input.slug, title: input.title, sourceType: input.sourceType,
         authorityRank: input.authorityRank ?? 50, publisher: input.publisher, sourceUrl: input.sourceUrl,
         notionPageId: input.notionPageId, reportTaxateur: input.reportTaxateur, reportAddress: input.reportAddress,
@@ -62,18 +65,10 @@ export async function ingestKnowledge(input: KnowledgeImport, withEmbeddings = t
         validationStatus: input.validationStatus, validatedAt: input.validatedAt ? new Date(input.validatedAt) : null,
         realworksTaxcode: input.realworksTaxcode, realworksDossierNumber: input.realworksDossierNumber,
         projectId: input.projectId, status: input.status || "ACTIVE", checksum, metadata: json(input.metadata),
-      },
-      update: {
-        title: input.title, sourceType: input.sourceType, authorityRank: input.authorityRank ?? 50,
-        publisher: input.publisher, sourceUrl: input.sourceUrl, notionPageId: input.notionPageId,
-        reportTaxateur: input.reportTaxateur, reportAddress: input.reportAddress, reportPostcode: input.reportPostcode,
-        reportCity: input.reportCity, reportPropertyType: input.reportPropertyType, reportBuildYear: input.reportBuildYear,
-        latitude, longitude, validationStatus: input.validationStatus,
-        validatedAt: input.validatedAt ? new Date(input.validatedAt) : null, realworksTaxcode: input.realworksTaxcode,
-        realworksDossierNumber: input.realworksDossierNumber, projectId: input.projectId,
-        status: input.status || "ACTIVE", checksum, metadata: json(input.metadata),
-      },
-    });
+    };
+    const source = existing
+      ? await tx.knowledgeSource.update({ where: { id: existing.id }, data: { ...values, slug: existing.slug, notionPageId: input.notionPageId ?? existing.notionPageId } })
+      : await tx.knowledgeSource.create({ data: values });
     await tx.knowledgeChunk.deleteMany({ where: { sourceId: source.id } });
     await tx.knowledgeChunk.createMany({ data: chunks.map((chunk, position) => ({
       sourceId: source.id, ...chunk, sanitizedContent: sanitized[position], position,
