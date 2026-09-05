@@ -23,7 +23,13 @@ function chunksFor(input: KnowledgeImport) {
     }
     const paragraphs = text.split(/\n\s*\n/);
     let current = "";
-    for (const paragraph of paragraphs) {
+    const parts = paragraphs.flatMap((paragraph) => {
+      if (paragraph.length <= 1200) return [paragraph];
+      const pieces: string[] = [];
+      for (let start = 0; start < paragraph.length; start += 1100) pieces.push(paragraph.slice(start, start + 1100));
+      return pieces;
+    });
+    for (const paragraph of parts) {
       if (current && current.length + paragraph.length > 1200) {
         result.push({ section: field.label, fieldKey: field.key, content: current.trim() }); current = "";
       }
