@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { embedTexts } from "./gateway";
 import { encodeEmbedding } from "./embedding";
 import { normalizeText, sanitizeForExternal } from "./sanitize";
+import { geocodeAddress } from "./geocode";
 import type { KnowledgeImport } from "./types";
 
 function sha(value: string) { return createHash("sha256").update(value).digest("hex"); }
@@ -42,6 +43,13 @@ export async function ingestKnowledge(input: KnowledgeImport, withEmbeddings = t
     try { embeddings = await embedTexts(sanitized); } catch (error) { console.warn("Embedding overgeslagen:", error); }
   }
   const checksum = sha(chunks.map((chunk) => `${chunk.fieldKey}:${chunk.content}`).join("\n"));
+  let latitude = input.latitude, longitude = input.longitude;
+  if (latitude == null && longitude == null && input.reportAddress) {
+    try {
+      const point = await geocodeAddress([input.reportAddress, input.reportPostcode, input.reportCity].filter(Boolean).join(", "));
+      latitude = point?.latitude ?? null; longitude = point?.longitude ?? null;
+    } catch {}
+  }
   return prisma.$transaction(async (tx) => {
     const source = await tx.knowledgeSource.upsert({
       where: { slug: input.slug },
@@ -50,7 +58,7 @@ export async function ingestKnowledge(input: KnowledgeImport, withEmbeddings = t
         authorityRank: input.authorityRank ?? 50, publisher: input.publisher, sourceUrl: input.sourceUrl,
         notionPageId: input.notionPageId, reportTaxateur: input.reportTaxateur, reportAddress: input.reportAddress,
         reportPostcode: input.reportPostcode, reportCity: input.reportCity, reportPropertyType: input.reportPropertyType,
-        reportBuildYear: input.reportBuildYear, latitude: input.latitude, longitude: input.longitude,
+        reportBuildYear: input.reportBuildYear, latitude, longitude,
         validationStatus: input.validationStatus, validatedAt: input.validatedAt ? new Date(input.validatedAt) : null,
         realworksTaxcode: input.realworksTaxcode, realworksDossierNumber: input.realworksDossierNumber,
         projectId: input.projectId, status: input.status || "ACTIVE", checksum, metadata: json(input.metadata),
@@ -60,7 +68,7 @@ export async function ingestKnowledge(input: KnowledgeImport, withEmbeddings = t
         publisher: input.publisher, sourceUrl: input.sourceUrl, notionPageId: input.notionPageId,
         reportTaxateur: input.reportTaxateur, reportAddress: input.reportAddress, reportPostcode: input.reportPostcode,
         reportCity: input.reportCity, reportPropertyType: input.reportPropertyType, reportBuildYear: input.reportBuildYear,
-        latitude: input.latitude, longitude: input.longitude, validationStatus: input.validationStatus,
+        latitude, longitude, validationStatus: input.validationStatus,
         validatedAt: input.validatedAt ? new Date(input.validatedAt) : null, realworksTaxcode: input.realworksTaxcode,
         realworksDossierNumber: input.realworksDossierNumber, projectId: input.projectId,
         status: input.status || "ACTIVE", checksum, metadata: json(input.metadata),
