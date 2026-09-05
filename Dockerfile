@@ -23,7 +23,8 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-RUN apk add --no-cache ffmpeg && npm install --global prisma@6.19.2
+RUN apk add --no-cache ffmpeg
+RUN npm install --no-save prisma@6.19.2
 
 ARG APP_COMMIT_SHA=""
 ARG APP_BUILD_TIME=""
