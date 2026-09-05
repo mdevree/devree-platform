@@ -201,8 +201,18 @@ loadWebhookSecret();
 // form.submit() en submit-events zijn onbetrouwbaar bij GWT; webRequest
 // onderschept op netwerkniveau, ongeacht hoe de form verstuurd wordt.
 
-const TAXATIE_WEBHOOK_URL = 'https://automation.devreemakelaardij.nl/webhook/realworks-taxatie-sync';
-const TAXATIE_SKIP = /(__MASK|__EDIT__|__NEW__|_grid_|_dispatcher|_collection|_entity|CSRFToken|_parentform|_callback|__FIELD_INACTIVE__|__MEDIA_LABEL__)/;
+const TAXATIE_KENNISBANK_URL = 'https://kantoor.devreemakelaardij.nl/api/integraties/realworks/taxatie-save';
+const TAXATIE_KENNIS_FIELDS = new Set([
+  'rapportnummer', 'taxcode', 'taxateurcode_result', 'taxobjecthstreet',
+  'taxobjecthhouseno', 'taxobjecthousenoext', 'taxobjecthzipcode', 'taxobjecthcity',
+  'taxinspectdate', 'waardepeildatum', 'versienummer', 'registratienummer',
+  'fixatie_bouwjaar', 'taxobjbouwjaartext', 'taxobjtype_result', 'taxobjecttype',
+  'taxobjdescrtext', 'taxobjindelingtext', 'omgeving_locatie_text',
+  'omgeving_bereikbaarheid_text', 'omgeving_omliggende_bebouwing_text',
+  'omgeving_voorzieningen_text', 'huidigelokalemarktomstandighedentext',
+  'swotsterktetext', 'swotzwaktetext', 'swotkansentext', 'swotbedreigingentext',
+  'waardering_motivatie_text',
+]);
 
 chrome.webRequest.onBeforeRequest.addListener(
   function (details) {
@@ -229,26 +239,44 @@ chrome.webRequest.onBeforeRequest.addListener(
       console.log(`[RW Taxatie Cache] Gecached via webRequest: ${fields._systemid} (${fields.taxcode})`);
     }
 
-    // Stuur naar n8n webhook
+    // Alleen de expliciet toegestane rapportvelden klaarzetten. Verzending volgt
+    // pas na een succesvolle HTTP-response van Realworks (onCompleted).
     const taxatie = { source: 'realworks', ...syncMetadata('taxatie.save') };
     for (const [k, v] of Object.entries(fields)) {
-      if (!TAXATIE_SKIP.test(k) && v !== '') taxatie[k] = v;
+      if (TAXATIE_KENNIS_FIELDS.has(k) && v !== '') taxatie[k] = v;
     }
-
-    fetch(TAXATIE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(taxatie),
-    }).then(res => {
-      if (res.ok) console.log('[RW Taxatie Sync] ✓ Verstuurd:', fields.taxcode);
-      else console.warn('[RW Taxatie Sync] Fout:', res.status);
-    }).catch(err => console.warn('[RW Taxatie Sync] Netwerkfout:', err));
+    chrome.storage.session.set({ [`pending_taxatie_${details.requestId}`]: taxatie });
   },
   {
     urls: ['https://crm.realworks.nl/servlets/objects/broker.taxatie/save'],
     types: ['sub_frame', 'main_frame'],
   },
   ['requestBody']
+);
+
+chrome.webRequest.onCompleted.addListener(
+  async function (details) {
+    const key = `pending_taxatie_${details.requestId}`;
+    const pending = await chrome.storage.session.get(key);
+    await chrome.storage.session.remove(key);
+    const taxatie = pending[key];
+    if (!taxatie || details.statusCode < 200 || details.statusCode >= 300) return;
+    const secret = await loadWebhookSecret();
+    if (!secret) return console.warn('[RW Taxatie Kennisbank] Webhook secret ontbreekt');
+    fetch(TAXATIE_KENNISBANK_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-webhook-secret': secret },
+      body: JSON.stringify(taxatie),
+    }).then(res => {
+      if (res.ok) console.log('[RW Taxatie Kennisbank] ✓ Laatste save ontvangen:', taxatie.taxcode);
+      else console.warn('[RW Taxatie Kennisbank] Fout:', res.status);
+    }).catch(err => console.warn('[RW Taxatie Kennisbank] Netwerkfout:', err));
+  },
+  { urls: ['https://crm.realworks.nl/servlets/objects/broker.taxatie/save'], types: ['sub_frame', 'main_frame'] }
+);
+
+chrome.webRequest.onErrorOccurred.addListener(
+  function (details) { chrome.storage.session.remove(`pending_taxatie_${details.requestId}`); },
+  { urls: ['https://crm.realworks.nl/servlets/objects/broker.taxatie/save'], types: ['sub_frame', 'main_frame'] }
 );
 
 // ─── Woning (object) save interceptie via webRequest ─────────────────────────

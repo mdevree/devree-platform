@@ -26,6 +26,7 @@ import {
   NewspaperIcon,
   ShieldCheckIcon,
   BanknotesIcon,
+  BookOpenIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -33,6 +34,7 @@ const navigation = [
   { name: "Kansen", href: "/kansen", icon: FireIcon },
   { name: "Telefonie", href: "/telefonie", icon: PhoneIcon },
   { name: "Digitale medewerker", href: "/digitale-medewerker", icon: SparklesIcon },
+  { name: "Kennisbank", href: "/kennisbank", icon: BookOpenIcon },
   { name: "Projecten", href: "/projecten", icon: FolderIcon },
   { name: "Debiteurencontrole", href: "/debiteurencontrole", icon: BanknotesIcon },
   { name: "Contacten", href: "/contacten", icon: UsersIcon },

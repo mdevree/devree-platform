@@ -1,0 +1,46 @@
+{
+  "id": "TaxatieKennisAI01",
+  "name": "Taxatie Kennisbank AI Gateway",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "taxatie-kennis-ai", "responseMode": "responseNode", "options": {}, "authentication": "headerAuth" },
+      "id": "knowledge-webhook", "name": "Kennisbank webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [0, 300], "webhookId": "taxatie-kennis-ai",
+      "credentials": { "httpHeaderAuth": { "id": "PlatformWebhookSecret01", "name": "Platform Webhook Secret" } }
+    },
+    {
+      "parameters": { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 }, "conditions": [{ "id": "is-embed", "leftValue": "={{ $json.body.operation }}", "rightValue": "embed", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" }, "options": {} },
+      "id": "operation-if", "name": "Embedding?", "type": "n8n-nodes-base.if", "typeVersion": 2.2, "position": [240, 300]
+    },
+    {
+      "parameters": { "method": "POST", "url": "https://api.openai.com/v1/embeddings", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ model: $json.body.model || 'text-embedding-3-small', input: $json.body.input, dimensions: $json.body.dimensions || 1024 }) }}", "options": { "timeout": 60000 } },
+      "id": "openai-embed", "name": "OpenAI embeddings", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4, "position": [500, 200],
+      "credentials": { "openAiApi": { "id": "UdiNlc10HwLGX8Uz", "name": "OpenAi account" } }
+    },
+    {
+      "parameters": { "method": "POST", "url": "https://api.openai.com/v1/responses", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ model: $json.body.model || 'gpt-5-mini', store: false, input: $json.body.input }) }}", "options": { "timeout": 120000 } },
+      "id": "openai-generate", "name": "OpenAI antwoord", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4, "position": [500, 400],
+      "credentials": { "openAiApi": { "id": "UdiNlc10HwLGX8Uz", "name": "OpenAi account" } }
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} },
+      "id": "respond-embed", "name": "Embedding response", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.4, "position": [760, 200]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} },
+      "id": "respond-generate", "name": "Antwoord response", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.4, "position": [760, 400]
+    }
+  ],
+  "connections": {
+    "Kennisbank webhook": { "main": [[{ "node": "Embedding?", "type": "main", "index": 0 }]] },
+    "Embedding?": { "main": [[{ "node": "OpenAI embeddings", "type": "main", "index": 0 }], [{ "node": "OpenAI antwoord", "type": "main", "index": 0 }]] },
+    "OpenAI embeddings": { "main": [[{ "node": "Embedding response", "type": "main", "index": 0 }]] },
+    "OpenAI antwoord": { "main": [[{ "node": "Antwoord response", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "pinData": {},
+  "versionId": "aaa3fd34-d891-4d2a-8f94-3909813dc101",
+  "meta": { "templateCredsSetupCompleted": true },
+  "tags": []
+}

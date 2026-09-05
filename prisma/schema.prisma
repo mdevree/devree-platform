@@ -122,15 +122,15 @@ model Project {
   startReden   String?
 
   // Legacy velden (bewaren voor backward-compat)
-  address         String?
-  notionPageId    String? @unique
-  mauticContactId Int? // Fallback voor backward-compat (legacy)
-  realworksId     String? // Publieke objectcode (bijv. SE11902), voor WordPress/agenda
+  address                  String?
+  notionPageId             String? @unique
+  mauticContactId          Int? // Fallback voor backward-compat (legacy)
+  realworksId              String? // Publieke objectcode (bijv. SE11902), voor WordPress/agenda
   realworksSystemId        String? // Interne Realworks _systemid van broker.brokerobject
   realworksProjectSystemId String? // Interne Realworks project_systemid
-  contactName     String? // Fallback contactnaam (legacy)
-  contactPhone    String? // Fallback telefoonnummer (legacy)
-  contactEmail    String? // Fallback emailadres (legacy)
+  contactName              String? // Fallback contactnaam (legacy)
+  contactPhone             String? // Fallback telefoonnummer (legacy)
+  contactEmail             String? // Fallback emailadres (legacy)
 
   // Woning velden
   woningAdres       String?
@@ -175,10 +175,10 @@ model Project {
   leadProjecten       LeadProject[]
   facebookTriggers    FacebookTrigger[]
   agendaAfspraken     AgendaAfspraak[]
-  hypotheekAdviseur   HypotheekAdviseur?     @relation(fields: [hypotheekAdviseurId], references: [id])
+  hypotheekAdviseur   HypotheekAdviseur?         @relation(fields: [hypotheekAdviseurId], references: [id])
   hypotheekAdviseurId String?
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
 
   @@index([status])
   @@index([projectStatus])
@@ -193,33 +193,33 @@ model Project {
 }
 
 model ProjectProposal {
-  id                   String        @id @default(cuid())
-  project              Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId            String
-  events               ProjectProposalEvent[]
-  tokenHash            String        @unique
-  publicUrl            String?       @db.Text
-  status               String        @default("OPEN") // OPEN, ACCEPTED, REVOKED, ERROR
-  selectedVerkoopstart Verkoopstart?
-  selectedStartdatum   DateTime?
-  selectedStartReden   String?
-  selectedSilentSale    Boolean?
-  selectedRemarks       String?       @db.Text
+  id                         String                 @id @default(cuid())
+  project                    Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId                  String
+  events                     ProjectProposalEvent[]
+  tokenHash                  String                 @unique
+  publicUrl                  String?                @db.Text
+  status                     String                 @default("OPEN") // OPEN, ACCEPTED, REVOKED, ERROR
+  selectedVerkoopstart       Verkoopstart?
+  selectedStartdatum         DateTime?
+  selectedStartReden         String?
+  selectedSilentSale         Boolean?
+  selectedRemarks            String?                @db.Text
   selectedEnergielabelChoice String?
-  selectedEnergielabelNote   String?       @db.Text
+  selectedEnergielabelNote   String?                @db.Text
   selectedQuickscanChoice    String?
-  selectedQuickscanNote      String?       @db.Text
-  documensoDocumentId  Int?
-  documensoEnvelopeId  String?
-  documensoSigningUrl  String?       @db.Text
-  errorMessage         String?       @db.Text
-  expiresAt            DateTime?
-  viewedAt             DateTime?
-  lastViewedAt         DateTime?
-  viewCount            Int           @default(0)
-  acceptedAt           DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  selectedQuickscanNote      String?                @db.Text
+  documensoDocumentId        Int?
+  documensoEnvelopeId        String?
+  documensoSigningUrl        String?                @db.Text
+  errorMessage               String?                @db.Text
+  expiresAt                  DateTime?
+  viewedAt                   DateTime?
+  lastViewedAt               DateTime?
+  viewCount                  Int                    @default(0)
+  acceptedAt                 DateTime?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
 
   @@index([projectId])
   @@index([status])
@@ -228,18 +228,18 @@ model ProjectProposal {
 }
 
 model ProjectProposalEvent {
-  id              String          @id @default(cuid())
-  proposal        ProjectProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  proposalId      String
-  eventType       String
-  sessionId       String?
-  activeSeconds   Int?
-  path            String?         @db.Text
-  referrer        String?         @db.Text
-  userAgent       String?         @db.Text
-  ipHash          String?
-  viewport        String?
-  createdAt       DateTime        @default(now())
+  id            String          @id @default(cuid())
+  proposal      ProjectProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId    String
+  eventType     String
+  sessionId     String?
+  activeSeconds Int?
+  path          String?         @db.Text
+  referrer      String?         @db.Text
+  userAgent     String?         @db.Text
+  ipHash        String?
+  viewport      String?
+  createdAt     DateTime        @default(now())
 
   @@index([proposalId])
   @@index([eventType])
@@ -265,22 +265,22 @@ model ProjectContact {
 }
 
 model ProjectDebiteurenLink {
-  id                String    @id @default(cuid())
-  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId         String    @unique
-  debiteurenKlantId Int
-  klantNaam         String?
-  klantEmail        String?
-  klantAdres        String?
-  mauticContactId   Int?
-  contactWarnings   Json?
-  normalizationCheckedAt DateTime?
+  id                        String    @id @default(cuid())
+  project                   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId                 String    @unique
+  debiteurenKlantId         Int
+  klantNaam                 String?
+  klantEmail                String?
+  klantAdres                String?
+  mauticContactId           Int?
+  contactWarnings           Json?
+  normalizationCheckedAt    DateTime?
   contactWarningsReviewedAt DateTime?
   contactWarningsReviewedBy String?
   contactWarningsReviewNote String?   @db.Text
-  linkedBy          String?
-  linkedAt          DateTime  @default(now())
-  lastCheckedAt     DateTime?
+  linkedBy                  String?
+  linkedAt                  DateTime  @default(now())
+  lastCheckedAt             DateTime?
 
   @@index([debiteurenKlantId])
   @@index([mauticContactId])
@@ -288,28 +288,28 @@ model ProjectDebiteurenLink {
 }
 
 model ProjectDebiteurenInvoice {
-  id                  String   @id @default(cuid())
-  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(cuid())
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId           String
   debiteurenKlantId   Int
   debiteurenFactuurId Int
   factuurnummer       Int?
-  invoiceType         String   @default("taxatie")
-  subject             String?  @db.Text
+  invoiceType         String    @default("taxatie")
+  subject             String?   @db.Text
   invoiceDate         DateTime?
   dueDate             DateTime?
   amountExclCents     Int
   amountInclCents     Int
   status              String?
   paidAt              DateTime?
-  overdue             Boolean  @default(false)
+  overdue             Boolean   @default(false)
   hash                String?
-  idempotencyKey      String   @unique
+  idempotencyKey      String    @unique
   lastSyncedAt        DateTime?
-  syncError           String?  @db.Text
+  syncError           String?   @db.Text
   createdBy           String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([projectId])
   @@index([debiteurenKlantId])
@@ -345,38 +345,38 @@ model Call {
 }
 
 model AdsTouchpoint {
-  id                String    @id @default(cuid())
-  eventType         String
-  occurredAt        DateTime
-  receivedAt        DateTime  @default(now())
-  dvSessionId       String?
-  dvVisitorId       String?
-  gclid             String?   @db.VarChar(255)
-  gbraid            String?   @db.VarChar(255)
-  wbraid            String?   @db.VarChar(255)
-  utmSource         String?
-  utmMedium         String?
-  utmCampaign       String?
-  utmAdgroup        String?
-  utmTerm           String?
-  utmMatchtype      String?
-  utmDevice         String?
-  utmNetwork        String?
-  utmCreative       String?
-  pageUrl           String?   @db.Text
-  pagePath          String?
-  landingPage       String?   @db.Text
-  referrer          String?   @db.Text
-  sourceLabel       String?
-  consentMarketing  String?
-  consentAnalytics  String?
-  userAgent         String?   @db.Text
-  ipHash            String?
-  dedupeKey         String    @unique
-  exportedAt        DateTime?
-  exportBatchId     String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  eventType        String
+  occurredAt       DateTime
+  receivedAt       DateTime  @default(now())
+  dvSessionId      String?
+  dvVisitorId      String?
+  gclid            String?   @db.VarChar(255)
+  gbraid           String?   @db.VarChar(255)
+  wbraid           String?   @db.VarChar(255)
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+  utmAdgroup       String?
+  utmTerm          String?
+  utmMatchtype     String?
+  utmDevice        String?
+  utmNetwork       String?
+  utmCreative      String?
+  pageUrl          String?   @db.Text
+  pagePath         String?
+  landingPage      String?   @db.Text
+  referrer         String?   @db.Text
+  sourceLabel      String?
+  consentMarketing String?
+  consentAnalytics String?
+  userAgent        String?   @db.Text
+  ipHash           String?
+  dedupeKey        String    @unique
+  exportedAt       DateTime?
+  exportBatchId    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([eventType, occurredAt])
   @@index([dvSessionId])
@@ -600,30 +600,30 @@ model Task {
 }
 
 model TaxatieMailArchive {
-  id                String    @id @default(cuid())
-  messageId         String
-  mailbox           String
-  fromEmail         String?
-  toEmail           String?
-  subject           String?
-  receivedAt        DateTime?
-  project           Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  projectId         String?
-  matchStatus       String    @default("unmatched") // matched | ambiguous | unmatched
-  archiveStatus     String    @default("pending") // pending | archived | review_needed | failed
-  matchScore        Int?
-  matchReasons      Json?
-  candidates        Json?
-  checklistSignals  Json?
+  id                 String    @id @default(cuid())
+  messageId          String
+  mailbox            String
+  fromEmail          String?
+  toEmail            String?
+  subject            String?
+  receivedAt         DateTime?
+  project            Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId          String?
+  matchStatus        String    @default("unmatched") // matched | ambiguous | unmatched
+  archiveStatus      String    @default("pending") // pending | archived | review_needed | failed
+  matchScore         Int?
+  matchReasons       Json?
+  candidates         Json?
+  checklistSignals   Json?
   suggestedSubfolder String?
-  suggestedStatus   String?
-  nextcloudPath     String?   @db.Text
-  error             String?   @db.Text
-  rawPayload        Json?
-  reviewedAt        DateTime?
-  reviewedBy        String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  suggestedStatus    String?
+  nextcloudPath      String?   @db.Text
+  error              String?   @db.Text
+  rawPayload         Json?
+  reviewedAt         DateTime?
+  reviewedBy         String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@unique([messageId, mailbox])
   @@index([projectId])
@@ -792,10 +792,10 @@ model RealworksMutationIngestRun {
 }
 
 model MarketObject {
-  id                  String                    @id @default(cuid())
-  canonicalKey        String?                   @unique
-  status              String                    @default("active") // active | removed | withdrawn
-  addressRaw          String?                   @db.Text
+  id                  String                   @id @default(cuid())
+  canonicalKey        String?                  @unique
+  status              String                   @default("active") // active | removed | withdrawn
+  addressRaw          String?                  @db.Text
   street              String?
   houseNumber         String?
   houseNumberAddition String?
@@ -812,16 +812,16 @@ model MarketObject {
   buildYear           Int?
   brokerName          String?
   brokerEmail         String?
-  primaryImageUrl     String?                   @db.Text
-  firstSeenAt         DateTime                  @default(now())
-  lastSeenAt          DateTime                  @default(now())
+  primaryImageUrl     String?                  @db.Text
+  firstSeenAt         DateTime                 @default(now())
+  lastSeenAt          DateTime                 @default(now())
   lastMutationAt      DateTime?
   closedAt            DateTime?
   deleteAfter         DateTime?
   sources             MarketObjectSource[]
   enrichments         MarketObjectEnrichment[]
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
 
   @@index([status], map: "market_object_status_idx")
   @@index([postcode, houseNumber, houseNumberAddition], map: "market_object_address_idx")
@@ -873,20 +873,20 @@ model MarketObjectEnrichment {
 }
 
 model MarketObjectTombstone {
-  id               String   @id @default(cuid())
-  marketObjectId   String?
-  canonicalKey     String?
+  id                String    @id @default(cuid())
+  marketObjectId    String?
+  canonicalKey      String?
   exchangeObjectIds Json?
-  status           String
-  addressRaw       String?  @db.Text
-  postcode         String?
-  city             String?
-  askingPrice      Int?
-  transactionPrice Int?
-  closedAt         DateTime?
-  deletedAt        DateTime @default(now())
-  reason           String?
-  createdAt        DateTime @default(now())
+  status            String
+  addressRaw        String?   @db.Text
+  postcode          String?
+  city              String?
+  askingPrice       Int?
+  transactionPrice  Int?
+  closedAt          DateTime?
+  deletedAt         DateTime  @default(now())
+  reason            String?
+  createdAt         DateTime  @default(now())
 
   @@index([canonicalKey], map: "market_tombstone_canonical_idx")
   @@index([status], map: "market_tombstone_status_idx")
@@ -1122,48 +1122,48 @@ model VveGesprek {
 }
 
 model AgendaAfspraak {
-  id                    String    @id @default(cuid())
-  systemid              Int       @unique
-  agowner               String?
-  agcode                String?
-  agdescr               String?
-  agtype                String?
-  agstatus              String?
-  agbegin               DateTime?
-  agend                 DateTime?
-  aglocation            String?
-  agobjcode             String?
-  agrcode               String?
-  relationRelationid    String?
-  employeeEmployeeid    Int?
-  medewerkerFullname    String?
-  agmemo                String?   @db.Text
-  agintratext           String?   @db.Text
-  agallday              Boolean?
-  aginactive            Boolean?
-  alastupd              String? // raw Realworks waarde, gebruikt voor wijzigingsdetectie
-  gcalEventId           String? // Google Calendar event ID
-  gcalSyncedAt          DateTime?
+  id                       String                    @id @default(cuid())
+  systemid                 Int                       @unique
+  agowner                  String?
+  agcode                   String?
+  agdescr                  String?
+  agtype                   String?
+  agstatus                 String?
+  agbegin                  DateTime?
+  agend                    DateTime?
+  aglocation               String?
+  agobjcode                String?
+  agrcode                  String?
+  relationRelationid       String?
+  employeeEmployeeid       Int?
+  medewerkerFullname       String?
+  agmemo                   String?                   @db.Text
+  agintratext              String?                   @db.Text
+  agallday                 Boolean?
+  aginactive               Boolean?
+  alastupd                 String? // raw Realworks waarde, gebruikt voor wijzigingsdetectie
+  gcalEventId              String? // Google Calendar event ID
+  gcalSyncedAt             DateTime?
   // Enrichment velden (gevuld via "Meer info" knop)
-  contactNaam           String?
-  contactEmail          String?
-  contactTelefoon       String?
-  mauticContactId       Int?
-  project               Project?  @relation(fields: [projectId], references: [id])
-  projectId             String?
-  enrichedAt            DateTime?
-  enrichmentStatus      String? // "ok" | "partial" | "no_contact" | "no_project" | "error"
+  contactNaam              String?
+  contactEmail             String?
+  contactTelefoon          String?
+  mauticContactId          Int?
+  project                  Project?                  @relation(fields: [projectId], references: [id])
+  projectId                String?
+  enrichedAt               DateTime?
+  enrichmentStatus         String? // "ok" | "partial" | "no_contact" | "no_project" | "error"
   // Brug naar het kijker-systeem: gekoppelde Lead (kijker)
-  lead                  Lead?     @relation(fields: [leadId], references: [id])
-  leadId                String?
+  lead                     Lead?                     @relation(fields: [leadId], references: [id])
+  leadId                   String?
   // Cheatsheet/PDF tracking (n8n → Nextcloud)
-  cheatsheetStatus      String? // "gevraagd" | "gegenereerd" | "mislukt" | "verwerkt"
-  cheatsheetPath        String? // Nextcloud WebDAV-pad
-  cheatsheetUrl         String? // optionele directe (share)link
-  cheatsheetGeneratedAt DateTime?
+  cheatsheetStatus         String? // "gevraagd" | "gegenereerd" | "mislukt" | "verwerkt"
+  cheatsheetPath           String? // Nextcloud WebDAV-pad
+  cheatsheetUrl            String? // optionele directe (share)link
+  cheatsheetGeneratedAt    DateTime?
   appointmentConfirmations AppointmentConfirmation[]
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
 
   @@index([agbegin])
   @@index([agobjcode])
@@ -1174,48 +1174,48 @@ model AgendaAfspraak {
 }
 
 model AppointmentConfirmation {
-  id                  String                       @id @default(cuid())
-  agendaAfspraak      AgendaAfspraak               @relation(fields: [agendaAfspraakId], references: [id], onDelete: Cascade)
-  agendaAfspraakId    String
-  events              AppointmentConfirmationEvent[]
-  tokenHash           String                       @unique
-  publicUrl           String?                      @db.Text
-  previewUrl          String?                      @db.Text
-  status              String                       @default("draft") // draft | ready | sent | confirmed | cancel_requested | cancelled | expired
-  recipientName       String?
-  recipientPhone      String?
-  recipientEmail      String?
-  mauticContactId     Int?
-  projectId           String?
-  woningTitle         String?
-  woningAdres         String?
-  woningUrl           String?                      @db.Text
-  woningImageUrl      String?                      @db.Text
-  appointmentStart    DateTime?
-  appointmentEnd      DateTime?
-  medewerker          String?
-  whatsappBody        String                       @db.Text
-  videoPath           String?                      @db.Text
-  videoOriginalName   String?
-  videoMimeType       String?
-  videoSizeBytes      Int?
-  videoPosterIndex    Int                          @default(0)
-  sentAt              DateTime?
-  openedAt            DateTime?
-  lastOpenedAt        DateTime?
-  openCount           Int                          @default(0)
-  videoStartedAt      DateTime?
-  videoCompletedAt    DateTime?
-  videoStartCount     Int                          @default(0)
-  videoCompleteCount  Int                          @default(0)
-  confirmedAt         DateTime?
-  cancelledAt         DateTime?
-  waConversationId    String?
-  waMessageId         String?
-  deliveryError       String?                      @db.Text
-  createdBy           String                       @default("platform")
-  createdAt           DateTime                     @default(now())
-  updatedAt           DateTime                     @updatedAt
+  id                 String                         @id @default(cuid())
+  agendaAfspraak     AgendaAfspraak                 @relation(fields: [agendaAfspraakId], references: [id], onDelete: Cascade)
+  agendaAfspraakId   String
+  events             AppointmentConfirmationEvent[]
+  tokenHash          String                         @unique
+  publicUrl          String?                        @db.Text
+  previewUrl         String?                        @db.Text
+  status             String                         @default("draft") // draft | ready | sent | confirmed | cancel_requested | cancelled | expired
+  recipientName      String?
+  recipientPhone     String?
+  recipientEmail     String?
+  mauticContactId    Int?
+  projectId          String?
+  woningTitle        String?
+  woningAdres        String?
+  woningUrl          String?                        @db.Text
+  woningImageUrl     String?                        @db.Text
+  appointmentStart   DateTime?
+  appointmentEnd     DateTime?
+  medewerker         String?
+  whatsappBody       String                         @db.Text
+  videoPath          String?                        @db.Text
+  videoOriginalName  String?
+  videoMimeType      String?
+  videoSizeBytes     Int?
+  videoPosterIndex   Int                            @default(0)
+  sentAt             DateTime?
+  openedAt           DateTime?
+  lastOpenedAt       DateTime?
+  openCount          Int                            @default(0)
+  videoStartedAt     DateTime?
+  videoCompletedAt   DateTime?
+  videoStartCount    Int                            @default(0)
+  videoCompleteCount Int                            @default(0)
+  confirmedAt        DateTime?
+  cancelledAt        DateTime?
+  waConversationId   String?
+  waMessageId        String?
+  deliveryError      String?                        @db.Text
+  createdBy          String                         @default("platform")
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
 
   @@unique([agendaAfspraakId])
   @@index([status])
@@ -1226,18 +1226,18 @@ model AppointmentConfirmation {
 }
 
 model AppointmentConfirmationEvent {
-  id              String                  @id @default(cuid())
-  confirmation    AppointmentConfirmation @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
-  confirmationId  String
-  eventType       String
-  sessionId       String?
-  activeSeconds   Int?
-  path            String?                 @db.Text
-  referrer        String?                 @db.Text
-  userAgent       String?                 @db.Text
-  ipHash          String?
-  viewport        String?
-  createdAt       DateTime                @default(now())
+  id             String                  @id @default(cuid())
+  confirmation   AppointmentConfirmation @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
+  confirmationId String
+  eventType      String
+  sessionId      String?
+  activeSeconds  Int?
+  path           String?                 @db.Text
+  referrer       String?                 @db.Text
+  userAgent      String?                 @db.Text
+  ipHash         String?
+  viewport       String?
+  createdAt      DateTime                @default(now())
 
   @@index([confirmationId])
   @@index([eventType])
@@ -1459,4 +1459,106 @@ model RealworksBackupCapture {
   @@index([host, path])
   @@index([receivedAt])
   @@map("realworks_backup_captures")
+}
+
+model KnowledgeSource {
+  id                     String                     @id @default(cuid())
+  slug                   String                     @unique
+  title                  String
+  sourceType             String
+  authorityRank          Int                        @default(50)
+  publisher              String?
+  sourceUrl              String?                    @db.Text
+  originalFilename       String?
+  edition                String?
+  publishedAt            DateTime?
+  effectiveFrom          DateTime?
+  effectiveUntil         DateTime?
+  status                 String                     @default("ACTIVE")
+  internalOnly           Boolean                    @default(true)
+  checksum               String?
+  notionPageId           String?                    @unique
+  reportTaxateur         String?
+  reportAddress          String?
+  reportPostcode         String?
+  reportCity             String?
+  reportPropertyType     String?
+  reportBuildYear        Int?
+  latitude               Float?
+  longitude              Float?
+  trustLevel             String?
+  validationStatus       String?
+  validatedAt            DateTime?
+  realworksTaxcode       String?                    @unique
+  realworksDossierNumber String?
+  projectId              String?
+  supersedesSourceId     String?
+  metadata               Json?
+  chunks                 KnowledgeChunk[]
+  validationEvents       KnowledgeValidationEvent[]
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+
+  @@index([sourceType, status])
+  @@index([reportPostcode, reportCity])
+  @@index([reportAddress])
+  @@index([projectId])
+  @@map("knowledge_sources")
+}
+
+model KnowledgeChunk {
+  id                  String          @id @default(cuid())
+  source              KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  sourceId            String
+  section             String?
+  fieldKey            String?
+  content             String          @db.LongText
+  sanitizedContent    String          @db.LongText
+  position            Int
+  embedding           Bytes?          @db.LongBlob
+  embeddingModel      String?
+  embeddingDimensions Int?
+  contentHash         String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@unique([sourceId, position])
+  @@index([fieldKey])
+  @@index([contentHash])
+  @@map("knowledge_chunks")
+}
+
+model KnowledgeAuditEvent {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  queryType  String?
+  queryHash  String?
+  sourceIds  Json?
+  model      String?
+  durationMs Int?
+  success    Boolean  @default(true)
+  error      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([userId])
+  @@map("knowledge_audit_events")
+}
+
+model KnowledgeValidationEvent {
+  id          String           @id @default(cuid())
+  source      KnowledgeSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sourceId    String?
+  archiveId   String?          @unique
+  eventType   String
+  matchStatus String
+  matchedBy   String?
+  occurredAt  DateTime?
+  details     Json?
+  createdAt   DateTime         @default(now())
+
+  @@index([sourceId])
+  @@index([eventType, matchStatus])
+  @@map("knowledge_validation_events")
 }
