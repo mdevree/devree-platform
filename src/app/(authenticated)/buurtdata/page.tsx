@@ -162,7 +162,7 @@ export default function BuurtdataPage() {
         <div className="flex items-center justify-center py-16 print:hidden">
           <div className="text-center">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <p className="text-sm text-gray-500">Data ophalen, even geduld…</p>
+            <p className="text-sm text-gray-500">Data ophalen, even geduld… Dit kan enkele minuten duren (maximaal 4 minuten).</p>
           </div>
         </div>
       )}

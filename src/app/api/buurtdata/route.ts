@@ -3,6 +3,7 @@ import { isAuthorized } from "@/lib/apiAuth";
 import { fetchFriduRadarContext } from "@/lib/friduRadar";
 
 const N8N_WEBHOOK_URL = "https://automation.devreemakelaardij.nl/webhook/buurtdata";
+const BUURTDATA_TIMEOUT_MS = 240_000;
 
 export async function POST(request: NextRequest) {
   const authorized = await isAuthorized(request);
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), BUURTDATA_TIMEOUT_MS);
 
   try {
     const res = await fetch(N8N_WEBHOOK_URL, {
@@ -36,8 +37,6 @@ export async function POST(request: NextRequest) {
       signal: controller.signal,
     });
 
-    clearTimeout(timeout);
-
     if (!res.ok) {
       return NextResponse.json(
         { error: `Fout bij ophalen buurtdata (${res.status})` },
@@ -46,6 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await res.json();
+    clearTimeout(timeout);
     const normalizedData = Array.isArray(data) ? data[0] : data;
     const radar = await fetchFriduRadarContext({
       postcode: postcode.replace(/\s/g, "").toUpperCase(),
@@ -58,10 +58,11 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json(data);
   } catch (err) {
-    clearTimeout(timeout);
     if (err instanceof Error && err.name === "AbortError") {
-      return NextResponse.json({ error: "Verzoek timed out na 30 seconden" }, { status: 504 });
+      return NextResponse.json({ error: "Het ophalen van buurtdata duurt langer dan 4 minuten. Probeer het opnieuw." }, { status: 504 });
     }
     return NextResponse.json({ error: "Onverwachte fout bij ophalen data" }, { status: 500 });
+  } finally {
+    clearTimeout(timeout);
   }
 }
