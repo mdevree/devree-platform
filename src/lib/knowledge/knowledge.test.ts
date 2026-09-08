@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cosineSimilarity, decodeEmbedding, encodeEmbedding } from "./embedding";
 import { sanitizeForExternal } from "./sanitize";
-import { classifyQuery, selectDiverseResults } from "./search";
+import { classifyQuery, selectDiverseResults, sourceLexicalCoverage } from "./search";
 import { parsePdokPoint } from "./geocode";
 
 test("verwijdert contact- en dossiergegevens voor externe AI", () => {
@@ -21,6 +21,13 @@ test("normvragen en praktijkvragen krijgen verschillende bronrouting", () => {
   assert.equal(classifyQuery("Wat vereist de NWWI instructie?"), "REGELVRAAG");
   assert.equal(classifyQuery("Welke eerdere tekst schreef ik voor deze buurt?"), "PRAKTIJKVRAAG");
   assert.equal(classifyQuery("Welke taxaties zijn er in Maassluis?"), "PRAKTIJKVRAAG");
+  assert.equal(classifyQuery("Zoek het gevalideerde taxatierapport Burg. Rippingstraat 2 D"), "PRAKTIJKVRAAG");
+});
+
+test("herkent een expliciet adres zonder verdunning door vraagwoorden", () => {
+  const query = "Zoek het gevalideerde taxatierapport Burg. Rippingstraat 2 D, 3145 MD Maassluis. Welke bron en passages zijn beschikbaar?";
+  const source = "Burg. Rippingstraat 2 D, 3145 MD Maassluis";
+  assert.ok(sourceLexicalCoverage(query, source) >= 0.7);
 });
 
 test("begrens lange bronnen maar behoud meerdere passages van een exacte rapportmatch", () => {

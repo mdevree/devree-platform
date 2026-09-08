@@ -14,6 +14,13 @@ function lexical(query: string, text: string) {
   return terms.filter((term) => haystack.includes(term)).length / terms.length;
 }
 
+export function sourceLexicalCoverage(query: string, sourceText: string) {
+  // Bij een expliciet adres is de bron zelf de zoekterm. Meet daarom ook hoeveel
+  // onderscheidende woorden uit titel/adres in de vraag staan, in plaats van de
+  // score te verdunnen met woorden als "zoek", "bron" en "passages".
+  return lexical(sourceText, query);
+}
+
 function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
   const rad = Math.PI / 180, dLat = (bLat - aLat) * rad, dLon = (bLon - aLon) * rad;
   const x = Math.sin(dLat / 2) ** 2 + Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLon / 2) ** 2;
@@ -22,7 +29,7 @@ function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
 
 export function classifyQuery(query: string) {
   if (/\b(moet|regel|nwwi|nrvt|evs|instructie|vereist|norm)\b/i.test(query)) return "REGELVRAAG";
-  if (/\b(tekst|formuleer|schrijf|vergelijk|eerder|buurt|omgeving|motivatie|taxaties?|rapporten?)\b/i.test(query)) return "PRAKTIJKVRAAG";
+  if (/\b(tekst|formuleer|schrijf|vergelijk|eerder|buurt|omgeving|motivatie|taxaties?|rapporten?|taxatierapporten?|gevalideerd(?:e)?)\b/i.test(query)) return "PRAKTIJKVRAAG";
   return "GEMENGD";
 }
 
@@ -65,10 +72,13 @@ export async function searchKnowledge(options: KnowledgeSearchOptions) {
   const ranked = chunks.map((chunk) => {
     const semantic = queryEmbedding.length && chunk.embedding ? Math.max(0, cosineSimilarity(queryEmbedding, decodeEmbedding(chunk.embedding))) : 0;
     const lexicalScore = lexical(query, `${chunk.section || ""} ${chunk.content}`);
-    const sourceMatch = lexical(query, [
+    const sourceText = [
       chunk.source.title, chunk.source.reportAddress, chunk.source.reportPostcode,
       chunk.source.reportCity, chunk.source.realworksTaxcode,
-    ].filter(Boolean).join(" "));
+    ].filter(Boolean).join(" ");
+    const sourceMatch = lexical(query, sourceText);
+    const identityText = [chunk.source.title, chunk.source.reportAddress].filter(Boolean).join(" ");
+    const sourceCoverage = sourceLexicalCoverage(query, identityText);
     let geoScore = 0, distance: number | null = null;
     if (options.latitude != null && options.longitude != null && chunk.source.latitude != null && chunk.source.longitude != null) {
       distance = distanceKm(options.latitude, options.longitude, chunk.source.latitude, chunk.source.longitude);
@@ -79,15 +89,18 @@ export async function searchKnowledge(options: KnowledgeSearchOptions) {
     const authority = chunk.source.authorityRank / 100;
     const practiceBoost = queryType === "PRAKTIJKVRAAG" && chunk.source.sourceType === "VALIDATED_REPORT" ? 0.08 : 0;
     const rulePenalty = queryType === "REGELVRAAG" && chunk.source.sourceType === "VALIDATED_REPORT" ? -0.15 : 0;
+    const exactReportBoost = chunk.source.sourceType === "VALIDATED_REPORT" && sourceCoverage >= 0.7 ? 0.75 : 0;
     const relevance = (queryEmbedding.length ? semantic * 0.38 + lexicalScore * 0.16 : lexicalScore * 0.54)
       + sourceMatch * 0.28
-      + geoScore * 0.14 + typeScore * 0.05 + yearScore * 0.03 + authority * 0.1 + practiceBoost + rulePenalty;
+      + geoScore * 0.14 + typeScore * 0.05 + yearScore * 0.03 + authority * 0.1 + practiceBoost + rulePenalty + exactReportBoost;
     return {
       id: chunk.id, sourceId: chunk.sourceId, title: chunk.source.title, sourceType: chunk.source.sourceType,
       publisher: chunk.source.publisher, section: chunk.section, fieldKey: chunk.fieldKey,
       excerpt: chunk.content.slice(0, 800), relevance, distanceKm: distance,
       authorityRank: chunk.source.authorityRank, sourceUrl: chunk.source.sourceUrl,
-      reportAddress: chunk.source.reportAddress, validationStatus: chunk.source.validationStatus, sourceMatch,
+      reportAddress: chunk.source.reportAddress, reportPostcode: chunk.source.reportPostcode,
+      reportCity: chunk.source.reportCity, realworksTaxcode: chunk.source.realworksTaxcode,
+      validationStatus: chunk.source.validationStatus, sourceMatch, sourceCoverage,
     };
   }).filter((item) => item.relevance > 0.08).sort((a, b) => b.relevance - a.relevance);
 
