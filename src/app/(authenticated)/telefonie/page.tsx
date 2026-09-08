@@ -479,12 +479,17 @@ export default function TelefoniePage() {
       if (data.success) {
         setContactEditMessage("Opgeslagen");
         setEditingContact(false);
+        const savedContact = data.contact;
+        const contactName = [savedContact.firstname, savedContact.lastname].filter(Boolean).join(" ").trim() || null;
+        setCalls((prev) => prev.map((call) =>
+          call.mauticContactId === savedContact.id ? { ...call, contactName } : call
+        ));
         // Update lokale state
         setContactDetail((prev) =>
           prev ? {
             ...prev,
-            firstname: contactEditData.firstname,
-            lastname: contactEditData.lastname,
+            firstname: savedContact.firstname,
+            lastname: savedContact.lastname,
             email: contactEditData.email || null,
             phone: contactEditData.phone || null,
             mobile: contactEditData.mobile || null,

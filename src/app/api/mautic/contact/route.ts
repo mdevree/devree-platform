@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAuthorized } from "@/lib/apiAuth";
+import { prisma } from "@/lib/prisma";
 import { createContact, searchContactByPhone, getContact, getContactFull, updateContact } from "@/lib/mautic";
 
 /**
@@ -107,6 +108,14 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  // Gesprekken bewaren een kopie van de naam; werk die bij vanuit het
+  // opgeslagen contact, zodat ook na verversen de juiste naam zichtbaar is.
+  const contactName = [contact.firstname, contact.lastname].filter(Boolean).join(" ").trim() || null;
+  await prisma.call.updateMany({
+    where: { mauticContactId: contact.id },
+    data: { contactName },
+  });
 
   return NextResponse.json({ success: true, contact });
 }
