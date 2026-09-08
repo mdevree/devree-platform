@@ -44,9 +44,23 @@ export async function ingestKnowledge(input: KnowledgeImport, withEmbeddings = t
   const chunks = chunksFor(input);
   if (!input.slug || !input.title || !input.sourceType || !chunks.length) throw new Error("Bron mist slug, titel, type of inhoud");
   const sanitized = chunks.map((chunk) => sanitizeForExternal(chunk.content));
-  let embeddings: number[][] = [];
-  if (withEmbeddings) {
-    try { embeddings = await embedTexts(sanitized); } catch (error) { console.warn("Embedding overgeslagen:", error); }
+  const chunkHashes = chunks.map((chunk) => sha(chunk.content));
+  const matchWhere = { OR: [
+    { slug: input.slug },
+    ...(input.notionPageId ? [{ notionPageId: input.notionPageId }] : []),
+    ...(input.realworksTaxcode ? [{ realworksTaxcode: input.realworksTaxcode }] : []),
+  ] };
+  const previousSource = await prisma.knowledgeSource.findFirst({ where: matchWhere, include: { chunks: true } });
+  const previousChunks = new Map(previousSource?.chunks.map((chunk) => [`${chunk.fieldKey || ""}:${chunk.contentHash}`, chunk]) || []);
+  const newEmbeddings = new Map<number, number[]>();
+  const missingIndexes = chunks
+    .map((chunk, index) => previousChunks.has(`${chunk.fieldKey}:${chunkHashes[index]}`) ? -1 : index)
+    .filter((index) => index >= 0);
+  if (withEmbeddings && missingIndexes.length) {
+    try {
+      const generated = await embedTexts(missingIndexes.map((index) => sanitized[index]));
+      missingIndexes.forEach((index, generatedIndex) => newEmbeddings.set(index, generated[generatedIndex] || []));
+    } catch (error) { console.warn("Embedding overgeslagen:", error); }
   }
   const checksum = sha(chunks.map((chunk) => `${chunk.fieldKey}:${chunk.content}`).join("\n"));
   let latitude = input.latitude, longitude = input.longitude;
@@ -57,11 +71,7 @@ export async function ingestKnowledge(input: KnowledgeImport, withEmbeddings = t
     } catch {}
   }
   return prisma.$transaction(async (tx) => {
-    const existing = await tx.knowledgeSource.findFirst({ where: { OR: [
-      { slug: input.slug },
-      ...(input.notionPageId ? [{ notionPageId: input.notionPageId }] : []),
-      ...(input.realworksTaxcode ? [{ realworksTaxcode: input.realworksTaxcode }] : []),
-    ] } });
+    const existing = await tx.knowledgeSource.findFirst({ where: matchWhere });
     const values = {
         slug: input.slug, title: input.title, sourceType: input.sourceType,
         authorityRank: input.authorityRank ?? 50, publisher: input.publisher, sourceUrl: input.sourceUrl,
@@ -78,10 +88,19 @@ export async function ingestKnowledge(input: KnowledgeImport, withEmbeddings = t
     await tx.knowledgeChunk.deleteMany({ where: { sourceId: source.id } });
     await tx.knowledgeChunk.createMany({ data: chunks.map((chunk, position) => ({
       sourceId: source.id, ...chunk, sanitizedContent: sanitized[position], position,
-      embedding: embeddings[position]?.length ? encodeEmbedding(embeddings[position]) : null,
-      embeddingModel: embeddings[position]?.length ? "text-embedding-3-small" : null,
-      embeddingDimensions: embeddings[position]?.length || null, contentHash: sha(chunk.content),
+      embedding: newEmbeddings.get(position)?.length
+        ? encodeEmbedding(newEmbeddings.get(position)!)
+        : previousChunks.get(`${chunk.fieldKey}:${chunkHashes[position]}`)?.embedding || null,
+      embeddingModel: newEmbeddings.get(position)?.length
+        ? "text-embedding-3-small"
+        : previousChunks.get(`${chunk.fieldKey}:${chunkHashes[position]}`)?.embeddingModel || null,
+      embeddingDimensions: newEmbeddings.get(position)?.length
+        || previousChunks.get(`${chunk.fieldKey}:${chunkHashes[position]}`)?.embeddingDimensions
+        || null,
+      contentHash: chunkHashes[position],
     })) });
-    return { ...source, chunkCount: chunks.length, embeddedCount: embeddings.filter(Boolean).length };
+    const embeddedCount = chunks.filter((chunk, position) => newEmbeddings.get(position)?.length
+      || previousChunks.get(`${chunk.fieldKey}:${chunkHashes[position]}`)?.embedding).length;
+    return { ...source, chunkCount: chunks.length, embeddedCount };
   });
 }

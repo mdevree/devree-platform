@@ -22,8 +22,32 @@ function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
 
 export function classifyQuery(query: string) {
   if (/\b(moet|regel|nwwi|nrvt|evs|instructie|vereist|norm)\b/i.test(query)) return "REGELVRAAG";
-  if (/\b(tekst|formuleer|schrijf|vergelijk|eerder|buurt|omgeving|motivatie)\b/i.test(query)) return "PRAKTIJKVRAAG";
+  if (/\b(tekst|formuleer|schrijf|vergelijk|eerder|buurt|omgeving|motivatie|taxaties?|rapporten?)\b/i.test(query)) return "PRAKTIJKVRAAG";
   return "GEMENGD";
+}
+
+type RankedKnowledgeResult = {
+  sourceId: string;
+  sourceType: string;
+  sourceMatch: number;
+  relevance: number;
+};
+
+export function selectDiverseResults<T extends RankedKnowledgeResult>(items: T[], limit: number): T[] {
+  const selected: T[] = [];
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const current = counts.get(item.sourceId) || 0;
+    // Een exact passende gevalideerde taxatie mag meerdere relevante passages leveren.
+    // Lange instructies en updates krijgen maximaal twee plaatsen, zodat één document
+    // niet de volledige context voor de antwoordgenerator kan bezetten.
+    const maximum = item.sourceType === "VALIDATED_REPORT" && item.sourceMatch >= 0.35 ? 4 : 2;
+    if (current >= maximum) continue;
+    selected.push(item);
+    counts.set(item.sourceId, current + 1);
+    if (selected.length >= limit) break;
+  }
+  return selected;
 }
 
 export async function searchKnowledge(options: KnowledgeSearchOptions) {
@@ -38,9 +62,13 @@ export async function searchKnowledge(options: KnowledgeSearchOptions) {
     include: { source: true }, take: 5000, orderBy: { updatedAt: "desc" },
   });
 
-  return chunks.map((chunk) => {
+  const ranked = chunks.map((chunk) => {
     const semantic = queryEmbedding.length && chunk.embedding ? Math.max(0, cosineSimilarity(queryEmbedding, decodeEmbedding(chunk.embedding))) : 0;
     const lexicalScore = lexical(query, `${chunk.section || ""} ${chunk.content}`);
+    const sourceMatch = lexical(query, [
+      chunk.source.title, chunk.source.reportAddress, chunk.source.reportPostcode,
+      chunk.source.reportCity, chunk.source.realworksTaxcode,
+    ].filter(Boolean).join(" "));
     let geoScore = 0, distance: number | null = null;
     if (options.latitude != null && options.longitude != null && chunk.source.latitude != null && chunk.source.longitude != null) {
       distance = distanceKm(options.latitude, options.longitude, chunk.source.latitude, chunk.source.longitude);
@@ -51,14 +79,18 @@ export async function searchKnowledge(options: KnowledgeSearchOptions) {
     const authority = chunk.source.authorityRank / 100;
     const practiceBoost = queryType === "PRAKTIJKVRAAG" && chunk.source.sourceType === "VALIDATED_REPORT" ? 0.08 : 0;
     const rulePenalty = queryType === "REGELVRAAG" && chunk.source.sourceType === "VALIDATED_REPORT" ? -0.15 : 0;
-    const relevance = (queryEmbedding.length ? semantic * 0.5 + lexicalScore * 0.18 : lexicalScore * 0.68)
+    const relevance = (queryEmbedding.length ? semantic * 0.38 + lexicalScore * 0.16 : lexicalScore * 0.54)
+      + sourceMatch * 0.28
       + geoScore * 0.14 + typeScore * 0.05 + yearScore * 0.03 + authority * 0.1 + practiceBoost + rulePenalty;
     return {
       id: chunk.id, sourceId: chunk.sourceId, title: chunk.source.title, sourceType: chunk.source.sourceType,
       publisher: chunk.source.publisher, section: chunk.section, fieldKey: chunk.fieldKey,
       excerpt: chunk.content.slice(0, 800), relevance, distanceKm: distance,
       authorityRank: chunk.source.authorityRank, sourceUrl: chunk.source.sourceUrl,
-      reportAddress: chunk.source.reportAddress, validationStatus: chunk.source.validationStatus,
+      reportAddress: chunk.source.reportAddress, validationStatus: chunk.source.validationStatus, sourceMatch,
     };
-  }).filter((item) => item.relevance > 0.08).sort((a, b) => b.relevance - a.relevance).slice(0, Math.min(options.limit || 8, 20));
+  }).filter((item) => item.relevance > 0.08).sort((a, b) => b.relevance - a.relevance);
+
+  const limit = Math.min(options.limit || 8, 20);
+  return selectDiverseResults(ranked, limit);
 }

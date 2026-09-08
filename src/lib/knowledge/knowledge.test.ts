@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cosineSimilarity, decodeEmbedding, encodeEmbedding } from "./embedding";
 import { sanitizeForExternal } from "./sanitize";
-import { classifyQuery } from "./search";
+import { classifyQuery, selectDiverseResults } from "./search";
 import { parsePdokPoint } from "./geocode";
 
 test("verwijdert contact- en dossiergegevens voor externe AI", () => {
@@ -20,6 +20,20 @@ test("embeddings blijven binair verliesarm en vergelijkbaar", () => {
 test("normvragen en praktijkvragen krijgen verschillende bronrouting", () => {
   assert.equal(classifyQuery("Wat vereist de NWWI instructie?"), "REGELVRAAG");
   assert.equal(classifyQuery("Welke eerdere tekst schreef ik voor deze buurt?"), "PRAKTIJKVRAAG");
+  assert.equal(classifyQuery("Welke taxaties zijn er in Maassluis?"), "PRAKTIJKVRAAG");
+});
+
+test("begrens lange bronnen maar behoud meerdere passages van een exacte rapportmatch", () => {
+  const items = [
+    { sourceId: "instruction", sourceType: "NWWI_INSTRUCTION", sourceMatch: 0.1, relevance: 0.9, id: "i1" },
+    { sourceId: "instruction", sourceType: "NWWI_INSTRUCTION", sourceMatch: 0.1, relevance: 0.8, id: "i2" },
+    { sourceId: "instruction", sourceType: "NWWI_INSTRUCTION", sourceMatch: 0.1, relevance: 0.7, id: "i3" },
+    { sourceId: "report", sourceType: "VALIDATED_REPORT", sourceMatch: 0.6, relevance: 0.6, id: "r1" },
+    { sourceId: "report", sourceType: "VALIDATED_REPORT", sourceMatch: 0.6, relevance: 0.5, id: "r2" },
+    { sourceId: "report", sourceType: "VALIDATED_REPORT", sourceMatch: 0.6, relevance: 0.4, id: "r3" },
+  ];
+  const selected = selectDiverseResults(items, 6);
+  assert.deepEqual(selected.map((item) => item.id), ["i1", "i2", "r1", "r2", "r3"]);
 });
 
 test("leest PDOK WGS84 coordinaten in de juiste volgorde", () => {
