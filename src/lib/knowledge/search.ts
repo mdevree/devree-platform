@@ -46,9 +46,11 @@ export function selectDiverseResults<T extends RankedKnowledgeResult>(items: T[]
   for (const item of items) {
     const current = counts.get(item.sourceId) || 0;
     // Een exact passende gevalideerde taxatie mag meerdere relevante passages leveren.
-    // Lange instructies en updates krijgen maximaal twee plaatsen, zodat één document
-    // niet de volledige context voor de antwoordgenerator kan bezetten.
-    const maximum = item.sourceType === "VALIDATED_REPORT" && item.sourceMatch >= 0.35 ? 4 : 2;
+    // De omvangrijke NWWI-invulinstructie krijgt één plaats; andere bronnen maximaal
+    // twee, zodat één document niet de volledige antwoordcontext kan bezetten.
+    const maximum = item.sourceType === "VALIDATED_REPORT" && item.sourceMatch >= 0.35
+      ? 4
+      : item.sourceType === "NWWI_INSTRUCTION" ? 1 : 2;
     if (current >= maximum) continue;
     selected.push(item);
     counts.set(item.sourceId, current + 1);

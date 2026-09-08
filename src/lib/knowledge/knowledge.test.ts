@@ -40,7 +40,7 @@ test("begrens lange bronnen maar behoud meerdere passages van een exacte rapport
     { sourceId: "report", sourceType: "VALIDATED_REPORT", sourceMatch: 0.6, relevance: 0.4, id: "r3" },
   ];
   const selected = selectDiverseResults(items, 6);
-  assert.deepEqual(selected.map((item) => item.id), ["i1", "i2", "r1", "r2", "r3"]);
+  assert.deepEqual(selected.map((item) => item.id), ["i1", "r1", "r2", "r3"]);
 });
 
 test("leest PDOK WGS84 coordinaten in de juiste volgorde", () => {
