@@ -654,6 +654,8 @@ export async function createDraftsFromCallResult(resultId: string) {
 export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) {
   const draft = await prisma.followUpDraft.findUnique({ where: { id } });
   if (!draft) throw new Error("Concept niet gevonden");
+  if (draft.status === "rejected") throw new Error("Dit concept is verwijderd");
+  if (draft.status === "sent" || draft.sentAt) throw new Error("Dit concept is al verzonden");
   if (draft.channel !== "whatsapp") throw new Error("Alleen WhatsApp verzenden is nu ondersteund");
   if (!draft.recipientPhone) throw new Error("Geen telefoonnummer op concept");
 

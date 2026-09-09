@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { saveEditedFollowUpDraft, sendEditedFollowUpDraft } from "@/lib/followUpDraftActions";
+import { sendEditedFollowUpDraft } from "@/lib/followUpDraftActions";
 import {
   ArrowPathIcon,
   CheckCircleIcon,
+  TrashIcon,
   LinkIcon,
   PaperAirplaneIcon,
   PhoneArrowUpRightIcon,
@@ -119,10 +120,10 @@ function statusStyle(status: string) {
   return "bg-gray-50 text-gray-700 ring-gray-200";
 }
 
-function StatusPill({ value }: { value: string }) {
+function StatusPill({ value, label }: { value: string; label?: string }) {
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ${statusStyle(value)}`}>
-      {value}
+      {label ?? value}
     </span>
   );
 }
@@ -132,7 +133,7 @@ const draftFilters = [
   { value: "draft", label: "Concept" },
   { value: "approved", label: "Goedgekeurd" },
   { value: "sent", label: "Verzonden" },
-  { value: "rejected", label: "Afgewezen" },
+  { value: "rejected", label: "Verwijderd" },
   { value: "alle", label: "Alles" },
 ];
 
@@ -342,11 +343,11 @@ export default function AiBelassistentDashboard() {
     );
   }
 
-  async function saveDraft(draft: FollowUpDraft) {
+  async function deleteDraft(draft: FollowUpDraft) {
     await runAction(
-      `draft-${draft.id}`,
-      () => saveEditedFollowUpDraft(jsonFetch, draft.id, draftBodies[draft.id] ?? draft.body),
-      "Concept opgeslagen en goedgekeurd."
+      `delete-${draft.id}`,
+      () => jsonFetch(`/api/ai/follow-up-drafts/${draft.id}`, { method: "DELETE" }),
+      "Concept verwijderd."
     );
   }
 
@@ -682,7 +683,7 @@ export default function AiBelassistentDashboard() {
                         Automatisch (bezichtiging)
                       </span>
                     )}
-                    <StatusPill value={draft.status} />
+                    <StatusPill value={draft.status} label={draft.status === "rejected" ? "Verwijderd" : undefined} />
                   </div>
                 </div>
                 {draft.activity && draft.activity.trackedUrls.length > 0 && (
@@ -709,29 +710,31 @@ export default function AiBelassistentDashboard() {
                 )}
                 <textarea
                   value={draftBodies[draft.id] ?? draft.body}
-                  disabled={busy !== null || draft.status === "sent"}
+                  disabled={busy !== null || draft.status === "sent" || draft.status === "rejected"}
                   onChange={(event) => setDraftBodies((current) => ({ ...current, [draft.id]: event.target.value }))}
                   className="min-h-28 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 {draft.deliveryError && <p className="text-sm text-red-600">{draft.deliveryError}</p>}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => saveDraft(draft)}
-                    disabled={busy !== null || draft.status === "sent"}
-                    className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                  >
-                    <CheckCircleIcon className="h-4 w-4" />
-                    Goedkeuren
-                  </button>
-                  <button
-                    onClick={() => sendDraft(draft)}
-                    disabled={busy !== null || draft.channel !== "whatsapp" || draft.status === "sent"}
-                    className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60"
-                  >
-                    <PaperAirplaneIcon className="h-4 w-4" />
-                    Verzenden
-                  </button>
-                </div>
+                {draft.status !== "sent" && draft.status !== "rejected" && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => deleteDraft(draft)}
+                      disabled={busy !== null || draft.channel !== "whatsapp"}
+                      className="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                      Verwijderen
+                    </button>
+                    <button
+                      onClick={() => sendDraft(draft)}
+                      disabled={busy !== null || draft.channel !== "whatsapp"}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60"
+                    >
+                      <PaperAirplaneIcon className="h-4 w-4" />
+                      Verzenden
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}
