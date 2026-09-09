@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { saveEditedFollowUpDraft, sendEditedFollowUpDraft } from "@/lib/followUpDraftActions";
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -344,11 +345,7 @@ export default function AiBelassistentDashboard() {
   async function saveDraft(draft: FollowUpDraft) {
     await runAction(
       `draft-${draft.id}`,
-      () =>
-        jsonFetch(`/api/ai/follow-up-drafts/${draft.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ body: draftBodies[draft.id] || draft.body, status: "approved", reviewedBy: "platform" }),
-        }),
+      () => saveEditedFollowUpDraft(jsonFetch, draft.id, draftBodies[draft.id] ?? draft.body),
       "Concept opgeslagen en goedgekeurd."
     );
   }
@@ -356,11 +353,7 @@ export default function AiBelassistentDashboard() {
   async function sendDraft(draft: FollowUpDraft) {
     await runAction(
       `send-${draft.id}`,
-      () =>
-        jsonFetch(`/api/ai/follow-up-drafts/${draft.id}/send`, {
-          method: "POST",
-          body: JSON.stringify({ reviewedBy: "platform" }),
-        }),
+      () => sendEditedFollowUpDraft(jsonFetch, draft.id, draftBodies[draft.id] ?? draft.body),
       "WhatsApp-concept verzonden."
     );
   }
@@ -716,6 +709,7 @@ export default function AiBelassistentDashboard() {
                 )}
                 <textarea
                   value={draftBodies[draft.id] ?? draft.body}
+                  disabled={busy !== null || draft.status === "sent"}
                   onChange={(event) => setDraftBodies((current) => ({ ...current, [draft.id]: event.target.value }))}
                   className="min-h-28 w-full rounded-md border border-gray-300 px-3 py-2 text-sm leading-6 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -723,7 +717,7 @@ export default function AiBelassistentDashboard() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => saveDraft(draft)}
-                    disabled={busy === `draft-${draft.id}` || draft.status === "sent"}
+                    disabled={busy !== null || draft.status === "sent"}
                     className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                   >
                     <CheckCircleIcon className="h-4 w-4" />
@@ -731,7 +725,7 @@ export default function AiBelassistentDashboard() {
                   </button>
                   <button
                     onClick={() => sendDraft(draft)}
-                    disabled={busy === `send-${draft.id}` || draft.channel !== "whatsapp" || draft.status === "sent"}
+                    disabled={busy !== null || draft.channel !== "whatsapp" || draft.status === "sent"}
                     className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60"
                   >
                     <PaperAirplaneIcon className="h-4 w-4" />
