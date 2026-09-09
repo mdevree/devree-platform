@@ -148,6 +148,7 @@ function EmailActivitySection({ contactId }: { contactId: number }) {
 }
 
 export default function ContactenPage() {
+  const [panelSection, setPanelSection] = useState<"history" | "details">("history");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -223,6 +224,7 @@ export default function ContactenPage() {
 
   const openPanel = useCallback(async (contactId: number) => {
     setShowPanel(true);
+    setPanelSection("history");
     setPanelContact(null);
     setPanelLoading(true);
     setEditingContact(false);
@@ -758,7 +760,7 @@ export default function ContactenPage() {
       {showPanel && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/40" onClick={() => setShowPanel(false)} />
-          <div className="w-full max-w-md overflow-y-auto bg-white shadow-2xl">
+          <div className="w-full max-w-2xl overflow-y-auto bg-white shadow-2xl">
             {/* Header */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
               <div className="flex items-center gap-2">
@@ -808,6 +810,11 @@ export default function ContactenPage() {
                   </div>
                 </div>
 
+                <div className="flex gap-2" aria-label="Contactonderdelen">
+                  <button onClick={() => setPanelSection("history")} aria-pressed={panelSection === "history"} className={`rounded px-3 py-2 text-sm ${panelSection === "history" ? "bg-primary text-white" : "bg-gray-100"}`}>Afspraken & activiteit</button>
+                  <button onClick={() => setPanelSection("details")} aria-pressed={panelSection === "details"} className={`rounded px-3 py-2 text-sm ${panelSection === "details" ? "bg-primary text-white" : "bg-gray-100"}`}>Contactgegevens & profiel</button>
+                </div>
+                {panelSection === "history" ? <ContactHistory key={panelContact.id} contactId={panelContact.id} /> : <>
                 {/* Tags */}
                 {panelContact.tags && panelContact.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
@@ -1031,7 +1038,6 @@ export default function ContactenPage() {
 
                 {/* Email activiteit */}
                 <EmailActivitySection contactId={panelContact.id} />
-                <ContactHistory key={panelContact.id} contactId={panelContact.id} />
 
                 <button
                   onClick={() => openWhatsAppForContact(panelContact)}
@@ -1053,6 +1059,7 @@ export default function ContactenPage() {
                   Volledig profiel in Mautic
                   <ArrowTopRightOnSquareIcon className="h-4 w-4" />
                 </a>
+                </>}
               </div>
             )}
           </div>
