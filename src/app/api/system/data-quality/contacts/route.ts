@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
+import { isExpectedMissingAgendaContact, isHandledQuarantineEvent } from "@/lib/systemDataQuality";
 
 const AGENDA_ISSUE_LOOKBACK_DAYS = 14;
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   const agendaIssueSince = new Date(Date.now() - AGENDA_ISSUE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-  const [leads, agendaIssues, suspiciousEvents, openQuarantine] = await Promise.all([
+  const [leads, agendaCandidates, suspiciousCandidates, openQuarantine] = await Promise.all([
     prisma.lead.findMany({
       select: { id: true, naam: true, email: true, telefoon: true, mauticContactId: true, updatedAt: true },
       take: 5000,
@@ -40,6 +41,8 @@ export async function GET(request: NextRequest) {
         id: true,
         systemid: true,
         agdescr: true,
+        agtype: true,
+        relationRelationid: true,
         agbegin: true,
         agrcode: true,
         agobjcode: true,
@@ -60,6 +63,7 @@ export async function GET(request: NextRequest) {
         eventType: true,
         status: true,
         ignoredReason: true,
+        payloadHash: true,
         email: true,
         rcode: true,
         systemid: true,
@@ -82,6 +86,19 @@ export async function GET(request: NextRequest) {
       },
     }),
   ]);
+
+  const candidateHashes = suspiciousCandidates
+    .filter((event) => event.status === "quarantined" && event.payloadHash?.endsWith(":quarantine"))
+    .map((event) => event.payloadHash!.slice(0, -":quarantine".length));
+  const handledQuarantine = candidateHashes.length
+    ? await prisma.realworksSyncQuarantine.findMany({
+      where: { payloadHash: { in: candidateHashes }, status: { in: ["resolved", "ignored", "replayed"] } },
+      select: { payloadHash: true },
+    })
+    : [];
+  const handledHashes = new Set(handledQuarantine.flatMap((item) => item.payloadHash ? [item.payloadHash] : []));
+  const suspiciousEvents = suspiciousCandidates.filter((event) => !isHandledQuarantineEvent(event, handledHashes));
+  const agendaIssues = agendaCandidates.filter((item) => !isExpectedMissingAgendaContact(item));
 
   const duplicateEmails = groupDuplicates(leads, (lead) => lead.email);
   const duplicateMauticContactIds = groupDuplicates(leads, (lead) => lead.mauticContactId);
