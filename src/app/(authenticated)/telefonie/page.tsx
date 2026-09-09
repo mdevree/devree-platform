@@ -934,6 +934,7 @@ export default function TelefoniePage() {
                             <UserCircleIcon className="h-3.5 w-3.5" />
                             Contact
                           </button>
+                          <a className="text-xs text-primary underline" href={`/contacten?contactId=${call.mauticContactId}`}>Historie</a>
                           <a
                             href={`${MAUTIC_URL}/s/contacts/view/${call.mauticContactId}`}
                             target="_blank"

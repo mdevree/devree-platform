@@ -267,6 +267,7 @@ export default function WhatsAppInbox() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {!activeConversation.mauticContactId && <a href="/contacten" className="text-xs text-gray-500 underline">Geen contact gekoppeld · zoek contact</a>}
                 {activeConversation.mauticContactId && (
                   <>
                     <button
@@ -277,6 +278,7 @@ export default function WhatsAppInbox() {
                       <UserCircleIcon className="h-4 w-4" />
                       Contact
                     </button>
+                    <a className="text-xs text-primary underline" href={`/contacten?contactId=${activeConversation.mauticContactId}`}>Afspraken & activiteit</a>
                     {MAUTIC_URL && (
                       <a
                         href={`${MAUTIC_URL}/s/contacts/view/${activeConversation.mauticContactId}`}

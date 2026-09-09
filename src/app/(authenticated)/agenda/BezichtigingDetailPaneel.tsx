@@ -29,6 +29,7 @@ interface ContextResponse {
     memo: string | null;
     medewerker: string | null;
     contactNaam: string | null;
+    mauticContactId: number | null;
     contactEmail: string | null;
     contactTelefoon: string | null;
     leadId: string | null;
@@ -461,6 +462,7 @@ export default function BezichtigingDetailPaneel({
                 Genereer PDF
               </button>
 
+              {a?.mauticContactId ? <a className="text-sm text-primary underline" href={`/contacten?contactId=${a.mauticContactId}`}>Afspraken & activiteit</a> : <span className="text-xs text-gray-500">Nog geen contact gekoppeld. Gebruik Kies Mautic-contact.</span>}
               {!a?.leadId && (
                 <button
                   onClick={koppelKijker}

@@ -1,5 +1,6 @@
 "use client";
 
+import ContactHistory from "@/components/contacts/ContactHistory";
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   MagnifyingGlassIcon,
@@ -220,7 +221,7 @@ export default function ContactenPage() {
     }, 400);
   }
 
-  async function openPanel(contactId: number) {
+  const openPanel = useCallback(async (contactId: number) => {
     setShowPanel(true);
     setPanelContact(null);
     setPanelLoading(true);
@@ -261,7 +262,15 @@ export default function ContactenPage() {
       console.error("Fout bij ophalen contact detail");
     }
     setPanelLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("contactId"));
+    if (Number.isSafeInteger(id) && id > 0) {
+      // Open the requested contact using the same panel as the contact list.
+      void openPanel(id);
+    }
+  }, [openPanel]);
 
   async function handleCreateContact(e: React.FormEvent) {
     e.preventDefault();
@@ -1022,6 +1031,7 @@ export default function ContactenPage() {
 
                 {/* Email activiteit */}
                 <EmailActivitySection contactId={panelContact.id} />
+                <ContactHistory key={panelContact.id} contactId={panelContact.id} />
 
                 <button
                   onClick={() => openWhatsAppForContact(panelContact)}

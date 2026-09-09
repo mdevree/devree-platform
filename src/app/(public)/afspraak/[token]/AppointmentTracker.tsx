@@ -2,17 +2,18 @@
 
 import { useEffect, useRef } from "react";
 
-type EventType = "page_open" | "video_start" | "video_progress_25" | "video_progress_75" | "video_complete";
+type EventType = "whatsapp_click" | "review_click" | "page_open" | "video_start" | "video_progress_25" | "video_progress_75" | "video_complete";
 
 function sessionIdForToken(token: string) {
   const key = `devree-appointment-session:${token}`;
-  const existing = window.sessionStorage.getItem(key);
+  let existing: string | null = null;
+  try { existing = window.sessionStorage.getItem(key); } catch {}
   if (existing) return existing;
 
   const value = typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  window.sessionStorage.setItem(key, value);
+  try { window.sessionStorage.setItem(key, value); } catch {}
   return value;
 }
 
@@ -39,6 +40,17 @@ export default function AppointmentTracker({ token, enabled }: { token: string; 
     if (!enabled) return;
     sessionIdRef.current = sessionIdForToken(token);
     sendAppointmentEvent(token, "page_open", sessionIdRef.current);
+  }, [enabled, token]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    function onClick(event: MouseEvent) {
+      const link = (event.target as Element).closest("[data-appointment-event]");
+      const type = link?.getAttribute("data-appointment-event");
+      if (type === "whatsapp_click" || type === "review_click") sendAppointmentEvent(token, type, sessionIdRef.current);
+    }
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
   }, [enabled, token]);
 
   useEffect(() => {

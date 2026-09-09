@@ -1,3 +1,4 @@
+import { appointmentPhase, appointmentTiming, appointmentWhatsappUrl, APPOINTMENT_REVIEW_URL } from "@/lib/appointmentLifecycle";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
@@ -5,8 +6,11 @@ import {
   formatAppointmentDateTime,
   isValidAppointmentPreview,
 } from "@/lib/appointmentConfirmation";
+import AppointmentRefresh from "./AppointmentRefresh";
 import AppointmentActions from "./AppointmentActions";
 import AppointmentTracker from "./AppointmentTracker";
+
+export const dynamic = "force-dynamic";
 
 function formatAdres(confirmation: { woningAdres: string | null; woningTitle: string | null }) {
   return confirmation.woningAdres || confirmation.woningTitle || "de woning";
@@ -31,10 +35,13 @@ export default async function AppointmentPage({
 
   const confirmation = await prisma.appointmentConfirmation.findUnique({
     where: { tokenHash: appointmentTokenHash(token) },
+    include: { agendaAfspraak: true },
   });
   if (!confirmation) notFound();
 
-  const afspraakLabel = formatAppointmentDateTime(confirmation.appointmentStart);
+  const phase = appointmentPhase(confirmation);
+  const timing = appointmentTiming(confirmation);
+  const afspraakLabel = formatAppointmentDateTime(timing.start);
   const adres = formatAdres(confirmation);
   const videoUrl = `/api/public/afspraak/${encodeURIComponent(token)}/video${preview ? `?preview=1` : ""}`;
   const woningUrl = `/api/public/afspraak/${encodeURIComponent(token)}/woning`;
@@ -47,6 +54,7 @@ export default async function AppointmentPage({
         </div>
       )}
       <AppointmentTracker token={token} enabled={!preview} />
+      <AppointmentRefresh enabled={phase === "before"} end={timing.end?.toISOString() || null} />
 
       <header className="border-b border-[#e1e4de] bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
@@ -67,7 +75,15 @@ export default async function AppointmentPage({
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-8 px-5 py-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)] lg:py-12">
+      {phase === "after" ? <section className="mx-auto max-w-3xl space-y-6 px-5 py-10">
+        <h1 className="text-3xl font-semibold">Na uw bezichtiging van {adres}</h1>
+        <p>{afspraakLabel}</p>
+        <p>Wat vindt u van de woning? Heeft u nog vragen of wilt u iets met ons bespreken?</p>
+        <a data-appointment-event="whatsapp_click" href={appointmentWhatsappUrl(adres, timing.start)} className="inline-block rounded bg-[#0f6b4f] px-5 py-3 font-semibold text-white">Stuur ons een WhatsApp</a>
+        {confirmation.woningUrl && <p><a className="underline" href={preview ? confirmation.woningUrl : woningUrl}>Bekijk de woning op onze website</a></p>}
+        {confirmation.videoPath && <details className="rounded border p-4"><summary>Video van vóór de bezichtiging</summary><video data-appointment-video src={videoUrl} controls playsInline preload="metadata" className="mt-4 max-h-[60vh] w-full" /></details>}
+        <section className="border-t pt-6"><h2 className="text-lg font-semibold">Hoe heeft u de bezichtiging ervaren?</h2><p className="mt-2 text-sm">Wilt u uw ervaring met het contact en de uitleg tijdens de bezichtiging delen? Dat kan met een review op Google.</p><a data-appointment-event="review_click" href={APPOINTMENT_REVIEW_URL} target="_blank" rel="noreferrer" className="mt-4 inline-block rounded border border-[#0f6b4f] px-4 py-2 text-sm">Deel uw ervaring op Google</a></section>
+      </section> : phase === "cancelled" ? <section className="mx-auto max-w-3xl px-5 py-10"><h1 className="text-2xl font-semibold">Uw afspraak bij {adres} is geannuleerd</h1><p className="mt-4">Wilt u een nieuwe afspraak maken? Bel ons op <a href="tel:+31181611919">0181 - 611 919</a>.</p></section> : <section className="mx-auto grid max-w-6xl gap-8 px-5 py-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)] lg:py-12">
         <div className="overflow-hidden rounded-md bg-black shadow-sm">
           {confirmation.videoPath ? (
             <video
@@ -119,6 +135,7 @@ export default async function AppointmentPage({
             Wij reserveren ongeveer 30 minuten voor de bezichtiging, zodat u rustig kunt rondkijken en uw vragen kunt stellen.
           </p>
 
+          <p className="mt-5 text-sm text-[#58635d]">Ook na de bezichtiging kunt u deze pagina gebruiken om de woning terug te kijken of ons uw indruk te laten weten.</p>
           <div className="mt-6">
             <AppointmentActions token={token} preview={preview} initialStatus={confirmation.status} />
           </div>
@@ -132,7 +149,7 @@ export default async function AppointmentPage({
             </a>
           )}
         </aside>
-      </section>
+      </section>}
     </main>
   );
 }

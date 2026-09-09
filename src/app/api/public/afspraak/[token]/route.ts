@@ -1,3 +1,4 @@
+import { appointmentPhase, appointmentTiming, appointmentWhatsappUrl, APPOINTMENT_REVIEW_URL } from "@/lib/appointmentLifecycle";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
@@ -28,6 +29,7 @@ export async function GET(
     where: { tokenHash: appointmentTokenHash(token) },
     select: {
       status: true,
+      agendaAfspraak: { select: { agbegin: true, agend: true, agstatus: true, aginactive: true } },
       recipientName: true,
       woningTitle: true,
       woningAdres: true,
@@ -48,18 +50,22 @@ export async function GET(
     );
   }
 
+  const timing = appointmentTiming(confirmation);
   return NextResponse.json(
     {
       confirmation: {
         status: confirmation.status,
+        phase: appointmentPhase(confirmation),
+        whatsappUrl: appointmentWhatsappUrl(confirmation.woningAdres || confirmation.woningTitle || "de woning", timing.start),
+        reviewUrl: APPOINTMENT_REVIEW_URL,
         recipientName: confirmation.recipientName,
         woningTitle: confirmation.woningTitle,
         woningAdres: confirmation.woningAdres,
         woningUrl: confirmation.woningUrl,
         woningImageUrl: confirmation.woningImageUrl,
-        appointmentLabel: formatAppointmentDateTime(confirmation.appointmentStart),
-        appointmentStart: confirmation.appointmentStart,
-        appointmentEnd: confirmation.appointmentEnd,
+        appointmentLabel: formatAppointmentDateTime(timing.start),
+        appointmentStart: timing.start,
+        appointmentEnd: timing.end,
         medewerker: confirmation.medewerker,
         hasVideo: Boolean(confirmation.videoPath),
         posterUrl: confirmation.videoPath
@@ -74,7 +80,7 @@ export async function GET(
       },
       preview,
     },
-    { headers: appointmentCorsHeaders(request) }
+    { headers: { ...appointmentCorsHeaders(request), "Cache-Control": "private, no-store", "X-Accel-Expires": "0" } }
   );
 }
 

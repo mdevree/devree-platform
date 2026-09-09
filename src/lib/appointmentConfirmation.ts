@@ -17,6 +17,8 @@ export const APPOINTMENT_EVENT_TYPES = new Set([
   "woning_click",
   "route_click",
   "calendar_click",
+  "whatsapp_click",
+  "review_click",
 ]);
 
 export function createAppointmentToken() {

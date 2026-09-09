@@ -1,3 +1,4 @@
+import { appointmentPhase } from "@/lib/appointmentLifecycle";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { appointmentTokenHash, notifyOfficeAppointmentAction, recordAppointmentEvent } from "@/lib/appointmentConfirmation";
@@ -10,12 +11,17 @@ export async function POST(
   const { token } = await params;
   const confirmation = await prisma.appointmentConfirmation.findUnique({
     where: { tokenHash: appointmentTokenHash(token) },
+    include: { agendaAfspraak: true },
   });
   if (!confirmation) {
     return NextResponse.json({ error: "Afspraak niet gevonden" }, { status: 404, headers: appointmentCorsHeaders(request) });
   }
   if (confirmation.status === "cancel_requested" || confirmation.status === "cancelled") {
     return NextResponse.json({ error: "Deze afspraak is al als annulering ontvangen" }, { status: 409, headers: appointmentCorsHeaders(request) });
+  }
+
+  if (appointmentPhase(confirmation) !== "before") {
+    return NextResponse.json({ error: "Deze afspraak kan niet meer worden gewijzigd." }, { status: 409, headers: appointmentCorsHeaders(request) });
   }
 
   await recordAppointmentEvent({

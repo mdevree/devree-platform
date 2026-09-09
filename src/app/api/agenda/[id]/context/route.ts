@@ -179,6 +179,7 @@ export async function GET(
       memo: afspraak.agmemo,
       medewerker: afspraak.medewerkerFullname ?? afspraak.agowner,
       contactNaam: afspraak.contactNaam,
+      mauticContactId: afspraak.mauticContactId,
       contactEmail: afspraak.contactEmail,
       contactTelefoon: afspraak.contactTelefoon,
       leadId: afspraak.leadId,
