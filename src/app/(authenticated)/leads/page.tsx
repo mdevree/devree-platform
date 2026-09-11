@@ -1,5 +1,6 @@
 "use client";
 
+import { ReferralButton } from "@/components/hypotheek/ReferralForm";
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   PlusIcon,
@@ -56,6 +57,7 @@ interface LeadDetail extends Lead {
 }
 
 const LEAD_STATUS_LABELS: Record<string, string> = {
+  CONTACT: "Contact",
   KIJKER: "Kijker",
   ZOEKER: "Zoeker",
   CONVERTED: "Converted",
@@ -63,6 +65,7 @@ const LEAD_STATUS_LABELS: Record<string, string> = {
 };
 
 const LEAD_STATUS_COLORS: Record<string, string> = {
+  CONTACT: "bg-gray-100 text-gray-600",
   KIJKER: "bg-gray-100 text-gray-600",
   ZOEKER: "bg-blue-100 text-blue-700",
   CONVERTED: "bg-green-100 text-green-700",
@@ -77,6 +80,7 @@ const PROJECT_TYPE_COLORS: Record<string, string> = {
 
 const statusTabs = [
   { key: "", label: "Alle" },
+  { key: "CONTACT", label: "Contact" },
   { key: "KIJKER", label: "Kijker" },
   { key: "ZOEKER", label: "Zoeker" },
   { key: "CONVERTED", label: "Converted" },
@@ -108,7 +112,7 @@ export default function LeadsPage() {
     email: "",
     telefoon: "",
     notities: "",
-    status: "KIJKER",
+    status: "CONTACT",
     mauticContactId: "",
   });
   const [mauticSearch, setMauticSearch] = useState("");
@@ -230,7 +234,7 @@ export default function LeadsPage() {
       });
       if (res.ok) {
         setShowNew(false);
-        setNewForm({ naam: "", email: "", telefoon: "", notities: "", status: "KIJKER", mauticContactId: "" });
+        setNewForm({ naam: "", email: "", telefoon: "", notities: "", status: "CONTACT", mauticContactId: "" });
         setMauticSelected(null);
         setMauticSearch("");
         fetchLeads();
@@ -357,9 +361,9 @@ export default function LeadsPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kijkers</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Contacten en leads</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Pipeline van kijkers naar klanten
+            Contacten, kijkers, zoekers en klanten
           </p>
         </div>
         <button
@@ -367,7 +371,7 @@ export default function LeadsPage() {
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
         >
           <PlusIcon className="h-4 w-4" />
-          Nieuwe kijker
+          Nieuw contact
         </button>
       </div>
 
@@ -407,7 +411,7 @@ export default function LeadsPage() {
         <div className="text-center py-12 text-gray-400">Laden...</div>
       ) : leads.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          {search || statusFilter ? "Geen resultaten gevonden." : "Nog geen kijkers toegevoegd."}
+          {search || statusFilter ? "Geen resultaten gevonden." : "Nog geen contacten toegevoegd."}
         </div>
       ) : (
         <>
@@ -673,6 +677,7 @@ export default function LeadsPage() {
                     )}
                   </div>
 
+                  <ReferralButton contact={{leadId:selected.id,naam:selected.naam,email:selected.email,telefoon:selected.telefoon}} onSaved={()=>{fetchDetail(selected.id);fetchLeads();}}/>
                   {/* Hypotheekadviseur */}
                   <div>
                     <h3 className="mb-2 text-sm font-semibold text-gray-900">Hypotheekadviseur</h3>
@@ -777,7 +782,7 @@ export default function LeadsPage() {
                       onChange={(e) => setNotities(e.target.value)}
                       onBlur={handleNotitiesBlur}
                       rows={4}
-                      placeholder="Notities over deze kijker..."
+                      placeholder="Notities over dit contact..."
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none resize-none"
                     />
                   </div>
@@ -788,7 +793,7 @@ export default function LeadsPage() {
                       onClick={handleDeleteLead}
                       className="w-full rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                     >
-                      Verwijder kijker
+                      Verwijder contact
                     </button>
                   </div>
                 </div>
@@ -798,12 +803,12 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* Modal: Nieuwe kijker */}
+      {/* Modal: Nieuw contact */}
       {showNew && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Nieuwe kijker</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Nieuw contact</h2>
               <button onClick={() => setShowNew(false)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100">
                 <XMarkIcon className="h-5 w-5" />
               </button>
@@ -844,7 +849,7 @@ export default function LeadsPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">Status</label>
                 <div className="flex gap-2">
-                  {["KIJKER", "ZOEKER"].map((s) => (
+                  {["CONTACT", "KIJKER", "ZOEKER"].map((s) => (
                     <button
                       key={s}
                       onClick={() => setNewForm({ ...newForm, status: s })}

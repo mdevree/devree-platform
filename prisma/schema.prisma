@@ -45,6 +45,7 @@ enum Verkoopmethode {
 }
 
 enum LeadStatus {
+  CONTACT
   KIJKER
   ZOEKER
   CONVERTED
@@ -1030,42 +1031,45 @@ model PlatformFeedback {
 }
 
 model HypotheekAdviseur {
-  id            String       @id @default(cuid())
-  naam          String
-  bedrijf       String?
-  email         String?
-  telefoon      String?
-  notities      String?      @db.Text
-  actief        Boolean      @default(true)
-  leads         Lead[]
-  projecten     Project[]
-  vveGesprekken VveGesprek[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  doorverwijzingen HypotheekDoorverwijzing[]
+  emailAdressen    HypotheekAdviseurEmail[]
+  id               String                    @id @default(cuid())
+  naam             String
+  bedrijf          String?
+  email            String?
+  telefoon         String?
+  notities         String?                   @db.Text
+  actief           Boolean                   @default(true)
+  leads            Lead[]
+  projecten        Project[]
+  vveGesprekken    VveGesprek[]
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 
   @@map("hypotheek_adviseurs")
 }
 
 model Lead {
-  id                     String             @id @default(cuid())
-  mauticContactId        String?
-  naam                   String
-  email                  String?
-  telefoon               String?
-  status                 LeadStatus         @default(KIJKER)
-  prioriteit             LeadPrioriteit     @default(NORMAAL)
-  source                 LeadSource?
-  tags                   Json? // string[]
-  notities               String?            @db.Text
-  hypotheekAdviseur      HypotheekAdviseur? @relation(fields: [hypotheekAdviseurId], references: [id])
-  hypotheekAdviseurId    String?
-  hypotheekAdviseurDatum DateTime?
-  hypotheekAfgesloten    Boolean            @default(false)
-  projecten              LeadProject[]
-  routes                 LeadRoute[]
-  agendaAfspraken        AgendaAfspraak[]
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  doorverwijzingDeelnames HypotheekDeelname[]
+  id                      String              @id @default(cuid())
+  mauticContactId         String?
+  naam                    String
+  email                   String?
+  telefoon                String?
+  status                  LeadStatus          @default(KIJKER)
+  prioriteit              LeadPrioriteit      @default(NORMAAL)
+  source                  LeadSource?
+  tags                    Json? // string[]
+  notities                String?             @db.Text
+  hypotheekAdviseur       HypotheekAdviseur?  @relation(fields: [hypotheekAdviseurId], references: [id])
+  hypotheekAdviseurId     String?
+  hypotheekAdviseurDatum  DateTime?
+  hypotheekAfgesloten     Boolean             @default(false)
+  projecten               LeadProject[]
+  routes                  LeadRoute[]
+  agendaAfspraken         AgendaAfspraak[]
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
 
   @@index([status])
   @@index([prioriteit])
@@ -1561,4 +1565,76 @@ model KnowledgeValidationEvent {
   @@index([sourceId])
   @@index([eventType, matchStatus])
   @@map("knowledge_validation_events")
+}
+
+model HypotheekDoorverwijzing {
+  id                  String               @id @default(cuid())
+  adviseurId          String
+  adviseur            HypotheekAdviseur    @relation(fields: [adviseurId], references: [id], onDelete: Restrict)
+  datum               DateTime?            @db.Date
+  herkomst            String               @default("handmatig")
+  notities            String?              @db.Text
+  geregistreerdDoor   String
+  hypotheekAfgesloten Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deelnemers          HypotheekDeelname[]
+  mailEvents          HypotheekMailEvent[]
+
+  @@index([adviseurId, datum])
+  @@map("hypotheek_doorverwijzingen")
+}
+
+model HypotheekDeelname {
+  id               String                  @id @default(cuid())
+  doorverwijzingId String
+  doorverwijzing   HypotheekDoorverwijzing @relation(fields: [doorverwijzingId], references: [id], onDelete: Cascade)
+  leadId           String
+  lead             Lead                    @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  adviseurId       String
+  hoofdcontact     Boolean                 @default(false)
+
+  @@unique([adviseurId, leadId])
+  @@index([doorverwijzingId])
+  @@index([leadId])
+  @@map("hypotheek_deelnames")
+}
+
+model HypotheekAdviseurEmail {
+  email      String            @id @db.VarChar(191)
+  adviseurId String
+  adviseur   HypotheekAdviseur @relation(fields: [adviseurId], references: [id], onDelete: Cascade)
+
+  @@map("hypotheek_adviseur_emails")
+}
+
+model HypotheekMailEvent {
+  id               String                   @id @default(cuid())
+  messageId        String                   @db.VarChar(191)
+  mailbox          String                   @db.VarChar(191)
+  status           String                   @default("review")
+  reden            String                   @db.Text
+  onderwerp        String                   @db.VarChar(191)
+  passage          String                   @db.Text
+  afzender         String                   @db.VarChar(191)
+  ontvangers       Json
+  datum            DateTime?                @db.Date
+  adviseurId       String?
+  contactVoorstel  Json?
+  doorverwijzingId String?
+  doorverwijzing   HypotheekDoorverwijzing? @relation(fields: [doorverwijzingId], references: [id], onDelete: Restrict)
+  createdAt        DateTime                 @default(now())
+
+  @@unique([messageId, mailbox])
+  @@index([status, createdAt])
+  @@map("hypotheek_mail_events")
+}
+
+model HypotheekInstelling {
+  id          String    @id
+  automatisch Boolean   @default(false)
+  actiefVanaf DateTime?
+  afzenders   Json
+
+  @@map("hypotheek_instellingen")
 }

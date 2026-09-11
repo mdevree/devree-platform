@@ -1,5 +1,9 @@
 "use client";
 
+import { ReferralButton } from "@/components/hypotheek/ReferralForm";
+import ReferralList from "@/components/hypotheek/ReferralList";
+import AliasEditor from "@/components/hypotheek/AliasEditor";
+import ReviewList from "@/components/hypotheek/ReviewList";
 import { useEffect, useState, useCallback } from "react";
 import {
   PlusIcon,
@@ -12,7 +16,6 @@ import {
   ClipboardDocumentCheckIcon,
   PencilIcon,
   ChatBubbleLeftRightIcon,
-  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -69,20 +72,6 @@ interface AdviseurStats {
   vveGesprekken: { total: number };
   periodeLabel: string;
 }
-
-const LEAD_STATUS_LABELS: Record<string, string> = {
-  KIJKER: "Kijker",
-  ZOEKER: "Zoeker",
-  CONVERTED: "Converted",
-  INACTIEF: "Inactief",
-};
-
-const LEAD_STATUS_COLORS: Record<string, string> = {
-  KIJKER: "bg-blue-100 text-blue-700",
-  ZOEKER: "bg-amber-100 text-amber-700",
-  CONVERTED: "bg-green-100 text-green-700",
-  INACTIEF: "bg-gray-100 text-gray-500",
-};
 
 const PROJECT_STATUS_COLORS: Record<string, string> = {
   AFGEROND: "bg-green-100 text-green-700",
@@ -270,17 +259,6 @@ export default function SamenwerkingenPage() {
     }
   };
 
-  const handleToggleHypotheekAfgesloten = async (leadId: string, current: boolean) => {
-    const res = await fetch(`/api/leads/${leadId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hypotheekAfgesloten: !current }),
-    });
-    if (res.ok && selected) {
-      // Refresh detail + stats
-      fetchDetail(selected.id);
-    }
-  };
 
   const handleCreateVve = async () => {
     if (!selected || !vveForm.naam.trim() || !vveForm.datum) return;
@@ -323,7 +301,7 @@ export default function SamenwerkingenPage() {
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: "overzicht", label: "Overzicht" },
-    { key: "kijkers", label: "Kijkers" },
+    { key: "kijkers", label: "Doorverwijzingen" },
     { key: "taxaties", label: "Taxaties" },
     { key: "vve", label: "VVE Gesprekken" },
   ];
@@ -349,6 +327,8 @@ export default function SamenwerkingenPage() {
         </button>
       </div>
 
+      <div className="mb-4"><ReferralButton onSaved={fetchAdviseurs}/></div>
+      <ReviewList/>
       {/* Zoekbalk + filter */}
       <div className="mb-6 flex items-center gap-3">
         <div className="relative flex-1 max-w-md">
@@ -426,7 +406,7 @@ export default function SamenwerkingenPage() {
               <div className="mt-4 flex gap-4 border-t border-gray-100 pt-3 text-xs text-gray-500">
                 <span className="flex items-center gap-1">
                   <UserGroupIcon className="h-3.5 w-3.5" />
-                  {a._count.leads} kijker{a._count.leads !== 1 ? "s" : ""}
+                  {a._count.leads} doorverwijzing{a._count.leads !== 1 ? "en" : ""}
                 </span>
                 <span className="flex items-center gap-1">
                   <ClipboardDocumentCheckIcon className="h-3.5 w-3.5" />
@@ -571,6 +551,7 @@ export default function SamenwerkingenPage() {
                       {/* ── TAB: Overzicht ────────────────────── */}
                       {activeTab === "overzicht" && (
                         <div className="space-y-5">
+                          <ReferralButton adviseurId={selected.id} onSaved={()=>{fetchAdviseurs();fetchStats(selected.id,periode);}}/>
                           {/* Periode selector */}
                           <div className="flex items-center justify-between">
                             <h3 className="text-sm font-semibold text-gray-900">Statistieken</h3>
@@ -594,7 +575,7 @@ export default function SamenwerkingenPage() {
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="rounded-lg bg-blue-50 p-3 text-center">
                                   <p className="text-2xl font-bold text-blue-700">{stats.leads.total}</p>
-                                  <p className="text-xs text-blue-600">Doorverwezen kijkers</p>
+                                  <p className="text-xs text-blue-600">Doorverwijzingen</p>
                                 </div>
                                 <div className="rounded-lg bg-green-50 p-3 text-center">
                                   <p className="text-2xl font-bold text-green-700">{stats.leads.hypotheekAfgesloten}</p>
@@ -624,13 +605,14 @@ export default function SamenwerkingenPage() {
                                     />
                                   </div>
                                   <p className="mt-1 text-xs text-gray-500">
-                                    {stats.leads.hypotheekAfgesloten} van {stats.leads.total} kijkers heeft hypotheek afgesloten
+                                    {stats.leads.hypotheekAfgesloten} van {stats.leads.total} doorverwijzingen met afgesloten hypotheek
                                   </p>
                                 </div>
                               )}
                             </>
                           ) : null}
 
+                          <AliasEditor key={selected.id} adviseurId={selected.id}/>
                           {/* Notities */}
                           {selected.notities && (
                             <div>
@@ -661,41 +643,7 @@ export default function SamenwerkingenPage() {
                       )}
 
                       {/* ── TAB: Kijkers ──────────────────────── */}
-                      {activeTab === "kijkers" && (
-                        <div className="space-y-3">
-                          <h3 className="text-sm font-semibold text-gray-900">
-                            Doorverwezen kijkers ({selected._count.leads})
-                          </h3>
-                          {selected.leads && selected.leads.length > 0 ? (
-                            <div className="space-y-2">
-                              {selected.leads.map((l) => (
-                                <div key={l.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5">
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-sm font-medium text-gray-800 truncate">{l.naam}</span>
-                                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${LEAD_STATUS_COLORS[l.status] || "bg-gray-100 text-gray-500"}`}>
-                                      {LEAD_STATUS_LABELS[l.status] || l.status}
-                                    </span>
-                                  </div>
-                                  <button
-                                    onClick={() => handleToggleHypotheekAfgesloten(l.id, l.hypotheekAfgesloten)}
-                                    className={`shrink-0 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                                      l.hypotheekAfgesloten
-                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                                    }`}
-                                    title={l.hypotheekAfgesloten ? "Hypotheek afgesloten" : "Hypotheek niet afgesloten — klik om te wijzigen"}
-                                  >
-                                    <CheckCircleIcon className="h-3.5 w-3.5" />
-                                    {l.hypotheekAfgesloten ? "Afgesloten" : "Niet afgesloten"}
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-400">Geen kijkers doorverwezen.</p>
-                          )}
-                        </div>
-                      )}
+                      {activeTab === "kijkers" && <ReferralList key={selected.id} adviseurId={selected.id} periode={periode} onPeriodeChange={v=>setPeriode(v as Periode)} onSaved={()=>{fetchAdviseurs();fetchStats(selected.id,periode);}}/>}
 
                       {/* ── TAB: Taxaties ─────────────────────── */}
                       {activeTab === "taxaties" && (

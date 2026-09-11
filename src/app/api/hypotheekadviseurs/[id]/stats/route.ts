@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
+import { periodFilter } from "@/lib/hypotheek/rules";
 import { startOfMonth, startOfQuarter, startOfYear } from "date-fns";
 
 /**
@@ -54,26 +55,26 @@ export async function GET(
     vveGesprekkenTotal,
   ] = await Promise.all([
     // Totaal doorverwezen leads
-    prisma.lead.count({
+    prisma.hypotheekDoorverwijzing.count({
       where: {
-        hypotheekAdviseurId: id,
-        ...(dateFilter && { hypotheekAdviseurDatum: dateFilter }),
+        adviseurId: id,
+        ...(dateFilter && { datum: periodFilter(periode) }),
       },
     }),
     // Leads met status CONVERTED
-    prisma.lead.count({
+    prisma.hypotheekDoorverwijzing.count({
       where: {
-        hypotheekAdviseurId: id,
-        status: "CONVERTED",
-        ...(dateFilter && { hypotheekAdviseurDatum: dateFilter }),
+        adviseurId: id,
+        deelnemers: { some: { lead: { status: "CONVERTED" } } },
+        ...(dateFilter && { datum: periodFilter(periode) }),
       },
     }),
     // Leads waar hypotheek daadwerkelijk is afgesloten
-    prisma.lead.count({
+    prisma.hypotheekDoorverwijzing.count({
       where: {
-        hypotheekAdviseurId: id,
+        adviseurId: id,
         hypotheekAfgesloten: true,
-        ...(dateFilter && { hypotheekAdviseurDatum: dateFilter }),
+        ...(dateFilter && { datum: periodFilter(periode) }),
       },
     }),
     // Totaal taxatie-projecten

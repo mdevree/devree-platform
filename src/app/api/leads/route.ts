@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { locked, registerInTransaction } from "@/lib/hypotheek/service";
+import { actor, failure } from "@/lib/hypotheek/http";
 import { isAuthorized } from "@/lib/apiAuth";
 
 /**
@@ -102,6 +104,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Naam is verplicht" }, { status: 400 });
   }
 
+  if(data.hypotheekAdviseurId) {
+    const user=await actor();try { return NextResponse.json(await locked(async tx=>{
+      const result=await registerInTransaction(tx,{adviseurId:data.hypotheekAdviseurId,contacten:[{naam:data.naam,email:data.email,telefoon:data.telefoon,mauticContactId:data.mauticContactId}],datum:data.hypotheekAdviseurDatum?.slice(0,10),notities:data.notities},user);
+      const id=result.doorverwijzing.deelnemers[0].leadId;
+      if(!result.existing)await tx.lead.update({where:{id},data:{...(data.status?{status:data.status}:{}),...(data.prioriteit?{prioriteit:data.prioriteit}:{}),...(data.source?{source:data.source}:{}),...(data.tags?{tags:data.tags}:{})}});
+      return {success:true,lead:await tx.lead.findUnique({where:{id},include:{hypotheekAdviseur:true,_count:{select:{projecten:true,routes:true}}}})};
+    }));}catch(e){return failure(e);}
+  }
   const lead = await prisma.lead.create({
     data: {
       naam: data.naam,

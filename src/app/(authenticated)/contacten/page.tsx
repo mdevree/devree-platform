@@ -1,5 +1,6 @@
 "use client";
 
+import { ReferralButton } from "@/components/hypotheek/ReferralForm";
 import ContactHistory from "@/components/contacts/ContactHistory";
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
@@ -810,6 +811,7 @@ export default function ContactenPage() {
                   </div>
                 </div>
 
+                <ReferralButton contact={{mauticContactId:String(panelContact.id),naam:[panelContact.firstname,panelContact.lastname].filter(Boolean).join(" "),email:panelContact.email,telefoon:panelContact.mobile||panelContact.phone}}/>
                 <div className="flex gap-2" aria-label="Contactonderdelen">
                   <button onClick={() => setPanelSection("history")} aria-pressed={panelSection === "history"} className={`rounded px-3 py-2 text-sm ${panelSection === "history" ? "bg-primary text-white" : "bg-gray-100"}`}>Afspraken & activiteit</button>
                   <button onClick={() => setPanelSection("details")} aria-pressed={panelSection === "details"} className={`rounded px-3 py-2 text-sm ${panelSection === "details" ? "bg-primary text-white" : "bg-gray-100"}`}>Contactgegevens & profiel</button>

@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
   const adviseurs = await prisma.hypotheekAdviseur.findMany({
     where,
     include: {
-      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
+      _count: { select: { doorverwijzingen: true, leads: true, projecten: true, vveGesprekken: true } },
     },
     orderBy: { naam: "asc" },
   });
 
-  return NextResponse.json({ adviseurs });
+  return NextResponse.json({ adviseurs: adviseurs.map(a=>({...a,_count:{...a._count,leads:a._count.doorverwijzingen}})) });
 }
 
 /**
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       notities: data.notities || null,
     },
     include: {
-      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
+      _count: { select: { doorverwijzingen: true, leads: true, projecten: true, vveGesprekken: true } },
     },
   });
 

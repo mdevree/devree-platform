@@ -1,0 +1,32 @@
+{
+  "id": "HypotheekDoorverwijzingMail01",
+  "name": "Registreer hypotheekdoorverwijzing",
+  "type": "n8n-nodes-base.httpRequest",
+  "typeVersion": 4.2,
+  "position": [
+    320,
+    480
+  ],
+  "onError": "continueRegularOutput",
+  "retryOnFail": true,
+  "maxTries": 3,
+  "waitBetweenTries": 1000,
+  "credentials": {
+    "httpHeaderAuth": {
+      "id": "PlatformWebhookSecret01",
+      "name": "Platform Webhook Secret"
+    }
+  },
+  "parameters": {
+    "method": "POST",
+    "url": "https://kantoor.devreemakelaardij.nl/api/hypotheek-doorverwijzingen/mail-events",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ (() => { const s=$json; const h=s.headers||{}; const addr=v=>v?.value?.map(x=>x.address).join(', ')||v?.text||v||''; return { messageId:String(s.messageId||h['message-id']||h['Message-ID']||''), mailbox:'track@connect.devreemakelaardij.nl', sentAt:s.date||h.date||'', from:addr(s.from), to:addr(s.to), cc:addr(s.cc), subject:s.subject||'', textPlain:s.textPlain||s.text||'', textHtml:s.textHtml||s.html||'' }; })() }}",
+    "options": {
+      "timeout": 20000
+    }
+  }
+}

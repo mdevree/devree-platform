@@ -440,6 +440,7 @@ export function mapMauticContactFull(contact: Record<string, unknown>, fallbackI
  */
 export async function searchContacts(options: {
   search?: string;
+  strict?: boolean;
   start?: number;
   limit?: number;
   orderBy?: string;
@@ -469,6 +470,7 @@ export async function searchContacts(options: {
 
   if (!response.ok) {
     console.error("Mautic contacten lijstfout:", response.status, await response.text());
+    if (options.strict) throw new Error("Mautic contactcontrole niet beschikbaar");
     return { contacts: [], total: 0 };
   }
 

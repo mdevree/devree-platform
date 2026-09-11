@@ -1,5 +1,6 @@
 "use client";
 
+import { ReferralButton } from "@/components/hypotheek/ReferralForm";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -4351,6 +4352,7 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
+          <div className="rounded-xl border border-gray-200 bg-white p-5"><ReferralButton contact={project.contactName?{naam:project.contactName,email:project.contactEmail,telefoon:project.contactPhone}:undefined}/></div>
           {/* Hypotheekadviseur — bij TAXATIE of als er al een adviseur gekoppeld is */}
           {(project.type === "TAXATIE" || project.hypotheekAdviseur) && (
             <div className="rounded-xl border border-gray-200 bg-white p-5">

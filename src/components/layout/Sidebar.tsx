@@ -43,7 +43,7 @@ const navigation = [
   { name: "Agenda", href: "/agenda", icon: CalendarDaysIcon },
   { name: "Taken", href: "/taken", icon: ClipboardDocumentListIcon },
   { name: "Buurtdata", href: "/buurtdata", icon: MapPinIcon },
-  { name: "Kijkers", href: "/leads", icon: UserGroupIcon },
+  { name: "Contacten en leads", href: "/leads", icon: UserGroupIcon },
   { name: "Samenwerkingen", href: "/samenwerkingen", icon: BuildingOfficeIcon },
   { name: "Realiteitscan", href: "/realiteitscan", icon: MagnifyingGlassCircleIcon },
   { name: "Facebook Triggers", href: "/facebook-triggers", icon: MegaphoneIcon },

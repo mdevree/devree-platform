@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { register } from "@/lib/hypotheek/service";
+import { actor, failure } from "@/lib/hypotheek/http";
 import { isAuthorized } from "@/lib/apiAuth";
 
 /**
@@ -66,6 +68,9 @@ export async function POST(
     return NextResponse.json({ error: "Lead niet gevonden" }, { status: 404 });
   }
 
+  if(data.routeType==="hypotheekadviseur") {
+    try { const result=await register({adviseurId:data.targetId,contacten:[{leadId:id}],datum:data.datum,notities:data.notities},await actor());return NextResponse.json({success:true,...result}); }catch(e){return failure(e);}
+  }
   const route = await prisma.leadRoute.create({
     data: {
       leadId: id,
@@ -77,18 +82,6 @@ export async function POST(
       routedById: data.routedById || null,
     },
   });
-
-  // Sync hypotheekAdviseur op de lead bij routeType hypotheekadviseur
-  const shouldUpdateLead = data.updateLead !== false;
-  if (shouldUpdateLead && data.routeType === "hypotheekadviseur" && data.targetId) {
-    await prisma.lead.update({
-      where: { id },
-      data: {
-        hypotheekAdviseurId: data.targetId,
-        hypotheekAdviseurDatum: new Date(),
-      },
-    });
-  }
 
   return NextResponse.json({ success: true, route }, { status: 201 });
 }

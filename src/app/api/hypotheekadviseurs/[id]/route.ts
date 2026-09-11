@@ -19,7 +19,7 @@ export async function GET(
   const adviseur = await prisma.hypotheekAdviseur.findUnique({
     where: { id },
     include: {
-      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
+      _count: { select: { doorverwijzingen: true, leads: true, projecten: true, vveGesprekken: true } },
       leads: {
         select: { id: true, naam: true, status: true, hypotheekAfgesloten: true, createdAt: true },
         orderBy: { createdAt: "desc" },
@@ -43,7 +43,7 @@ export async function GET(
     return NextResponse.json({ error: "Adviseur niet gevonden" }, { status: 404 });
   }
 
-  return NextResponse.json({ adviseur });
+  return NextResponse.json({ adviseur: {...adviseur,_count:{...adviseur._count,leads:adviseur._count.doorverwijzingen}} });
 }
 
 /**
@@ -74,7 +74,7 @@ export async function PATCH(
     where: { id },
     data: updateData,
     include: {
-      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
+      _count: { select: { doorverwijzingen: true, leads: true, projecten: true, vveGesprekken: true } },
     },
   });
 
@@ -98,7 +98,7 @@ export async function DELETE(
   const adviseur = await prisma.hypotheekAdviseur.findUnique({
     where: { id },
     include: {
-      _count: { select: { leads: true, projecten: true, vveGesprekken: true } },
+      _count: { select: { doorverwijzingen: true, leads: true, projecten: true, vveGesprekken: true } },
     },
   });
 
@@ -106,7 +106,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Adviseur niet gevonden" }, { status: 404 });
   }
 
-  if (adviseur._count.leads > 0 || adviseur._count.projecten > 0) {
+  if (adviseur._count.doorverwijzingen > 0 || adviseur._count.leads > 0 || adviseur._count.projecten > 0) {
     return NextResponse.json(
       {
         error: "Adviseur heeft nog koppelingen",

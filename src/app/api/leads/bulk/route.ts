@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { locked, registerInTransaction } from "@/lib/hypotheek/service";
+import { actor, failure } from "@/lib/hypotheek/http";
 import { isAuthorized } from "@/lib/apiAuth";
 
 /**
@@ -99,6 +101,12 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     });
 
+    if(data.routeType==="hypotheekadviseur") {
+      const user=await actor();try {return NextResponse.json(await locked(async tx=>{
+        for(const lead of leads)await registerInTransaction(tx,{adviseurId:data.targetId,contacten:[{leadId:lead.id}],datum:data.datum,notities:data.notities},user);
+        return {success:true,affected:leads.length};
+      }));}catch(e){return failure(e);}
+    }
     await prisma.leadRoute.createMany({
       data: leads.map((lead) => ({
         leadId: lead.id,
@@ -110,17 +118,6 @@ export async function POST(request: NextRequest) {
         routedById: data.routedById || null,
       })),
     });
-
-    // Sync hypotheekAdviseur op leads bij routeType hypotheekadviseur
-    if (data.routeType === "hypotheekadviseur" && data.targetId) {
-      await prisma.lead.updateMany({
-        where: { id: { in: ids } },
-        data: {
-          hypotheekAdviseurId: data.targetId,
-          hypotheekAdviseurDatum: new Date(),
-        },
-      });
-    }
 
     affected = leads.length;
 
