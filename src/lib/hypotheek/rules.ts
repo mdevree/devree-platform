@@ -39,7 +39,7 @@ export function newText(value: string) {
 }
 export function classify(body: string, subject: string) {
     const text = newText(body);
-    const excluded = /\b(?:factuur|taxatienota|taxatierapport|schademelding|schadenummer|verzekeringsschade|taxatieaanvraag|taxatie nwwi)\b/i.test(subject + " " + text);
+    const excluded = /\b(?:factuur|taxatie|taxatienota|taxatierapport|schademelding|schadenummer|verzekeringsschade|taxatieaanvraag|taxatie nwwi)\b/i.test(subject + " " + text);
     const explicit = /(?:afspraak|gesprek)\s+(?:te\s+)?(?:in\s*plannen|maken|plannen)|(?:in\s*plannen|maak|maken|plan)\b[^.!?\n]{0,70}\b(?:afspraak|gesprek)|doorverwij[sz]|(?:gegevens|informatie)\s+voor\s+(?:je|jouw|uw)\s+afspraak/i.test(text);
     return { text, referral: !excluded && explicit, household: /\b(familie|gezin|partners|beiden|echtpaar)\b/i.test(text), emails: addresses(text), phones: [...new Set((text.match(/(?:\+31|0031|0)[\d ()-]{8,18}\d/g) || []).map(phone).filter(Boolean))] };
 }
