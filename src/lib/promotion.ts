@@ -7,7 +7,7 @@ export const PHOTO_FEATURES: Record<Photography, string[]> = {
   COMPLEET: ["Alles uit Basis", "Buurtfotografie (tot 300 m)", "360°-tour", "Woningvideo"],
   COMPLEET_PLUS: ["Alles uit Compleet", "3D-plattegrond"],
 };
-export const SURCHARGE = "*Fotografietarieven gelden tot en met 150 m². Op basis van de BAG-oppervlakte rekent de fotograaf € 1,50 inclusief btw per extra m² boven 150 m², tot maximaal 400 m². Boven 400 m² loopt de toeslag niet verder op. Deze eventuele toeslag is niet inbegrepen in het getoonde totaal.";
+export const SURCHARGE = "*Fotografietarieven gelden tot en met 150 m². Voor grotere woningen rekent de fotograaf € 1,50 inclusief btw per extra m² boven 150 m², tot maximaal 400 m². Boven 400 m² loopt de toeslag niet verder op. Deze eventuele toeslag is niet inbegrepen in het getoonde totaal.";
 export const RATES = {
   version: "2026-09-11", market: "KOOP" as "KOOP" | "HUUR", footnote: SURCHARGE,
   funda: { BRONS: 27900, ZILVER: 44900, GOUD: 64900 },
