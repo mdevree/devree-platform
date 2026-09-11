@@ -1,3 +1,4 @@
+import { readPromotion, promotionLines } from "@/lib/promotion";
 import type { Project } from "@prisma/client";
 import { VERKOOPMETHODE_LABELS } from "@/lib/projectTypes";
 import {
@@ -53,6 +54,7 @@ export function buildVerkoopHtml({
   const aanvaarding = formatAanvaarding(project.aanvaarding);
   const vraagprijs = project.vraagprijs ? `${euro(project.vraagprijs)} k.k.` : "________";
   const courtage = percentLegal(project.courtagePercentage);
+  const promotion = readPromotion(project.promotion);
   const publiciteitskosten = project.kostenPubliciteit;
   const energielabelKosten = project.kostenEnergielabel;
   const quickscanKosten = project.kostenBouwkundig && project.kostenBouwkundig > 0 ? project.kostenBouwkundig : 0;
@@ -60,7 +62,7 @@ export function buildVerkoopHtml({
   const bedenktijdkosten = project.kostenBedenktijd ?? 350;
   const bijzondereAfspraken = project.bijzondereAfspraken?.trim();
   const kostenRegels = [
-    publiciteitskosten && publiciteitskosten > 0
+    promotion ? promotionLines(promotion).map(([label, value]) => `<p class="indent">${escapeHtml(label)}: ${escapeHtml(value)}</p>`).join("") : publiciteitskosten && publiciteitskosten > 0
       ? `<p class="indent">- publiciteitskosten (Funda plaatsing compleet, fotopresentatie inclusief 360 graden foto's, video, plattegronden etc.): max. ${escapeHtml(euro(publiciteitskosten))} incl. BTW;</p>`
       : "",
     energielabelKosten && energielabelKosten > 0

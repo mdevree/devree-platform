@@ -1,5 +1,7 @@
 "use client";
 
+import PromotionSelector, { PromotionSummary } from "@/components/promotie/PromotionSelector";
+import { type Promotion } from "@/lib/promotion";
 import { useState } from "react";
 
 const OPTIONS = [
@@ -55,6 +57,7 @@ function formatDateNl(value: string) {
 }
 
 export default function ProposalChoiceForm({
+  promotion,
   token,
   defaultVerkoopstart,
   defaultStartdatum,
@@ -69,6 +72,7 @@ export default function ProposalChoiceForm({
   quickscanKosten,
   opdrachtgevers,
 }: {
+  promotion?: Promotion | null;
   token: string;
   defaultVerkoopstart: string;
   defaultStartdatum: string;
@@ -83,6 +87,7 @@ export default function ProposalChoiceForm({
   quickscanKosten: number;
   opdrachtgevers: BekendeOpdrachtgever[];
 }) {
+  const [selectedPromotion, setSelectedPromotion] = useState(promotion ?? null);
   const initialVerkoopstart = defaultVerkoopstart === "SLAPEND" ? "UITGESTELD" : defaultVerkoopstart || "DIRECT";
   const [verkoopstart, setVerkoopstart] = useState(initialVerkoopstart);
   const [startdatum, setStartdatum] = useState(defaultStartdatum || "");
@@ -104,6 +109,7 @@ export default function ProposalChoiceForm({
 
   function payload() {
     return {
+      ...(selectedPromotion ? { funda: selectedPromotion.funda, photography: selectedPromotion.photography } : {}),
       verkoopstart,
       startdatum,
       startReden,
@@ -180,6 +186,7 @@ export default function ProposalChoiceForm({
   if (accepted) {
     return (
       <section className="rounded-lg border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+        {selectedPromotion && <div className="mb-5"><PromotionSummary value={selectedPromotion} /></div>}
         <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Akkoord ontvangen</p>
         <h2 className="mt-2 text-xl font-semibold text-emerald-950">Wij maken de opdracht tot dienstverlening voor u klaar.</h2>
         <p className="mt-3 text-sm leading-6 text-emerald-900">
@@ -194,6 +201,7 @@ export default function ProposalChoiceForm({
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      {selectedPromotion && <div className="mb-6 border-b border-gray-100 pb-6"><PromotionSelector value={selectedPromotion} onChange={setSelectedPromotion} /></div>}
       <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Uw keuze</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {OPTIONS.map((option) => (

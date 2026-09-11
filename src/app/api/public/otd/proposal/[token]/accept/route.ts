@@ -1,5 +1,6 @@
+import { submittedPromotion, promotionLines, type Promotion } from "@/lib/promotion";
 import { NextRequest, NextResponse } from "next/server";
-import { Verkoopstart } from "@prisma/client";
+import { Prisma, Verkoopstart } from "@prisma/client";
 import { createContact, updateContact } from "@/lib/mautic";
 import { prisma } from "@/lib/prisma";
 import { proposalTokenHash } from "@/lib/projectProposal";
@@ -120,6 +121,7 @@ function renderPeople(title: string, people: Array<Record<string, unknown>>) {
 }
 
 async function notifyOfficeProposalAccepted({
+  promotion,
   project,
   proposalUrl,
   editUrl,
@@ -137,6 +139,7 @@ async function notifyOfficeProposalAccepted({
   extraCount,
   correctionCount,
 }: {
+  promotion?: Promotion | null;
   project: {
     id: string;
     name: string;
@@ -180,6 +183,7 @@ async function notifyOfficeProposalAccepted({
       <strong>Aangepaste bestaande opdrachtgevers:</strong> ${correctionCount}<br>
       <strong>Extra opdrachtgevers doorgegeven:</strong> ${extraCount}
     </p>
+    ${promotion ? `<h3>Promotiekosten</h3>${renderFields(promotionLines(promotion))}` : ""}
     <h3>Keuzes en opmerkingen</h3>
     ${renderFields([
       ["Startkeuze", verkoopstart],
@@ -316,6 +320,13 @@ export async function POST(
     return NextResponse.json({ error: "Voorstel is verlopen" }, { status: 410 });
   }
 
+  let promotion;
+  try {
+    promotion = submittedPromotion(proposal.promotion, body);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Ongeldige pakketkeuze" }, { status: 400 });
+  }
+
   const isAankoop = proposal.project.type === "AANKOOP";
 
   // Verkoopkeuzes gelden alleen voor verkoopvoorstellen; het aankooppad kent
@@ -356,9 +367,10 @@ export async function POST(
     .filter((correctie) => correctie.mauticContactId && allowedContactIds.has(correctie.mauticContactId));
 
   if (!isAankoop) {
-    await prisma.project.update({
+    await prisma.$transaction([prisma.project.update({
       where: { id: proposal.projectId },
       data: {
+        ...(promotion ? { promotion } : { promotion: Prisma.DbNull, kostenPubliciteit: proposal.legacyPubliciteit ?? proposal.project.kostenPubliciteit }),
         projectStatus: "OFFERTE_VERSTUURD",
         verkoopstart,
         startdatum,
@@ -366,7 +378,7 @@ export async function POST(
         kostenEnergielabel: energielabelKosten,
         kostenBouwkundig: quickscanKosten,
       },
-    });
+    }), ...(promotion ? [prisma.projectProposal.update({ where: { id: proposal.id }, data: { promotion } })] : [])]);
   }
 
   for (const extra of extraOpdrachtgevers) {
@@ -489,6 +501,7 @@ export async function POST(
         project: proposal.project,
         proposalUrl: proposal.publicUrl,
         editUrl: conceptData.concept.editUrl || null,
+        promotion,
         remarks,
         verkoopstart,
         startdatum,

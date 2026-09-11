@@ -1,3 +1,4 @@
+import { calculatePromotion, RATES } from "@/lib/promotion";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
@@ -81,6 +82,16 @@ export async function PATCH(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: any = {};
+
+  if (data.promotionChoice !== undefined) {
+    const current = await prisma.project.findUnique({ where: { id }, select: { type: true } });
+    if (current?.type !== "VERKOOP") return NextResponse.json({ error: "Promotiepakketten zijn alleen voor verkoopprojecten." }, { status: 400 });
+    try {
+      updateData.promotion = calculatePromotion(RATES, data.promotionChoice?.funda, data.promotionChoice?.photography);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Ongeldige pakketkeuze" }, { status: 400 });
+    }
+  }
 
   if (data.name !== undefined) updateData.name = data.name;
   if (data.description !== undefined) updateData.description = data.description;

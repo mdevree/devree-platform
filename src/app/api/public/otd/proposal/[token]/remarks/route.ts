@@ -1,3 +1,4 @@
+import { submittedPromotion, promotionLines } from "@/lib/promotion";
 import { NextRequest, NextResponse } from "next/server";
 import { Verkoopstart } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -109,6 +110,13 @@ export async function POST(
     return NextResponse.json({ error: "Voorstel is verlopen" }, { status: 410 });
   }
 
+  let promotion;
+  try {
+    promotion = submittedPromotion(proposal.promotion, body);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Ongeldige pakketkeuze" }, { status: 400 });
+  }
+
   // Aankoopvoorstellen kennen geen verkoopstart- of kostenkeuzes en de status
   // blijft OTD_VERSTUURD (gezet bij het aanmaken van de voorstellink).
   if (proposal.project.type === "AANKOOP") {
@@ -155,6 +163,7 @@ export async function POST(
   await prisma.projectProposal.update({
     where: { id: proposal.id },
     data: {
+      ...(promotion ? { promotion } : {}),
       selectedVerkoopstart: verkoopstart,
       selectedStartdatum: startdatum,
       selectedStartReden: startReden,
@@ -174,7 +183,7 @@ export async function POST(
 
   await notifyOfficeProposalRemarks({
     project: proposal.project,
-    body,
+    body: promotion ? { ...body, promotiekosten: Object.fromEntries(promotionLines(promotion)) } : body,
     remarks,
   });
 

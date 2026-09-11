@@ -1,3 +1,4 @@
+import { newPromotion } from "@/lib/promotion";
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
@@ -19,7 +20,7 @@ export async function POST(
   const { id } = await params;
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, type: true },
+    select: { id: true, type: true, promotion: true },
   });
 
   if (!project) {
@@ -46,6 +47,7 @@ export async function POST(
         tokenHash: proposalTokenHash(token),
         publicUrl: proposalUrl,
         expiresAt,
+        ...(project.type === "VERKOOP" ? { promotion: newPromotion(project.promotion) } : {}),
       },
     }),
   ]);

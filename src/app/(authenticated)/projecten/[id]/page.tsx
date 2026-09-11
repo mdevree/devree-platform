@@ -1,4 +1,6 @@
 "use client";
+import ProjectPromotion from "@/components/promotie/ProjectPromotion";
+import { readPromotion, type Promotion } from "@/lib/promotion";
 
 import { ReferralButton } from "@/components/hypotheek/ReferralForm";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -329,6 +331,7 @@ interface Project {
   verkoopmethode: string | null;
   bijzondereAfspraken: string | null;
   // Kosten
+  promotion: Promotion | null;
   kostenPubliciteit: number | null;
   kostenEnergielabel: number | null;
   kostenJuridisch: number | null;
@@ -4299,14 +4302,15 @@ export default function ProjectDetailPage() {
             );
           })()}
 
+          {project.type === "VERKOOP" && <ProjectPromotion projectId={project.id} value={project.promotion} onSaved={(promotion) => setProject((current) => current ? { ...current, promotion } : current)} />}
           {/* Kosten */}
-          {project.type !== "AANKOOP" && (project.kostenPubliciteit || project.kostenEnergielabel || project.kostenJuridisch || project.kostenBouwkundig || project.kostenIntrekking || project.kostenBedenktijd) && (
+          {project.type !== "AANKOOP" && (project.promotion || project.kostenPubliciteit || project.kostenEnergielabel || project.kostenJuridisch || project.kostenBouwkundig || project.kostenIntrekking || project.kostenBedenktijd) && (
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">Kosten</p>
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-gray-100">
                   {[
-                    { label: "Publiciteit", value: project.kostenPubliciteit },
+                    { label: project.promotion ? "Promotiekosten*" : "Publiciteit", value: readPromotion(project.promotion)?.totalCents != null ? readPromotion(project.promotion)!.totalCents / 100 : project.kostenPubliciteit },
                     { label: "Energielabel", value: project.kostenEnergielabel },
                     { label: "Juridisch", value: project.kostenJuridisch },
                     { label: "Bouwkundig", value: project.kostenBouwkundig },
@@ -4321,7 +4325,7 @@ export default function ProjectDetailPage() {
                   <tr className="border-t-2 border-gray-200">
                     <td className="py-2 font-semibold text-gray-700">Totaal directe kosten</td>
                     <td className="py-2 text-right font-semibold text-gray-900">
-                      € {[project.kostenPubliciteit, project.kostenEnergielabel, project.kostenJuridisch, project.kostenBouwkundig]
+                      € {[project.promotion ? readPromotion(project.promotion)!.totalCents / 100 : project.kostenPubliciteit, project.kostenEnergielabel, project.kostenJuridisch, project.kostenBouwkundig]
                           .filter((v): v is number => v != null)
                           .reduce((a, b) => a + b, 0)
                           .toLocaleString("nl-NL")}
@@ -4877,7 +4881,7 @@ export default function ProjectDetailPage() {
                         <p className="mb-2 text-xs font-medium text-gray-500">Kosten (€)</p>
                         <div className="grid grid-cols-3 gap-3">
                           {[
-                            { label: "Publiciteit", key: "kostenPubliciteit" as const },
+                            ...(!project.promotion ? [{ label: "Publiciteit", key: "kostenPubliciteit" as const }] : []),
                             { label: "Energielabel", key: "kostenEnergielabel" as const },
                             { label: "Juridisch", key: "kostenJuridisch" as const },
                             { label: "Bouwkundig", key: "kostenBouwkundig" as const },

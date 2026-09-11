@@ -1,3 +1,5 @@
+import { readPromotion } from "@/lib/promotion";
+import { PromotionSummary } from "@/components/promotie/PromotionSelector";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import AankoopProposalPage from "./AankoopProposalPage";
@@ -92,6 +94,7 @@ export default async function ProposalPage(
   if (!proposal) notFound();
 
   const project = proposal.project;
+  const promotion = readPromotion(proposal.promotion);
   const expired = proposal.expiresAt ? proposal.expiresAt < new Date() : false;
   const unavailable = proposal.status !== "OPEN" || expired;
   const objectAdres = [project.woningAdres, project.woningPostcode, project.woningPlaats].filter(Boolean).join(", ");
@@ -217,12 +220,14 @@ export default async function ProposalPage(
           </section>
 
           <aside className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Kosten</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{promotion ? "Overige kosten" : "Kosten"}</p>
             <dl className="mt-4 space-y-3 text-sm">
+              {!promotion && (
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Publiciteit</dt>
-                <dd className="font-medium text-gray-900">{euro(project.kostenPubliciteit ?? 650)}</dd>
+                <dd className="font-medium text-gray-900">{euro(proposal.legacyPubliciteit ?? project.kostenPubliciteit ?? 650)}</dd>
               </div>
+              )}
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Energielabel</dt>
                 <dd className="text-right font-medium text-gray-900">{energielabelLabel}</dd>
@@ -237,13 +242,15 @@ export default async function ProposalPage(
           </aside>
         </div>
 
-        <section className={`mt-5 grid gap-4 ${quickscanKosten > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+        <section className={`mt-5 grid gap-4 ${promotion ? (quickscanKosten > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2") : (quickscanKosten > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3")}`}>
+          {!promotion && (
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Publiciteitskosten</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
               Dit is het maximale budget voor de presentatie van de woning, zoals Funda, fotografie, meetrapport, 360 graden foto&apos;s, video en plattegronden.
             </p>
           </div>
+          )}
           <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Energielabel</p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
@@ -307,6 +314,7 @@ export default async function ProposalPage(
           </p>
         </section>
 
+        {promotion && unavailable && <section className="mt-5 rounded-lg border border-gray-200 bg-white p-5"><PromotionSummary value={promotion} /></section>}
         {unavailable ? (
           <section className={`mt-5 rounded-lg border p-5 text-sm ${
             proposal.status === "ACCEPTED" && !expired
@@ -333,6 +341,7 @@ export default async function ProposalPage(
         ) : (
           <div className="mt-5">
             <ProposalChoiceForm
+              promotion={promotion}
               token={token}
               defaultVerkoopstart={verkoopstart}
               defaultStartdatum={dateInputValue(proposal.selectedStartdatum || project.startdatum)}
