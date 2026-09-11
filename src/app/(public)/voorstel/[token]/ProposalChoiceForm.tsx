@@ -390,6 +390,7 @@ export default function ProposalChoiceForm({
                       ["Aanhef", opdrachtgever.aanhef],
                       ["Initialen", opdrachtgever.initialen],
                       ["Voornamen", opdrachtgever.voornamen],
+                      ["Achternaam", opdrachtgever.achternaam],
                       ["Geboortedatum", formatDateNl(opdrachtgever.geboortedatum)],
                       ["E-mail", opdrachtgever.email],
                       ["Telefoon", opdrachtgever.telefoon],
@@ -418,6 +419,10 @@ export default function ProposalChoiceForm({
                     <label className="block">
                       <span className="text-xs font-medium text-gray-600">Voornamen</span>
                       <input value={opdrachtgever.voornamen} onChange={(event) => updateBekendeOpdrachtgever(index, { voornamen: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600">Achternaam</span>
+                      <input value={opdrachtgever.achternaam} onChange={(event) => updateBekendeOpdrachtgever(index, { achternaam: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-700" />
                     </label>
                     <label className="block">
                       <span className="text-xs font-medium text-gray-600">Naam</span>
