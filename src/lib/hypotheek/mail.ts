@@ -80,7 +80,7 @@ export async function processMail(p: MailPayload, search = searchContacts) {
     const data = { messageId: p.messageId, mailbox: email(p.mailbox), status: reden ? "review" : "registered", reden: reden || "Eenduidige doorverwijzing met exact contactgegeven.", onderwerp: (p.subject || "").slice(0, 191), passage: rules.text.slice(0, 1200), afzender: sender[0], ontvangers: recipients, datum: day(datum), adviseurId: matches.length === 1 ? matches[0].id : null, contactVoorstel: candidates as Prisma.InputJsonValue };
     if (p.dryRun)
         return { dryRun: true, ...data };
-    return locked(async (tx) => {
+    try { return await locked(async (tx) => {
         const duplicate = await tx.hypotheekMailEvent.findUnique({ where: { messageId_mailbox: { messageId: p.messageId, mailbox: email(p.mailbox) } } });
         if (duplicate)
             return { event: duplicate, duplicate: true };
@@ -103,4 +103,12 @@ export async function processMail(p: MailPayload, search = searchContacts) {
         }
         return { event: await tx.hypotheekMailEvent.findUniqueOrThrow({ where: { id: event.id } }) };
     });
+    } catch (error) {
+        // The registration transaction has rolled back. Keep a durable review item.
+        return locked(async tx => ({ event: await tx.hypotheekMailEvent.upsert({
+            where: { messageId_mailbox: { messageId: p.messageId, mailbox: email(p.mailbox) } },
+            create: { ...data, status: "review", reden: error instanceof ReferralError ? error.message : "Automatische registratie kon niet worden voltooid. Controleer handmatig." },
+            update: {},
+        }) }));
+    }
 }

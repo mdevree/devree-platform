@@ -57,6 +57,10 @@ test("referral migration and transactional database integration", { skip: proces
         assert.equal("event" in historical && historical.event?.status, "review");
         const ambiguous = await processMail({ ...payload, messageId: "ambiguous", textPlain: "Wil jij een afspraak inplannen met page0@example.test en page1@example.test?" }, noRemote);
         assert.equal("event" in ambiguous && ambiguous.event?.status, "review");
+        const badRemote = async () => ({ total: 1, contacts: [{ id: 9876, firstname: "Test", lastname: "Contact", email: "badphone@example.test", phone: "onbekend", mobile: null, company: null, points: 0, lastActive: null }] });
+        const failed = await processMail({ ...payload, messageId: "registration-conflict", textPlain: "Wil jij een afspraak inplannen met badphone@example.test?" }, badRemote);
+        assert.equal("event" in failed && failed.event?.status, "review");
+        assert.equal(await prisma.lead.count({where:{email:"badphone@example.test"}}),0);
         await prisma.hypotheekInstelling.update({ where: { id: "default" }, data: { automatisch: false } });
         const disabled = await processMail({ ...payload, messageId: "disabled" }, noRemote);
         assert.equal("event" in disabled && disabled.event?.status, "review");
