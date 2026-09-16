@@ -229,3 +229,45 @@ test('HTTP 200 zonder contactbevestiging wordt geen succes en blokkeert geen nie
   assert.equal(harness.count(), 2);
   assert.equal((harness.storage.realworksSyncStatus as { sent: number }).sent, 0);
 });
+
+function interceptedContactSave(body: string | FormData, status = 200) {
+  const messages: { type: string; systemid?: string; fields?: Fields; data?: Fields; isMultipart?: boolean; url?: string }[] = [];
+  class FakeXHR {
+    status = status;
+    responseText = '{}';
+    listeners: (() => void)[] = [];
+    open() {}
+    getResponseHeader() { return 'application/json'; }
+    addEventListener(event: string, listener: () => void) { if (event === 'load') this.listeners.push(listener); }
+    send() { this.listeners.forEach((listener) => listener()); }
+  }
+  const location = { href: 'https://crm.realworks.nl/servlets/objects/rela.person/modify', origin: 'https://crm.realworks.nl' };
+  const window = { XMLHttpRequest: FakeXHR, location, open() {}, postMessage: (message: typeof messages[number]) => messages.push(plain(message)) };
+  vm.runInNewContext(read('browserext/injected.js'), {
+    window, location, document: { addEventListener() {}, title: 'Testrelatie' },
+    HTMLFormElement: class { submit() {} }, URL, URLSearchParams, FormData, Request, Blob, ArrayBuffer,
+  });
+  const xhr = new window.XMLHttpRequest() as FakeXHR & { open: (method: string, url: string) => void; send: (body: string | FormData) => void };
+  xhr.open('POST', '/servlets/objects/rela.person/save');
+  xhr.send(body);
+  return messages.filter((message) => message.type.startsWith('REALWORKS_CONTACT'));
+}
+
+test('XHR-contactsave bewaart originele formuliervelden voordat Mautic-sync start', () => {
+  const fields = { _systemid: '123', rcode: '456', firstname: 'Sync', lastname: 'Test', email: '', field1: '', CSRFToken: 'test-token', sex: '1', sex__MASK: '1;Man|2;Vrouw' };
+  const multipart = new FormData();
+  for (const [key, value] of Object.entries(fields)) multipart.append(key, value);
+  for (const body of [new URLSearchParams(fields).toString(), multipart]) {
+    const messages = interceptedContactSave(body);
+    assert.deepEqual(messages.map((message) => message.type), ['REALWORKS_CONTACT_RAW', 'REALWORKS_CONTACT']);
+    assert.equal(messages[0].systemid, '123');
+    assert.deepEqual(messages[0].fields, fields);
+    assert.equal(messages[0].isMultipart, body instanceof FormData);
+    assert.equal(messages[0].url, '/servlets/objects/rela.person/save');
+    assert.equal(messages[1].data?.sex_label, 'Man');
+  }
+});
+
+test('mislukte XHR-contactsave wordt niet gecachet of gesynchroniseerd', () => {
+  assert.deepEqual(interceptedContactSave('_systemid=123&firstname=Sync', 500), []);
+});

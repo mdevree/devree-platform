@@ -190,6 +190,9 @@ geen bestaand adres. Zie [het contactcontract](../docs/contracts/realworks-conta
 voor identiteit, conflicten, testen en invoering. Herlaad na een update de
 extensie én de Realworks-tab zodat de nieuwe validatie actief wordt.
 
+Versie 1.14 bewaart ook bij een succesvolle XHR-contactsave de originele
+formuliervelden, zodat het Mautic-ID via de wachtrij kan worden teruggeschreven.
+
 ## Traceerbaarheid
 
 De extensie stuurt bij nieuwe payloads metadata mee:

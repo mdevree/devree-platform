@@ -1048,6 +1048,17 @@
               } else {
                 new URLSearchParams(body).forEach((v, k) => { data[k] = v; });
               }
+              // XHR-saves gebruiken dezelfde terugschrijfcache als form-submits.
+              // Bewaar de originele velden voordat afgeleide labels worden toegevoegd.
+              if (data['_systemid']) {
+                window.postMessage({
+                  type: 'REALWORKS_CONTACT_RAW',
+                  systemid: data['_systemid'],
+                  fields: { ...data },
+                  isMultipart: body instanceof FormData,
+                  url: _url,
+                }, '*');
+              }
               for (const [key, value] of Object.entries({ ...data })) {
                 const mask = data[`${key}__MASK`];
                 if (mask && value !== '') data[`${key}_label`] = decodeMask(value, mask);
