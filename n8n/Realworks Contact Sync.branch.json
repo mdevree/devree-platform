@@ -1,0 +1,735 @@
+{
+  "name": "Realworks platform Sync - contact branch",
+  "workflowId": "BXamv0Exk1GFQRE6",
+  "baseVersionId": "a6b1e0ab-c83d-4638-9a09-d5431755b2de",
+  "replacedNames": [
+    "Heeft e-mail?",
+    "Search in Mautic1",
+    "Check if Exists1",
+    "Contact Exists?1",
+    "Create Mautic Contact1",
+    "Update Mautic Contact",
+    "Switch2",
+    "Update Mautic Contact1",
+    "Contact Verwerkt1"
+  ],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "realworks-sync",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d0477c85-9e73-4d96-bba9-e9444e8eabae",
+      "name": "Webhook1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        944
+      ],
+      "webhookId": "a4346361-df9b-4c48-a8a2-8e53f2d7656f"
+    },
+    {
+      "id": "realworks-contact-v2-1",
+      "name": "Valideer relatie",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        944
+      ],
+      "parameters": {
+        "jsCode": "// Shared by the Chrome extension and the generated n8n contact branch.\n// Keep this file free of browser/n8n APIs so the same rules can be tested in Node.\n(function (root) {\n  function text(value) {\n    return typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))\n      ? String(value).trim() : '';\n  }\n\n  function identifier(value) {\n    const valueText = text(value);\n    return /^(0|null|undefined)$/i.test(valueText) ? '' : valueText;\n  }\n\n  function completeEmail(value) {\n    return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(text(value));\n  }\n\n  function contactReasons(contact, realworksPath) {\n    const reasons = [];\n    const email = text(contact.email);\n    const systemid = identifier(contact._systemid) || identifier(contact.systemid);\n    const rcode = identifier(contact.rcode);\n    if (!text(realworksPath).split('?')[0].endsWith('/rela.person/save')) {\n      reasons.push('contact-sync kwam niet van /rela.person/save');\n    }\n    if (email && !completeEmail(email)) reasons.push('contactpayload heeft geen compleet e-mailadres');\n    if (!systemid && !rcode && !completeEmail(email)) reasons.push('contactpayload heeft geen betrouwbare sleutel');\n    if (!email && !text(contact.firstname) && !text(contact.lastname)) {\n      reasons.push('contact zonder e-mailadres heeft geen voornaam of achternaam');\n    }\n    if (text(contact.woning_adres).replace(/\\s/g, '') === ',') {\n      reasons.push('woning_adres bevat alleen een komma');\n    }\n    return reasons;\n  }\n\n  function hashMaterial(realworksPath, contact) {\n    const payload = {};\n    for (const [key, value] of Object.entries(contact)) {\n      if (!['page_url', 'sourceUrl', 'capturedAt', 'traceId', 'payloadHash', '_sync'].includes(key)) {\n        payload[key] = value;\n      }\n    }\n    return { eventType: 'contact.save', realworksPath, payload };\n  }\n\n  function confirmedResponse(response) {\n    return response?.status === 'ok' && Number.isSafeInteger(response.mauticContactId)\n      && response.mauticContactId > 0 && typeof response.matchStrategy === 'string'\n      && response.matchStrategy.length > 0;\n  }\n\n  root.RealworksContactSync = { text, identifier, completeEmail, contactReasons, hashMaterial, confirmedResponse };\n})(globalThis);\n\nconst item = $input.first().json;\nconst body = item.body || {};\nconst reasons = globalThis.RealworksContactSync.contactReasons(body, body._sync?.realworksPath ?? '/rela.person/save');\nif (body._sync?.eventType && body._sync.eventType !== 'contact.save') reasons.push('Onjuist contact-event.');\nif (body.source !== 'realworks') reasons.push('Onbekende bron voor contact-sync.');\nreturn [{json: reasons.length ? {status:'error',statusCode:422,code:'invalid_contact',reason:reasons.join('; ')} : {...item,status:'valid'}}];"
+      }
+    },
+    {
+      "id": "realworks-contact-v2-2",
+      "name": "Relatie geldig?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        944
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Relatie geldig?-condition",
+              "leftValue": "={{ $json.status === 'valid' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "globalThis.mapRealworksContact = function (body) {\n\nconst pick = (...values) => {\n  for (const value of values) {\n    if (value === undefined || value === null) continue;\n    const text = String(value).trim();\n    if (text !== '' && text !== '0') return text;\n  }\n  return '';\n};\n\n// Realworks bewaart het tussenvoegsel apart; Mautic verwacht de volledige achternaam.\nconst fullLastName = (middleName, lastName) => {\n  const prefix = pick(middleName).replace(/\\s+/g, ' ');\n  const surname = pick(lastName).replace(/\\s+/g, ' ');\n  if (!prefix || !surname) return surname;\n  const lowerSurname = surname.toLocaleLowerCase('nl');\n  const lowerPrefix = prefix.toLocaleLowerCase('nl');\n  if (lowerSurname === lowerPrefix || lowerSurname.startsWith(lowerPrefix + ' ')) return surname;\n  return prefix + ' ' + surname;\n};\n\nconst labelFromMask = (value, mask) => {\n  const selected = pick(value);\n  if (!selected || !mask) return '';\n  for (const part of String(mask).split('|')) {\n    const [key, ...labelParts] = part.split(';');\n    const label = labelParts.join(';').trim();\n    if (String(key).trim() === selected && label) return label;\n  }\n  return '';\n};\n\nconst countryMap = { NL: 'Netherlands', BE: 'Belgium', DE: 'Germany' };\n\nconst dateOnly = (...values) => {\n  const value = pick(...values);\n  if (!value) return '';\n  const text = String(value).trim();\n  let match = text.match(/^(\\d{1,2})[-\\/](\\d{1,2})[-\\/](\\d{2,4})$/);\n  if (match) {\n    const [, day, month, rawYear] = match;\n    const year = rawYear.length === 2 ? '19' + rawYear : rawYear;\n    return year.padStart(4, '0') + '-' + month.padStart(2, '0') + '-' + day.padStart(2, '0');\n  }\n  match = text.match(/^(\\d{4})[-\\/](\\d{1,2})[-\\/](\\d{1,2})/);\n  if (match) {\n    const [, year, month, day] = match;\n    return year + '-' + month.padStart(2, '0') + '-' + day.padStart(2, '0');\n  }\n  return text;\n};\n\nconst agreementLabel = pick(\n  body.otd_burgerlijke_staat,\n  body.agreement_label,\n  labelFromMask(body.agreement, body.agreement__MASK),\n  body.burgerlijke_staat,\n  body.marital_status,\n  body.maritalstatus,\n  body.burgstat\n);\n\nreturn [{\n  json: {\n    firstname:             pick(body.firstname),\n    lastname:              fullLastName(body.middlename, body.lastname),\n    email:                 pick(body.email),\n    mobile:                pick(body.mobile),\n    phone:                 pick(body.tel1, body.phone),\n    address1:              [body.hstreet, body.hhouseno, body.hhousenoext].filter(Boolean).join(' ').trim(),\n    address2:              [body.hzipcode, body.hcity].filter(Boolean).join(' ').trim(),\n    zipcode:               pick(body.hzipcode),\n    city:                  pick(body.hcity),\n    country:               countryMap[body.hcountry] || pick(body.hcountry),\n    salutation:            pick(body.saluation, body.salutation, body.title),\n    typerela:              pick(body.rtype),\n    systemid:              pick(body._systemid, body.systemid),\n    realworks_code:        pick(body.rcode),\n    huisnummer:            pick(body.hhouseno),\n    huisnummer_toevoeging: pick(body.hhousenoext, body.hhousenoadd),\n    _mauticContactId:      pick(body.field1),\n    woning_adres:          [body.hstreet, body.hhouseno, body.hzipcode, body.hcity].filter(Boolean).join(' ').trim(),\n    otd_aanhef:            pick(body.otd_aanhef, body.aanhef, body.saluation, body.salutation, body.title),\n    otd_initialen:         pick(body.otd_initialen, body.initials, body.initialen, body.inits, body.voorletters),\n    otd_voornamen:         pick(body.otd_voornamen, body.christianname, body.voornamen, body.firstnames, body.firstname_full),\n    geboortedatum:          dateOnly(body.geboortedatum, body.geboorte_datum, body.birthdate, body.birth_date, body.birthday, body.dateofbirth, body.date_of_birth, body.rbirthdate, body.rbirth_date, body.rdatebirth, body.pbirthdate, body.pbirth_date, body.prbirthdate, body.prbirth_date, body.prdatebirth, body.bdate, body.dob),\n    otd_geboorteplaats:    pick(body.otd_geboorteplaats, body.rbirthcity, body.prbirthcity, body.geboorteplaats, body.birthplace, body.birth_place, body.pobirth),\n    otd_burgerlijke_staat: agreementLabel,\n  }\n}];\n};\n\nreturn globalThis.mapRealworksContact($input.first().json.body || {});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        848
+      ],
+      "id": "9b7f2d1c-dd78-49d5-bb3f-cfdeea5bbda4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "id": "realworks-contact-v2-3",
+      "name": "Bereid contactzoekvragen voor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        944
+      ],
+      "parameters": {
+        "jsCode": "// Pure contact matching. Embedded in n8n by scripts/build-realworks-contact-workflow.mjs.\n(function (root) {\n  const text = (v) => typeof v === 'string' || typeof v === 'number' ? String(v).trim() : '';\n  const id = (v) => Number.isSafeInteger(Number(v)) && Number(v) > 0 ? Number(v) : null;\n  const name = (v) => text(v).normalize('NFKC').toLocaleLowerCase('nl').replace(/\\s+/g, ' ');\n  const fail = (code, reason, statusCode = 409) => ({ status: 'error', code, reason, statusCode });\n  const fields = (contact) => contact?.fields?.all || {};\n\n  function identityConflict(mapped, contact) {\n    const existing = fields(contact);\n    return ['realworks_code', 'systemid'].some((key) =>\n      text(mapped[key]) && text(existing[key]) && text(mapped[key]) !== text(existing[key]));\n  }\n\n  function lookupRequests(mapped) {\n    const queries = [];\n    for (const kind of ['realworks_code', 'systemid', 'email']) {\n      if (!text(mapped[kind])) continue;\n      const value = kind === 'email' ? text(mapped[kind]).toLowerCase() : text(mapped[kind]);\n      const query = `where[0][col]=${kind}&where[0][expr]=eq&where[0][val]=${encodeURIComponent(value)}&limit=2`;\n      queries.push({ kind, value, url: `https://connect.devreemakelaardij.nl/api/contacts?${query}` });\n    }\n    if (id(mapped._mauticContactId)) {\n      queries.push({ kind: 'field1', value: String(id(mapped._mauticContactId)),\n        url: `https://connect.devreemakelaardij.nl/api/contacts/${id(mapped._mauticContactId)}` });\n    }\n    return queries;\n  }\n\n  function resolveContact(mapped, responses, allowedFields) {\n    const expected = lookupRequests(mapped);\n    if (!expected.length || responses.length !== expected.length) {\n      return fail('lookup_failed', 'Contactcontrole gaf geen volledig antwoord.', 502);\n    }\n    const hits = {};\n    for (let index = 0; index < expected.length; index++) {\n      const query = expected[index];\n      const response = responses[index];\n      if (response?.statusCode === 404 && query.kind === 'field1') continue;\n      if (!response || response.error || !Number.isInteger(response.statusCode) || response.statusCode < 200 || response.statusCode >= 300 || !response.body) {\n        return fail('lookup_failed', 'Mautic-contactcontrole mislukt; er is niets aangemaakt.', 502);\n      }\n      let contacts;\n      if (query.kind === 'field1') {\n        contacts = response.body.contact ? [response.body.contact] : null;\n      } else {\n        if (!response.body.contacts || typeof response.body.contacts !== 'object'\n          || !Number.isInteger(Number(response.body.total))) {\n          return fail('lookup_failed', 'Mautic-contactcontrole gaf een ongeldig antwoord.', 502);\n        }\n        contacts = Object.values(response.body.contacts);\n        const total = Number(response.body.total);\n        if (total > 1 || contacts.length > 1) return fail('ambiguous_identity', 'Meerdere Mautic-contacten hebben dezelfde identificatie.');\n        if (total !== contacts.length) return fail('lookup_failed', 'Mautic-contactcontrole is onvolledig.', 502);\n      }\n      if (!contacts || contacts.some((c) => !id(c.id) || !c.fields?.all)) {\n        return fail('lookup_failed', 'Mautic-contactcontrole mist contactgegevens.', 502);\n      }\n      const contact = contacts[0];\n      if (!contact) continue;\n      const returnedValue = query.kind === 'field1' ? String(contact.id) : text(fields(contact)[query.kind]);\n      if ((query.kind === 'email' ? returnedValue.toLowerCase() : returnedValue) !== query.value) {\n        return fail('lookup_failed', 'Mautic-contactcontrole leverde geen exacte overeenkomst.', 502);\n      }\n      hits[query.kind] = contact;\n    }\n\n    const stableHits = [hits.realworks_code, hits.systemid].filter(Boolean);\n    if (new Set(stableHits.map((c) => id(c.id))).size > 1) {\n      return fail('conflicting_identity', 'Realworks-relatiecode en systeem-ID wijzen naar verschillende contacten.');\n    }\n    let target = stableHits[0] || hits.field1;\n    let strategy = hits.realworks_code ? 'realworks_code' : hits.systemid ? 'systemid' : hits.field1 ? 'mautic_id' : 'new';\n    if (hits.field1 && target && id(hits.field1.id) !== id(target.id)) {\n      return fail('conflicting_identity', 'Het Mautic-ID in Realworks hoort bij een ander contact.');\n    }\n    if (id(mapped._mauticContactId) && !hits.field1 && !stableHits.length) {\n      return fail('stale_mautic_id', 'Het Mautic-ID bestaat niet en er is geen eenduidige Realworks-match.');\n    }\n    if (target && identityConflict(mapped, target)) {\n      return fail('conflicting_identity', 'Het gevonden contact heeft een andere Realworks-identificatie.');\n    }\n    if (hits.email && target && id(hits.email.id) !== id(target.id)) {\n      return fail('email_in_use', 'Dit e-mailadres hoort al bij een ander Mautic-contact.');\n    }\n    if (!target && hits.email) {\n      const candidate = hits.email;\n      const existing = fields(candidate);\n      if (identityConflict(mapped, candidate) || ['firstname', 'lastname'].some((key) =>\n        name(mapped[key]) && name(existing[key]) && name(mapped[key]) !== name(existing[key]))) {\n        return fail('email_identity_conflict', 'Het contact met dit e-mailadres heeft een andere naam of Realworks-identificatie.');\n      }\n      target = candidate;\n      strategy = 'email';\n    }\n\n    const writeFields = {};\n    for (const key of allowedFields) {\n      if (mapped[key] === undefined || mapped[key] === null || !text(mapped[key])) continue;\n      writeFields[key] = key === 'email' ? text(mapped[key]).toLowerCase() : mapped[key];\n    }\n    return { status: 'ready', statusCode: 200, matchStrategy: strategy, mapped, fields: writeFields,\n      mauticContactId: target ? id(target.id) : null,\n      method: target ? 'PATCH' : 'POST',\n      url: target ? `https://connect.devreemakelaardij.nl/api/contacts/${id(target.id)}/edit`\n        : 'https://connect.devreemakelaardij.nl/api/contacts/new' };\n  }\n\n  function checkWrite(response, plan) {\n    if (!response || response.error || !Number.isInteger(response.statusCode) || response.statusCode < 200 || response.statusCode >= 300\n      || !id(response.body?.contact?.id)) {\n      return fail('write_failed', 'Mautic kon het contact niet opslaan; probeer opnieuw.', 502);\n    }\n    const contactId = id(response.body.contact.id);\n    if (plan.mauticContactId && contactId !== plan.mauticContactId) {\n      return fail('unexpected_contact', 'Mautic gaf een onverwacht contact-ID terug.', 502);\n    }\n    return { ...plan, status: 'written', mauticContactId: contactId,\n      url: `https://connect.devreemakelaardij.nl/api/contacts/${contactId}` };\n  }\n\n  function verifyContact(response, written) {\n    if (!response || response.error || response.statusCode !== 200\n      || id(response.body?.contact?.id) !== written.mauticContactId) {\n      return fail('verification_failed', 'Het opgeslagen contact kon niet worden teruggelezen.', 502);\n    }\n    const actual = fields(response.body.contact);\n    for (const key of ['realworks_code', 'systemid', 'email', 'firstname', 'lastname']) {\n      if (text(written.fields[key]) && text(actual[key]) !== text(written.fields[key])) {\n        return fail('verification_failed', 'De teruggelezen contactgegevens komen niet overeen met de opgeslagen gegevens.', 502);\n      }\n    }\n    return { status: 'ok', statusCode: 200, id: written.mauticContactId,\n      mauticContactId: written.mauticContactId, matchStrategy: written.matchStrategy,\n      needsWriteBack: Boolean(text(written.mapped.systemid) && id(written.mapped._mauticContactId) !== written.mauticContactId) };\n  }\n\n  root.RealworksContactMatching = { lookupRequests, resolveContact, checkWrite, verifyContact };\n})(globalThis);\n\nreturn globalThis.RealworksContactMatching.lookupRequests($input.first().json).map(json => ({json}));"
+      }
+    },
+    {
+      "id": "realworks-contact-v2-4",
+      "name": "Zoek exacte Mautic-identiteit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        944
+      ],
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mauticOAuth2Api",
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "realworks-contact-v2-5",
+      "name": "Beslis contactkoppeling",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        944
+      ],
+      "parameters": {
+        "jsCode": "// Pure contact matching. Embedded in n8n by scripts/build-realworks-contact-workflow.mjs.\n(function (root) {\n  const text = (v) => typeof v === 'string' || typeof v === 'number' ? String(v).trim() : '';\n  const id = (v) => Number.isSafeInteger(Number(v)) && Number(v) > 0 ? Number(v) : null;\n  const name = (v) => text(v).normalize('NFKC').toLocaleLowerCase('nl').replace(/\\s+/g, ' ');\n  const fail = (code, reason, statusCode = 409) => ({ status: 'error', code, reason, statusCode });\n  const fields = (contact) => contact?.fields?.all || {};\n\n  function identityConflict(mapped, contact) {\n    const existing = fields(contact);\n    return ['realworks_code', 'systemid'].some((key) =>\n      text(mapped[key]) && text(existing[key]) && text(mapped[key]) !== text(existing[key]));\n  }\n\n  function lookupRequests(mapped) {\n    const queries = [];\n    for (const kind of ['realworks_code', 'systemid', 'email']) {\n      if (!text(mapped[kind])) continue;\n      const value = kind === 'email' ? text(mapped[kind]).toLowerCase() : text(mapped[kind]);\n      const query = `where[0][col]=${kind}&where[0][expr]=eq&where[0][val]=${encodeURIComponent(value)}&limit=2`;\n      queries.push({ kind, value, url: `https://connect.devreemakelaardij.nl/api/contacts?${query}` });\n    }\n    if (id(mapped._mauticContactId)) {\n      queries.push({ kind: 'field1', value: String(id(mapped._mauticContactId)),\n        url: `https://connect.devreemakelaardij.nl/api/contacts/${id(mapped._mauticContactId)}` });\n    }\n    return queries;\n  }\n\n  function resolveContact(mapped, responses, allowedFields) {\n    const expected = lookupRequests(mapped);\n    if (!expected.length || responses.length !== expected.length) {\n      return fail('lookup_failed', 'Contactcontrole gaf geen volledig antwoord.', 502);\n    }\n    const hits = {};\n    for (let index = 0; index < expected.length; index++) {\n      const query = expected[index];\n      const response = responses[index];\n      if (response?.statusCode === 404 && query.kind === 'field1') continue;\n      if (!response || response.error || !Number.isInteger(response.statusCode) || response.statusCode < 200 || response.statusCode >= 300 || !response.body) {\n        return fail('lookup_failed', 'Mautic-contactcontrole mislukt; er is niets aangemaakt.', 502);\n      }\n      let contacts;\n      if (query.kind === 'field1') {\n        contacts = response.body.contact ? [response.body.contact] : null;\n      } else {\n        if (!response.body.contacts || typeof response.body.contacts !== 'object'\n          || !Number.isInteger(Number(response.body.total))) {\n          return fail('lookup_failed', 'Mautic-contactcontrole gaf een ongeldig antwoord.', 502);\n        }\n        contacts = Object.values(response.body.contacts);\n        const total = Number(response.body.total);\n        if (total > 1 || contacts.length > 1) return fail('ambiguous_identity', 'Meerdere Mautic-contacten hebben dezelfde identificatie.');\n        if (total !== contacts.length) return fail('lookup_failed', 'Mautic-contactcontrole is onvolledig.', 502);\n      }\n      if (!contacts || contacts.some((c) => !id(c.id) || !c.fields?.all)) {\n        return fail('lookup_failed', 'Mautic-contactcontrole mist contactgegevens.', 502);\n      }\n      const contact = contacts[0];\n      if (!contact) continue;\n      const returnedValue = query.kind === 'field1' ? String(contact.id) : text(fields(contact)[query.kind]);\n      if ((query.kind === 'email' ? returnedValue.toLowerCase() : returnedValue) !== query.value) {\n        return fail('lookup_failed', 'Mautic-contactcontrole leverde geen exacte overeenkomst.', 502);\n      }\n      hits[query.kind] = contact;\n    }\n\n    const stableHits = [hits.realworks_code, hits.systemid].filter(Boolean);\n    if (new Set(stableHits.map((c) => id(c.id))).size > 1) {\n      return fail('conflicting_identity', 'Realworks-relatiecode en systeem-ID wijzen naar verschillende contacten.');\n    }\n    let target = stableHits[0] || hits.field1;\n    let strategy = hits.realworks_code ? 'realworks_code' : hits.systemid ? 'systemid' : hits.field1 ? 'mautic_id' : 'new';\n    if (hits.field1 && target && id(hits.field1.id) !== id(target.id)) {\n      return fail('conflicting_identity', 'Het Mautic-ID in Realworks hoort bij een ander contact.');\n    }\n    if (id(mapped._mauticContactId) && !hits.field1 && !stableHits.length) {\n      return fail('stale_mautic_id', 'Het Mautic-ID bestaat niet en er is geen eenduidige Realworks-match.');\n    }\n    if (target && identityConflict(mapped, target)) {\n      return fail('conflicting_identity', 'Het gevonden contact heeft een andere Realworks-identificatie.');\n    }\n    if (hits.email && target && id(hits.email.id) !== id(target.id)) {\n      return fail('email_in_use', 'Dit e-mailadres hoort al bij een ander Mautic-contact.');\n    }\n    if (!target && hits.email) {\n      const candidate = hits.email;\n      const existing = fields(candidate);\n      if (identityConflict(mapped, candidate) || ['firstname', 'lastname'].some((key) =>\n        name(mapped[key]) && name(existing[key]) && name(mapped[key]) !== name(existing[key]))) {\n        return fail('email_identity_conflict', 'Het contact met dit e-mailadres heeft een andere naam of Realworks-identificatie.');\n      }\n      target = candidate;\n      strategy = 'email';\n    }\n\n    const writeFields = {};\n    for (const key of allowedFields) {\n      if (mapped[key] === undefined || mapped[key] === null || !text(mapped[key])) continue;\n      writeFields[key] = key === 'email' ? text(mapped[key]).toLowerCase() : mapped[key];\n    }\n    return { status: 'ready', statusCode: 200, matchStrategy: strategy, mapped, fields: writeFields,\n      mauticContactId: target ? id(target.id) : null,\n      method: target ? 'PATCH' : 'POST',\n      url: target ? `https://connect.devreemakelaardij.nl/api/contacts/${id(target.id)}/edit`\n        : 'https://connect.devreemakelaardij.nl/api/contacts/new' };\n  }\n\n  function checkWrite(response, plan) {\n    if (!response || response.error || !Number.isInteger(response.statusCode) || response.statusCode < 200 || response.statusCode >= 300\n      || !id(response.body?.contact?.id)) {\n      return fail('write_failed', 'Mautic kon het contact niet opslaan; probeer opnieuw.', 502);\n    }\n    const contactId = id(response.body.contact.id);\n    if (plan.mauticContactId && contactId !== plan.mauticContactId) {\n      return fail('unexpected_contact', 'Mautic gaf een onverwacht contact-ID terug.', 502);\n    }\n    return { ...plan, status: 'written', mauticContactId: contactId,\n      url: `https://connect.devreemakelaardij.nl/api/contacts/${contactId}` };\n  }\n\n  function verifyContact(response, written) {\n    if (!response || response.error || response.statusCode !== 200\n      || id(response.body?.contact?.id) !== written.mauticContactId) {\n      return fail('verification_failed', 'Het opgeslagen contact kon niet worden teruggelezen.', 502);\n    }\n    const actual = fields(response.body.contact);\n    for (const key of ['realworks_code', 'systemid', 'email', 'firstname', 'lastname']) {\n      if (text(written.fields[key]) && text(actual[key]) !== text(written.fields[key])) {\n        return fail('verification_failed', 'De teruggelezen contactgegevens komen niet overeen met de opgeslagen gegevens.', 502);\n      }\n    }\n    return { status: 'ok', statusCode: 200, id: written.mauticContactId,\n      mauticContactId: written.mauticContactId, matchStrategy: written.matchStrategy,\n      needsWriteBack: Boolean(text(written.mapped.systemid) && id(written.mapped._mauticContactId) !== written.mauticContactId) };\n  }\n\n  root.RealworksContactMatching = { lookupRequests, resolveContact, checkWrite, verifyContact };\n})(globalThis);\n\nreturn [{json: globalThis.RealworksContactMatching.resolveContact($('Code in JavaScript').first().json, $input.all().map(i=>i.json), [\"firstname\",\"lastname\",\"email\",\"mobile\",\"phone\",\"address1\",\"address2\",\"city\",\"country\",\"zipcode\",\"systemid\",\"realworks_code\",\"huisnummer\",\"huisnummer_toevoeging\",\"woning_adres\",\"contact_type_koper\",\"contact_type_verkoper\",\"contact_type_zoeker\",\"contact_type_bezichtiger\",\"laatste_transactie_jaar\",\"transactie_jaren\",\"segment_prioriteit\",\"campagne_oudklanten\",\"intentie_verkoop\",\"otd_aanhef\",\"otd_initialen\",\"otd_voornamen\",\"geboortedatum\",\"otd_geboorteplaats\",\"otd_burgerlijke_staat\"])}];"
+      }
+    },
+    {
+      "id": "realworks-contact-v2-6",
+      "name": "Contact veilig te bewaren?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        944
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Contact veilig te bewaren?-condition",
+              "leftValue": "={{ $json.status === 'ready' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "realworks-contact-v2-7",
+      "name": "Bewaar Mautic-contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        944
+      ],
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mauticOAuth2Api",
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.fields) }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "realworks-contact-v2-8",
+      "name": "Controleer opslagantwoord",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        944
+      ],
+      "parameters": {
+        "jsCode": "// Pure contact matching. Embedded in n8n by scripts/build-realworks-contact-workflow.mjs.\n(function (root) {\n  const text = (v) => typeof v === 'string' || typeof v === 'number' ? String(v).trim() : '';\n  const id = (v) => Number.isSafeInteger(Number(v)) && Number(v) > 0 ? Number(v) : null;\n  const name = (v) => text(v).normalize('NFKC').toLocaleLowerCase('nl').replace(/\\s+/g, ' ');\n  const fail = (code, reason, statusCode = 409) => ({ status: 'error', code, reason, statusCode });\n  const fields = (contact) => contact?.fields?.all || {};\n\n  function identityConflict(mapped, contact) {\n    const existing = fields(contact);\n    return ['realworks_code', 'systemid'].some((key) =>\n      text(mapped[key]) && text(existing[key]) && text(mapped[key]) !== text(existing[key]));\n  }\n\n  function lookupRequests(mapped) {\n    const queries = [];\n    for (const kind of ['realworks_code', 'systemid', 'email']) {\n      if (!text(mapped[kind])) continue;\n      const value = kind === 'email' ? text(mapped[kind]).toLowerCase() : text(mapped[kind]);\n      const query = `where[0][col]=${kind}&where[0][expr]=eq&where[0][val]=${encodeURIComponent(value)}&limit=2`;\n      queries.push({ kind, value, url: `https://connect.devreemakelaardij.nl/api/contacts?${query}` });\n    }\n    if (id(mapped._mauticContactId)) {\n      queries.push({ kind: 'field1', value: String(id(mapped._mauticContactId)),\n        url: `https://connect.devreemakelaardij.nl/api/contacts/${id(mapped._mauticContactId)}` });\n    }\n    return queries;\n  }\n\n  function resolveContact(mapped, responses, allowedFields) {\n    const expected = lookupRequests(mapped);\n    if (!expected.length || responses.length !== expected.length) {\n      return fail('lookup_failed', 'Contactcontrole gaf geen volledig antwoord.', 502);\n    }\n    const hits = {};\n    for (let index = 0; index < expected.length; index++) {\n      const query = expected[index];\n      const response = responses[index];\n      if (response?.statusCode === 404 && query.kind === 'field1') continue;\n      if (!response || response.error || !Number.isInteger(response.statusCode) || response.statusCode < 200 || response.statusCode >= 300 || !response.body) {\n        return fail('lookup_failed', 'Mautic-contactcontrole mislukt; er is niets aangemaakt.', 502);\n      }\n      let contacts;\n      if (query.kind === 'field1') {\n        contacts = response.body.contact ? [response.body.contact] : null;\n      } else {\n        if (!response.body.contacts || typeof response.body.contacts !== 'object'\n          || !Number.isInteger(Number(response.body.total))) {\n          return fail('lookup_failed', 'Mautic-contactcontrole gaf een ongeldig antwoord.', 502);\n        }\n        contacts = Object.values(response.body.contacts);\n        const total = Number(response.body.total);\n        if (total > 1 || contacts.length > 1) return fail('ambiguous_identity', 'Meerdere Mautic-contacten hebben dezelfde identificatie.');\n        if (total !== contacts.length) return fail('lookup_failed', 'Mautic-contactcontrole is onvolledig.', 502);\n      }\n      if (!contacts || contacts.some((c) => !id(c.id) || !c.fields?.all)) {\n        return fail('lookup_failed', 'Mautic-contactcontrole mist contactgegevens.', 502);\n      }\n      const contact = contacts[0];\n      if (!contact) continue;\n      const returnedValue = query.kind === 'field1' ? String(contact.id) : text(fields(contact)[query.kind]);\n      if ((query.kind === 'email' ? returnedValue.toLowerCase() : returnedValue) !== query.value) {\n        return fail('lookup_failed', 'Mautic-contactcontrole leverde geen exacte overeenkomst.', 502);\n      }\n      hits[query.kind] = contact;\n    }\n\n    const stableHits = [hits.realworks_code, hits.systemid].filter(Boolean);\n    if (new Set(stableHits.map((c) => id(c.id))).size > 1) {\n      return fail('conflicting_identity', 'Realworks-relatiecode en systeem-ID wijzen naar verschillende contacten.');\n    }\n    let target = stableHits[0] || hits.field1;\n    let strategy = hits.realworks_code ? 'realworks_code' : hits.systemid ? 'systemid' : hits.field1 ? 'mautic_id' : 'new';\n    if (hits.field1 && target && id(hits.field1.id) !== id(target.id)) {\n      return fail('conflicting_identity', 'Het Mautic-ID in Realworks hoort bij een ander contact.');\n    }\n    if (id(mapped._mauticContactId) && !hits.field1 && !stableHits.length) {\n      return fail('stale_mautic_id', 'Het Mautic-ID bestaat niet en er is geen eenduidige Realworks-match.');\n    }\n    if (target && identityConflict(mapped, target)) {\n      return fail('conflicting_identity', 'Het gevonden contact heeft een andere Realworks-identificatie.');\n    }\n    if (hits.email && target && id(hits.email.id) !== id(target.id)) {\n      return fail('email_in_use', 'Dit e-mailadres hoort al bij een ander Mautic-contact.');\n    }\n    if (!target && hits.email) {\n      const candidate = hits.email;\n      const existing = fields(candidate);\n      if (identityConflict(mapped, candidate) || ['firstname', 'lastname'].some((key) =>\n        name(mapped[key]) && name(existing[key]) && name(mapped[key]) !== name(existing[key]))) {\n        return fail('email_identity_conflict', 'Het contact met dit e-mailadres heeft een andere naam of Realworks-identificatie.');\n      }\n      target = candidate;\n      strategy = 'email';\n    }\n\n    const writeFields = {};\n    for (const key of allowedFields) {\n      if (mapped[key] === undefined || mapped[key] === null || !text(mapped[key])) continue;\n      writeFields[key] = key === 'email' ? text(mapped[key]).toLowerCase() : mapped[key];\n    }\n    return { status: 'ready', statusCode: 200, matchStrategy: strategy, mapped, fields: writeFields,\n      mauticContactId: target ? id(target.id) : null,\n      method: target ? 'PATCH' : 'POST',\n      url: target ? `https://connect.devreemakelaardij.nl/api/contacts/${id(target.id)}/edit`\n        : 'https://connect.devreemakelaardij.nl/api/contacts/new' };\n  }\n\n  function checkWrite(response, plan) {\n    if (!response || response.error || !Number.isInteger(response.statusCode) || response.statusCode < 200 || response.statusCode >= 300\n      || !id(response.body?.contact?.id)) {\n      return fail('write_failed', 'Mautic kon het contact niet opslaan; probeer opnieuw.', 502);\n    }\n    const contactId = id(response.body.contact.id);\n    if (plan.mauticContactId && contactId !== plan.mauticContactId) {\n      return fail('unexpected_contact', 'Mautic gaf een onverwacht contact-ID terug.', 502);\n    }\n    return { ...plan, status: 'written', mauticContactId: contactId,\n      url: `https://connect.devreemakelaardij.nl/api/contacts/${contactId}` };\n  }\n\n  function verifyContact(response, written) {\n    if (!response || response.error || response.statusCode !== 200\n      || id(response.body?.contact?.id) !== written.mauticContactId) {\n      return fail('verification_failed', 'Het opgeslagen contact kon niet worden teruggelezen.', 502);\n    }\n    const actual = fields(response.body.contact);\n    for (const key of ['realworks_code', 'systemid', 'email', 'firstname', 'lastname']) {\n      if (text(written.fields[key]) && text(actual[key]) !== text(written.fields[key])) {\n        return fail('verification_failed', 'De teruggelezen contactgegevens komen niet overeen met de opgeslagen gegevens.', 502);\n      }\n    }\n    return { status: 'ok', statusCode: 200, id: written.mauticContactId,\n      mauticContactId: written.mauticContactId, matchStrategy: written.matchStrategy,\n      needsWriteBack: Boolean(text(written.mapped.systemid) && id(written.mapped._mauticContactId) !== written.mauticContactId) };\n  }\n\n  root.RealworksContactMatching = { lookupRequests, resolveContact, checkWrite, verifyContact };\n})(globalThis);\n\nreturn [{json: globalThis.RealworksContactMatching.checkWrite($input.first().json, $('Beslis contactkoppeling').first().json)}];"
+      }
+    },
+    {
+      "id": "realworks-contact-v2-9",
+      "name": "Contact opgeslagen?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1800,
+        944
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Contact opgeslagen?-condition",
+              "leftValue": "={{ $json.status === 'written' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "realworks-contact-v2-10",
+      "name": "Lees opgeslagen Mautic-contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        944
+      ],
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mauticOAuth2Api",
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "mauticOAuth2Api": {
+          "id": "cM1cWckWqxTr8y3V",
+          "name": "Mautic account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "realworks-contact-v2-11",
+      "name": "Bevestig opgeslagen contact",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        944
+      ],
+      "parameters": {
+        "jsCode": "// Pure contact matching. Embedded in n8n by scripts/build-realworks-contact-workflow.mjs.\n(function (root) {\n  const text = (v) => typeof v === 'string' || typeof v === 'number' ? String(v).trim() : '';\n  const id = (v) => Number.isSafeInteger(Number(v)) && Number(v) > 0 ? Number(v) : null;\n  const name = (v) => text(v).normalize('NFKC').toLocaleLowerCase('nl').replace(/\\s+/g, ' ');\n  const fail = (code, reason, statusCode = 409) => ({ status: 'error', code, reason, statusCode });\n  const fields = (contact) => contact?.fields?.all || {};\n\n  function identityConflict(mapped, contact) {\n    const existing = fields(contact);\n    return ['realworks_code', 'systemid'].some((key) =>\n      text(mapped[key]) && text(existing[key]) && text(mapped[key]) !== text(existing[key]));\n  }\n\n  function lookupRequests(mapped) {\n    const queries = [];\n    for (const kind of ['realworks_code', 'systemid', 'email']) {\n      if (!text(mapped[kind])) continue;\n      const value = kind === 'email' ? text(mapped[kind]).toLowerCase() : text(mapped[kind]);\n      const query = `where[0][col]=${kind}&where[0][expr]=eq&where[0][val]=${encodeURIComponent(value)}&limit=2`;\n      queries.push({ kind, value, url: `https://connect.devreemakelaardij.nl/api/contacts?${query}` });\n    }\n    if (id(mapped._mauticContactId)) {\n      queries.push({ kind: 'field1', value: String(id(mapped._mauticContactId)),\n        url: `https://connect.devreemakelaardij.nl/api/contacts/${id(mapped._mauticContactId)}` });\n    }\n    return queries;\n  }\n\n  function resolveContact(mapped, responses, allowedFields) {\n    const expected = lookupRequests(mapped);\n    if (!expected.length || responses.length !== expected.length) {\n      return fail('lookup_failed', 'Contactcontrole gaf geen volledig antwoord.', 502);\n    }\n    const hits = {};\n    for (let index = 0; index < expected.length; index++) {\n      const query = expected[index];\n      const response = responses[index];\n      if (response?.statusCode === 404 && query.kind === 'field1') continue;\n      if (!response || response.error || !Number.isInteger(response.statusCode) || response.statusCode < 200 || response.statusCode >= 300 || !response.body) {\n        return fail('lookup_failed', 'Mautic-contactcontrole mislukt; er is niets aangemaakt.', 502);\n      }\n      let contacts;\n      if (query.kind === 'field1') {\n        contacts = response.body.contact ? [response.body.contact] : null;\n      } else {\n        if (!response.body.contacts || typeof response.body.contacts !== 'object'\n          || !Number.isInteger(Number(response.body.total))) {\n          return fail('lookup_failed', 'Mautic-contactcontrole gaf een ongeldig antwoord.', 502);\n        }\n        contacts = Object.values(response.body.contacts);\n        const total = Number(response.body.total);\n        if (total > 1 || contacts.length > 1) return fail('ambiguous_identity', 'Meerdere Mautic-contacten hebben dezelfde identificatie.');\n        if (total !== contacts.length) return fail('lookup_failed', 'Mautic-contactcontrole is onvolledig.', 502);\n      }\n      if (!contacts || contacts.some((c) => !id(c.id) || !c.fields?.all)) {\n        return fail('lookup_failed', 'Mautic-contactcontrole mist contactgegevens.', 502);\n      }\n      const contact = contacts[0];\n      if (!contact) continue;\n      const returnedValue = query.kind === 'field1' ? String(contact.id) : text(fields(contact)[query.kind]);\n      if ((query.kind === 'email' ? returnedValue.toLowerCase() : returnedValue) !== query.value) {\n        return fail('lookup_failed', 'Mautic-contactcontrole leverde geen exacte overeenkomst.', 502);\n      }\n      hits[query.kind] = contact;\n    }\n\n    const stableHits = [hits.realworks_code, hits.systemid].filter(Boolean);\n    if (new Set(stableHits.map((c) => id(c.id))).size > 1) {\n      return fail('conflicting_identity', 'Realworks-relatiecode en systeem-ID wijzen naar verschillende contacten.');\n    }\n    let target = stableHits[0] || hits.field1;\n    let strategy = hits.realworks_code ? 'realworks_code' : hits.systemid ? 'systemid' : hits.field1 ? 'mautic_id' : 'new';\n    if (hits.field1 && target && id(hits.field1.id) !== id(target.id)) {\n      return fail('conflicting_identity', 'Het Mautic-ID in Realworks hoort bij een ander contact.');\n    }\n    if (id(mapped._mauticContactId) && !hits.field1 && !stableHits.length) {\n      return fail('stale_mautic_id', 'Het Mautic-ID bestaat niet en er is geen eenduidige Realworks-match.');\n    }\n    if (target && identityConflict(mapped, target)) {\n      return fail('conflicting_identity', 'Het gevonden contact heeft een andere Realworks-identificatie.');\n    }\n    if (hits.email && target && id(hits.email.id) !== id(target.id)) {\n      return fail('email_in_use', 'Dit e-mailadres hoort al bij een ander Mautic-contact.');\n    }\n    if (!target && hits.email) {\n      const candidate = hits.email;\n      const existing = fields(candidate);\n      if (identityConflict(mapped, candidate) || ['firstname', 'lastname'].some((key) =>\n        name(mapped[key]) && name(existing[key]) && name(mapped[key]) !== name(existing[key]))) {\n        return fail('email_identity_conflict', 'Het contact met dit e-mailadres heeft een andere naam of Realworks-identificatie.');\n      }\n      target = candidate;\n      strategy = 'email';\n    }\n\n    const writeFields = {};\n    for (const key of allowedFields) {\n      if (mapped[key] === undefined || mapped[key] === null || !text(mapped[key])) continue;\n      writeFields[key] = key === 'email' ? text(mapped[key]).toLowerCase() : mapped[key];\n    }\n    return { status: 'ready', statusCode: 200, matchStrategy: strategy, mapped, fields: writeFields,\n      mauticContactId: target ? id(target.id) : null,\n      method: target ? 'PATCH' : 'POST',\n      url: target ? `https://connect.devreemakelaardij.nl/api/contacts/${id(target.id)}/edit`\n        : 'https://connect.devreemakelaardij.nl/api/contacts/new' };\n  }\n\n  function checkWrite(response, plan) {\n    if (!response || response.error || !Number.isInteger(response.statusCode) || response.statusCode < 200 || response.statusCode >= 300\n      || !id(response.body?.contact?.id)) {\n      return fail('write_failed', 'Mautic kon het contact niet opslaan; probeer opnieuw.', 502);\n    }\n    const contactId = id(response.body.contact.id);\n    if (plan.mauticContactId && contactId !== plan.mauticContactId) {\n      return fail('unexpected_contact', 'Mautic gaf een onverwacht contact-ID terug.', 502);\n    }\n    return { ...plan, status: 'written', mauticContactId: contactId,\n      url: `https://connect.devreemakelaardij.nl/api/contacts/${contactId}` };\n  }\n\n  function verifyContact(response, written) {\n    if (!response || response.error || response.statusCode !== 200\n      || id(response.body?.contact?.id) !== written.mauticContactId) {\n      return fail('verification_failed', 'Het opgeslagen contact kon niet worden teruggelezen.', 502);\n    }\n    const actual = fields(response.body.contact);\n    for (const key of ['realworks_code', 'systemid', 'email', 'firstname', 'lastname']) {\n      if (text(written.fields[key]) && text(actual[key]) !== text(written.fields[key])) {\n        return fail('verification_failed', 'De teruggelezen contactgegevens komen niet overeen met de opgeslagen gegevens.', 502);\n      }\n    }\n    return { status: 'ok', statusCode: 200, id: written.mauticContactId,\n      mauticContactId: written.mauticContactId, matchStrategy: written.matchStrategy,\n      needsWriteBack: Boolean(text(written.mapped.systemid) && id(written.mapped._mauticContactId) !== written.mauticContactId) };\n  }\n\n  root.RealworksContactMatching = { lookupRequests, resolveContact, checkWrite, verifyContact };\n})(globalThis);\n\nreturn [{json: globalThis.RealworksContactMatching.verifyContact($input.first().json, $('Controleer opslagantwoord').first().json)}];"
+      }
+    },
+    {
+      "id": "realworks-contact-v2-12",
+      "name": "Contact bevestigd?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2400,
+        944
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Contact bevestigd?-condition",
+              "leftValue": "={{ $json.status === 'ok' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "55817b47-ae47-41d8-9189-45c86e465154",
+      "name": "Heeft systemid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2600,
+        944
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Heeft systemid?-condition",
+              "leftValue": "={{ $json.needsWriteBack === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kantoor.devreemakelaardij.nl/api/realworks-tasks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "__PRESERVE_SERVER_HEADER__"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ taskType: 'write_field', realworksRelationId: String($('Code in JavaScript').first().json.systemid), fieldName: 'field1', fieldValue: String($json.id) }) }}",
+        "options": {}
+      },
+      "id": "64e6148e-b0ec-492e-8740-b90d8ee9f7cf",
+      "name": "Schrijf naar Realworks Queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        992,
+        1264
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "realworks-contact-v2-14",
+      "name": "Controleer terugschrijftaak",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        944
+      ],
+      "parameters": {
+        "jsCode": "const result=$input.first().json;\nreturn [{json: result.success === true && result.task?.id ? {status:'queued'} : {status:'error',statusCode:502,code:'writeback_failed',reason:'Het contact is opgeslagen, maar het terugschrijven naar Realworks is niet bevestigd. Opnieuw opslaan probeert dit opnieuw.'}}];"
+      }
+    },
+    {
+      "id": "realworks-contact-v2-15",
+      "name": "Terugschrijftaak bevestigd?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3000,
+        944
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Terugschrijftaak bevestigd?-condition",
+              "leftValue": "={{ $json.status === 'queued' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($(\"Bevestig opgeslagen contact\").first().json) }}",
+        "options": {}
+      },
+      "id": "617d5b1a-b38d-4059-8f9b-e5dd11e9ed78",
+      "name": "Respond1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        832
+      ]
+    },
+    {
+      "id": "realworks-contact-v2-16",
+      "name": "Respond Contactfout",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3200,
+        944
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({status:\"error\", code:$json.code, reason:$json.reason}) }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode || 502 }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Valideer relatie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valideer relatie": {
+      "main": [
+        [
+          {
+            "node": "Relatie geldig?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Relatie geldig?": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Contactfout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Bereid contactzoekvragen voor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bereid contactzoekvragen voor": {
+      "main": [
+        [
+          {
+            "node": "Zoek exacte Mautic-identiteit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoek exacte Mautic-identiteit": {
+      "main": [
+        [
+          {
+            "node": "Beslis contactkoppeling",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Beslis contactkoppeling": {
+      "main": [
+        [
+          {
+            "node": "Contact veilig te bewaren?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact veilig te bewaren?": {
+      "main": [
+        [
+          {
+            "node": "Bewaar Mautic-contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Contactfout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bewaar Mautic-contact": {
+      "main": [
+        [
+          {
+            "node": "Controleer opslagantwoord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Controleer opslagantwoord": {
+      "main": [
+        [
+          {
+            "node": "Contact opgeslagen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact opgeslagen?": {
+      "main": [
+        [
+          {
+            "node": "Lees opgeslagen Mautic-contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Contactfout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lees opgeslagen Mautic-contact": {
+      "main": [
+        [
+          {
+            "node": "Bevestig opgeslagen contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bevestig opgeslagen contact": {
+      "main": [
+        [
+          {
+            "node": "Contact bevestigd?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact bevestigd?": {
+      "main": [
+        [
+          {
+            "node": "Heeft systemid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Contactfout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Heeft systemid?": {
+      "main": [
+        [
+          {
+            "node": "Schrijf naar Realworks Queue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schrijf naar Realworks Queue": {
+      "main": [
+        [
+          {
+            "node": "Controleer terugschrijftaak",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Controleer terugschrijftaak": {
+      "main": [
+        [
+          {
+            "node": "Terugschrijftaak bevestigd?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terugschrijftaak bevestigd?": {
+      "main": [
+        [
+          {
+            "node": "Respond1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Contactfout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -94,7 +94,10 @@ export function normalizeSyncPayload(input: RealworksSyncPayload) {
 }
 
 export function validateRealworksContactPayload(input: RealworksSyncPayload): string[] {
-  const data = input.data ?? {};
+  const data = input.data ?? (
+    input.payload && typeof input.payload === "object" && !Array.isArray(input.payload)
+      ? input.payload as Record<string, unknown> : {}
+  );
   const email = input.email ?? data.email;
   const systemid = input.systemid ?? data._systemid ?? data.systemid;
   const rcode = input.rcode ?? data.rcode ?? data.agrcode;
@@ -103,15 +106,22 @@ export function validateRealworksContactPayload(input: RealworksSyncPayload): st
   const reasons: string[] = [];
 
   if (eventType === "contact.save") {
-    if (!path.includes("/rela.person/save")) reasons.push("contact.save kwam niet van /rela.person/save");
-    if (!isCompleteEmail(email)) reasons.push("contactpayload heeft geen compleet e-mailadres");
-    if (!stringValue(systemid) && !stringValue(rcode) && !isCompleteEmail(email)) {
+    if (!path.split("?")[0].endsWith("/rela.person/save")) reasons.push("contact-sync kwam niet van /rela.person/save");
+    if (stringValue(email) && !isCompleteEmail(email)) reasons.push("contactpayload heeft geen compleet e-mailadres");
+    const identifier = (value: unknown) => {
+      const text = stringValue(value);
+      return text && !/^(0|null|undefined)$/i.test(text) ? text : null;
+    };
+    if (!identifier(systemid) && !identifier(rcode) && !isCompleteEmail(email)) {
       reasons.push("contactpayload heeft geen betrouwbare sleutel");
+    }
+    if (!stringValue(email) && !stringValue(data.firstname) && !stringValue(data.lastname)) {
+      reasons.push("contact zonder e-mailadres heeft geen voornaam of achternaam");
     }
   }
 
   const woningAdres = stringValue((data as Record<string, unknown>).woning_adres);
-  if (woningAdres === "," || woningAdres === " ,") {
+  if (woningAdres?.replace(/\s/g, "") === ",") {
     reasons.push("woning_adres bevat alleen een komma");
   }
 

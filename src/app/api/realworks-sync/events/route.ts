@@ -30,6 +30,17 @@ export async function POST(request: NextRequest) {
     select: { id: true, status: true, createdAt: true },
   });
   if (existing) {
+    // A retry of the same contact content can recover a failed request.
+    // Keep one event per content hash, but never leave a confirmed retry marked failed.
+    if (status === "processed" && existing.status === "failed") {
+      const event = await prisma.realworksSyncEvent.update({
+        where: { id: existing.id },
+        data: { status, ignoredReason: null, matchStrategy: normalized.matchStrategy,
+          matchConfidence: normalized.matchConfidence, capturedAt: normalized.capturedAt },
+        select: { id: true, status: true, createdAt: true },
+      });
+      return NextResponse.json({ success: true, duplicate: true, recovered: true, event }, { headers: CORS_HEADERS });
+    }
     return NextResponse.json({ success: true, duplicate: true, event: existing }, { headers: CORS_HEADERS });
   }
 

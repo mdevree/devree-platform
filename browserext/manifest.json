@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Realworks → n8n Sync",
-  "version": "1.12",
+  "version": "1.13",
   "description": "Synchroniseert contacten, taxaties, woningen, verkoopprojecten en kadasterdata van Realworks naar het De Vree platform.",
   "permissions": [
     "alarms",
@@ -24,7 +24,7 @@
   "content_scripts": [
     {
       "matches": ["https://crm.realworks.nl/*", "https://backup.realworks.nl/*"],
-      "js": ["content.js"],
+      "js": ["contact-sync.js", "content.js"],
       "run_at": "document_start",
       "all_frames": true
     }

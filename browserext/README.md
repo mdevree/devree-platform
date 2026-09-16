@@ -183,6 +183,13 @@ Een taak doorloopt de statussen `pending → processing → done / failed`. De c
 
 De extensie is actief zodra je ingelogd bent op `crm.realworks.nl`.
 
+Vanaf versie 1.13 synchroniseren opgeslagen relaties ook zonder e-mailadres,
+mits een Realworks-identificatie en een voor- of achternaam aanwezig zijn.
+Een later toegevoegd e-mailadres werkt hetzelfde contact bij. Leeg laten wist
+geen bestaand adres. Zie [het contactcontract](../docs/contracts/realworks-contact.md)
+voor identiteit, conflicten, testen en invoering. Herlaad na een update de
+extensie én de Realworks-tab zodat de nieuwe validatie actief wordt.
+
 ## Traceerbaarheid
 
 De extensie stuurt bij nieuwe payloads metadata mee:

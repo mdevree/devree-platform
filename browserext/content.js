@@ -31,6 +31,7 @@ const OTD_KADASTER_URL = 'https://kantoor.devreemakelaardij.nl/api/otd/intake/re
 const PAYLOAD_VERSION = '2026-07-07';
 const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 const recentPayloadHashes = new Map();
+const inFlightContactHashes = new Set();
 
 function createTraceId(prefix = 'rw') {
   const random = crypto.randomUUID
@@ -48,10 +49,6 @@ function syncMetadata(eventType, extra = {}) {
     sourceHost: window.location.hostname,
     ...extra,
   };
-}
-
-function isCompleteEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
 function stableJson(value) {
@@ -123,20 +120,7 @@ async function postPlatform(url, payload) {
 }
 
 function contactReasons(contact, realworksPath) {
-  const reasons = [];
-  if (!String(realworksPath || '').includes('/rela.person/save')) {
-    reasons.push('contact-sync kwam niet van /rela.person/save');
-  }
-  if (!isCompleteEmail(contact.email)) {
-    reasons.push('contactpayload heeft geen compleet e-mailadres');
-  }
-  if (!contact._systemid && !contact.systemid && !contact.rcode && !isCompleteEmail(contact.email)) {
-    reasons.push('contactpayload heeft geen betrouwbare sleutel');
-  }
-  if (contact.woning_adres === ',' || contact.woning_adres === ' ,') {
-    reasons.push('woning_adres bevat alleen een komma');
-  }
-  return reasons;
+  return globalThis.RealworksContactSync.contactReasons(contact, realworksPath);
 }
 
 async function buildSyncEnvelope(eventType, realworksPath, payload) {
@@ -154,7 +138,11 @@ async function buildSyncEnvelope(eventType, realworksPath, payload) {
     capturedAt: new Date().toISOString(),
     payload,
   };
-  const payloadHash = await sha256Hex(stableJson(envelope));
+  const payloadHash = await sha256Hex(stableJson(
+    eventType === 'contact.save'
+      ? globalThis.RealworksContactSync.hashMaterial(realworksPath, payload)
+      : envelope
+  ));
   return {
     ...envelope,
     traceId: createTraceId(eventType.replace(/[^a-z0-9]+/gi, '_').toLowerCase()),
@@ -302,8 +290,7 @@ async function handleContactSync(data, realworksPath) {
 
   const now = Date.now();
   pruneRecentHashes(now);
-  if (recentPayloadHashes.has(envelope.payloadHash)) {
-    recentPayloadHashes.set(envelope.payloadHash, now);
+  if (inFlightContactHashes.has(envelope.payloadHash) || recentPayloadHashes.has(envelope.payloadHash)) {
     await updateSyncStatus({
       duplicates: (await chrome.storage.local.get('realworksSyncStatus')).realworksSyncStatus?.duplicates + 1 || 1,
       lastDuplicateAt: new Date().toISOString(),
@@ -312,31 +299,42 @@ async function handleContactSync(data, realworksPath) {
     console.log('[Realworks Sync] Dubbele save overgeslagen:', contact.email || contact.firstname);
     return;
   }
-  recentPayloadHashes.set(envelope.payloadHash, now);
+  inFlightContactHashes.add(envelope.payloadHash);
 
   try {
     const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(contact)
+      body: JSON.stringify({ ...contact, _sync: {
+        realworksPath, eventType: 'contact.save', traceId: envelope.traceId,
+        payloadHash: envelope.payloadHash, extensionVersion: EXTENSION_VERSION,
+      } })
     });
-    if (res.ok) {
+    const result = await res.json().catch(() => null);
+    if (res.ok && globalThis.RealworksContactSync.confirmedResponse(result)) {
+      recentPayloadHashes.set(envelope.payloadHash, Date.now());
       await updateSyncStatus({
         sent: (await chrome.storage.local.get('realworksSyncStatus')).realworksSyncStatus?.sent + 1 || 1,
         lastSyncAt: new Date().toISOString(),
         lastSyncEmail: contact.email || '',
+        lastMauticContactId: result.mauticContactId,
+        lastMatchStrategy: result.matchStrategy,
         lastError: '',
       });
-      await postPlatform(SYNC_EVENT_URL, { ...envelope, status: 'processed', matchStrategy: 'extension_validated', matchConfidence: 100 }).catch(() => null);
+      await postPlatform(SYNC_EVENT_URL, { ...envelope, status: 'processed', matchStrategy: result.matchStrategy, matchConfidence: 100 }).catch(() => null);
       console.log('[Realworks Sync] ✓ Verstuurd:', contact.email || contact.firstname);
     } else {
-      const reason = `n8n antwoordde ${res.status}`;
+      const reason = result?.reason || `Contactverwerking niet bevestigd (HTTP ${res.status})`;
       await updateSyncStatus({
         errors: (await chrome.storage.local.get('realworksSyncStatus')).realworksSyncStatus?.errors + 1 || 1,
         lastError: reason,
         lastErrorAt: new Date().toISOString(),
       });
-      await postPlatform(SYNC_EVENT_URL, { ...envelope, status: 'failed', ignoredReason: reason }).catch(() => null);
+      if (res.status === 409 || res.status === 422) {
+        await postPlatform(QUARANTINE_URL, { ...envelope, reason, severity: 'warning' }).catch(() => null);
+      } else {
+        await postPlatform(SYNC_EVENT_URL, { ...envelope, status: 'failed', ignoredReason: reason }).catch(() => null);
+      }
       console.warn('[Realworks Sync] Fout:', res.status);
     }
   } catch (err) {
@@ -347,6 +345,8 @@ async function handleContactSync(data, realworksPath) {
       lastErrorAt: new Date().toISOString(),
     });
     await postPlatform(SYNC_EVENT_URL, { ...envelope, status: 'failed', ignoredReason: reason }).catch(() => null);
+  } finally {
+    inFlightContactHashes.delete(envelope.payloadHash);
   }
 }
 
