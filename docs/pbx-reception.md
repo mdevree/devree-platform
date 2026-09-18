@@ -50,7 +50,10 @@ De opname wordt apart met SHA-256 gecontroleerd overgedragen. Bestanden zijn
 niet publiek bereikbaar; afspelen vereist een ingelogde platformsessie.
 
 WhatsApp staat standaard uit (`PBX_SEND_MODE=off`). `test` verzendt uitsluitend
-naar `PBX_TEST_NUMBERS`; `live` is onderdeel van de latere vrijgave. Er is één
+naar `PBX_TEST_NUMBERS`; `live` is onderdeel van de latere vrijgave. Alleen voor
+deze toegestane nummers in testmodus mag elke nieuwe bezichtigingsoproep opnieuw
+een link opleveren, zodat de volledige route herhaald getest kan worden.
+Dubbele gebeurtenissen binnen dezelfde oproep blijven gededupliceerd. Er is één
 terugbelbevestiging per taak, en hooguit één woninglink per nummer per 24 uur.
 De lokale platformtimer verwerkt de outbox elke 30 seconden. Sessiestoringen
 laten berichten wachten. Een onzekere verzenduitkomst wordt niet automatisch

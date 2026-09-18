@@ -1,5 +1,21 @@
 # PBX-opvang: validatie 18 september 2026
 
+## Zoiper-vervolgtest en huidige teststand
+
+De echte Zoiper-bezichtigingsoproep van 09:00 kwam correct binnen, inclusief
+telefoonnummer en toestemming. Er kwam geen nieuwe link door de eerdere
+24-uurslimiet en de inmiddels uitgezette verzending. Correctie `6e3df39` laat
+nieuwe oproepen van expliciet toegestane testnummers de link herhaald aanvragen;
+idempotentie per oproep en de limiet voor overige nummers blijven behouden.
+Volledige verify en geïsoleerde database-regressietest geslaagd; CI-deploy
+geslaagd en productieimage gecontroleerd. Het oorspronkelijke verzoek opnieuw
+verwerkt met dezelfde toestemming: één link verzonden, echte status DELIVERED.
+
+Huidige stand: **testmodus aan, uitsluitend Melvins opgegeven mobiele nummer**,
+zodat verdere Zoiper-tests werken. Dit vervangt de eerdere vermelding dat
+verzending na de eerste praktijktest uit stond. Het hoofdnummer blijft ongewijzigd.
+Configuratieback-up: `/home/DeVreeMakelaardij/backups/pbx-zoiper-test-20260918T070404Z`.
+
 ## Aanvullende WhatsApp-praktijktest
 
 - Melvin gaf expliciet zijn mobiele nummer op voor twee testberichten. Tijdelijk testmodus met alleen dat nummer toegestaan; vooraf geen oudere wachtende berichten naar dat nummer.
