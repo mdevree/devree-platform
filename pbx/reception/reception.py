@@ -85,6 +85,7 @@ class HungUp(Exception):
 
 class AGI:
     def __init__(self):
+        self.hungup = False
         self.env = {}
         for line in sys.stdin:
             if not line.strip():
@@ -93,9 +94,11 @@ class AGI:
             self.env[key] = value.strip()
 
     def command(self, command):
+        if self.hungup:
+            raise HungUp()
         print(command, flush=True)
         line = sys.stdin.readline().strip()
-        if not line or 'result=-1' in line or line.startswith('HANGUP'):
+        if self.hungup or not line or 'result=-1' in line or line.startswith('HANGUP'):
             raise HungUp()
         match = re.search(r'result=(-?\d+)(?: \((.*)\))?', line)
         return (int(match[1]), match[2] or '') if match else (0, '')
@@ -105,6 +108,8 @@ class AGI:
 
     def read(self, name, digits=1):
         self.command(f'EXEC Read choice,{SOUNDS / name},{digits},,1,7')
+        if self.command('GET VARIABLE READSTATUS')[1] == 'HANGUP':
+            raise HungUp()
         return self.command('GET VARIABLE choice')[1]
 
     def number(self, current):
@@ -127,9 +132,9 @@ def has_recording(call_id):
     return p.exists() and p.stat().st_size > 1644
 
 def run_agi():
-    # Asterisk sends SIGHUP on caller hangup; keep the final disk write alive.
-    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    # Keep disk persistence alive but stop AGI commands immediately on hangup.
     agi = AGI()
+    signal.signal(signal.SIGHUP, lambda *_: setattr(agi, "hungup", True))
     unique = agi.env.get('agi_uniqueid', '')
     if not unique:
         return

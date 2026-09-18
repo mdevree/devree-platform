@@ -122,3 +122,17 @@ class CallFlowTest(QueueTest):
     def test_viewing_without_consent_has_no_send(self):
         _,payload=self.flow(iter(['2','2']))
         self.assertEqual(payload['kind'],'viewing');self.assertIsNone(payload['consentAt'])
+
+class HangupCommandTest(unittest.TestCase):
+    def test_signal_flag_prevents_more_channel_commands(self):
+        agi=r.AGI.__new__(r.AGI);agi.hungup=True
+        with self.assertRaises(r.HungUp):agi.command('EXEC Playback unused')
+    def test_read_hangup_status_stops_before_choice(self):
+        agi=r.AGI.__new__(r.AGI)
+        commands=[]
+        def command(value):
+            commands.append(value)
+            return (1,'HANGUP') if value=='GET VARIABLE READSTATUS' else (0,'')
+        agi.command=command
+        with self.assertRaises(r.HungUp):agi.read('main')
+        self.assertNotIn('GET VARIABLE choice',commands)
