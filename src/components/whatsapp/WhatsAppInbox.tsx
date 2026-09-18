@@ -12,7 +12,7 @@ type Message = {
   direction: "INBOUND" | "OUTBOUND";
   body: string;
   createdAt: string;
-  deliveryStatus?: "SENT" | "FAILED" | null;
+  deliveryStatus?: "SENT" | "FAILED" | "DELIVERED" | "READ" | null;
 };
 
 type Conversation = {
@@ -331,6 +331,8 @@ export default function WhatsAppInbox() {
                     >
                       {formatTime(msg.createdAt)}
                       {msg.deliveryStatus === "FAILED" && " · niet verzonden"}
+                      {msg.deliveryStatus === "DELIVERED" && " · afgeleverd"}
+                      {msg.deliveryStatus === "READ" && " · gelezen"}
                     </p>
                   </div>
                 </div>

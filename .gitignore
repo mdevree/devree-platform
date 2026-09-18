@@ -48,3 +48,7 @@ __pycache__/
 *.py[cod]
 
 /src/generated
+
+# Private PBX recordings and local queue
+/uploads/pbx/
+*.sqlite3*

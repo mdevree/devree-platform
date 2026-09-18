@@ -233,7 +233,7 @@ export default function TakenPage() {
 
     // Open + bezig: gesorteerd op deadline oplopend
     const activeParams = new URLSearchParams(baseParams);
-    activeParams.set("status", "open,bezig");
+    activeParams.set("status", "open,bezig,wacht_op_klant");
     activeParams.set("sortBy", "dueDate");
     activeParams.set("sortOrder", "asc");
     activeParams.set("limit", "200");
@@ -412,6 +412,7 @@ export default function TakenPage() {
   const statusGroups = [
     { key: "open", label: "Open", icon: ExclamationCircleIcon, color: "text-amber-500" },
     { key: "bezig", label: "Bezig", icon: ClockIcon, color: "text-blue-500" },
+    { key: "wacht_op_klant", label: "Wacht op klant", icon: ClockIcon, color: "text-purple-500" },
     { key: "afgerond", label: "Afgerond", icon: CheckCircleIcon, color: "text-green-500" },
   ];
 
@@ -721,6 +722,7 @@ export default function TakenPage() {
                     >
                       <option value="open">Open</option>
                       <option value="bezig">Bezig</option>
+                      <option value="wacht_op_klant">Wacht op klant</option>
                       <option value="afgerond">Afgerond</option>
                     </select>
                   </td>
@@ -810,7 +812,7 @@ export default function TakenPage() {
 
             {/* Status toggle in bewerk modal */}
             <div className="mb-4 flex gap-2">
-              {["open", "bezig", "afgerond"].map((s) => (
+              {["open", "bezig", "wacht_op_klant", "afgerond"].map((s) => (
                 <button
                   key={s}
                   type="button"

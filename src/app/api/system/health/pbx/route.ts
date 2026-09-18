@@ -1,79 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
-
-const CHECK_TIMEOUT_MS = 3500;
-
-function resolveHealthUrl() {
-  const raw = process.env.PBX_BRIDGE_HEALTH_URL?.trim();
-  if (!raw) return null;
-
-  try {
-    return new URL(raw);
-  } catch {
-    return null;
-  }
-}
-
-function safeTarget(url: URL | null) {
-  if (!url) return null;
-  return `${url.protocol}//${url.host}${url.pathname}`;
-}
-
-export async function GET(request: NextRequest) {
-  if (!await isAuthorized(request)) {
-    return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
-  }
-
-  const healthUrl = resolveHealthUrl();
-  const checkedAt = new Date().toISOString();
-
-  if (!healthUrl) {
-    return NextResponse.json({
-      health: "attention",
-      configured: false,
-      checkedAt,
-      target: null,
-      error: "PBX_BRIDGE_HEALTH_URL is niet geconfigureerd",
-    });
-  }
-
-  const controller = new AbortController();
-  const started = Date.now();
-  const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(healthUrl, {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    const responseTimeMs = Date.now() - started;
-    const body = await response.json().catch(() => ({}));
-    const ok = response.ok && body?.ok !== false;
-
-    return NextResponse.json({
-      health: ok ? "ok" : "attention",
-      configured: true,
-      checkedAt,
-      target: safeTarget(healthUrl),
-      statusCode: response.status,
-      responseTimeMs,
-      context: typeof body?.context === "string" ? body.context : null,
-      error: ok ? null : "PBX bridge gaf geen gezonde status terug",
-    });
-  } catch (err) {
-    const responseTimeMs = Date.now() - started;
-    const aborted = err instanceof Error && err.name === "AbortError";
-
-    return NextResponse.json({
-      health: "attention",
-      configured: true,
-      checkedAt,
-      target: safeTarget(healthUrl),
-      responseTimeMs,
-      context: null,
-      error: aborted ? "PBX bridge healthcheck timeout" : err instanceof Error ? err.message : "Onbekende PBX healthcheck fout",
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+import { prisma } from "@/lib/prisma";
+import { getPbxConfig } from "@/lib/pbx/store";
+export async function GET(request:NextRequest) {
+  if (!await isAuthorized(request)) return NextResponse.json({error:"Niet ingelogd"},{status:401});
+  const [row,config,failed,pending,processor]=await Promise.all([
+    prisma.appSetting.findUnique({where:{key:"pbx.reception.heartbeat"}}),getPbxConfig(),
+    prisma.pbxOutbox.count({where:{status:{in:["failed","uncertain"]}}}),
+    prisma.pbxOutbox.count({where:{status:"pending"}}),
+    prisma.appSetting.findUnique({where:{key:"pbx.reception.processor"}}),
+  ]);
+  const hb=row?.value as {checkedAt?:string;appliedVersion?:number;pending?:number;audioReady?:boolean;storageReady?:boolean;asteriskReady?:boolean;testRouteOnly?:boolean}|null;
+  const errors=[];
+  const processed=(processor?.value as {checkedAt?:string}|null)?.checkedAt;
+  if(!processed||Date.now()-Date.parse(processed)>180000)errors.push("Berichtenverwerking geeft geen recente terugmelding");
+  if(!hb?.checkedAt||Date.now()-Date.parse(hb.checkedAt)>90000)errors.push("Geen recente PBX-terugmelding");
+  if(hb&&(!hb.audioReady||!hb.storageReady||!hb.asteriskReady))errors.push("PBX-audio, opslag of Asterisk controleren");
+  if(hb&&hb.appliedVersion!==config.version)errors.push("Instellingen nog niet toegepast op de PBX");
+  if(hb?.pending)errors.push(`${hb.pending} gebeurtenissen wachten op verwerking`);
+  if(failed)errors.push(`${failed} WhatsApp-berichten vragen controle`);
+  if(pending)errors.push(`${pending} WhatsApp-berichten wachten op verzending`);
+  return NextResponse.json({health:errors.length?"attention":"ok",configured:!!hb,checkedAt:new Date().toISOString(),target:"PBX-opvang",context:hb?.testRouteOnly!==false?"Testroute · AI-belassistent uit":"PBX-opvang · AI-belassistent uit",error:errors.join("; ")||null,heartbeat:hb,sendMode:process.env.PBX_SEND_MODE||"off"});
 }

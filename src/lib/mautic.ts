@@ -21,7 +21,7 @@ let tokenCache: {
 /**
  * Verkrijg een geldig OAuth2 access token
  */
-async function getAccessToken(): Promise<string> {
+async function getAccessToken(signal?: AbortSignal | null): Promise<string> {
   // Check of bestaand token nog geldig is (met 60s marge)
   if (tokenCache && tokenCache.expiresAt > Date.now() + 60000) {
     return tokenCache.accessToken;
@@ -32,6 +32,7 @@ async function getAccessToken(): Promise<string> {
     try {
       const response = await fetch(`${MAUTIC_URL}/oauth/v2/token`, {
         method: "POST",
+        signal,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           grant_type: "refresh_token",
@@ -58,6 +59,7 @@ async function getAccessToken(): Promise<string> {
   // Client credentials grant
   const response = await fetch(`${MAUTIC_URL}/oauth/v2/token`, {
     method: "POST",
+        signal,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type: "client_credentials",
@@ -84,7 +86,7 @@ async function getAccessToken(): Promise<string> {
  * Doe een geauthenticeerde API call naar Mautic
  */
 async function mauticFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const token = await getAccessToken();
+  const token = await getAccessToken(options.signal);
 
   return fetch(`${MAUTIC_URL}${path}`, {
     ...options,
@@ -199,7 +201,7 @@ export interface MauticContactPipeline extends MauticContact {
  * Zoek een contact in Mautic op basis van telefoonnummer
  * Zoekt in phone EN mobile velden met alle 3 formaten (zelfde als n8n workflow)
  */
-export async function searchContactByPhone(phoneNumber: string): Promise<MauticContact | null> {
+export async function searchContactByPhone(phoneNumber: string, requireUnique = false): Promise<MauticContact | null> {
   const formats: PhoneFormats = normalizePhoneNumber(phoneNumber);
 
   // Bouw Doctrine OR-query met alle 6 combinaties (3 formaten x 2 velden)
@@ -228,9 +230,10 @@ export async function searchContactByPhone(phoneNumber: string): Promise<MauticC
   ];
 
   const queryString = queryParts.join("&");
-  const response = await mauticFetch(`/api/contacts?${queryString}`);
+  const response = await mauticFetch(`/api/contacts?${queryString}`, requireUnique ? { signal: AbortSignal.timeout(5000) } : {});
 
   if (!response.ok) {
+    if (requireUnique) throw new Error(`Mautic zoekfout: ${response.status}`);
     console.error("Mautic zoekfout:", response.status, await response.text());
     return null;
   }
@@ -239,7 +242,7 @@ export async function searchContactByPhone(phoneNumber: string): Promise<MauticC
   const contacts = data.contacts || {};
   const contactIds = Object.keys(contacts);
 
-  if (contactIds.length === 0) {
+  if (contactIds.length === 0 || (requireUnique && contactIds.length !== 1)) {
     return null;
   }
 

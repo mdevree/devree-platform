@@ -1,0 +1,15 @@
+{
+  "main": "Welkom bij De Vree Makelaardij. Op dit moment zijn wij niet in de gelegenheid uw oproep te beantwoorden. Toets 1 om een terugbelverzoek achter te laten. Wilt u een bezichtiging aanvragen? Toets 2.",
+  "number": "We kunnen uw telefoonnummer niet uitlezen. Toets het nummer waarop wij u kunnen bereiken en sluit af met een hekje.",
+  "confirm-number": "Is dit nummer juist? Toets 1 om te bevestigen. Toets 2 om het opnieuw in te voeren.",
+  "callback-consent": "Wilt u via WhatsApp een bevestiging van uw terugbelverzoek ontvangen op dit nummer? Toets 1 voor ja, of 2 voor nee.",
+  "viewing-consent": "Wilt u via WhatsApp een link naar ons woningaanbod ontvangen op dit nummer? Toets 1 voor ja, of 2 voor nee.",
+  "callback-saved": "Uw terugbelverzoek is ontvangen. Wij nemen contact met u op.",
+  "unknown-saved": "U kunt een bericht achterlaten. Noem daarin ook uw naam en het telefoonnummer waarop wij u kunnen bereiken.",
+  "record": "Spreek na de piep eventueel uw naam en de reden van uw telefoontje in. Noem ook het adres als u over een woning belt. U kunt afsluiten met een hekje, of de verbinding verbreken.",
+  "viewing-info": "Een bezichtiging kunt u aanvragen via de betreffende woning op onze website, de vree makelaardij punt en el, of via Funda. Wij nemen daarna contact met u op om de afspraak in te plannen.",
+  "viewing-saved": "Uw verzoek om de link te ontvangen is opgeslagen.",
+  "fallback": "We hebben geen keuze ontvangen. U kunt na de piep een bericht achterlaten. Noem uw naam, telefoonnummer en de reden van uw telefoontje.",
+  "goodbye": "Bedankt voor uw telefoontje. Tot ziens.",
+  "storage-error": "Het lukt op dit moment niet om uw verzoek op te slaan. U kunt ons bereiken via onze website, de vree makelaardij punt en el. Onze excuses voor het ongemak."
+}

@@ -1,0 +1,11 @@
+[Unit]
+Description=Process PBX WhatsApp outbox and recording retention
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/devree-pbx-outbox.py
+TimeoutStartSec=100
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only

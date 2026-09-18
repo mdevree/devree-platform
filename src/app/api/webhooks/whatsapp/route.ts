@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyReceipt, receiveReceipt } from "@/lib/pbx/receipts";
+import { reconcilePbxOutgoing } from "@/lib/pbx/outbox";
 import { prisma } from "@/lib/prisma";
 import { searchContactByPhone, createContact, addContactPoints } from "@/lib/mautic";
 import { normalizePhoneNumber } from "@/lib/phone";
@@ -178,6 +180,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (event === "message.ack") {
+    const payload = body.payload;
+    if (payload && typeof payload.id === "string") {
+      const ack = Number(payload.ack);
+      await receiveReceipt(payload.id, ack);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   if (event !== "messages.upsert" && event !== "message") {
     return NextResponse.json({ ok: true });
   }
@@ -266,5 +277,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (msg.fromMe && providerMsgId) {
+    await applyReceipt(providerMsgId);
+    await reconcilePbxOutgoing(waPhone, bodyText, providerMsgId, conversation.id);
+  }
   return NextResponse.json({ ok: true });
 }

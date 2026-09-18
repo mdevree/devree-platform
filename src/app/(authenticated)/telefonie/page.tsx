@@ -18,6 +18,7 @@ import {
   PencilIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
+import PbxReception from "@/components/pbx/PbxReception";
 import ProjectSelector from "@/components/projects/ProjectSelector";
 
 interface Project {
@@ -744,6 +745,8 @@ export default function TelefoniePage() {
           Nieuw contact
         </button>
       </div>
+
+      <PbxReception />
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
