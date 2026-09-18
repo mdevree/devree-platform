@@ -20,6 +20,19 @@ async function main(){
   assert.ok(noConsent!.taskId);assert.equal(await prisma.pbxOutbox.count(),1);
   await receivePbxEvent({...base,eventId:'view:1',callId:'view',kind:'viewing'});await receivePbxEvent({...base,eventId:'view2:1',callId:'view2',kind:'viewing'});
   assert.equal(await prisma.pbxOutbox.count(),2);
+  const oldMode=process.env.PBX_SEND_MODE,oldNumbers=process.env.PBX_TEST_NUMBERS;
+  try {
+    process.env.PBX_SEND_MODE='test';process.env.PBX_TEST_NUMBERS='+31612345678';
+    const repeat={...base,eventId:'view-test:1',callId:'view-test',kind:'viewing' as const};
+    await receivePbxEvent(repeat);await receivePbxEvent(repeat);
+    assert.equal(await prisma.pbxOutbox.count(),3); // Repeat calls allowed, duplicate events still idempotent.
+    process.env.PBX_TEST_NUMBERS='+31687654321';
+    await receivePbxEvent({...repeat,eventId:'view-other:1',callId:'view-other'});
+    assert.equal(await prisma.pbxOutbox.count(),3); // Other callers retain the 24-hour limit.
+  } finally {
+    if(oldMode===undefined)delete process.env.PBX_SEND_MODE;else process.env.PBX_SEND_MODE=oldMode;
+    if(oldNumbers===undefined)delete process.env.PBX_TEST_NUMBERS;else process.env.PBX_TEST_NUMBERS=oldNumbers;
+  }
   const wav=Buffer.alloc(16044);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(16000,40);
   const hash=createHash('sha256').update(wav).digest('hex');
   await saveRecording(row.id,wav,hash);await saveRecording(row.id,wav,hash);assert.deepEqual(await readRecording(row.id),wav);

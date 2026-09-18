@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { callbackDue, CALLBACK_TEXT, VIEWING_TEXT, defaultPbxConfig, type PbxConfig, type PbxEventInput } from "./core";
+import { callbackDue, CALLBACK_TEXT, VIEWING_TEXT, defaultPbxConfig, sendingAllowed, type PbxConfig, type PbxEventInput } from "./core";
 export async function getPbxConfig(): Promise<PbxConfig> {
   const row = await prisma.appSetting.findUnique({ where: { key: "pbx.reception.config" } });
   return { ...defaultPbxConfig, ...(row?.value as object ?? {}) };
@@ -40,7 +40,8 @@ export async function receivePbxEvent(e: PbxEventInput) {
         }
         if (row.consentAt && row.phone) {
           const key = row.kind === "callback" ? `callback:${row.taskId}` : `viewing:${row.callId}`;
-          const recent = row.kind === "viewing" ? await tx.pbxOutbox.findFirst({ where: { phone: row.phone, dedupeKey: { startsWith: "viewing:" }, createdAt: { gte: new Date(Date.now() - 86400000) } } }) : null;
+          const repeatTest = process.env.PBX_SEND_MODE === "test" && sendingAllowed(row.phone, "test", process.env.PBX_TEST_NUMBERS);
+          const recent = row.kind === "viewing" && !repeatTest ? await tx.pbxOutbox.findFirst({ where: { phone: row.phone, dedupeKey: { startsWith: "viewing:" }, createdAt: { gte: new Date(Date.now() - 86400000) } } }) : null;
           if (!recent) await tx.pbxOutbox.upsert({ where: { dedupeKey: key }, update: {}, create: { dedupeKey: key, requestId: row.id, phone: row.phone, body: row.kind === "callback" ? CALLBACK_TEXT : VIEWING_TEXT } });
         }
         await tx.pbxEvent.create({ data: { id: e.eventId, callId: e.callId } });
