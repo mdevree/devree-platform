@@ -12,15 +12,20 @@ seconden rinkelen. De bestaande FreePBX-belgroep en zijn fallback blijven tot
 de afzonderlijke omschakeling onaangeraakt.
 
 1. Toets 1 registreert een terugbelverzoek. Bij een verborgen/ongeldig nummer
-   vraagt het systeem het nummer en bevestiging. Daarna kan de beller kiezen
-   voor een WhatsApp-bevestiging en optioneel maximaal 120 seconden inspreken.
-2. Toets 2 legt de aanvraag via de woningpagina of Funda uit en biedt een
-   WhatsApp-link naar het woningaanbod aan. Dit boekt zelf geen afspraak.
+   vraagt het systeem het nummer en bevestiging. De WhatsApp-bevestiging wordt
+   automatisch klaargezet; de beller kan optioneel maximaal 120 seconden inspreken.
+2. Toets 2 zet automatisch een WhatsApp-link naar het woningaanbod klaar en legt
+   de aanvraag via de woningpagina of Funda uit. Dit boekt zelf geen afspraak.
 3. Bij geen/ongeldige keuze wordt het menu eenmaal herhaald, daarna kan de
    beller een bericht inspreken. Zonder keuze en opname is het alleen een
    gemiste oproep. Zonder nummer ontstaat bij een bericht een uitzoektaak.
-4. Geen WhatsApp-keuze betekent geen toestemming. Ook zonder WhatsApp blijft
-   een terugbelverzoek bestaan. Een netwerkstoring verandert dit niet.
+4. Er is geen extra WhatsApp-vraag. Zonder bruikbaar nummer of bij alleen een
+   gemiste oproep wordt geen WhatsApp klaargezet. Een terugbelverzoek blijft ook
+   bestaan wanneer verzending niet lukt. Het bestaande veld `consentAt` bewaart
+   nu het moment waarop de gekozen dienst de bijbehorende serviceboodschap
+   klaarzet; dit is geen registratie van een afzonderlijke toestemmingsvraag
+   of toestemming voor marketing. Oude bandjes voor die vraag blijven als
+   herstelmateriaal bewaard en worden niet meer afgespeeld.
 
 Het platform toont dit onder Telefonie → PBX-opvang. Taken gebruiken de
 bestaande takenlijst, medewerker en statussen: open, in behandeling, wacht op
@@ -97,7 +102,7 @@ controleert transacties, gelijktijdigheid, deduplicatie, toestemmingen,
 opnameoverdracht, retentie en vroege/vertraagde ACKs, en ruimt die testdatabase op.
 
 Praktijktest op de aparte route: beide keuzes, geen keuze, verkeerde toets,
-verborgen nummer met bevestiging, geen WhatsApp, ophangen tijdens toestemming,
+verborgen nummer met bevestiging, geen bruikbaar nummer, ophangen na menukeuze,
 ophangen tijdens opname, twee gelijktijdige bellers en herhaald bellen.
 Controleer hoorbaarheid, uitspraak, toetsherkenning, taak, afspeelbare opname,
 WhatsApp op het opgegeven testtoestel, antwoord in de inbox en contacthistorie.

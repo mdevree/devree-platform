@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(os.environ.get('PBX_STATE_DIR', '/var/lib/devree-reception'))
 SOUNDS = Path(os.environ.get('PBX_SOUND_DIR', '/var/lib/asterisk/sounds/custom/devree-reception'))
-PROMPTS = ['main', 'number', 'confirm-number', 'callback-consent', 'viewing-consent',
+PROMPTS = ['main', 'number', 'confirm-number',
            'callback-saved', 'unknown-saved', 'record', 'viewing-info', 'viewing-saved',
            'fallback', 'goodbye', 'storage-error']
 
@@ -158,22 +158,20 @@ def run_agi():
             choice = agi.read('main')
         if choice == '1':
             number = agi.number(number)
-            # Register a callback even if the caller hangs up during consent.
+            # The selected service includes its transactional WhatsApp message.
+            # consentAt is the legacy platform field for message eligibility,
+            # not evidence of a separate opt-in question or marketing consent.
             kind = 'callback'
-            save_call(c, call_id, kind, number, received)
-            if number and agi.read('callback-consent') == '1':
-                consent = now()
-                save_call(c, call_id, kind, number, received, consent)
+            consent = now() if number else None
+            save_call(c, call_id, kind, number, received, consent)
             agi.play('callback-saved' if number else 'unknown-saved')
             agi.record(call_id)
         elif choice == '2':
             kind = 'viewing'
-            agi.play('viewing-info')
             number = agi.number(number)
-            if number and agi.read('viewing-consent') == '1':
-                consent = now()
-                save_call(c, call_id, kind, number, received, consent)
-                agi.play('viewing-saved')
+            consent = now() if number else None
+            save_call(c, call_id, kind, number, received, consent)
+            agi.play('viewing-info')
         else:
             agi.play('fallback')
             agi.record(call_id)

@@ -104,11 +104,12 @@ class CallFlowTest(QueueTest):
             r.run_agi()
         return played,json.loads(self.c.execute('SELECT payload FROM calls').fetchone()[0])
     def test_callback_saved_before_confirmation_and_hangup_keeps_recording(self):
-        played,payload=self.flow(iter(['1','1']),True)
+        played,payload=self.flow(iter(['1']),True)
         self.assertIn('callback-saved',played);self.assertTrue(payload['consentAt'])
+        self.assertNotIn('callback-consent',played)
         self.assertTrue(r.has_recording(payload['callId']))
-    def test_hangup_during_consent_keeps_request_without_send(self):
-        _,payload=self.flow(iter(['1',None]))
+    def test_unknown_callback_number_has_no_whatsapp(self):
+        _,payload=self.flow(iter(['1']),caller='anonymous')
         self.assertEqual(payload['kind'],'callback');self.assertIsNone(payload['consentAt'])
     def test_no_choice_no_recording_is_only_missed(self):
         _,payload=self.flow(iter(['','']),record=False)
@@ -119,9 +120,14 @@ class CallFlowTest(QueueTest):
     def test_hangup_in_main_is_missed(self):
         _,payload=self.flow(iter([None]),record=False)
         self.assertEqual(payload['kind'],'missed')
-    def test_viewing_without_consent_has_no_send(self):
-        _,payload=self.flow(iter(['2','2']))
-        self.assertEqual(payload['kind'],'viewing');self.assertIsNone(payload['consentAt'])
+    def test_viewing_sends_without_additional_question(self):
+        played,payload=self.flow(iter(['2']))
+        self.assertEqual(payload['kind'],'viewing');self.assertTrue(payload['consentAt'])
+        self.assertNotIn('viewing-consent',played)
+        self.assertNotIn('viewing-saved',played)
+    def test_unknown_viewing_number_has_no_whatsapp(self):
+        _,payload=self.flow(iter(['2']),caller='anonymous')
+        self.assertIsNone(payload['consentAt'])
 
 class HangupCommandTest(unittest.TestCase):
     def test_signal_flag_prevents_more_channel_commands(self):

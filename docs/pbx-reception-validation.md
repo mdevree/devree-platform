@@ -1,5 +1,23 @@
 # PBX-opvang: validatie 18 september 2026
 
+## Korter menu zonder extra WhatsApp-vraag
+
+Op verzoek van Melvin worden bij keuze 1 en 2 de bijbehorende WhatsApp-berichten
+automatisch klaargezet. De aparte toestemmingsbandjes en de extra toetskeuze
+zijn uit beide routes verwijderd. Bij keuze 2 vervalt ook het losse opgeslagen-
+bandje. Nummerinvoer/bevestiging blijft bij een ontbrekend of ongeldig nummer.
+Zonder bruikbaar nummer volgt geen WhatsApp. De wachtrij wordt opgeslagen
+voordat de ontvangstbevestiging of bezichtigingsinformatie wordt afgespeeld.
+
+21 Python-tests geslaagd, waaronder automatische berichten na één menukeuze,
+geen bericht bij onbekend nummer en behoud van de opname bij ophangen.
+Geïnstalleerde AGI en lokale bron hebben SHA-256
+`0dde45381e9a63cb2142c56bff02f28930e9f74b0ca3b3483646c080ed7a01a0`.
+Service actief; 8899 verwijst naar het menu. Back-up:
+`/root/backups/pbx-short-menu-20260918T104708Z`.
+Testmodus blijft uitsluitend voor Melvins nummer; geen extra testbericht
+verstuurd tijdens deze wijziging. Openbare hoofdroute niet aangepast.
+
 ## Zoiper-vervolgtest en huidige teststand
 
 De echte Zoiper-bezichtigingsoproep van 09:00 kwam correct binnen, inclusief
