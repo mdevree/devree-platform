@@ -1,5 +1,17 @@
 # PBX-opvang: validatie 18 september 2026
 
+## Aanvullende WhatsApp-praktijktest
+
+- Melvin gaf expliciet zijn mobiele nummer op voor twee testberichten. Tijdelijk testmodus met alleen dat nummer toegestaan; vooraf geen oudere wachtende berichten naar dat nummer.
+- Terugbelbevestiging en bezichtigingslink via de echte PBX-outbox verstuurd. Beide ontvangen echte WAHA-ACK 2 (afgeleverd). Melvins reactie “Test ontvangen.” is in dezelfde bestaande kantoorconversatie opgeslagen.
+- De praktijktest toonde een verschil tussen kale bericht-ID's in verzendresponses en samengestelde WAHA-ID's met een LID-prefix in webhooks. Normalisatie toegevoegd voor verzenden, ontvangen en afleverbevestigingen; bestaande opgeslagen samengestelde ID's blijven ondersteund.
+- Regressietests voor ID-normalisatie, afleveren en lezen geslaagd; volledige verify: 178 geslaagd, 0 mislukt, 1 bestaande skip. Geïsoleerde database-integratietest opnieuw geslaagd.
+- Correctie `689fa50` via CI uitgerold en live image gecontroleerd. De al ontvangen ACKs opnieuw verwerkt, zonder berichten opnieuw te verzenden: beide berichten staan nu op **DELIVERED**. Geen leesbevestiging ontvangen; een reactie bewijst niet dat de provider een READ-event heeft geleverd.
+- Testtaak afgerond; configuratie- en taakback-up in `/home/DeVreeMakelaardij/backups/pbx-whatsapp-test-20260918T063829Z`. Automatische verzending terug op **off**, whitelist leeg, outbox leeg. Openbare route niet gewijzigd.
+- De WhatsApp-praktijktest hieronder is hiermee afgerond voor verzending, aflevering en antwoorden. Telefonisch beluisteren en beschikbaarheid blijven vóór vrijgave nodig.
+
+Operationeel aandachtspunt: de WAHA-container schreef interne sessiesleutelgegevens naar zijn log. Deze waarden zijn niet opgenomen in dit verslag of Git. Advies: dergelijke logging uitschakelen, bestaande logs gecontroleerd opruimen en de sessiesleutels vernieuwen door opnieuw te koppelen op een geschikt moment.
+
 ## Geïnstalleerd
 
 - Platformimage `ghcr.io/mdevree/devree-platform:d0eb7cb`; beide GitHub-builds en deployments geslaagd.
