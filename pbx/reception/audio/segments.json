@@ -1,0 +1,79 @@
+[
+  {
+    "name": "confirm-number",
+    "start": 0,
+    "end": 6.628186,
+    "text": "Is dit nummer juist? Toets 1 om te bevestigen. Toets 2 om het opnieuw in te voeren.",
+    "sha256": "595b8db49e8f12bd3161492e1ce4e5f5d5414ef73230bccf07d6423142bdf2b3"
+  },
+  {
+    "name": "callback-consent",
+    "start": 9.413469,
+    "end": 16.747506,
+    "text": "Wilt u via WhatsApp een bevestiging van uw terugbelverzoek ontvangen op dit nummer? Toets 1 voor ja, of 2 voor nee.",
+    "sha256": "8f591ed758c037cfd911ee9b662fbc49ff623d91207302936908fdb8534967e0"
+  },
+  {
+    "name": "viewing-consent",
+    "start": 19.565896000000002,
+    "end": 26.449478,
+    "text": "Wilt u via WhatsApp een link naar ons woningaanbod ontvangen op dit nummer? Toets 1 voor ja, of 2 voor nee.",
+    "sha256": "071874b9a651e70772017257f9f3e7bd9edec595147d5564eca5ef39dd784af3"
+  },
+  {
+    "name": "callback-saved",
+    "start": 28.907234000000003,
+    "end": 32.158502999999996,
+    "text": "Uw terugbelverzoek is ontvangen. Wij nemen contact met u op.",
+    "sha256": "6aa2462f85aec388321d00c9b63e64527a3ad0a0c0ef2a36318e6f131048425a"
+  },
+  {
+    "name": "unknown-saved",
+    "start": 34.703152,
+    "end": 40.36678,
+    "text": "U kunt een bericht achterlaten. Noem daarin ook uw naam en het telefoonnummer waarop wij u kunnen bereiken.",
+    "sha256": "b6fd0f2dc62e184783f2e038697cb002dfc1433b4d1bdf0f3dfa6401b6e50360"
+  },
+  {
+    "name": "record",
+    "start": 43.302902,
+    "end": 54.705306,
+    "text": "Spreek na de piep eventueel uw naam en de reden van uw telefoontje in. Noem ook het adres als u over een woning belt. U kunt afsluiten met een hekje, of de verbinding verbreken.",
+    "sha256": "aac3564fd0d7a2e5f94f434d0458ff9dc7c6f395b2e76edfa3a5f7250860acd8"
+  },
+  {
+    "name": "viewing-info",
+    "start": 57.649728,
+    "end": 67.934853,
+    "text": "Een bezichtiging kunt u aanvragen via de betreffende woning op onze website, de vree makelaardij punt en el, of via Funda. Wij nemen daarna contact met u op om de afspraak in te plannen.",
+    "sha256": "f5ecf310f4962710371661f9ca27d35459c7f937494c534d513e7846a18a4ace"
+  },
+  {
+    "name": "viewing-saved",
+    "start": 70.29496599999999,
+    "end": 72.587029,
+    "text": "Uw verzoek om de link te ontvangen is opgeslagen.",
+    "sha256": "2996f259508844e574df846ba111fff9dbc34e32d76e797409271be2647e24bf"
+  },
+  {
+    "name": "fallback",
+    "start": 75.02653099999999,
+    "end": 82.079592,
+    "text": "We hebben geen keuze ontvangen. U kunt na de piep een bericht achterlaten. Noem uw naam, telefoonnummer en de reden van uw telefoontje.",
+    "sha256": "a77b7101472388843a51388212aacc4b0152ba57ea00b91fe4088ce94021e1bc"
+  },
+  {
+    "name": "goodbye",
+    "start": 84.848141,
+    "end": 87.240295,
+    "text": "Bedankt voor uw telefoontje. Tot ziens.",
+    "sha256": "aec17f819bd23ec75c72269915ef6807ef110edca881eef126825ccb7c911df4"
+  },
+  {
+    "name": "storage-error",
+    "start": 89.824467,
+    "end": 99.84,
+    "text": "Het lukt op dit moment niet om uw verzoek op te slaan. U kunt ons bereiken via onze website, de vree makelaardij punt en el. Onze excuses voor het ongemak.",
+    "sha256": "b93b8bea54910ac6382179b8cd572c93c2ac289621aa259715be9cf30d15d2f0"
+  }
+]

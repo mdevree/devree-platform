@@ -139,6 +139,7 @@ def run_agi():
     c = None
     try:
         c = db()
+        agi.command('EXEC Set CHANNEL(language)=nl')
         if shutil.disk_usage(ROOT).free < 100 * 1024 * 1024:
             raise OSError('Insufficient storage')
         if agi.env.get('agi_arg_1') != 'menu' and mode(config()) == 'available':

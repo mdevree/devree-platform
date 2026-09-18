@@ -130,7 +130,7 @@ function normalizeWebhookMessage(
 ): NormalizedWhatsAppMessage | null {
   const record = body as Record<string, unknown>;
 
-  if (event === "message") {
+  if (event === "message" || event === "message.any") {
     return getWahaMessage(body);
   }
 
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  if (event !== "messages.upsert" && event !== "message") {
+  if (event !== "messages.upsert" && event !== "message" && event !== "message.any") {
     return NextResponse.json({ ok: true });
   }
 

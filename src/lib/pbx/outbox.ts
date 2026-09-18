@@ -12,7 +12,8 @@ export async function processPbxOutbox() {
     try { contact = await searchContactByPhone(row.phone!, true); } catch { continue; }
     await prisma.pbxRequest.update({ where: { id: row.id }, data: { contactCheckedAt: new Date(), ...(contact ? { contactId: contact.id, contactName: `${contact.firstname} ${contact.lastname}`.trim() } : {}) } });
   }
-  const jobs = await prisma.pbxOutbox.findMany({ where: { status: "pending" }, orderBy: { createdAt: "asc" }, take: 20 });
+  const testPhones=(process.env.PBX_TEST_NUMBERS||"").split(",").map(normalizePbxPhone).filter((p):p is string=>!!p);
+  const jobs = await prisma.pbxOutbox.findMany({ where: { status: "pending", ...(process.env.PBX_SEND_MODE === "live" ? {} : {phone:{in:process.env.PBX_SEND_MODE === "test" ? testPhones : []}}) }, orderBy: { createdAt: "asc" }, take: 20 });
   let sent = 0;
   for (const job of jobs) {
     if (!sendingAllowed(job.phone, process.env.PBX_SEND_MODE, process.env.PBX_TEST_NUMBERS)) continue;
