@@ -1,3 +1,5 @@
+import { normalizeWhatsAppMessageId } from "./whatsapp-message-id";
+
 export class WhatsAppError extends Error {
   constructor(message: string, readonly detail?: string) {
     super(message);
@@ -147,7 +149,8 @@ async function sendViaWaha(
   }
 
   const data = await res.json().catch(() => null);
-  return data?.key?.id ?? data?.id ?? null;
+  const id = data?.key?.id ?? data?.id;
+  return typeof id === "string" ? normalizeWhatsAppMessageId(id) : null;
 }
 
 export async function sendWhatsAppMessage(

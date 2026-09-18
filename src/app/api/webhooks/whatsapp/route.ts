@@ -4,6 +4,7 @@ import { reconcilePbxOutgoing } from "@/lib/pbx/outbox";
 import { prisma } from "@/lib/prisma";
 import { searchContactByPhone, createContact, addContactPoints } from "@/lib/mautic";
 import { normalizePhoneNumber } from "@/lib/phone";
+import { normalizeWhatsAppMessageId } from "@/lib/whatsapp-message-id";
 
 // Zet WHATSAPP_WEBHOOK_DEBUG=1 om binnenkomende events gestructureerd te loggen
 // (event-type, afzender, secret-match) tijdens het diagnosticeren van de inbox.
@@ -119,7 +120,7 @@ function getWahaMessage(body: unknown): NormalizedWhatsAppMessage | null {
         : payload.hasMedia
           ? "[media bericht]"
           : "[bericht]",
-    providerMsgId: typeof payload.id === "string" ? payload.id : undefined,
+    providerMsgId: typeof payload.id === "string" ? normalizeWhatsAppMessageId(payload.id) : undefined,
     fromMe,
   };
 }

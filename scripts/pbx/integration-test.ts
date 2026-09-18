@@ -30,8 +30,14 @@ async function main(){
   await receiveReceipt('receipt-before-message',3);
   const conv=await prisma.waConversation.create({data:{waPhone:'31612345678@s.whatsapp.net'}});
   await prisma.waMessage.create({data:{conversationId:conv.id,direction:'OUTBOUND',body:'test',evolutionMsgId:'receipt-before-message',deliveryStatus:'SENT'}});
-  await applyReceipt('receipt-before-message');await receiveReceipt('receipt-before-message',2);
+  await applyReceipt('receipt-before-message');await receiveReceipt('true_123@lid_receipt-before-message',2);
   assert.equal((await prisma.waMessage.findUniqueOrThrow({where:{evolutionMsgId:'receipt-before-message'}})).deliveryStatus,'READ');
+  await prisma.waMessage.create({data:{conversationId:conv.id,direction:'OUTBOUND',body:'WAHA ID regression',evolutionMsgId:'ABC123',deliveryStatus:'SENT'}});
+  await receiveReceipt('true_123@lid_ABC123',2);
+  assert.equal((await prisma.waMessage.findUniqueOrThrow({where:{evolutionMsgId:'ABC123'}})).deliveryStatus,'DELIVERED');
+  await receiveReceipt('true_31612345678@c.us_ABC123',3);
+  await receiveReceipt('true_123@lid_ABC123',2);
+  assert.equal((await prisma.waMessage.findUniqueOrThrow({where:{evolutionMsgId:'ABC123'}})).deliveryStatus,'READ');
   console.log('PASS: transactional deduplication, concurrent grouping, out-of-order events, consent, hidden number, viewing rate limit, recording checksums/retention, reopened callback, early/out-of-order receipts');
 }
 main().finally(()=>prisma.$disconnect()).catch(e=>{console.error(e);process.exitCode=1;});
