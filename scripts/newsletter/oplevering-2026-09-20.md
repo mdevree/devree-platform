@@ -70,3 +70,13 @@ Laatste productiecontrole: GitHub-run 35519045318 geslaagd; draaiende container 
 - Dezelfde ontvangen link opnieuw bevestigd: publieke succesmelding, lokale registratie CONFIRMED om 17:44:56, toestemmingversie opgeslagen, token en vervaltijd gewist. Mautic nieuwsbrief=1 en lidmaatschap van segment 33 afzonderlijk teruggelezen. De normale segmentverwerking had het lidmaatschap al toegevoegd; een gerichte herberekening leverde geen extra wijzigingen op.
 - Voorbereidingsscript controleert voortaan expliciet dat het booleanveld actief is voordat aanmelding wordt aangezet.
 - Het testadres blijft bevestigd ingeschreven. Er is één bevestigingsmail verzonden, geen nieuwsbriefeditie naar abonnees. Privéadres en bevestigingstoken zijn niet in Git opgenomen.
+
+## Vereenvoudiging op verzoek — directe aanmelding
+
+De eerdere double-opt-in is op uitdrukkelijk verzoek vervangen: formulier versturen schrijft direct in. De welkomstmail zegt “Bedankt voor uw aanmelding” en bevat de Mautic-afmeldlink. Geen bevestigingslink of extra bevestigingsknop voor nieuwe aanmeldingen. Het beschreven double-opt-in-testbewijs hierboven betreft de vorige versie.
+
+Nieuwe toestemmingsversie: `faq-newsletter-2026-09-v2-direct`. Bestaande afmeldingen blijven geblokkeerd. Bestaande inschrijvingen krijgen geen dubbele welkomstmail. Een mislukte welkomstmail draait een succesvolle inschrijving niet terug. Oude, nog geldige bevestigingslinks blijven werken. Welkomsttemplate 17 staat ongepubliceerd en wordt uitsluitend gericht verzonden na aanmelding; template 16 is behouden voor de oude flow.
+
+Live eindcontrole van de vereenvoudigde route: GitHub-run 35522135202 geslaagd, productie-image `1a59dec776716c020d7f6ddce4135e7e01a7a66e`. Formulier gaf direct de bedankmelding. Registratie direct CONFIRMED met versie v2-direct en zonder token. Welkomstmail werkelijk ontvangen in Gmail INBOX / Reclame; SPF, DKIM en DMARC pass. Geen bevestigingsknop in HTML of platte tekst. De afmeldlink uit deze mail schreef het testadres met één klik uit; Mautic email-DNC reason=1 afzonderlijk teruggelezen. Het testadres is na deze laatste controle dus UITGESCHREVEN. Er is geen nieuwsbriefeditie aan abonnees verzonden.
+
+Validatie nieuwe route: lint, typecheck, tests en productiebouw via GitHub geslaagd. Gedragstest dekt direct activeren, geen herhaalde welkomstmail voor bestaande inschrijving, respecteren van afmeldingen en behouden van inschrijving als de welkomstmail faalt. Productiebackup voor deze wijziging: `/home/DeVreeMakelaardij/stacks/devree-platform/backups/faq-newsletter-20260920-181355/`.
