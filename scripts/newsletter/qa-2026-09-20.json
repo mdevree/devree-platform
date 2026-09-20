@@ -1,0 +1,48 @@
+{
+  "scope": "Isolated Matomo QA site, no production audience",
+  "searchActions": [
+    {
+      "label": "bedenktijd",
+      "nb_visits": 1,
+      "nb_hits": 4,
+      "sum_time_spent": 377,
+      "exit_nb_visits": "1",
+      "nb_pages_per_search": 4,
+      "avg_time_on_page": 94,
+      "bounce_rate": "0%",
+      "exit_rate": "100%",
+      "segment": "siteSearchKeyword==bedenktijd"
+    }
+  ],
+  "zeroResultEvents": [
+    {
+      "label": "FAQ zonder resultaat",
+      "nb_uniq_visitors": 1,
+      "nb_visits": "1",
+      "nb_events": "1",
+      "nb_events_with_value": "0",
+      "sum_event_value": 0,
+      "min_event_value": null,
+      "max_event_value": null,
+      "avg_event_value": 0,
+      "idsubdatatable": 1,
+      "segment": "eventCategory==FAQ+zonder+resultaat",
+      "subtable": [
+        {
+          "label": "bedenktijd",
+          "nb_uniq_visitors": 1,
+          "nb_visits": "1",
+          "nb_events": "1",
+          "nb_events_with_value": "0",
+          "sum_event_value": 0,
+          "min_event_value": null,
+          "max_event_value": null,
+          "avg_event_value": 0
+        }
+      ]
+    }
+  ],
+  "expectedPlatformNoResults": {
+    "bedenktijd": 1
+  }
+}

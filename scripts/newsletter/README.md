@@ -30,3 +30,9 @@ Aanmelden gebruikt een afzonderlijke Mautic-template met een persoonlijke bevest
 Zet `NEWSLETTER_SIGNUP_ENABLED=false` en herstart uitsluitend het platform om aanmelden te pauzeren. Stop beide timers als bronupdates ongewenst zijn. Een vastgelopen export wordt bewust geblokkeerd; controleer de externe draft en versie voordat `exportLockAt` gericht wordt vrijgegeven. Voer niet blind opnieuw een create uit. Schema-uitbreidingen zijn additief: een oude app-image kan terug zonder kolommen/tabellen te verwijderen. Herstel bij een echt dataprobleem alleen de betrokken gegevens uit de vooraf gemaakte backup. Bewaar inschrijvingen die na de backup binnenkwamen.
 
 Referenties: https://devdocs.mautic.org/en/7.2/rest_api/emails.html en https://developer.matomo.org/api-reference/tracking-javascript (API-capaciteiten zijn ook tegen de geïnstalleerde Mautic-bron gecontroleerd).
+
+## Auditbewijs 20 september 2026
+
+`qa-2026-09-20.json` bevat geanonimiseerde, verwerkte Matomo-rapporten uit een afzonderlijke QA-site. In de tweede testronde hebben twee zoekacties (dezelfde term, ander onderwerp) precies één nulresultaat-event opgeleverd. Herhaalde knopdruk en een test-e-mailadres voegden geen zoekmeting toe. De QA-site en relay zijn na het vastleggen verwijderd; zakelijke site 1 is niet vervuild. De eerste testronde gebruikte nog het standaard Site Search-rapport en toonde waarom een apart event nodig is.
+
+De WordPress-index ontstaat uit gepubliceerde artikelen bij het renderen. De bestaande Nginx-paginacache kan wijzigingen maximaal tien minuten vertragen; assets krijgen een filemtime-versie. Alle 19 gepubliceerde artikelen zijn via statische links bereikbaar en staan in de sitemap. De bevestigingspagina is noindex.
