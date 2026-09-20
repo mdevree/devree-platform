@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 export const NEWSLETTER_SEGMENT_ID = 33;
-export const CONSENT_VERSION = 'faq-newsletter-2026-09-v1';
+export const CONSENT_VERSION = 'faq-newsletter-2026-09-v2-direct';
 export const CONSENT_TEXT = 'Ontvang maximaal één keer per maand onze nieuwste uitleg en video’s over kopen, verkopen en taxaties. Afmelden kan altijd.';
 export function hash(value: string): string { return createHash('sha256').update(value).digest('hex'); }
 export function safeUrl(value: string | null | undefined): string | null {

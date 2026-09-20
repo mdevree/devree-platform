@@ -6,11 +6,11 @@ Het kantoorplatform is de redactieplek. De bestaande handmatige contentbank blij
 
 Maandelijks ontstaat maximaal één concept met maximaal drie nog niet ingedeelde vragen. Alleen na een expliciete goedkeuring van de huidige versie mag deze naar Mautic als ongepubliceerd concept. Elke wijziging maakt die goedkeuring ongeldig. De bestaande doelgroep is segment 33. De timer exporteert/verzendt niets. In Mautic activeren/plannen/verzenden blijft een afzonderlijke menselijke stap. Een bevestigde `sentCount > 0` markeert gekoppelde onderwerpen gebruikt; dat bewijst geen inboxbezorging.
 
-Aanmelden gebruikt een afzonderlijke Mautic-template met een persoonlijke bevestigingslink van 48 uur. Een GET of scannerbezoek schrijft niemand in: de bezoeker bevestigt met een POST. Bestaande actieve inschrijvingen krijgen geen nieuwe bevestigingsmail. DNC wordt gerespecteerd. De bestaande dynamische segmentregel verwerkt `nieuwsbrief=1`; er is geen handmatige herinschrijving in segment 33. Tokens en e-mailadressen worden niet gelogd; de lokale registratie bevat HMAC van het adres, Mautic-ID, bron en toestemmingsversie.
+Aanmelden schrijft direct in na de bewuste formulieractie. Het adres krijgt één welkomstmail met een persoonlijke Mautic-afmeldlink. Er is geen bevestigingsmail of extra bevestigingsknop. Bestaande actieve inschrijvingen krijgen geen nieuwe welkomstmail. DNC wordt gerespecteerd. De bestaande dynamische segmentregel verwerkt `nieuwsbrief=1`. De lokale registratie bevat HMAC van het adres, Mautic-ID, bron en toestemmingsversie `faq-newsletter-2026-09-v2-direct`. Een storing bij de welkomstmail draait een geslaagde inschrijving niet terug. Bestaande, nog geldige bevestigingslinks uit de vorige versie blijven afhandelbaar.
 
 ## Installeren
 
-1. Controleer dat het bestaande boolean-contactveld `nieuwsbrief` in Mautic gepubliceerd/actief is; een uitgeschakeld veld wordt door de contact-API genegeerd. De voorbereiding blokkeert dan. Voer `prepare-production.py` als root op de bestaande host uit. Dit maakt een gerichte backup, maakt/vindt de ongepubliceerde bevestigingstemplate en configureert het bestaande Compose-bestand. Geheimen blijven op de server. Het script verstuurt geen e-mail.
+1. Controleer dat het bestaande boolean-contactveld `nieuwsbrief` in Mautic gepubliceerd/actief is; een uitgeschakeld veld wordt door de contact-API genegeerd. De voorbereiding blokkeert dan. Voer `prepare-production.py` als root op de bestaande host uit. Dit maakt een gerichte backup, maakt/vindt de ongepubliceerde welkomsttemplate en configureert het bestaande Compose-bestand. Geheimen blijven op de server. Het script verstuurt geen e-mail.
 2. Deploy de platformcommit via de normale main/GHCR-workflow. Entrypoint voert uitsluitend `prisma migrate deploy` uit. Controleer SHA, route `/nieuwsbrief`, publieke OPTIONS en databasekolommen.
 3. Deploy de genoemde themabestanden met backup. Voer `wp eval-file .../scripts/migrate-faq-topics.php` eerst droog uit, daarna met `DV_FAQ_TOPICS_APPLY=1`. Controleer aantallen en REST-veld `newsletter`.
 4. Installeer `run.sh` als `/usr/local/sbin/devree-newsletter-maintenance` (0755), units in `/etc/systemd/system`, `systemctl daemon-reload`, enable de twee timers. Dagelijks 06:00 en maandelijks op de eerste dag om 09:00, Europe/Amsterdam. Bekijk `journalctl -u devree-newsletter@daily` bij storingen.
@@ -23,7 +23,7 @@ Aanmelden gebruikt een afzonderlijke Mautic-template met een persoonlijke bevest
 - MariaDB-ketentest: `node --env-file=.env.local --import tsx --test src/lib/newsletter/integration.test.ts`, alleen met aparte database waarvan de URL `/devree_newsletter_qa_` bevat. Alle externe API's zijn gemockt; geen productiecontacten of echte verzending.
 - Browser: zoeken op titel/transcript, combinatie met onderwerp, nul resultaten, wissen, terugnavigatie, mobiel en toetsenbord. Zonder JS moeten alle vragen leesbaar zijn; aanmelden staat uit zonder JS.
 - Redactie: wijzig een goedgekeurd blok, controleer nieuwe conceptstatus; opnieuw exporteren houdt hetzelfde ID; extern gewijzigd/geactiveerd concept moet blokkeren.
-- Live aanmelding: gebruik alleen een expliciet aangewezen testadres, controleer ontvangen bericht, daadwerkelijke bevestiging en segmentlidmaatschap. Voer geen massatest met bestaande abonnees uit.
+- Live aanmelding: gebruik alleen een expliciet aangewezen testadres, controleer ontvangen welkomstmail, directe inschrijving, afmeldlink en segmentlidmaatschap. Voer geen massatest met bestaande abonnees uit.
 
 ## Herstel
 

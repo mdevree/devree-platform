@@ -1,4 +1,4 @@
-import { randomBytes, createHmac } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { newsletterMautic } from '@/lib/mautic';
 import { CONSENT_VERSION, CONSENT_TEXT, hash } from './rules';
@@ -29,7 +29,7 @@ async function excluded(contactId:number){
 export async function subscribe(input:Record<string,unknown>,ip:string){
  if(process.env.NEWSLETTER_SIGNUP_ENABLED!=='true')throw new SignupError('Aanmelden is binnenkort beschikbaar. Probeer het later opnieuw.',503);
  const email=emailValue(input.email);
- if(input.website || typeof input.elapsedMs!=='number' || input.elapsedMs<1500 || input.consentVersion!==CONSENT_VERSION)throw new SignupError('Controleer de aanmelding en probeer opnieuw.');
+ if(input.website || typeof input.elapsedMs!=='number' || input.elapsedMs<1500 || ![CONSENT_VERSION,'faq-newsletter-2026-09-v1'].includes(String(input.consentVersion)))throw new SignupError('Controleer de aanmelding en probeer opnieuw.');
  const source=typeof input.source==='string'&&/^\/vragen\/(?:[a-z0-9-]+\/)?$/.test(input.source)?input.source:'/vragen/';
  const emailHash=privateHash(email);
  await limit('newsletter:ip:'+privateHash(ip),5,3600000);await limit('newsletter:email:'+emailHash,1,900000);await limit('newsletter:total',100,86400000);
@@ -55,14 +55,18 @@ export async function subscribe(input:Record<string,unknown>,ip:string){
     await prisma.newsletterSignup.update({where:{id:row.id},data:{contactId:contact.id,state:'EXISTING',tokenHash:null,expiresAt:null}});
     return 'Als uw inschrijving actief is, ontvangt u onze volgende nieuwsbrief. U hoeft niets meer te doen.';
   }
-  const token=randomBytes(32).toString('hex');
-  await prisma.newsletterSignup.update({where:{id:row.id},data:{contactId:contact.id,source,consentVersion:CONSENT_VERSION,tokenHash:hash(token),expiresAt:new Date(Date.now()+48*3600000),state:'PENDING',lastRequestedAt:now}});
-  const template=Number(process.env.NEWSLETTER_CONFIRM_EMAIL_ID);
-  if(!Number.isInteger(template)||template<=0)throw new Error('Bevestigingsmail ontbreekt');
-  const base=process.env.NEWSLETTER_PUBLIC_ORIGIN||'https://kantoor.devreemakelaardij.nl';
-  const sent=await newsletterMautic<{success?:boolean}>(`/api/emails/${template}/contact/${contact.id}/send`,{method:'POST',body:JSON.stringify({tokens:{'{newsletter_confirm_url}':`${base}/nieuwsbrief/bevestigen#${token}`,'{newsletter_consent}':CONSENT_TEXT}})});
-  if(!sent.success)throw new Error('Bevestigingsmail niet geaccepteerd');
-  return 'Controleer uw mailbox en bevestig uw inschrijving. Pas daarna ontvangt u de nieuwsbrief.';
+  await newsletterMautic(`/api/contacts/${contact.id}/edit`,{method:'PATCH',body:JSON.stringify({nieuwsbrief:1})});
+  const verified=await getContact(contact.id);
+  if(![1,'1',true].includes(verified.fields?.all?.nieuwsbrief as string|number|boolean))throw new Error('Inschrijving niet opgeslagen');
+  await prisma.newsletterSignup.update({where:{id:row.id},data:{contactId:contact.id,source,consentVersion:CONSENT_VERSION,state:'CONFIRMED',confirmedAt:new Date(),tokenHash:null,expiresAt:null,lastRequestedAt:now}});
+  // Signup succeeds independently of the welcome mail. Never invite duplicate retries after activation.
+  try {
+   const template=Number(process.env.NEWSLETTER_WELCOME_EMAIL_ID);
+   if(!Number.isInteger(template)||template<=0)throw new Error('Welkomstmail ontbreekt');
+   const sent=await newsletterMautic<{success?:boolean}>(`/api/emails/${template}/contact/${contact.id}/send`,{method:'POST',body:JSON.stringify({tokens:{'{newsletter_consent}':CONSENT_TEXT}})});
+   if(!sent.success)throw new Error('Welkomstmail niet geaccepteerd');
+  }catch { console.error('Newsletter welcome mail failed after successful signup'); }
+  return 'Bedankt voor uw aanmelding. U ontvangt voortaan onze nieuwste onderwerpen. Afmelden kan via de link in elke e-mail.';
  }catch(error){
   await prisma.newsletterSignup.updateMany({where:{id:row.id,state:{in:['PROCESSING','PENDING']}},data:{state:'FAILED',tokenHash:null,expiresAt:null}});
   if(error instanceof SignupError)throw error;

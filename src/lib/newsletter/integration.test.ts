@@ -5,7 +5,7 @@ import {approveIssue,mutateIssue} from './editor';
 import {exportNewsletterIssue,renderNewsletterIssue} from '@/lib/newsletter';
 import {subscribe,confirm} from './signup';
 import {syncFaqs,prepareMonth,syncDelivery} from './sync';
-import {CONSENT_VERSION} from './rules';
+import {CONSENT_VERSION,hash} from './rules';
 
 const enabled=Boolean(process.env.DATABASE_URL?.includes('/devree_newsletter_qa_'));
 test('nieuwsbriefketen met echte geïsoleerde MariaDB en afgeschermde externe diensten',{skip:!enabled},async t=>{
@@ -23,7 +23,7 @@ test('nieuwsbriefketen met echte geïsoleerde MariaDB en afgeschermde externe di
   if(path==='/api/contacts'){const email=url.searchParams.get('where[0][val]');const values=[...contacts.values()].filter(c=>c.fields.all.email===email);return response({contacts:Object.fromEntries(values.map(c=>[c.id,c])),total:values.length});}
   if(path==='/api/contacts/new'){const id=next++;const c={id,fields:{all:{email:body.email,nieuwsbrief:0}},doNotContact:[]};contacts.set(id,c);return response({contact:c});}
   const contactMatch=path.match(/^\/api\/contacts\/(\d+)(\/edit|\/segments)?$/);if(contactMatch){const c=contacts.get(Number(contactMatch[1]))!;if(contactMatch[2]==='/segments')return response({lists:[]});if(contactMatch[2]==='/edit')c.fields.all.nieuwsbrief=body.nieuwsbrief;return response({contact:c});}
-  if(path.match(/^\/api\/emails\/123\/contact\/\d+\/send$/)){sendCalls++;link=body.tokens['{newsletter_confirm_url}'];return response({success:true});}
+  if(path.match(/^\/api\/emails\/123\/contact\/\d+\/send$/)){sendCalls++;link=body.tokens['{newsletter_confirm_url}']||'';return response({success:true});}
   throw new Error('Unexpected external request: '+path);
  };
  try{
@@ -47,14 +47,15 @@ test('nieuwsbriefketen met echte geïsoleerde MariaDB en afgeschermde externe di
    await syncFaqs();const item=await prisma.newsletterItem.findUniqueOrThrow({where:{sourceKey:'wordpress:faq:12761'}});await prisma.newsletterItem.update({where:{id:item.id},data:{description:'Eigen redactionele tekst'}});faqAnswer='Nieuw bronantwoord';await syncFaqs();const saved=await prisma.newsletterItem.findUniqueOrThrow({where:{id:item.id}});assert.equal(saved.description,'Eigen redactionele tekst');assert.equal((saved.sourceData as {answer:string}).answer,'Nieuw bronantwoord');
    const now=new Date('2026-09-20T12:00:00Z');const a=await prepareMonth(now),b=await prepareMonth(now);assert.equal(a.id,b.id);assert.equal((await prisma.newsletterIssue.findMany({where:{monthKey:'faq-2026-09'}})).length,1);assert.equal((await prisma.newsletterItem.findUniqueOrThrow({where:{id:item.id}})).status,'GEPLAND');
   });
-  await t.test('nieuwe inschrijving activeert uitsluitend na expliciete bevestiging',async()=>{
-   const message=await subscribe({email:'newsletter-qa@example.invalid',source:'/vragen/',elapsedMs:3000,consentVersion:CONSENT_VERSION},'qa-ip-1');assert.match(message,/mailbox/);const row=await prisma.newsletterSignup.findFirstOrThrow();const c=contacts.get(row.contactId!)!;assert.equal(c.fields.all.nieuwsbrief,0);const token=link.split('#')[1];assert.ok(token);assert.notEqual(row.tokenHash,token);
-   const results=await Promise.allSettled([confirm(token),confirm(token)]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(c.fields.all.nieuwsbrief,1);assert.equal((await prisma.newsletterSignup.findUniqueOrThrow({where:{id:row.id}})).tokenHash,null);await assert.rejects(confirm(token));
+  await t.test('nieuwe inschrijving activeert direct en stuurt één welkomstmail',async()=>{
+   process.env.NEWSLETTER_WELCOME_EMAIL_ID='123';
+   const before=sendCalls;
+   const message=await subscribe({email:'newsletter-qa@example.invalid',source:'/vragen/',elapsedMs:3000,consentVersion:CONSENT_VERSION},'qa-ip-1');assert.match(message,/Bedankt/);const row=await prisma.newsletterSignup.findFirstOrThrow();const c=contacts.get(row.contactId!)!;assert.equal(c.fields.all.nieuwsbrief,1);assert.equal(row.state,'CONFIRMED');assert.equal(row.tokenHash,null);assert.ok(row.confirmedAt);assert.equal(sendCalls,before+1);assert.equal(link,'');
    await assert.rejects(subscribe({email:'newsletter-qa@example.invalid',source:'/vragen/',elapsedMs:3000,consentVersion:CONSENT_VERSION},'qa-ip-1'),/veel/);
   });
   await t.test('afmeldingen en verlopen links worden niet geactiveerd',async()=>{
    contacts.set(999,{id:999,fields:{all:{email:'blocked@example.invalid',nieuwsbrief:0}},doNotContact:[{channel:'email'}]});const before=sendCalls;await assert.rejects(subscribe({email:'blocked@example.invalid',elapsedMs:3000,consentVersion:CONSENT_VERSION},'qa-ip-2'),/uitgeschreven/);assert.equal(sendCalls,before);
-   await subscribe({email:'expired@example.invalid',elapsedMs:3000,consentVersion:CONSENT_VERSION},'qa-ip-3');const token=link.split('#')[1];await prisma.newsletterSignup.updateMany({where:{state:'PENDING'},data:{expiresAt:new Date(0)}});await assert.rejects(confirm(token),/verlopen/);
+   await subscribe({email:'expired@example.invalid',elapsedMs:3000,consentVersion:CONSENT_VERSION},'qa-ip-3');const token='a'.repeat(64);await prisma.newsletterSignup.updateMany({where:{contactId:[...contacts.values()].find(c=>c.fields.all.email==='expired@example.invalid')!.id},data:{state:'PENDING',tokenHash:hash(token),expiresAt:new Date(0)}});await assert.rejects(confirm(token),/verlopen/);
   });
   await t.test('verzendstatus volgt Mautic, niet export',async()=>{
    const stored=await prisma.newsletterIssue.findUniqueOrThrow({where:{id:issue.id}});emails.get(stored.mauticEmailId!)!.sentCount=2;await syncDelivery();const checked=await prisma.newsletterIssue.findUniqueOrThrow({where:{id:issue.id}});assert.equal(checked.sentCount,2);assert.ok(checked.firstSentAt);
