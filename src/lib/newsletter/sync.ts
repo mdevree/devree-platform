@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { newsletterMautic } from '@/lib/mautic';
-import { normalizeKeyword, sensitiveKeyword, reportPeriods, amsterdamDate, NEWSLETTER_SEGMENT_ID, safeUrl, type RemoteEmail } from './rules';
+import { normalizeKeyword, reportPeriods, amsterdamDate, NEWSLETTER_SEGMENT_ID, safeUrl, type RemoteEmail } from './rules';
 import type { Prisma } from '@prisma/client';
 
 type Faq = {id:number;date_gmt:string;modified_gmt:string;link:string;title:{rendered:string};newsletter:{answer:string;topics:string[];thumbnail:string|null;hasVideo:boolean}|null};
@@ -25,19 +25,19 @@ export async function syncFaqs(){
  },{timeout:30000});
  return {count:faqs.length};
 }
-type SearchRow={label:string;nb_hits?:number;nb_visits?:number};
-async function matomo(method:string,date:string):Promise<SearchRow[]>{
+import { aggregate, noResultKeywords, type SearchRow } from './searchMetrics';
+export { aggregate } from './searchMetrics';
+async function matomo(method:string,date:string,events=false):Promise<SearchRow[]>{
  const token=process.env.MATOMO_API_TOKEN;if(!token)throw new Error('Matomo-koppeling nog niet ingesteld.');
- const body=new URLSearchParams({module:'API',method,idSite:'1',period:'range',date,format:'JSON',filter_limit:'-1',token_auth:token,segment:'siteSearchCategory=@FAQ /'});
+ const body=new URLSearchParams({module:'API',method,idSite:'1',period:'range',date,format:'JSON',filter_limit:'-1',token_auth:token,...(events?{expanded:'1',secondaryDimension:'eventName'}:{segment:'siteSearchCategory=@FAQ /'})});
  const r=await fetch('https://stats.devreemakelaardij.nl/index.php',{method:'POST',body,cache:'no-store',signal:AbortSignal.timeout(20000)});
  if(!r.ok)throw new Error(`Matomo niet beschikbaar (${r.status})`);
  const data=await r.json();if(!Array.isArray(data))throw new Error('Matomo kon de FAQ-zoekrapportage niet leveren.');return data;
 }
-export function aggregate(rows:SearchRow[]){const result=new Map<string,number>();for(const row of rows){const key=normalizeKeyword(row.label||'');if(key.length<2||sensitiveKeyword(key))continue;const count=Number(row.nb_hits??row.nb_visits??0);if(Number.isFinite(count)&&count>=0)result.set(key,(result.get(key)||0)+count);}return result;}
 export async function syncInsights(){
  const periods=reportPeriods();
- const [a,b,c]=await Promise.all([matomo('Actions.getSiteSearchKeywords',periods.current),matomo('Actions.getSiteSearchNoResultKeywords',periods.current),matomo('Actions.getSiteSearchKeywords',periods.previous)]);
- const current=aggregate(a),zero=aggregate(b),previous=aggregate(c);
+ const [a,b,c]=await Promise.all([matomo('Actions.getSiteSearchKeywords',periods.current),matomo('Events.getCategory',periods.current,true),matomo('Actions.getSiteSearchKeywords',periods.previous)]);
+ const current=aggregate(a),zero=noResultKeywords(b),previous=aggregate(c);
  await prisma.$transaction(async tx=>{
   await tx.newsletterInsight.updateMany({data:{searches:0,noResults:0,previousSearches:0}});
   for(const keyword of new Set([...current.keys(),...zero.keys(),...previous.keys()])){
