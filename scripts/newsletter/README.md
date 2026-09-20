@@ -10,7 +10,7 @@ Aanmelden gebruikt een afzonderlijke Mautic-template met een persoonlijke bevest
 
 ## Installeren
 
-1. Voer `prepare-production.py` als root op de bestaande host uit. Dit maakt een gerichte backup, maakt/vindt de ongepubliceerde bevestigingstemplate en configureert het bestaande Compose-bestand. Geheimen blijven op de server. Het script verstuurt geen e-mail.
+1. Controleer dat het bestaande boolean-contactveld `nieuwsbrief` in Mautic gepubliceerd/actief is; een uitgeschakeld veld wordt door de contact-API genegeerd. De voorbereiding blokkeert dan. Voer `prepare-production.py` als root op de bestaande host uit. Dit maakt een gerichte backup, maakt/vindt de ongepubliceerde bevestigingstemplate en configureert het bestaande Compose-bestand. Geheimen blijven op de server. Het script verstuurt geen e-mail.
 2. Deploy de platformcommit via de normale main/GHCR-workflow. Entrypoint voert uitsluitend `prisma migrate deploy` uit. Controleer SHA, route `/nieuwsbrief`, publieke OPTIONS en databasekolommen.
 3. Deploy de genoemde themabestanden met backup. Voer `wp eval-file .../scripts/migrate-faq-topics.php` eerst droog uit, daarna met `DV_FAQ_TOPICS_APPLY=1`. Controleer aantallen en REST-veld `newsletter`.
 4. Installeer `run.sh` als `/usr/local/sbin/devree-newsletter-maintenance` (0755), units in `/etc/systemd/system`, `systemctl daemon-reload`, enable de twee timers. Dagelijks 06:00 en maandelijks op de eerste dag om 09:00, Europe/Amsterdam. Bekijk `journalctl -u devree-newsletter@daily` bij storingen.
@@ -36,3 +36,5 @@ Referenties: https://devdocs.mautic.org/en/7.2/rest_api/emails.html en https://d
 `qa-2026-09-20.json` bevat geanonimiseerde, verwerkte Matomo-rapporten uit een afzonderlijke QA-site. In de tweede testronde hebben twee zoekacties (dezelfde term, ander onderwerp) precies één nulresultaat-event opgeleverd. Herhaalde knopdruk en een test-e-mailadres voegden geen zoekmeting toe. De QA-site en relay zijn na het vastleggen verwijderd; zakelijke site 1 is niet vervuild. De eerste testronde gebruikte nog het standaard Site Search-rapport en toonde waarom een apart event nodig is.
 
 De WordPress-index ontstaat uit gepubliceerde artikelen bij het renderen. De bestaande Nginx-paginacache kan wijzigingen maximaal tien minuten vertragen; assets krijgen een filemtime-versie. Alle 19 gepubliceerde artikelen zijn via statische links bereikbaar en staan in de sitemap. De bevestigingspagina is noindex.
+
+De echte bezorg- en bevestigingstest is op 20 september 2026 voltooid met het door Melvin opgegeven testadres: Gmail INBOX, SPF/DKIM/DMARC pass; daarna CONFIRMED en segment 33. Daarbij is bestaand Mautic-veld 143 geactiveerd (publiek bijwerken blijft uit). Zie opleverrapport.

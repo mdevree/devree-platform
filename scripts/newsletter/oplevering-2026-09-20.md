@@ -9,7 +9,7 @@ De vragenpagina is vernieuwd en live gecontroleerd op mobiel (360 px), tablet (7
 - Matomo registreert uitgevoerde zoekopdrachten met categorie en resultaataantal. Dubbele invoerevents worden onderdrukt. E-mailadressen, lange telefoonnummers en URL-invoer worden niet als zoekterm verstuurd. Analytics blijft afhankelijk van browser-/trackinginstellingen.
 - Het bestaande nieuwsbriefscherm is uitgebreid met zoekinzichten over 30 volledige dagen, vorige periode, nulresultaten, opvolgstatus, notitie en gekoppeld antwoord.
 - Bronimport behoudt handmatige redactionele tekst. 19 FAQ-items zijn toegevoegd; de bestaande 10 items zijn behouden.
-- Aanmelden met e-mailadres en expliciete bevestiging via een aparte Mautic-template (#16, ongepubliceerd). Bestaande nieuwsbriefinschrijvingen blijven intact. De bestaande segmentregel draait iedere vijf minuten. Bezorging aan een echt testadres is nog niet gecontroleerd; het testadres is gevraagd.
+- Aanmelden met e-mailadres en expliciete bevestiging via een aparte Mautic-template (#16, ongepubliceerd). Bestaande nieuwsbriefinschrijvingen blijven intact. De bestaande segmentregel draait iedere vijf minuten. Bezorging en bevestiging zijn inmiddels met het door Melvin aangewezen testadres gecontroleerd; zie de eindcontrole.
 - De bestaande doelgroep: segment 33, 19 leden, 19 bereikbare unieke adressen, 0 uitgesloten/dubbel volgens actuele API-controle.
 - Dagelijkse bronverversing om 06:00, volgende maandvoorbereiding op 1 oktober 2026 om 09:00, Europe/Amsterdam. Beide timers zijn actief. Handmatige uitvoering van dezelfde dagelijkse service is succesvol.
 - Eerste editie: `cmu9xbq6f000rhq01k0rjc782`, “Vragen en antwoorden – september 2026”. Onderwerpen: wettelijke bedenktijd, eigen bouwkundige keuring, lijst van zaken. Status DRAFT, revisie 1, geen goedkeuring, geen Mautic-export, verzendtelling 0.
@@ -35,9 +35,9 @@ De vragenpagina is vernieuwd en live gecontroleerd op mobiel (360 px), tablet (7
 - Operationele instructies: `devree-faq-newsletter/scripts/newsletter/README.md`.
 - Aanmelding pauzeren: `NEWSLETTER_SIGNUP_ENABLED=false` in bestaande serverconfiguratie en uitsluitend platform herstarten. Timers kunnen afzonderlijk gestopt worden. Schema is additief; rollback vereist geen verwijderen van nieuwe inschrijvingen.
 
-## Nog open
+## Status
 
-Eén echte bezorgtest naar een door Melvin aangewezen eigen e-mailadres, inclusief ontvangen bevestigingsmail en segmentlidmaatschap. Hiervoor is nog geen adres opgegeven. De eerste nieuwsbrief is bewust niet goedgekeurd of verstuurd.
+De echte bezorg- en bevestigingstest is voltooid. De implementatie en afgesproken controles zijn afgerond. De eerste nieuwsbrief staat klaar als concept; redactionele goedkeuring en verzending aan abonnees zijn nog niet uitgevoerd.
 
 ## Aanvullende kritische controle
 
@@ -60,3 +60,13 @@ De technische SEO-basis is op orde. Dit is geen bewijs van betere posities of vo
 Praktisch gebruik: bekijk in het nieuwsbriefscherm de zoektermen en nulresultaten; controleer eerst filter/synoniem, koppel daarna een bestaand antwoord of plan nieuwe uitleg. De dagelijkse import gebruikt volledige dagen, dus zoekacties van vandaag verschijnen vanaf de volgende verwerking. Beoordeel na vier tot zes weken de absolute aantallen. De maandtimer maakt een concept; goedkeuren, exporteren en verzenden blijven afzonderlijke stappen.
 
 Laatste productiecontrole: GitHub-run 35519045318 geslaagd; draaiende container `efc22171b422ba038017db772c3cd6f7e137dfd5`. De dagelijkse service is opnieuw uitgevoerd: FAQ-import 19, Matomo huidige/vorige periode succesvol, verzendstatuscontrole succesvol (0 geëxporteerde edities). Childtheme `ee361a3` staat op GitHub en de publieke JavaScript bevat de nulresultaatmeting.
+
+## Eindcontrole echte aanmelding — 20 september 2026
+
+- Eén aanmelding via het publieke formulier met het expliciet aangewezen testadres; formulier toont de instructie om de mailbox te controleren.
+- Gmail bevestigde daadwerkelijke ontvangst om 17:42:43 Europe/Amsterdam: INBOX / Updates, niet Spam. SPF, DKIM en DMARC slagen. HTML en platte tekst bevatten de juiste bevestigingslink en toestemmingszin.
+- De HTML-knop via Mautic-linktracking opent de juiste bevestigingspagina met behouden token. Alleen openen schreef het adres niet in: nieuwsbriefveld leeg en segment 33 afwezig.
+- De eerste bevestiging onthulde een bestaande configuratiefout: booleanveld `nieuwsbrief` (143) stond ongepubliceerd. Mautic negeerde het veld bij contactwijzigingen. Veldconfiguratie geback-upt; via API `isPublished=true` gezet. `isPubliclyUpdatable=false` behouden.
+- Dezelfde ontvangen link opnieuw bevestigd: publieke succesmelding, lokale registratie CONFIRMED om 17:44:56, toestemmingversie opgeslagen, token en vervaltijd gewist. Mautic nieuwsbrief=1 en lidmaatschap van segment 33 afzonderlijk teruggelezen. De normale segmentverwerking had het lidmaatschap al toegevoegd; een gerichte herberekening leverde geen extra wijzigingen op.
+- Voorbereidingsscript controleert voortaan expliciet dat het booleanveld actief is voordat aanmelding wordt aangezet.
+- Het testadres blijft bevestigd ingeschreven. Er is één bevestigingsmail verzonden, geen nieuwsbriefeditie naar abonnees. Privéadres en bevestigingstoken zijn niet in Git opgenomen.

@@ -19,6 +19,9 @@ node = r'''
  const auth=await fetch(base+'/oauth/v2/token',{method:'POST',body:new URLSearchParams({grant_type:'client_credentials',client_id:process.env.MAUTIC_CLIENT_ID,client_secret:process.env.MAUTIC_CLIENT_SECRET})});
  if(!auth.ok)throw new Error('OAuth unavailable'); const token=(await auth.json()).access_token;
  async function api(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});if(!r.ok)throw new Error('Mautic HTTP '+r.status);return r.json();}
+ // An unpublished custom field is silently ignored by the contact edit API.
+ const fields=Object.values((await api('/api/fields/contact?limit=500')).fields||{}).filter(f=>f.alias==='nieuwsbrief');
+ if(fields.length!==1||fields[0].type!=='boolean'||!fields[0].isPublished)throw new Error('Activate the existing boolean nieuwsbrief contact field before enabling signup');
  const name='Nieuwsbrief aanmelding bevestigen [dv:faq-signup-v1]';
  const found=await api('/api/emails?search='+encodeURIComponent('[dv:faq-signup-v1]')+'&limit=100');
  const matches=Object.values(found.emails||{}).filter(e=>e.name===name);
@@ -28,7 +31,7 @@ node = r'''
  const check=(await api('/api/emails/'+email.id)).email;
  if(check.emailType!=='template'||check.isPublished||!check.customHtml.includes('{newsletter_confirm_url}'))throw new Error('Confirmation template validation failed');
  console.log(JSON.stringify({id:check.id,isPublished:check.isPublished,type:check.emailType}));
-})().catch(()=>{console.error('Confirmation setup failed');process.exitCode=1;});
+})().catch(()=>{console.error('Confirmation setup failed; verify the active nieuwsbrief field and confirmation template');process.exitCode=1;});
 '''
 result = subprocess.check_output(['docker','exec','-i','devree-platform','node'],input=node,text=True)
 email=json.loads(result)
