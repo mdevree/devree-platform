@@ -1,0 +1,5 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {isAuthorized} from '@/lib/apiAuth';
+import {prisma} from '@/lib/prisma';
+import {renderNewsletterIssue} from '@/lib/newsletter';
+export async function GET(request:NextRequest,{params}:{params:Promise<{id:string}>}){if(!await isAuthorized(request))return NextResponse.json({error:'Niet ingelogd'},{status:401});const {id}=await params;const issue=await prisma.newsletterIssue.findUnique({where:{id},include:{blocks:{orderBy:{position:'asc'},include:{item:true}}}});if(!issue)return NextResponse.json({error:'Niet gevonden'},{status:404});const rendered=renderNewsletterIssue(issue);return new NextResponse(request.nextUrl.searchParams.get('format')==='text'?rendered.plainText:rendered.html,{headers:{'Content-Type':request.nextUrl.searchParams.get('format')==='text'?'text/plain; charset=utf-8':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; img-src https:; sandbox"}});}

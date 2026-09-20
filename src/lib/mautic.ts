@@ -1079,3 +1079,10 @@ export async function updateContact(
     lastActive: fields.last_active || null,
   };
 }
+
+// Strict newsletter calls: transport failures must never masquerade as no contact/data.
+export async function newsletterMautic<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await mauticFetch(path, { ...options, signal: AbortSignal.timeout(20000) });
+  if (!response.ok) throw new Error(`Mautic niet beschikbaar (${response.status})`);
+  return response.json() as Promise<T>;
+}

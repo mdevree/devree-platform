@@ -1,0 +1,8 @@
+[Unit]
+Description=Prepare one monthly newsletter draft (no sending)
+[Timer]
+OnCalendar=*-*-01 09:00:00 Europe/Amsterdam
+Persistent=true
+Unit=devree-newsletter@monthly.service
+[Install]
+WantedBy=timers.target

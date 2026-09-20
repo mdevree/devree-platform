@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
+import { mutateIssue } from "@/lib/newsletter/editor";
 import { prisma } from "@/lib/prisma";
 
 function cleanString(value: unknown): string | null {
@@ -24,7 +25,9 @@ export async function POST(
   const itemId = cleanString(data.itemId);
   const item = itemId ? await prisma.newsletterItem.findUnique({ where: { id: itemId } }) : null;
 
-  const block = await prisma.newsletterBlock.create({
+  try {
+  const block = await mutateIssue(id, async tx => {
+  const created = await tx.newsletterBlock.create({
     data: {
       issueId: id,
       itemId: item?.id || null,
@@ -39,11 +42,14 @@ export async function POST(
   });
 
   if (item) {
-    await prisma.newsletterItem.update({
+    await tx.newsletterItem.update({
       where: { id: item.id },
       data: { status: "GEPLAND" },
     });
   }
 
+  return created;
+  });
   return NextResponse.json({ block }, { status: 201 });
+  } catch(e) {return NextResponse.json({error:e instanceof Error?e.message:"Opslaan mislukt"},{status:409});}
 }

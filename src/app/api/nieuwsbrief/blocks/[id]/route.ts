@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
+import { mutateIssue } from "@/lib/newsletter/editor";
 import { prisma } from "@/lib/prisma";
 
 function cleanString(value: unknown): string | null {
@@ -23,7 +24,9 @@ export async function PATCH(
   const data = await request.json();
   const type = cleanType(data.type);
 
-  const block = await prisma.newsletterBlock.update({
+  const current=await prisma.newsletterBlock.findUniqueOrThrow({where:{id}});
+  try {
+  const block = await mutateIssue(current.issueId, tx=>tx.newsletterBlock.update({
     where: { id },
     data: {
       ...(type ? { type } : {}),
@@ -34,9 +37,10 @@ export async function PATCH(
       ...(data.ctaLabel !== undefined ? { ctaLabel: cleanString(data.ctaLabel) } : {}),
     },
     include: { item: true },
-  });
+  }));
 
   return NextResponse.json({ block });
+  } catch(e) {return NextResponse.json({error:e instanceof Error?e.message:"Opslaan mislukt"},{status:409});}
 }
 
 export async function DELETE(
@@ -48,7 +52,9 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  await prisma.newsletterBlock.delete({ where: { id } });
+  const current=await prisma.newsletterBlock.findUniqueOrThrow({where:{id}});
+  try { await mutateIssue(current.issueId, tx=>tx.newsletterBlock.delete({where:{id}})); }
+  catch(e) {return NextResponse.json({error:e instanceof Error?e.message:"Verwijderen mislukt"},{status:409});}
 
   return NextResponse.json({ success: true });
 }

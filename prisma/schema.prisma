@@ -681,6 +681,9 @@ model NewsletterItem {
   sourceHost  String?
   createdBy   String?
   blocks      NewsletterBlock[]
+  sourceKey   String? @unique
+  sourceData  Json?
+  sourceActive Boolean @default(true)
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
@@ -700,6 +703,17 @@ model NewsletterIssue {
   mauticEmailId  Int?
   mauticEmailUrl String?               @db.Text
   exportedAt     DateTime?
+  monthKey       String? @unique
+  revision       Int @default(1)
+  approvedRevision Int?
+  approvedAt     DateTime?
+  approvedBy     String?
+  exportedRevision Int?
+  exportHash     String?
+  exportLockAt   DateTime?
+  exportAttemptedAt DateTime?
+  firstSentAt    DateTime?
+  sentCount      Int @default(0)
   blocks         NewsletterBlock[]
   createdBy      String?
   createdAt      DateTime              @default(now())
@@ -1701,4 +1715,49 @@ model WaProviderReceipt {
   updatedAt DateTime @updatedAt
   @@index([updatedAt])
   @@map("wa_provider_receipts")
+}
+
+model NewsletterInsight {
+  id String @id @default(cuid())
+  keyword String @unique
+  searches Int @default(0)
+  noResults Int @default(0)
+  previousSearches Int @default(0)
+  state String @default("NEW")
+  faqId Int?
+  note String? @db.Text
+  updatedAt DateTime @updatedAt
+  @@map("newsletter_insights")
+}
+
+model NewsletterSync {
+  key String @id
+  lastSuccessAt DateTime?
+  lastAttemptAt DateTime?
+  error String? @db.Text
+  data Json?
+  lockedAt DateTime?
+  @@map("newsletter_sync")
+}
+
+model NewsletterSignup {
+  id String @id @default(cuid())
+  emailHash String @unique
+  contactId Int?
+  tokenHash String? @unique
+  expiresAt DateTime?
+  confirmedAt DateTime?
+  source String
+  consentVersion String
+  lastRequestedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  state String @default("PENDING")
+  @@map("newsletter_signups")
+}
+
+model NewsletterRateLimit {
+  key String @id
+  count Int @default(1)
+  expiresAt DateTime
+  @@map("newsletter_rate_limits")
 }

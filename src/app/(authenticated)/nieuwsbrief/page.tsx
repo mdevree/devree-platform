@@ -1,5 +1,6 @@
 "use client";
 
+import NewsletterInsights from "@/components/newsletter/Insights";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowTopRightOnSquareIcon,
@@ -25,6 +26,8 @@ interface NewsletterItem {
   category: string | null;
   audience: string | null;
   status: ItemStatus;
+  sourceData: {answer?:string;title?:string;syncedAt?:string}|null;
+  sourceActive: boolean;
   sourceHost: string | null;
   createdAt: string;
 }
@@ -43,6 +46,11 @@ interface NewsletterBlock {
 }
 
 interface NewsletterIssue {
+  revision: number;
+  approvedRevision: number | null;
+  firstSentAt: string | null;
+  sentCount: number;
+  monthKey: string | null;
   id: string;
   name: string;
   subject: string;
@@ -64,6 +72,7 @@ interface MauticSegment {
 }
 
 interface NewsletterDashboard {
+  audience: {members:number;eligible:number;excluded:number}|null;
   subscriberCount: number | null;
   subscriberLabel: string;
   latestIssue: {
@@ -83,7 +92,7 @@ interface NewsletterDashboard {
 }
 
 const emptyItem = { title: "", url: "", description: "", category: "", audience: "" };
-const emptyIssue = { name: "", subject: "", preheader: "", segmentIds: [] as number[] };
+const emptyIssue = { name: "", subject: "", preheader: "", segmentIds: [33] as number[] };
 
 function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined) return "-";
@@ -96,8 +105,8 @@ function formatDate(value: string | null | undefined): string {
 }
 
 function statusLabel(status: string): string {
-  if (status === "EXPORTED") return "Geexporteerd";
-  if (status === "READY") return "Klaar";
+  if (status === "EXPORTED") return "Concept in Mautic";
+  if (status === "READY") return "Goedgekeurd";
   if (status === "GEPLAND") return "Gepland";
   if (status === "GEBRUIKT") return "Gebruikt";
   if (status === "GEARCHIVEERD") return "Archief";
@@ -223,17 +232,24 @@ export default function NieuwsbriefPage() {
   }
 
   async function updateIssue(issue: NewsletterIssue, patch: Partial<NewsletterIssue>) {
+    if(Object.entries(patch).every(([k,v])=>JSON.stringify(issue[k as keyof NewsletterIssue])===JSON.stringify(v)))return;
+    setSaving(true);
+    setSaving(true);
+    try {
     const res = await fetch(`/api/nieuwsbrief/issues/${issue.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
     const data = await res.json();
+    setSaving(false);
     if (!res.ok) {
       setError(data.error || "Editie opslaan mislukt");
       return;
     }
     setIssues((current) => current.map((entry) => (entry.id === issue.id ? data.issue : entry)));
+    } catch { setError("De verbinding is onderbroken. Vernieuw de pagina en probeer opnieuw."); }
+    finally { setSaving(false); }
   }
 
   async function addItemToIssue(item: NewsletterItem, type: BlockType = "TEXT") {
@@ -263,16 +279,22 @@ export default function NieuwsbriefPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type, title: type === "CTA" ? "Plan een gesprek" : "Nieuw blok", ctaLabel: "Lees meer" }),
     });
-    if (res.ok) loadIssues();
+    if (res.ok) await loadIssues();
+    else { const d=await res.json(); setError(d.error||"Opslaan mislukt"); }
   }
 
   async function updateBlock(block: NewsletterBlock, patch: Partial<NewsletterBlock>) {
+    setSaving(true);
+    try {
     const res = await fetch(`/api/nieuwsbrief/blocks/${block.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
-    if (res.ok) loadIssues();
+    if (res.ok) await loadIssues();
+    else { const d=await res.json(); setError(d.error||"Opslaan mislukt"); }
+    } catch { setError("De verbinding is onderbroken. Vernieuw de pagina en probeer opnieuw."); }
+    finally { setSaving(false); }
   }
 
   async function deleteBlock(block: NewsletterBlock) {
@@ -285,6 +307,8 @@ export default function NieuwsbriefPage() {
     setSaving(true);
     setError(null);
     setMessage(null);
+    setSaving(true);
+    try {
     const res = await fetch(`/api/nieuwsbrief/issues/${selectedIssue.id}/export-mautic`, { method: "POST" });
     const data = await res.json();
     setSaving(false);
@@ -294,8 +318,10 @@ export default function NieuwsbriefPage() {
       return;
     }
 
-    setMessage(`Mautic concept aangemaakt: #${data.mauticEmailId}`);
+    setMessage(`Mautic-concept bijgewerkt: #${data.mauticEmailId}`);
     await Promise.all([loadDashboard(), loadIssues(), loadItems()]);
+    } catch { setError("De verbinding is onderbroken. Vernieuw de pagina en probeer opnieuw."); }
+    finally { setSaving(false); }
   }
 
   function toggleSegment(segmentId: number) {
@@ -329,10 +355,12 @@ export default function NieuwsbriefPage() {
         )}
       </div>
 
+      <NewsletterInsights onChange={()=>{void loadAll();}} />
+      <p className="text-sm text-gray-600">Nieuwsbriefdoelgroep: {formatNumber(dashboard?.audience?.eligible)} bereikbare adressen, {formatNumber(dashboard?.audience?.excluded)} uitgesloten of dubbele adressen. Een export is een concept, geen verzending.</p>
       <div className="grid gap-4 md:grid-cols-4">
         <KpiCard
           icon={UserGroupIcon}
-          label={dashboard?.subscriberLabel || "Abonnees"}
+          label="Abonnees nieuwsbrief"
           value={formatNumber(dashboard?.subscriberCount)}
         />
         <KpiCard
@@ -343,7 +371,7 @@ export default function NieuwsbriefPage() {
         />
         <KpiCard
           icon={ChartBarIcon}
-          label="Opens"
+          label="Geregistreerde opens"
           value={
             dashboard?.latestIssue
               ? `${formatNumber(dashboard.latestIssue.openCount)}${dashboard.latestIssue.openRate !== null ? ` (${dashboard.latestIssue.openRate}%)` : ""}`
@@ -352,7 +380,7 @@ export default function NieuwsbriefPage() {
         />
         <KpiCard
           icon={CursorArrowRaysIcon}
-          label="Clicks"
+          label="Geregistreerde clicks"
           value={
             dashboard?.latestIssue
               ? `${formatNumber(dashboard.latestIssue.clickCount)}${dashboard.latestIssue.clickRate !== null ? ` (${dashboard.latestIssue.clickRate}%)` : ""}`
@@ -452,9 +480,12 @@ export default function NieuwsbriefPage() {
                       </div>
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{statusLabel(item.status)}</span>
                     </div>
+                    {!item.sourceActive && <p className="text-xs text-red-700">Bronartikel niet meer gepubliceerd</p>}
+                    {item.sourceData && <details className="mt-2 text-xs"><summary>Bronartikel · gecontroleerd {formatDate(item.sourceData.syncedAt)}</summary><p>{item.sourceData.title}</p><p>{item.sourceData.answer}</p></details>}
                     {item.description && <p className="mt-2 line-clamp-2 text-xs text-gray-500">{item.description}</p>}
                     <div className="mt-3 flex items-center gap-2">
                       <button
+                        disabled={!item.sourceActive || saving}
                         onClick={() => addItemToIssue(item)}
                         className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-white hover:bg-primary-dark"
                       >
@@ -541,7 +572,7 @@ export default function NieuwsbriefPage() {
                     </div>
                     <button
                       onClick={exportToMautic}
-                      disabled={saving || !selectedIssue.segmentIds?.length}
+                      disabled={saving || !selectedIssue.segmentIds?.length || selectedIssue.approvedRevision!==selectedIssue.revision || Boolean(selectedIssue.firstSentAt)}
                       className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <CheckCircleIcon className="h-4 w-4" />
@@ -549,6 +580,12 @@ export default function NieuwsbriefPage() {
                     </button>
                   </div>
 
+                  <div className="flex flex-wrap gap-3">
+                    <button disabled={saving || Boolean(selectedIssue.firstSentAt)} onClick={()=>updateIssue(selectedIssue,{status:"READY"})} className="rounded border px-3 py-2 disabled:opacity-50">Deze versie goedkeuren</button>
+                    <a target="_blank" rel="noreferrer" href={`/api/nieuwsbrief/issues/${selectedIssue.id}/preview`} className="rounded border px-3 py-2">Voorbeeld bekijken</a>
+                    <a target="_blank" rel="noreferrer" href={`/api/nieuwsbrief/issues/${selectedIssue.id}/preview?format=text`} className="rounded border px-3 py-2">Tekstversie</a>
+                  </div>
+                  <p className="text-sm text-gray-600">Versie {selectedIssue.revision} · {statusLabel(selectedIssue.status)}{selectedIssue.firstSentAt ? ` · Verzending gestart: ${selectedIssue.sentCount} verzonden` : ' · Nog geen verzending vastgesteld'}. Controleer tekst, links en doelgroep vóór goedkeuring.</p>
                   <div className="grid gap-3 lg:grid-cols-3">
                     <input
                       key={`${selectedIssue.id}-name`}
@@ -579,6 +616,7 @@ export default function NieuwsbriefPage() {
                           <input
                             type="checkbox"
                             checked={Boolean(selectedIssue.segmentIds?.includes(segment.id))}
+                            disabled={Boolean(selectedIssue.monthKey) || saving}
                             onChange={() => toggleSegment(segment.id)}
                             className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                           />

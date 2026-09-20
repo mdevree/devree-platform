@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh FAQ, Matomo and newsletter delivery data
+[Timer]
+OnCalendar=*-*-* 06:00:00 Europe/Amsterdam
+Persistent=true
+Unit=devree-newsletter@daily.service
+[Install]
+WantedBy=timers.target

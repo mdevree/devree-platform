@@ -1,0 +1,6 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {isAuthorized} from '@/lib/apiAuth';
+import {prisma} from '@/lib/prisma';
+import {reportPeriods} from '@/lib/newsletter/rules';
+export async function GET(request:NextRequest){if(!await isAuthorized(request))return NextResponse.json({error:'Niet ingelogd'},{status:401});const [insights,sync,faqs]=await Promise.all([prisma.newsletterInsight.findMany({orderBy:[{noResults:'desc'},{searches:'desc'}]}),prisma.newsletterSync.findMany(),prisma.newsletterItem.findMany({where:{sourceKey:{startsWith:'wordpress:faq:'},sourceActive:true},select:{id:true,title:true,url:true,sourceKey:true}})]);return NextResponse.json({insights,sync,faqs,periods:reportPeriods()});}
+export async function PATCH(request:NextRequest){if(!await isAuthorized(request))return NextResponse.json({error:'Niet ingelogd'},{status:401});const d=await request.json();if(!['NEW','IMPROVE','PLANNED','COVERED','IGNORED'].includes(d.state)||typeof d.id!=='string')return NextResponse.json({error:'Ongeldige beoordeling'},{status:400});const insight=await prisma.newsletterInsight.update({where:{id:d.id},data:{state:d.state,faqId:Number.isInteger(d.faqId)&&d.faqId>0?d.faqId:null,note:typeof d.note==='string'?d.note.slice(0,2000):null}});return NextResponse.json({insight});}

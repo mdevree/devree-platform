@@ -1,6 +1,8 @@
+import { newsletterMautic } from "@/lib/mautic";
+import { safeUrl, remoteHash, assertRemoteDraft, type RemoteEmail, NEWSLETTER_SEGMENT_ID } from "@/lib/newsletter/rules";
+import { newsletterAudience } from "@/lib/newsletter/editor";
 import { prisma } from "@/lib/prisma";
 import {
-  createNewsletterEmail,
   getEmailSummary,
   getSegmentSubscriberCount,
   listSegments,
@@ -35,6 +37,7 @@ export type RenderedNewsletter = {
 };
 
 export type NewsletterDashboard = {
+  audience: {members:number;eligible:number;excluded:number}|null;
   subscriberCount: number | null;
   subscriberLabel: string;
   segments: MauticSegment[];
@@ -72,23 +75,24 @@ function textToHtml(value: string): string {
 }
 
 export function buildNewsletterUrl(url: string | null | undefined, issueName: string): string | null {
-  if (!url) return null;
+  const safe = safeUrl(url);
+  if (!safe) return null;
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(safe);
     parsed.searchParams.set("utm_source", "nieuwsbrief");
     parsed.searchParams.set("utm_medium", "email");
     parsed.searchParams.set("utm_campaign", issueName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
     return parsed.toString();
   } catch {
-    return url;
+    return null;
   }
 }
 
 function blockText(block: NewsletterBlockInput): { title: string; body: string; url: string | null; ctaLabel: string } {
   return {
-    title: block.title || block.item?.title || "",
-    body: block.body || block.item?.description || "",
-    url: block.url || block.item?.url || null,
+    title: block.title || "",
+    body: block.body || "",
+    url: block.url || null,
     ctaLabel: block.ctaLabel || "Lees meer",
   };
 }
@@ -116,7 +120,7 @@ function renderBlock(block: NewsletterBlockInput, issueName: string): string {
 
 export function renderNewsletterIssue(issue: NewsletterIssueInput): RenderedNewsletter {
   const blocks = issue.blocks.length
-    ? issue.blocks.map((block) => renderBlock(block, issue.name)).join("")
+    ? issue.blocks.map((block) => renderBlock(block, "editie-" + issue.id)).join("")
     : `<tr><td style="padding:22px 0;color:#6b7280">Deze nieuwsbrief bevat nog geen blokken.</td></tr>`;
 
   const preheader = issue.preheader
@@ -139,7 +143,8 @@ ${issue.preheader ? `<p style="margin:8px 0 0;color:#6b7280;font-size:15px">${es
 ${blocks}
 <tr><td style="padding-top:24px;color:#6b7280;font-size:12px;line-height:1.5">
 De Vree Makelaardij<br>
-U ontvangt deze nieuwsbrief omdat u bent ingeschreven via De Vree Makelaardij.
+U ontvangt deze nieuwsbrief omdat u bent ingeschreven via De Vree Makelaardij.<br>
+<a href="{unsubscribe_url}" style="color:#03543d">Afmelden voor de nieuwsbrief</a>
 </td></tr>
 </table>
 </td></tr>
@@ -150,7 +155,7 @@ U ontvangt deze nieuwsbrief omdat u bent ingeschreven via De Vree Makelaardij.
   const plainTextBlocks = issue.blocks
     .map((block) => {
       const data = blockText(block);
-      const url = buildNewsletterUrl(data.url, issue.name);
+      const url = buildNewsletterUrl(data.url, "editie-" + issue.id);
       return [data.title, data.body, url ? `${data.ctaLabel}: ${url}` : null].filter(Boolean).join("\n");
     })
     .filter(Boolean)
@@ -158,13 +163,13 @@ U ontvangt deze nieuwsbrief omdat u bent ingeschreven via De Vree Makelaardij.
 
   return {
     html,
-    plainText: `${issue.subject}\n${issue.preheader || ""}\n\n${plainTextBlocks}`.trim(),
+    plainText: `${issue.subject}\n${issue.preheader || ""}\n\n${plainTextBlocks}\n\nDe Vree Makelaardij\nAfmelden: {unsubscribe_url}`.trim(),
   };
 }
 
 export function normalizeSegmentIds(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
-  return value.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
+  return [...new Set(value.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
 }
 
 async function getSubscriberCount(segmentIds: number[], segments: MauticSegment[]): Promise<number | null> {
@@ -209,8 +214,10 @@ export async function getNewsletterDashboard(): Promise<NewsletterDashboard> {
           return (sum ?? 0) + segment.subscriberCount;
         }, null);
 
+  const audience=await newsletterAudience().catch(()=>null);
   if (!latestIssue) {
     return {
+      audience,
       subscriberCount,
       subscriberLabel: newsletterSegmentIds.length ? "Abonnees nieuwsbrief" : "Abonnees in Mautic segmenten",
       segments,
@@ -234,6 +241,7 @@ export async function getNewsletterDashboard(): Promise<NewsletterDashboard> {
   const resolvedClickCount = mautic?.clickCount ?? clickCount;
 
   return {
+    audience,
     subscriberCount,
     subscriberLabel: issueSegmentIds.length ? "Abonnees in laatste editie" : "Abonnees nieuwsbrief",
     segments,
@@ -248,57 +256,53 @@ export async function getNewsletterDashboard(): Promise<NewsletterDashboard> {
       sentCount,
       openCount: resolvedOpenCount,
       clickCount: resolvedClickCount,
-      openRate: sentCount && sentCount > 0 ? Math.round((resolvedOpenCount / sentCount) * 1000) / 10 : null,
-      clickRate: sentCount && sentCount > 0 ? Math.round((resolvedClickCount / sentCount) * 1000) / 10 : null,
+      openRate: null,
+      clickRate: null,
       mautic,
     },
   };
 }
 
 export async function exportNewsletterIssue(issueId: string): Promise<{ mauticEmailId: number; mauticEmailUrl: string | null }> {
-  const issue = await prisma.newsletterIssue.findUnique({
-    where: { id: issueId },
-    include: {
-      blocks: {
-        orderBy: { position: "asc" },
-        include: { item: { select: { title: true, url: true, description: true } } },
-      },
-    },
-  });
-
-  if (!issue) throw new Error("Nieuwsbriefeditie niet gevonden");
-
-  const segmentIds = normalizeSegmentIds(issue.segmentIds);
-  if (!segmentIds.length) throw new Error("Kies minimaal een Mautic segment voor export");
-
-  const rendered = renderNewsletterIssue(issue);
-  const created = await createNewsletterEmail({
-    name: issue.name,
-    subject: issue.subject,
-    preheader: issue.preheader,
-    segmentIds,
-    html: rendered.html,
-    plainText: rendered.plainText,
-  });
-
-  await prisma.$transaction([
-    prisma.newsletterIssue.update({
-      where: { id: issue.id },
-      data: {
-        status: "EXPORTED",
-        mauticEmailId: created.id,
-        mauticEmailUrl: created.url,
-        exportedAt: new Date(),
-      },
-    }),
-    prisma.newsletterItem.updateMany({
-      where: { blocks: { some: { issueId: issue.id } } },
-      data: { status: "GEBRUIKT" },
-    }),
-  ]);
-
-  return {
-    mauticEmailId: created.id,
-    mauticEmailUrl: created.url,
-  };
+  const issue = await prisma.newsletterIssue.findUniqueOrThrow({where:{id:issueId},include:{blocks:{orderBy:{position:'asc'},include:{item:true}}}});
+  if(issue.status !== 'READY' && !(issue.status==='EXPORTED' && issue.exportedRevision===issue.revision)) throw new Error('Keur deze versie eerst goed.');
+  if(issue.approvedRevision!==issue.revision || !issue.approvedBy) throw new Error('Goedkeuring ontbreekt of is verlopen.');
+  const segmentIds=normalizeSegmentIds(issue.segmentIds);
+  if(!segmentIds.length || (issue.monthKey && (segmentIds.length!==1 || segmentIds[0]!==NEWSLETTER_SEGMENT_ID))) throw new Error('Controleer de doelgroep.');
+  if(issue.blocks.some(b=>b.item && !b.item.sourceActive)) throw new Error('Een bronartikel is niet meer gepubliceerd.');
+  const lock=new Date();
+  const claimed=await prisma.newsletterIssue.updateMany({where:{id:issue.id,revision:issue.revision,exportLockAt:null},data:{exportLockAt:lock}});
+  if(claimed.count!==1) throw new Error('Er loopt al een export.');
+  try {
+    const name=`${issue.name} [dv:${issue.id}]`;
+    let remote: RemoteEmail | undefined;
+    if(issue.mauticEmailId) {
+      remote=(await newsletterMautic<{email:RemoteEmail}>(`/api/emails/${issue.mauticEmailId}`)).email;
+      assertRemoteDraft(remote,issue.exportHash);
+    } else {
+      const found=await newsletterMautic<{emails:Record<string,RemoteEmail>}>(`/api/emails?search=${encodeURIComponent('[dv:'+issue.id+']')}&limit=100`);
+      const matches=Object.values(found.emails||{}).filter(e=>e.name.endsWith(`[dv:${issue.id}]`));
+      if(matches.length>1) throw new Error('Meerdere concepten gevonden. Controleer de Mautic-koppeling.');
+      remote=matches[0];
+      if(remote) assertRemoteDraft(remote);
+      else if(issue.exportAttemptedAt) throw new Error('Eerdere exportuitkomst onzeker. Controleer in Mautic voordat een nieuw concept wordt aangemaakt.');
+    }
+    const rendered=renderNewsletterIssue(issue);
+    const payload={ name, subject:issue.subject, preheaderText:issue.preheader||'', emailType:'list', language:'nl', isPublished:false, lists:segmentIds, customHtml:rendered.html, plainText:rendered.plainText, sendToDnc:false };
+    // Recover a created-but-unrecorded email only if its content matches this approved version.
+    if(remote && !issue.mauticEmailId && remoteHash(remote)!==remoteHash({...payload,id:remote.id})) throw new Error('Teruggevonden concept wijkt af. Controleer dit in Mautic.');
+    await prisma.newsletterIssue.update({where:{id:issue.id},data:{exportAttemptedAt:new Date()}});
+    const saved=await newsletterMautic<{email:RemoteEmail}>(remote?`/api/emails/${remote.id}/edit`:'/api/emails/new',{method:remote?'PATCH':'POST',body:JSON.stringify(payload)});
+    if(!saved.email?.id) throw new Error('Mautic gaf geen concept-ID terug.');
+    // Store the identity immediately, before a potentially failing readback.
+    await prisma.newsletterIssue.update({where:{id:issue.id},data:{mauticEmailId:saved.email.id,exportHash:remoteHash({...payload,id:saved.email.id})}});
+    const check=(await newsletterMautic<{email:RemoteEmail}>(`/api/emails/${saved.email.id}`)).email;
+    assertRemoteDraft(check);
+    if(remoteHash(check)!==remoteHash({...payload,id:check.id})) throw new Error('Mautic-teruglezing wijkt af van de goedgekeurde editie.');
+    const url=`${(process.env.MAUTIC_URL||'https://connect.devreemakelaardij.nl').replace(/\/$/,'')}/s/emails/view/${check.id}`;
+    await prisma.newsletterIssue.update({where:{id:issue.id},data:{status:'EXPORTED',mauticEmailId:check.id,mauticEmailUrl:url,exportedAt:new Date(),exportedRevision:issue.revision,exportHash:remoteHash(check)}});
+    return {mauticEmailId:check.id,mauticEmailUrl:url};
+  } finally {
+    await prisma.newsletterIssue.updateMany({where:{id:issue.id,exportLockAt:lock},data:{exportLockAt:null}});
+  }
 }
