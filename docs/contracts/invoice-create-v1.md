@@ -33,9 +33,21 @@ Voorwaarden:
 - gebruiker moet ingelogd zijn;
 - project moet type `TAXATIE`, `VERKOOP` of `AANKOOP` zijn;
 - project moet al een debiteurenklant-link hebben;
-- `amountExcl` wordt expliciet gevraagd en niet uit projectvelden geraden;
+- precies één van `amountExcl` of `amountIncl` wordt expliciet gevraagd en niet uit projectvelden geraden;
 - `description`, `subject`, `bank`, `invoiceDate` en `dueDate` kunnen door
   kantoor worden aangepast vóór preview en aanmaak.
+
+Het formulier biedt `Excl. btw` (standaard) en `Incl. btw`. Bij inclusief-invoer
+stuurt het formulier bijvoorbeeld `{ "amountIncl": 650 }`. De gedeelde
+payload-builder voor preview en aanmaak rekent dit met 21% btw om naar
+`amountExcl: 537.19`. De debiteuren-API blijft het bestaande exclusief-contract
+ontvangen. Getallen met een decimale punt of komma zijn toegestaan.
+
+Debiteuren rekent per regel vanaf het exclusieve bedrag, afgerond op centen.
+Daardoor kan het previewtotaal één cent afwijken van de inclusief-invoer
+(bijvoorbeeld 100 inclusief wordt 82.64 exclusief en 99.99 inclusief).
+Het formulier toont dan een afrondingsmelding vóór aanmaak. Wijzigingen aan
+bedrag, btw-keuze of andere factuurvelden maken de vorige preview ongeldig.
 
 Het platform leidt `invoiceType` af uit het projecttype en vertrouwt daarvoor
 niet op de browserpayload. Defaults wanneer kantoor onderwerp/omschrijving leeg

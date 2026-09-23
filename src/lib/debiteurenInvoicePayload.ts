@@ -57,10 +57,17 @@ export function buildProjectInvoicePayload(
   }
 
   const body = isRecord(input) ? input : {};
-  const amountExcl = money(body.amountExcl);
-  if (amountExcl === null) {
-    return { ok: false, status: 400, error: "amountExcl is verplicht en moet positief zijn" };
+  const includesVat = body.amountIncl !== undefined;
+  if (includesVat && body.amountExcl !== undefined) {
+    return { ok: false, status: 400, error: "Geef één bedrag op: inclusief of exclusief btw" };
   }
+  const amount = money(includesVat ? body.amountIncl : body.amountExcl);
+  if (amount === null) {
+    return { ok: false, status: 400, error: `${includesVat ? "amountIncl" : "amountExcl"} is verplicht en moet positief zijn` };
+  }
+  // Debiteuren rekent btw per regel vanaf een bedrag exclusief btw in centen.
+  const vatRate = 0.21;
+  const amountExcl = includesVat ? Math.round(amount / (1 + vatRate) * 100) / 100 : amount;
 
   const opdrachtgever = project.contacts.find((contact) => contact.role === "opdrachtgever");
   const mauticContactId = opdrachtgever?.mauticContactId
@@ -91,7 +98,7 @@ export function buildProjectInvoicePayload(
         {
           description,
           amountExcl,
-          vatRate: 0.21,
+          vatRate,
         },
       ],
       extra: text(body.extra),
@@ -136,9 +143,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function money(value: unknown): number | null {
-  const parsed = typeof value === "number" || typeof value === "string" ? Number(value) : NaN;
+  const parsed = typeof value === "string" ? Number(value.trim().replace(",", "."))
+    : typeof value === "number" ? value : NaN;
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return Math.round(parsed * 100) / 100;
+  const cents = Math.round(parsed * 100);
+  return Number.isSafeInteger(cents) && cents > 0 ? cents / 100 : null;
 }
 
 function text(value: unknown): string | null {

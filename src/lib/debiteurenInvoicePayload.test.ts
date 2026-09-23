@@ -111,3 +111,41 @@ test("weigert factuurpayload voor onbekend projecttype", () => {
     error: "Factuuractie is alleen voor taxatie-, verkoop- en aankoopprojecten beschikbaar",
   });
 });
+
+test("rekent inclusief btw om voor taxatie, verkoop en aankoop", () => {
+  for (const type of ["TAXATIE", "VERKOOP", "AANKOOP"]) {
+    for (const amountIncl of [650, "650.00", "650,00"]) {
+      const result = buildProjectInvoicePayload({ ...PROJECT, type }, { amountIncl });
+      assert.equal(result.ok, true);
+      if (!result.ok) continue;
+      assert.equal(result.payload.lines[0].amountExcl, 537.19);
+      assert.equal(result.payload.lines[0].vatRate, 0.21);
+      assert.equal(Math.round(result.payload.lines[0].amountExcl * 1.21 * 100) / 100, 650);
+    }
+  }
+});
+
+test("houdt exclusieve invoer compatibel en gebruikt dezelfde payload en idempotency-key", () => {
+  const excl = buildProjectInvoicePayload(PROJECT, { amountExcl: "650,00" });
+  const incl = buildProjectInvoicePayload(PROJECT, { amountIncl: "786.50" });
+  assert.equal(excl.ok, true);
+  assert.deepEqual(incl, excl);
+});
+
+test("rondt het exclusieve bedrag af op centen zoals de debiteurenadministratie", () => {
+  const result = buildProjectInvoicePayload(PROJECT, { amountIncl: 100 });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.payload.lines[0].amountExcl, 82.64);
+});
+
+test("weigert dubbelzinnige en ongeldige btw-invoer", () => {
+  assert.deepEqual(buildProjectInvoicePayload(PROJECT, { amountExcl: 650, amountIncl: 650 }), {
+    ok: false, status: 400, error: "Geef één bedrag op: inclusief of exclusief btw",
+  });
+  for (const amountIncl of [null, "", " ", 0, -1, 0.001, "ongeldig", Infinity, Number.MAX_VALUE, {}, true]) {
+    assert.deepEqual(buildProjectInvoicePayload(PROJECT, { amountIncl }), {
+      ok: false, status: 400, error: "amountIncl is verplicht en moet positief zijn",
+    });
+  }
+});

@@ -1047,6 +1047,7 @@ export default function ProjectDetailPage() {
   const [debiteurenMauticSaving, setDebiteurenMauticSaving] = useState(false);
   const [debiteurenMauticWarnings, setDebiteurenMauticWarnings] = useState<ContactNormalizationWarning[]>([]);
   const [projectInvoiceAmount, setProjectInvoiceAmount] = useState("");
+  const [projectInvoiceAmountType, setProjectInvoiceAmountType] = useState<"excl" | "incl">("excl");
   const [projectInvoiceSubject, setProjectInvoiceSubject] = useState("");
   const [projectInvoiceDescription, setProjectInvoiceDescription] = useState("");
   const [projectInvoiceBank, setProjectInvoiceBank] = useState<"rabo" | "abn">("rabo");
@@ -1928,7 +1929,7 @@ export default function ProjectDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amountExcl: projectInvoiceAmount,
+          [projectInvoiceAmountType === "incl" ? "amountIncl" : "amountExcl"]: projectInvoiceAmount,
           subject: projectInvoiceSubject,
           description: projectInvoiceDescription,
           bank: projectInvoiceBank,
@@ -1973,7 +1974,7 @@ export default function ProjectDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amountExcl: projectInvoiceAmount,
+          [projectInvoiceAmountType === "incl" ? "amountIncl" : "amountExcl"]: projectInvoiceAmount,
           subject: projectInvoiceSubject,
           description: projectInvoiceDescription,
           bank: projectInvoiceBank,
@@ -2766,79 +2767,102 @@ export default function ProjectDetailPage() {
                         </a>
                       </div>
                     )}
-                    <div className="mt-3 flex flex-wrap items-end gap-2">
-                      <div className="min-w-[160px] flex-1">
-                        <label className="mb-1 block text-xs font-medium text-emerald-900">Bedrag excl. btw</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={projectInvoiceAmount}
-                          onChange={(e) => setProjectInvoiceAmount(e.target.value)}
-                          placeholder="650,00"
-                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                        />
-                      </div>
-                      <div className="min-w-[180px] flex-1">
-                        <label className="mb-1 block text-xs font-medium text-emerald-900">Omschrijving regel</label>
-                        <input
-                          type="text"
-                          value={projectInvoiceDescription}
-                          onChange={(e) => setProjectInvoiceDescription(e.target.value)}
-                          placeholder={projectInvoiceDefaultDescription(currentProjectInvoiceType)}
-                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                        />
-                      </div>
-                      <div className="min-w-[120px]">
-                        <label className="mb-1 block text-xs font-medium text-emerald-900">Bank</label>
-                        <select
-                          value={projectInvoiceBank}
-                          onChange={(e) => setProjectInvoiceBank(e.target.value === "abn" ? "abn" : "rabo")}
-                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                    <fieldset
+                      disabled={projectInvoiceLoading || projectInvoiceCreating}
+                      onChange={() => {
+                        setProjectInvoicePreview(null);
+                        setProjectInvoiceCreated(null);
+                        setProjectInvoiceError("");
+                      }}
+                    >
+                      <div className="mt-3 flex flex-wrap items-end gap-2">
+                        <div className="min-w-[240px] flex-1">
+                          <label htmlFor="project-invoice-amount" className="mb-1 block text-xs font-medium text-emerald-900">
+                            Bedrag {projectInvoiceAmountType === "incl" ? "incl." : "excl."} btw
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              id="project-invoice-amount"
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={projectInvoiceAmount}
+                              onChange={(e) => setProjectInvoiceAmount(e.target.value)}
+                              placeholder="650,00"
+                              className="min-w-0 w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                            />
+                            <select
+                              aria-label="Btw-invoer"
+                              value={projectInvoiceAmountType}
+                              onChange={(e) => setProjectInvoiceAmountType(e.target.value === "incl" ? "incl" : "excl")}
+                              className="rounded-md border border-emerald-200 bg-white px-2 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                            >
+                              <option value="excl">Excl. btw</option>
+                              <option value="incl">Incl. btw</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="min-w-[180px] flex-1">
+                          <label className="mb-1 block text-xs font-medium text-emerald-900">Omschrijving regel</label>
+                          <input
+                            type="text"
+                            value={projectInvoiceDescription}
+                            onChange={(e) => setProjectInvoiceDescription(e.target.value)}
+                            placeholder={projectInvoiceDefaultDescription(currentProjectInvoiceType)}
+                            className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                        <div className="min-w-[120px]">
+                          <label className="mb-1 block text-xs font-medium text-emerald-900">Bank</label>
+                          <select
+                            value={projectInvoiceBank}
+                            onChange={(e) => setProjectInvoiceBank(e.target.value === "abn" ? "abn" : "rabo")}
+                            className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                          >
+                            <option value="rabo">Rabo</option>
+                            <option value="abn">ABN</option>
+                          </select>
+                        </div>
+                        <button
+                          onClick={handleProjectInvoicePreview}
+                          disabled={projectInvoiceLoading || !projectInvoiceAmount}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          <option value="rabo">Rabo</option>
-                          <option value="abn">ABN</option>
-                        </select>
+                          <ArrowPathIcon className={`h-3.5 w-3.5 ${projectInvoiceLoading ? "animate-spin" : ""}`} />
+                          Preview
+                        </button>
                       </div>
-                      <button
-                        onClick={handleProjectInvoicePreview}
-                        disabled={projectInvoiceLoading || !projectInvoiceAmount}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <ArrowPathIcon className={`h-3.5 w-3.5 ${projectInvoiceLoading ? "animate-spin" : ""}`} />
-                        Preview
-                      </button>
-                    </div>
-                    <div className="mt-2 grid gap-2 md:grid-cols-3">
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-emerald-900">Onderwerp</label>
-                        <input
-                          type="text"
-                          value={projectInvoiceSubject}
-                          onChange={(e) => setProjectInvoiceSubject(e.target.value)}
-                          placeholder="Automatisch op basis van projectadres"
-                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                        />
+                      <div className="mt-2 grid gap-2 md:grid-cols-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-emerald-900">Onderwerp</label>
+                          <input
+                            type="text"
+                            value={projectInvoiceSubject}
+                            onChange={(e) => setProjectInvoiceSubject(e.target.value)}
+                            placeholder="Automatisch op basis van projectadres"
+                            className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-emerald-900">Factuurdatum</label>
+                          <input
+                            type="date"
+                            value={projectInvoiceDate}
+                            onChange={(e) => setProjectInvoiceDate(e.target.value)}
+                            className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-emerald-900">Vervaldatum</label>
+                          <input
+                            type="date"
+                            value={projectInvoiceDueDate}
+                            onChange={(e) => setProjectInvoiceDueDate(e.target.value)}
+                            className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-emerald-900">Factuurdatum</label>
-                        <input
-                          type="date"
-                          value={projectInvoiceDate}
-                          onChange={(e) => setProjectInvoiceDate(e.target.value)}
-                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-emerald-900">Vervaldatum</label>
-                        <input
-                          type="date"
-                          value={projectInvoiceDueDate}
-                          onChange={(e) => setProjectInvoiceDueDate(e.target.value)}
-                          className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                        />
-                      </div>
-                    </div>
+                    </fieldset>
                     {projectInvoiceError && (
                       <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
                         {projectInvoiceError}
@@ -2866,6 +2890,18 @@ export default function ProjectDetailPage() {
                             </div>
                           ))}
                         </div>
+                        <p className="mt-2 text-gray-600">
+                          {formatCurrency(projectInvoicePreview.preview.invoice.amountExcl)} excl. btw
+                          {" + "}{formatCurrency(projectInvoicePreview.preview.invoice.amountIncl - projectInvoicePreview.preview.invoice.amountExcl)} btw (21%)
+                          {" = "}{formatCurrency(projectInvoicePreview.preview.invoice.amountIncl)} incl. btw
+                        </p>
+                        {projectInvoiceAmountType === "incl" &&
+                          Math.round(Number(projectInvoiceAmount) * 100) !== Math.round(projectInvoicePreview.preview.invoice.amountIncl * 100) && (
+                          <p className="mt-2 text-amber-700" role="status">
+                            Door afronding van het bedrag exclusief btw wijkt het factuurtotaal iets af van je invoer.
+                            Controleer het totaal hierboven voordat je de factuur aanmaakt.
+                          </p>
+                        )}
                         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-emerald-100 pt-3">
                           <p className="text-[11px] text-gray-500">
                             Definitief aanmaken gebruikt een idempotency-key; opnieuw klikken maakt geen dubbele factuur.
