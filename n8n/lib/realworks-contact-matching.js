@@ -71,6 +71,7 @@
     }
     let target = stableHits[0] || hits.field1;
     let strategy = hits.realworks_code ? 'realworks_code' : hits.systemid ? 'systemid' : hits.field1 ? 'mautic_id' : 'new';
+    let nameChange = null;
     if (hits.field1 && target && id(hits.field1.id) !== id(target.id)) {
       return fail('conflicting_identity', 'Het Mautic-ID in Realworks hoort bij een ander contact.');
     }
@@ -86,12 +87,19 @@
     if (!target && hits.email) {
       const candidate = hits.email;
       const existing = fields(candidate);
-      if (identityConflict(mapped, candidate) || ['firstname', 'lastname'].some((key) =>
-        name(mapped[key]) && name(existing[key]) && name(mapped[key]) !== name(existing[key]))) {
-        return fail('email_identity_conflict', 'Het contact met dit e-mailadres heeft een andere naam of Realworks-identificatie.');
+      if (['realworks_code', 'systemid'].some((key) => text(existing[key]))) {
+        return fail('email_identity_conflict', 'Het contact met dit e-mailadres is al aan een Realworks-relatie gekoppeld.');
       }
+      const nameChanged = ['firstname', 'lastname'].some((key) =>
+        name(mapped[key]) && name(mapped[key]) !== name(existing[key]));
       target = candidate;
-      strategy = 'email';
+      strategy = nameChanged ? 'email_name_override' : 'email';
+      if (nameChanged) {
+        nameChange = {
+          before: { firstname: text(existing.firstname), lastname: text(existing.lastname) },
+          after: { firstname: text(mapped.firstname), lastname: text(mapped.lastname) },
+        };
+      }
     }
 
     const writeFields = {};
@@ -99,7 +107,8 @@
       if (mapped[key] === undefined || mapped[key] === null || !text(mapped[key])) continue;
       writeFields[key] = key === 'email' ? text(mapped[key]).toLowerCase() : mapped[key];
     }
-    return { status: 'ready', statusCode: 200, matchStrategy: strategy, mapped, fields: writeFields,
+    return { status: 'ready', statusCode: 200, matchStrategy: strategy, nameChange,
+      mapped, fields: writeFields,
       mauticContactId: target ? id(target.id) : null,
       method: target ? 'PATCH' : 'POST',
       url: target ? `https://connect.devreemakelaardij.nl/api/contacts/${id(target.id)}/edit`
@@ -132,6 +141,7 @@
     }
     return { status: 'ok', statusCode: 200, id: written.mauticContactId,
       mauticContactId: written.mauticContactId, matchStrategy: written.matchStrategy,
+      nameChange: written.nameChange,
       needsWriteBack: Boolean(text(written.mapped.systemid) && id(written.mapped._mauticContactId) !== written.mauticContactId) };
   }
 
