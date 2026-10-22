@@ -1,0 +1,10 @@
+[Unit]
+Description=Dagelijkse EP-Online import om 07.00 uur Nederlandse tijd
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 Europe/Amsterdam
+Persistent=true
+Unit=devree-energy-label-monitor.service
+
+[Install]
+WantedBy=timers.target

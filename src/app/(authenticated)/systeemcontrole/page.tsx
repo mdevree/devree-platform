@@ -1,5 +1,7 @@
 "use client";
 
+import EnergyLabelHealth from "@/components/energy-labels/EnergyLabelHealth";
+
 import { useEffect, useMemo, useState } from "react";
 
 type SyncHealth = {
@@ -246,6 +248,8 @@ export default function SysteemcontrolePage() {
           PBX bridge vraagt aandacht: {pbx.error || "onbekende fout"}
         </div>
       )}
+
+      <EnergyLabelHealth />
 
       {realworksMutations?.health === "attention" && (
         <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

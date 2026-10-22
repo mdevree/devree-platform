@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
+import { reconcileEnergyLabels } from "@/lib/energyLabels";
 import { parseRealworksMutationEmailHtml } from "@/lib/realworksMutations";
 import { recalculateActionOpportunities } from "@/lib/actionOpportunities";
 import { upsertMarketObjectFromRealworksMutation } from "@/lib/marketObjects";
@@ -167,6 +168,8 @@ export async function POST(request: NextRequest) {
       opportunitiesSkipped: opportunities.skipped,
     },
   });
+
+  await reconcileEnergyLabels().catch(() => console.error("Energielabelkoppeling wordt bij volgende import herhaald"));
 
   return NextResponse.json({
     success: true,

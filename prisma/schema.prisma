@@ -1761,3 +1761,45 @@ model NewsletterRateLimit {
   expiresAt DateTime
   @@map("newsletter_rate_limits")
 }
+
+// EP-Online observations are signals, never active market listings.
+model EnergyLabelSignal {
+  id                 String   @id @default(cuid())
+  sourceKey          String   @unique
+  objectKey          String
+  bagId              String?
+  canonicalKey       String
+  postcode           String
+  houseNumber        String
+  houseLetter        String?
+  houseAddition      String?
+  detail             String?
+  street             String?
+  city               String?
+  municipality       String?
+  areaStatus         String   @default("pending")
+  label              String
+  previousLabel      String?
+  buildingType       String?
+  buildingStatus     String?
+  registeredAt       DateTime
+  inspectedAt        DateTime
+  validUntil         DateTime?
+  detectedAt         DateTime
+  sourceDate         DateTime
+  baseline           Boolean  @default(false)
+  current            Boolean  @default(true)
+  knownAtDiscovery   Boolean  @default(false)
+  firstListedAt      DateTime?
+  listingSourceDate  DateTime?
+  listingKind        String?
+  exchangeObjectId   String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([registeredAt])
+  @@index([canonicalKey])
+  @@index([objectKey])
+  @@index([city, current])
+  @@map("energy_label_signals")
+}

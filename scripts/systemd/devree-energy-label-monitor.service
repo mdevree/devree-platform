@@ -1,0 +1,18 @@
+[Unit]
+Description=De Vree EP-Online energielabelmonitor
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=DeVreeMakelaardij
+Group=DeVreeMakelaardij
+Environment=HOME=/home/DeVreeMakelaardij
+ExecStart=/usr/bin/python3 /home/DeVreeMakelaardij/.local/bin/energy-label-monitor.py
+TimeoutStartSec=7200
+UMask=0077
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/DeVreeMakelaardij/.local/share/energy-label-monitor
