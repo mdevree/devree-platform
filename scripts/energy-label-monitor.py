@@ -307,8 +307,6 @@ class Monitor:
         failures = 0
         for (raw,) in unresolved:
             s = json.loads(raw)
-            if s.get('detail'):
-                continue
             try:
                 docs = self.address_docs(s['postcode'])
             except RuntimeError:
@@ -324,7 +322,7 @@ class Monitor:
             if len(matches) == 1:
                 d = matches[0]
                 s.update(street=d.get('straatnaam'), city=d.get('woonplaatsnaam'), municipality=d.get('gemeentenaam'),
-                         areaStatus='matched' if in_area(d) else 'outside')
+                         areaStatus=('pending' if s.get('detail') else 'matched') if in_area(d) else 'outside')
                 store_signal(self.db, s)
             self.db.commit()
         return failures
