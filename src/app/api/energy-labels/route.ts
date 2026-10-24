@@ -9,6 +9,7 @@ export async function GET(request:NextRequest) {
   const days=[30,60,90,180,365].includes(Number(p.get("days")))?Number(p.get("days")):90;
   const city=p.get("city")||""; const status=p.get("status")||"all";
   const registrations=["all","grouped"].includes(p.get("registrations")||"")?p.get("registrations"):"single";
+  const existingOnly=p.get("buildingStatus")!=="all";
   const page=Math.max(1,Math.min(10000,Math.floor(Number(p.get("page"))||1)));
   const [all,setting]=await Promise.all([
     prisma.energyLabelSignal.findMany({where:{detectedAt:{gte:new Date(Date.now()-366*DAY)}},orderBy:[{registeredAt:"desc"},{sourceKey:"asc"}]}),
@@ -27,7 +28,7 @@ export async function GET(request:NextRequest) {
     status:!s.current || (s.validUntil && s.validUntil<now)?"withdrawn":s.knownAtDiscovery?"known":s.firstListedAt?"listed":"unseen"}));
   const scope=enriched.filter(s=>(!city || s.city===city) && s.areaStatus!=="outside");
   const selected=scope.filter(s=>registrations==="all" || (registrations==="grouped"?s.groupSize>=5:s.groupSize<5));
-  const rows=selected.filter(s=>s.registeredAt.getTime()>=now.getTime()-days*DAY && (status==="all" || s.status===status));
+  const rows=selected.filter(s=>(!existingOnly || s.buildingStatus==="Bestaand") && s.registeredAt.getTime()>=now.getTime()-days*DAY && (status==="all" || s.status===status));
   const health=setting?.value as Record<string,unknown>|null;
   const last=health?.lastSuccessAt ? new Date(String(health.lastSuccessAt)).getTime() : 0;
   const through=health?.throughDate ? new Date(String(health.throughDate)).getTime() : 0;

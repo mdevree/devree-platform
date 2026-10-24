@@ -17,16 +17,17 @@ function percent(m:Metric|undefined) { return m?.percent===null || !m ? "Nog gee
 export default function EnergyLabelMonitor() {
   const [data,setData]=useState<Data|null>(null);
   const [days,setDays]=useState("90"),[city,setCity]=useState(""),[filter,setFilter]=useState("all"),[page,setPage]=useState(1);
+  const [buildingStatus,setBuildingStatus]=useState("existing");
   const [registrations,setRegistrations]=useState("single");
   const [refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);
   useEffect(()=>{
     const abort=new AbortController();
-    fetch(`/api/energy-labels?${new URLSearchParams({days,city,status:filter,registrations,page:String(page)})}`,{signal:abort.signal})
+    fetch(`/api/energy-labels?${new URLSearchParams({days,city,status:filter,registrations,buildingStatus,page:String(page)})}`,{signal:abort.signal})
       .then(async r=>{if(!r.ok)throw new Error("Het overzicht kon niet worden geladen.");return r.json();})
       .then(d=>{setData(d);setError(null);setLoading(false);})
       .catch(e=>{if(e.name!=="AbortError"){setError(e.message);setLoading(false);}});
     return ()=>abort.abort();
-  },[days,city,filter,registrations,page,refresh]);
+  },[days,city,filter,registrations,buildingStatus,page,refresh]);
   function change(fn:()=>void) {setLoading(true);setPage(1);fn();}
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold text-gray-900">Vroege signalen</h1><p className="mt-1 text-sm text-gray-600">Recente energielabelregistraties in ons werkgebied.</p></div><button className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50" disabled={loading} onClick={()=>{setLoading(true);setRefresh(r=>r+1);}}>Overzicht verversen</button></div>
@@ -42,11 +43,12 @@ export default function EnergyLabelMonitor() {
         <label className="text-sm">Plaats<select className="ml-2 rounded border p-2" value={city} onChange={e=>change(()=>setCity(e.target.value))}><option value="">Hele werkgebied</option>{data.cities.map(c=><option key={c}>{c}</option>)}</select></label>
         <label className="text-sm">Registratieperiode<select className="ml-2 rounded border p-2" value={days} onChange={e=>change(()=>setDays(e.target.value))}>{[30,60,90,180,365].map(d=><option key={d} value={d}>Laatste {d} dagen</option>)}</select></label>
         <label className="text-sm">Aanbodstatus<select className="ml-2 rounded border p-2" value={filter} onChange={e=>change(()=>setFilter(e.target.value))}><option value="all">Alles</option><option value="unseen">Nog niet gezien</option><option value="known">Al bekend</option><option value="listed">Later verschenen</option><option value="withdrawn">Vervallen / vervangen</option></select></label>
+        <label className="text-sm">Bouwstatus<select className="ml-2 rounded border p-2" value={buildingStatus} onChange={e=>change(()=>setBuildingStatus(e.target.value))}><option value="existing">Alleen bestaande bouw</option><option value="all">Alle bouwstatussen</option></select></label>
         <label className="text-sm">Registraties<select className="ml-2 rounded border p-2" value={registrations} onChange={e=>change(()=>setRegistrations(e.target.value))}><option value="single">Zonder groepsregistraties</option><option value="grouped">Alleen groepsregistraties</option><option value="all">Alle registraties</option></select></label>
       </div>
       <p className="text-xs text-gray-500">Groepsregistraties zijn minstens vijf adressen in dezelfde straat en plaats op dezelfde dag. Ze staan standaard buiten het overzicht, maar blijven gevolgd worden. Dit patroon kan op een gezamenlijke labelronde wijzen; huur is niet bevestigd.</p>
       <div className="grid gap-3 sm:grid-cols-3">{data.metrics.map(m=><div key={m.days} className="rounded-xl border bg-white p-4"><p className="text-sm text-gray-500">Te koop gezien binnen {m.days} dagen</p><p className="mt-2 text-xl font-semibold">{m.percent===null?"Nog in opbouw":`${m.percent}%`}</p><p className="mt-1 text-xs text-gray-500">{m.confirmed} van {m.eligible} signalen met een volledige meetperiode</p>{m.medianLeadDays!==null && <p className="mt-1 text-xs">Mediane voorsprong: {m.medianLeadDays} dagen</p>}</div>)}</div>
-      <p className="text-xs text-gray-500">De meting gebruikt later ontdekte signalen van bestaande woningen die bij ontdekking nog niet in aanbod waren. Startvoorraad en onzekere adreskoppelingen tellen niet mee. Niet waargenomen betekent niet dat een woning niet is verkocht. De meting volgt de gekozen plaats en soort registratie, onafhankelijk van registratieperiode en aanbodstatus.</p>
+      <p className="text-xs text-gray-500">De meting gebruikt later ontdekte signalen van bestaande woningen die bij ontdekking nog niet in aanbod waren. Startvoorraad en onzekere adreskoppelingen tellen niet mee. Niet waargenomen betekent niet dat een woning niet is verkocht. De meting volgt de gekozen plaats en soort registratie, onafhankelijk van registratieperiode en aanbodstatus. Ook bij alle bouwstatussen blijft de meting beperkt tot bestaande woningen.</p>
       <div className="overflow-x-auto rounded-xl border bg-white" aria-busy={loading}>
         <div className="border-b px-4 py-3 text-sm text-gray-600">{loading?"Laden…":`${data.total} registraties · ${data.counts.unseen} nog niet in aanbod gezien · ${data.counts.baseline} startvoorraad · ${data.counts.pending} adrescontrole`}</div>
         <table className="w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr>{["Woning","Label","Geregistreerd","Ontdekt","Aanbodstatus"].map(h=><th key={h} className="px-4 py-3">{h}</th>)}</tr></thead><tbody>{data.signals.map(s=><tr key={s.id} className="border-t align-top">
