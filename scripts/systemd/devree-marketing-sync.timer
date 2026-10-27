@@ -1,0 +1,10 @@
+[Unit]
+Description=Marketingmetingen viermaal per dag
+
+[Timer]
+OnCalendar=*-*-* 01,07,13,19:15:00 Europe/Amsterdam
+Persistent=true
+Unit=devree-marketing-sync.service
+
+[Install]
+WantedBy=timers.target

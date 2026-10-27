@@ -1763,6 +1763,20 @@ model NewsletterRateLimit {
 }
 
 // EP-Online observations are signals, never active market listings.
+model MarketingSnapshot {
+  id          String   @id @default(cuid())
+  channelId   String
+  provider    String
+  windowDays  Int
+  capturedAt  DateTime
+  metrics     Json
+  createdAt   DateTime @default(now())
+
+  @@unique([channelId, windowDays, capturedAt])
+  @@index([channelId, windowDays, capturedAt])
+  @@map("marketing_snapshots")
+}
+
 model EnergyLabelSignal {
   id                 String   @id @default(cuid())
   sourceKey          String   @unique

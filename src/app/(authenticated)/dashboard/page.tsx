@@ -12,6 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import Greeting from "@/components/Greeting";
+import MarketingOverview from "@/components/dashboard/MarketingOverview";
 import { auth } from "@/lib/auth";
 import { DashboardAction, DashboardTone, getDashboardOverview } from "@/lib/dashboardOverview";
 
@@ -166,6 +167,8 @@ export default async function DashboardPage() {
           <MetricPill label="Bijgewerkt" value={formatDateTime(overview.generatedAt)} />
         </div>
       </div>
+
+      <MarketingOverview />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <ActionList actions={overview.actions} />
