@@ -47,6 +47,8 @@ def build_row(p,extra,catalog,links):
     if kind=='unknown' and meta.get('kind') in ('photo','carousel','reel','story','video'):kind=meta['kind']
     provider=p['integration']['providerIdentifier'];provider=provider if provider in ('facebook','instagram','youtube','tiktok','gmb','linkedin-page','linkedin','pinterest') else 'other'
     source=meta.get('sourceUrl') or None
+    # Historical catalogs also contain prose/PDF references, not only URLs.
+    if source and (urlsplit(source).scheme!='https' or not urlsplit(source).hostname):source=None
     if not source:
         found=[u for u in links if u+'/' in (p.get('content') or '') or '"'+u+'"' in (p.get('content') or '')]
         if len(found)==1:source=found[0]
