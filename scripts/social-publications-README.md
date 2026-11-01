@@ -19,3 +19,14 @@ Eén bericht per kanaal/externe publicatie-ID; reacties worden uitgesloten, carr
 Rapport: browser afdrukken/opslaan als PDF, alleen bevestigde publicaties, huidige filters, bron/datumbeperkingen en moment van laatste volledige sync. Geen openbare klantlink. Afbeeldingsvoorbeelden uit Postiz kunnen verdwijnen; tekst en registratie blijven bewaard, screenshots zijn duurzaam opgeslagen. Geen automatisch bewijs van unieke kijkers of aanvragen.
 
 Rollback: nieuwe timer stoppen, vorige platformimage terugzetten; additieve tabellen met bewijs bewaren. De bestaande marketingtimer hoeft niet te worden gewijzigd.
+
+## Productiecontrole 1 november 2026
+
+- Platformimage `98645a2`; Actions-run `41295945965` succesvol. Collector gelijk aan repositoryversie.
+- 645 hoofdrecords uit Postiz; 381 bevestigde publicaties, 258 koppelingen naar 19 projecten. Deze zijn tijdgebonden beginstanden, geen vaste productwaarden.
+- Twee opeenvolgende volledige imports: identiek 645 records, 381 gepubliceerde, 258 koppelingen en 645 auditregels. Geen extra records of auditregels bij herhalen.
+- Google heeft algemene accountlinks voor verschillende berichten: ontdubbelen op extern publicatie-ID, nooit op die accountlink. Die link niet aanbieden als berichtlink.
+- TikTok UPLOAD met `releaseId=missing` en `/messages` betekent levering aan de inbox/concept, geen bewezen openbare publicatie. Handmatig gepubliceerd kan later apart worden aangevuld.
+- Ring 22: 17 gepubliceerde plaatsingen; Gerard Fonkertsingel 28: 11. Filters en tijdlijn in de browser gecontroleerd. Afdrukknop opent de dialoog; PDF-opmaak niet visueel geverifieerd doordat de Mac vergrendeld was.
+- Geauthenticeerde project/evidence-routes en ingest zonder geheim geven 401. `npm run verify`: 209 geslaagd, 2 bestaande skips. Productiebuild succesvol.
+- Timer actief om 01:25, 07:25, 13:25 en 19:25 Europe/Amsterdam. Geen wijzigingen aan bestaande socialplanning of publicaties.
