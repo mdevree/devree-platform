@@ -40,19 +40,21 @@ def build_row(p,extra,catalog,links):
     paths=[m.get('path','') for m in media if isinstance(m,dict)]
     kind='unknown';pt=settings.get('post_type','')
     if pt=='story' or '/stories/' in (p.get('releaseURL') or ''):kind='story'
-    elif pt in ('reel','reels'):kind='reel'
+    elif pt in ('reel','reels') or '/reel/' in (p.get('releaseURL') or '') or '/reels/' in (p.get('releaseURL') or ''):kind='reel'
     elif any('.mp4' in f.lower() or '.mov' in f.lower() for f in paths):kind='video'
     elif len(paths)>1:kind='carousel'
     elif paths:kind='photo'
     if kind=='unknown' and meta.get('kind') in ('photo','carousel','reel','story','video'):kind=meta['kind']
     provider=p['integration']['providerIdentifier'];provider=provider if provider in ('facebook','instagram','youtube','tiktok','gmb','linkedin-page','linkedin','pinterest') else 'other'
+    state=p['state']
+    if provider=='tiktok' and state=='PUBLISHED' and settings.get('content_posting_method')=='UPLOAD':state='DRAFT'
     source=meta.get('sourceUrl') or None
     # Historical catalogs also contain prose/PDF references, not only URLs.
     if source and (urlsplit(source).scheme!='https' or not urlsplit(source).hostname):source=None
     if not source:
         found=[u for u in links if u+'/' in (p.get('content') or '') or '"'+u+'"' in (p.get('content') or '')]
         if len(found)==1:source=found[0]
-    return dict(sourceId=p['id'],accountId=p['integration']['id'],channel=provider,account=p['integration']['name'],kind=kind,content=p.get('content') or '',state=p['state'],scheduledAt=(p.get('publishDate').replace(' ','T')+'Z' if p.get('publishDate') and not p['publishDate'].endswith('Z') else p.get('publishDate')),publishedAt=None,releaseId=p.get('releaseId'),releaseUrl=p.get('releaseURL'),mediaUrl=paths[0] if paths else meta.get('mediaUrl'),sourceUrl=source,removed=bool(extra.get('deletedAt')),realworksId=meta.get('realworksId') or links.get((source or '').rstrip('/')))
+    return dict(sourceId=p['id'],accountId=p['integration']['id'],channel=provider,account=p['integration']['name'],kind=kind,content=p.get('content') or '',state=state,scheduledAt=(p.get('publishDate').replace(' ','T')+'Z' if p.get('publishDate') and not p['publishDate'].endswith('Z') else p.get('publishDate')),publishedAt=None,releaseId=p.get('releaseId'),releaseUrl=p.get('releaseURL'),mediaUrl=paths[0] if paths else meta.get('mediaUrl'),sourceUrl=source,removed=bool(extra.get('deletedAt')),realworksId=meta.get('realworksId') or links.get((source or '').rstrip('/')))
 
 def run(dry=False):
     c=json.loads(CONFIG.read_text());base=c['postizUrl'].rstrip('/');platform=c['platformUrl'].rstrip('/')

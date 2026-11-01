@@ -31,12 +31,21 @@ export function matchProjects(row: {realworksId?:string|null;content:string}, pr
   // Ambiguous matches require a human; never guess between projects for the same home.
   return candidates.length===1 ? [candidates[0].id] : [];
 }
+export function findExternalMatch<T extends {externalKey:string|null;releaseUrl:string|null;source:string}>(items:T[],key:string|null,releaseUrl:string|null):T|undefined {
+  const exact=items.find(p=>!!key && p.externalKey===key);
+  if(exact)return exact;
+  const generic=releaseUrl && (/^https:\/\/business\.google\.com\/locations\/[^/]+$/.test(releaseUrl) || /^https:\/\/(www\.)?tiktok\.com\/messages/.test(releaseUrl));
+  return !generic && releaseUrl ? items.find(p=>p.source==='manual' && p.releaseUrl===releaseUrl) : undefined;
+}
 export type ImportRow = ReturnType<typeof parseRow>;
 export function parseRow(v: Record<string,unknown>) {
   const channel=text(v.channel,40), kind=text(v.kind,30), state=text(v.state,30);
   if(!CHANNELS.includes(channel as typeof CHANNELS[number]) || !KINDS.includes(kind as typeof KINDS[number]) || !['PUBLISHED','QUEUE','DRAFT','ERROR'].includes(state)) throw new Error('Onbekend kanaal, type of status');
   const sourceId=text(v.sourceId,100), accountId=text(v.accountId,100);
   if(!sourceId || !accountId) throw new Error('ID ontbreekt');
-  const releaseId=v.releaseId ? text(v.releaseId,200):null, releaseUrl=url(v.releaseUrl);
+  const rawId=v.releaseId ? text(v.releaseId,200):null;
+  const releaseId=rawId && !['missing','undefined','null'].includes(rawId)?rawId:null;
+  const rawUrl=url(v.releaseUrl);
+  const releaseUrl=rawUrl && (/^https:\/\/(www\.)?tiktok\.com\/messages/.test(rawUrl) || /^https:\/\/business\.google\.com\/locations\/[^/]+$/.test(rawUrl))?null:rawUrl;
   return {sourceId,accountId,channel,kind,state,account:text(v.account,200),content:text(v.content),scheduledAt:date(v.scheduledAt),publishedAt:date(v.publishedAt),releaseId,releaseUrl,mediaUrl:url(v.mediaUrl),sourceUrl:url(v.sourceUrl),removed:v.removed===true,realworksId:v.realworksId?text(v.realworksId,100):null};
 }

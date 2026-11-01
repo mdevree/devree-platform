@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { matchProjects, publicationKey, type ImportRow } from './rules';
+import { matchProjects, publicationKey, findExternalMatch, type ImportRow } from './rules';
 
 export async function ingest(rows: ImportRow[], capturedAt: Date, complete: boolean, since: string | null) {
   const projects=await prisma.project.findMany({select:{id:true,realworksId:true, woningAdres:true,address:true}});
@@ -10,7 +10,7 @@ export async function ingest(rows: ImportRow[], capturedAt: Date, complete: bool
     const identity=publicationKey(row.channel,row.accountId,row.releaseId,row.releaseUrl);
     const key=identity?createHash("sha256").update(identity).digest("hex"):null;
     const alias=existing.find(p=>Array.isArray(p.aliases)&&p.aliases.includes(row.sourceId));
-    const external=existing.find(p=>key && p.externalKey===key || row.releaseUrl && p.releaseUrl===row.releaseUrl);
+    const external=findExternalMatch(existing,key,row.releaseUrl);
     let id=alias?.id || external?.id;
     if(alias && external && alias.id!==external.id) {
       // Merge a hand-entered URL with the eventual Postiz record, retaining evidence and links.
@@ -25,7 +25,7 @@ export async function ingest(rows: ImportRow[], capturedAt: Date, complete: bool
     }
     if(alias && key && alias.externalKey && alias.externalKey!==key && row.state==='PUBLISHED') {
       const prior=await tx.socialPublication.findUniqueOrThrow({where:{id:alias.id}});
-      if(prior.everPublished) {
+      if(prior.everPublished && prior.releaseId && row.releaseId && prior.releaseId!==row.releaseId) {
         await tx.socialPublication.update({where:{id:alias.id},data:{aliases:(prior.aliases as string[]).map(a=>a===row.sourceId?`${a}@${prior.externalKey}`:a)}});
         id=external?.id!==alias.id?external?.id:undefined;
       }

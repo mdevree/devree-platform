@@ -22,6 +22,7 @@ export async function POST(req:NextRequest,{params}:Context) {
  try {
  const raw=await req.text();if(raw.length>25000)throw Error('Te veel tekst');const v=JSON.parse(raw);
  const channel=text(v.channel,40),kind=text(v.kind,30),content=text(v.content),releaseUrl=url(v.releaseUrl),publishedAt=date(v.publishedAt);
+ if(releaseUrl && (/^https:\/\/(www\.)?tiktok\.com\/messages/.test(releaseUrl)||/^https:\/\/business\.google\.com\/locations\/[^/]+$/.test(releaseUrl)))throw Error('Gebruik de link naar het specifieke bericht of voeg een screenshot toe');
  if(!CHANNELS.includes(channel as typeof CHANNELS[number])||!KINDS.includes(kind as typeof KINDS[number])||!content||!publishedAt||publishedAt>new Date())throw Error('Vul kanaal, type, tekst en een publicatiedatum in het verleden in');
  const post=await prisma.$transaction(async tx=>{
  const existing=releaseUrl?await tx.socialPublication.findFirst({where:{releaseUrl}}):null;
