@@ -1,0 +1,7 @@
+[Unit]
+Description=Publicatiearchief viermaal per dag bijwerken
+[Timer]
+OnCalendar=*-*-* 01,07,13,19:25:00 Europe/Amsterdam
+Persistent=true
+[Install]
+WantedBy=timers.target

@@ -165,6 +165,8 @@ export async function POST(request: NextRequest) {
     targetContactIds.has(c.mauticContactId)
   );
 
+  const socialLinks = await prisma.socialProjectLink.findMany({where:{projectId:sourceId}});
+
   // Voer merge uit in een transactie
   await prisma.$transaction([
     // 1. Verplaats alle taken
@@ -199,6 +201,8 @@ export async function POST(request: NextRequest) {
           }),
         ]
       : []),
+    ...socialLinks.map(l => prisma.socialProjectLink.upsert({where:{publicationId_projectId:{publicationId:l.publicationId,projectId:targetId}},create:{publicationId:l.publicationId,projectId:targetId},update:{}})),
+    prisma.socialProjectLink.deleteMany({where:{projectId:sourceId}}),
     // 6. Verwijder het bronproject
     prisma.project.delete({ where: { id: sourceId } }),
   ]);

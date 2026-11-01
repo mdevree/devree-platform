@@ -1,0 +1,11 @@
+[Unit]
+Description=Postiz publicatiearchief per woning
+After=network-online.target docker.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/DeVreeMakelaardij/.local/bin/social-publications-sync.py
+TimeoutStartSec=900
+UMask=0077
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true

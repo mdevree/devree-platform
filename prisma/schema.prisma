@@ -175,6 +175,7 @@ model Project {
   taxatieMailArchives TaxatieMailArchive[]
   calls               Call[]
   leadProjecten       LeadProject[]
+  socialPublications SocialProjectLink[]
   facebookTriggers    FacebookTrigger[]
   agendaAfspraken     AgendaAfspraak[]
   hypotheekAdviseur   HypotheekAdviseur?         @relation(fields: [hypotheekAdviseurId], references: [id])
@@ -1816,4 +1817,60 @@ model EnergyLabelSignal {
   @@index([objectKey])
   @@index([city, current])
   @@map("energy_label_signals")
+}
+
+model SocialPublication {
+  id String @id @default(cuid())
+  aliases Json
+  externalKey String? @unique
+  source String
+  channel String
+  account String
+  kind String
+  content String @db.Text
+  state String
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  dateBasis String
+  releaseId String?
+  releaseUrl String? @db.Text
+  mediaUrl String? @db.Text
+  sourceUrl String? @db.Text
+  confirmed Boolean @default(false)
+  everPublished Boolean @default(false)
+  removed Boolean @default(false)
+  excluded Boolean @default(false)
+  mappingLocked Boolean @default(false)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  links SocialProjectLink[]
+  events SocialPublicationEvent[]
+  evidence SocialEvidence?
+  @@index([channel, state])
+  @@map("social_publications")
+}
+model SocialProjectLink {
+  publicationId String
+  projectId String
+  publication SocialPublication @relation(fields:[publicationId], references:[id], onDelete:Cascade)
+  project Project @relation(fields:[projectId], references:[id], onDelete:Restrict)
+  @@id([publicationId, projectId])
+  @@map("social_project_links")
+}
+model SocialPublicationEvent {
+  id String @id @default(cuid())
+  publicationId String
+  publication SocialPublication @relation(fields:[publicationId], references:[id], onDelete:Cascade)
+  createdAt DateTime @default(now())
+  actor String
+  detail Json
+  @@index([publicationId, createdAt])
+  @@map("social_publication_events")
+}
+model SocialEvidence {
+  publicationId String @id
+  publication SocialPublication @relation(fields:[publicationId], references:[id], onDelete:Cascade)
+  mime String
+  data Bytes @db.LongBlob
+  @@map("social_evidence")
 }

@@ -1,4 +1,5 @@
 "use client";
+import ProjectSocial from "@/components/social/ProjectSocial";
 import ProjectPromotion from "@/components/promotie/ProjectPromotion";
 import { readPromotion, type Promotion } from "@/lib/promotion";
 
@@ -738,7 +739,7 @@ interface DebiteurenInvoiceCreateData {
   message?: string;
 }
 
-type ActiveTab = "taken" | "telefonie" | "woning" | "kijkers" | "dossier" | "taxatieControle";
+type ActiveTab = "social" | "taken" | "telefonie" | "woning" | "kijkers" | "dossier" | "taxatieControle";
 
 interface KijkerLead {
   id: string;
@@ -941,7 +942,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab && ["taken", "telefonie", "woning", "kijkers", "dossier", "taxatieControle"].includes(tab)) {
+    if (tab && ["taken", "telefonie", "woning", "kijkers", "dossier", "taxatieControle", "social"].includes(tab)) {
       setActiveTab(tab as ActiveTab);
     }
   }, [searchParams]);
@@ -3195,6 +3196,7 @@ export default function ProjectDetailPage() {
 
       {/* Tabs */}
       <div className="mb-4 flex items-center gap-4 border-b border-gray-200">
+        <button onClick={() => setActiveTab("social")} className={`px-4 py-3 text-sm font-medium border-b-2 ${activeTab === "social" ? "border-primary text-primary" : "border-transparent text-gray-500"}`}>Social media</button>
         <button
           onClick={() => setActiveTab("taken")}
           className={`inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
@@ -3264,6 +3266,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* ===== TAKEN TAB ===== */}
+      {activeTab === "social" && <ProjectSocial projectId={project.id} />}
       {activeTab === "taken" && (
         <div>
           <div className="mb-4 flex justify-end">
