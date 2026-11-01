@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {counted,matchProjects,publicationKey,parseRow,url,findExternalMatch} from './rules';
+import {counted,matchProjects,publicationKey,parseRow,url,findExternalMatch,reviewBucket} from './rules';
 test('publication count excludes queued/unconfirmed, retains expired and removed history',()=>{
  assert.equal(counted({everPublished:false,excluded:false}),false);
  assert.equal(counted({everPublished:true,excluded:false}),true);
@@ -11,8 +11,27 @@ test('matching object code wins, duplicate projects and partial addresses never 
  assert.deepEqual(matchProjects({content:'Bekijk Ring 22.',realworksId:null},p),['1']);
  assert.deepEqual(matchProjects({content:'Ring 220'},p),['2']);
  assert.deepEqual(matchProjects({content:'Ring 22',realworksId:'SE2'},p),['2']);
- assert.deepEqual(matchProjects({content:'Ring 22'},[...p,{...p[0],id:'3'}]),[]);
+ assert.deepEqual(matchProjects({content:'Ring 22'},[...p,{...p[0],id:'3'}]),['1','3']);
+ assert.deepEqual(matchProjects({content:'Ring 22'},[...p,{...p[0],id:'3',realworksId:'SE3'}]),[]);
  assert.deepEqual(matchProjects({content:'Ring 22 en Ring 220'},p),[]);
+});
+
+test('address suffix spacing and duplicate projects for the same Realworks object',()=>{
+ const p=[{id:'1',realworksId:'SE11891',woningAdres:'Frans Halsstraat 19A',address:null},{id:'2',realworksId:'SE11891',woningAdres:'Frans Halsstraat 19A',address:null}];
+ assert.deepEqual(matchProjects({content:'Frans Halsstraat 19 A · Spijkenisse'},p),['1','2']);
+ assert.deepEqual(matchProjects({content:'Zonder adres',realworksId:'SE11891'},p),['1','2']);
+ assert.deepEqual(matchProjects({content:'Frans Halsstraat 19B'},p),[]);
+ assert.deepEqual(matchProjects({content:'Frans Halsstraat 19'},p),[]);
+});
+test('review worklist separates general content, unknowns and inactive records without losing history',()=>{
+ const p={scope:'property',everPublished:false,state:'QUEUE',sourceRemoved:false,excluded:false};
+ assert.equal(reviewBucket(p),'property');
+ assert.equal(reviewBucket({...p,scope:'general'}),'general');
+ assert.equal(reviewBucket({...p,scope:'unknown'}),'unknown');
+ for(const state of ['DRAFT','ERROR'])assert.equal(reviewBucket({...p,state}),'archive');
+ assert.equal(reviewBucket({...p,sourceRemoved:true}),'archive');
+ assert.equal(reviewBucket({...p,sourceRemoved:true,everPublished:true}),'property');
+ assert.equal(reviewBucket({...p,excluded:true}),'excluded');
 });
 test('external identity distinguishes channels but groups duplicate Postiz IDs',()=>{
  assert.equal(publicationKey('facebook','account','123','https://fb.com/a'),publicationKey('facebook','account','123',null));

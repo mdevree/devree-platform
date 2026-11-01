@@ -2,7 +2,7 @@
 """Read-only Postiz collector; writes only to the platform ingest endpoint.
 Run on the host. The existing API credential stays in marketing-sync.json.
 """
-import argparse, json, subprocess, sys, time
+import argparse, json, re, subprocess, sys, time
 from pathlib import Path
 from datetime import datetime, timezone
 from urllib.request import Request, urlopen
@@ -34,6 +34,38 @@ def decode(v,default):
         except ValueError:return default
     return v if v is not None else default
 
+def catalog_entry(entry):
+    return {'sourceUrl':entry.get('sourceUrl') or entry.get('source'), 'kind':entry.get('kind'), 'mediaUrl':entry.get('mediaURL') or entry.get('media'), 'realworksId':entry.get('realworksId'), 'topic':entry.get('topic'), 'scope':entry.get('scope'), 'classificationReason':entry.get('classificationReason')}
+
+def classify(meta, source, content, object_id):
+    if meta.get('scope') in ('property','general','unknown'):
+        return meta['scope'],meta.get('classificationReason') or 'Beoordeelde contentregistratie'
+    if object_id or source and '/aanbod/' in source:
+        return 'property','Woningbron in contentplanning'
+    topic=(meta.get('topic') or '').lower()
+    if topic in ('woning','woningaanbod'):
+        return 'property','Woningonderwerp in contentplanning'
+    if source and any(x in urlsplit(source).path for x in ('/vragen/','/wonen/','/beoordelingen/','marktupdate')):
+        return 'general','Algemene bronpagina: '+urlsplit(source).path
+    if topic in ('faq','vraag & antwoord','wonen','buurt','markt','woningmarkt','beoordeling','beoordelingen') or 'bekijk vragen en antwoorden' in content.lower():
+        return 'general','Algemeen onderwerp of vraag-en-antwoordverwijzing'
+    if re.search(r'bekijk (?:deze |de )?woning op onze website',content,re.I):
+        return 'property','Woningverwijzing; project nog vaststellen'
+    return 'unknown',None
+
+def enrich_shared_media(rows):
+    # Only a unique, verified object identity may be inherited. Never infer a
+    # property from a stock/background image in an explicitly general post.
+    identities={}
+    for row in rows:
+        if row['mediaUrl'] and row['realworksId'] and row['scope']=='property':
+            identities.setdefault(row['mediaUrl'],set()).add(row['realworksId'])
+    for row in rows:
+        ids=identities.get(row['mediaUrl'],set())
+        if not row['realworksId'] and row['scope']!='general' and len(ids)==1:
+            row.update(realworksId=next(iter(ids)),scope='property',classificationReason='Exact hetzelfde beeldbestand als een geverifieerd woningbericht')
+    return rows
+
 def build_row(p,extra,catalog,links):
     meta=catalog.get(p['id'],{})
     settings=decode(extra.get('settings'),{});media=decode(extra.get('image'),[])
@@ -51,10 +83,15 @@ def build_row(p,extra,catalog,links):
     source=meta.get('sourceUrl') or None
     # Historical catalogs also contain prose/PDF references, not only URLs.
     if source and (urlsplit(source).scheme!='https' or not urlsplit(source).hostname):source=None
+    content=p.get('content') or ''
     if not source:
-        found=[u for u in links if u+'/' in (p.get('content') or '') or '"'+u+'"' in (p.get('content') or '')]
-        if len(found)==1:source=found[0]
-    return dict(sourceId=p['id'],accountId=p['integration']['id'],channel=provider,account=p['integration']['name'],kind=kind,content=p.get('content') or '',state=state,scheduledAt=(p.get('publishDate').replace(' ','T')+'Z' if p.get('publishDate') and not p['publishDate'].endswith('Z') else p.get('publishDate')),publishedAt=None,releaseId=p.get('releaseId'),releaseUrl=p.get('releaseURL'),mediaUrl=paths[0] if paths else meta.get('mediaUrl'),sourceUrl=source,removed=bool(extra.get('deletedAt')),realworksId=meta.get('realworksId') or links.get((source or '').rstrip('/')))
+        urls=[u.rstrip('/.,') for u in re.findall(r'https://[^\s<>"\x27]+',content)]
+        found=[u for u in urls if u in links]
+        if len(set(found))==1:source=found[0]
+        elif len(set(urls))==1 and urlsplit(urls[0]).hostname in ('www.devreemakelaardij.nl','devreemakelaardij.nl'):source=urls[0]
+    object_id=meta.get('realworksId') or links.get((source or '').rstrip('/'))
+    scope,reason=classify(meta,source,content,object_id)
+    return dict(sourceId=p['id'],accountId=p['integration']['id'],channel=provider,account=p['integration']['name'],kind=kind,content=content,state=state,scheduledAt=(p.get('publishDate').replace(' ','T')+'Z' if p.get('publishDate') and not p['publishDate'].endswith('Z') else p.get('publishDate')),publishedAt=None,releaseId=p.get('releaseId'),releaseUrl=p.get('releaseURL'),mediaUrl=paths[0] if paths else meta.get('mediaUrl'),sourceUrl=source,removed=bool(extra.get('deletedAt')),realworksId=object_id,scope=scope,classificationReason=reason)
 
 def run(dry=False):
     c=json.loads(CONFIG.read_text());base=c['postizUrl'].rstrip('/');platform=c['platformUrl'].rstrip('/')
@@ -69,14 +106,15 @@ def run(dry=False):
     for path in sorted(Path('/opt').glob('devree-social-week*/catalog.json')):
         for entry in json.loads(path.read_text()):
             if entry.get('postId'):
-                catalog[entry['postId']]={'sourceUrl':entry.get('source'), 'kind':entry.get('kind'), 'mediaUrl':entry.get('mediaURL'), 'realworksId':entry.get('realworksId')}
-    if CATALOG.exists():catalog.update(json.loads(CATALOG.read_text()))
+                catalog[entry['postId']]=catalog_entry(entry)
+    if CATALOG.exists():
+        for key,entry in json.loads(CATALOG.read_text()).items():catalog[key]={**catalog.get(key,{}),**entry}
     links=object_links();lookup={x['id']:x for x in extras}
-    rows=[build_row(p,lookup.get(p['id'],{}),catalog,links) for p in posts if p['id'] in lookup and not lookup[p['id']]['parentPostId']]
+    rows=enrich_shared_media([build_row(p,lookup.get(p['id'],{}),catalog,links) for p in posts if p['id'] in lookup and not lookup[p['id']]['parentPostId']])
     # Records no longer returned by Postiz are retained in the platform; absence never means deletion.
     stamp=datetime.now(timezone.utc).isoformat();since=earliest.replace(' ','T')+'Z'
     if dry:
-        print(json.dumps({'posts':len(rows),'linkedByObjectCode':sum(bool(x['realworksId']) for x in rows),'since':since,'types':{k:sum(x['kind']==k for x in rows) for k in ('photo','carousel','video','reel','story','unknown')}}));return
+        print(json.dumps({'posts':len(rows),'linkedByObjectCode':sum(bool(x['realworksId']) for x in rows),'since':since,'scopes':{k:sum(x['scope']==k for x in rows) for k in ('property','general','unknown')},'types':{k:sum(x['kind']==k for x in rows) for k in ('photo','carousel','video','reel','story','unknown')}}));return
     for offset in range(0,len(rows),40):
         request(platform+'/api/social/ingest',{'x-webhook-secret':c['webhookSecret']},{'capturedAt':stamp,'since':since,'complete':False,'rows':rows[offset:offset+40]})
     request(platform+'/api/social/ingest',{'x-webhook-secret':c['webhookSecret']},{'capturedAt':stamp,'since':since,'complete':True,'rows':[]})

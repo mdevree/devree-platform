@@ -1820,6 +1820,8 @@ model EnergyLabelSignal {
 }
 
 model SocialPublication {
+  scope String @default("unknown")
+  classificationReason String? @db.Text
   id String @id @default(cuid())
   aliases Json
   externalKey String? @unique
