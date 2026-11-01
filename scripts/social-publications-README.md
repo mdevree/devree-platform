@@ -12,7 +12,7 @@ Installatie: additieve migratie via bestaande entrypoint, vooraf databaseback-up
 
 ## Bewijs en grenzen
 
-Telling vereist Postiz PUBLISHED plus releaseId/link, of handmatig opgegeven plaatsing plus link/JPG/PNG. Screenshots zitten als afgeschermde blobs in de platformdatabase; geen publiek uploadpad. Een link of handmatig bewijs is geen onafhankelijke verificatie door Meta. Datumbron wordt getoond: publishDate uit Postiz bewijst geen exacte livegang. Ontbrekende API-records worden nooit stilzwijgend gewist. Verwijderde, aantoonbaar gepubliceerde records blijven als historische plaatsing tellen.
+Telling vereist Postiz PUBLISHED plus releaseId/link, of handmatig opgegeven plaatsing plus link/JPG/PNG. Screenshots zitten als afgeschermde blobs in de platformdatabase; geen publiek uploadpad. Een link of handmatig bewijs is geen onafhankelijke verificatie door Meta. Datumbron wordt getoond: publishDate uit Postiz bewijst geen exacte livegang. Ontbrekende API-records worden nooit stilzwijgend gewist. Aantoonbaar gepubliceerde records blijven als historische plaatsing tellen. Een soft-delete in Postiz is alleen een verwijderd bronrecord en bewijst geen verwijdering op Facebook/Instagram; die twee statussen blijven apart.
 
 Eén bericht per kanaal/externe publicatie-ID; reacties worden uitgesloten, carrousels tellen eenmaal, story-onderdelen afzonderlijk. Verschillende kanalen zijn verschillende plaatsingen. Bij herpublicatie met een nieuw extern ID blijft de vorige registratie bewaard. Bij projectmerge gaan koppelingen mee. Algemene kantoorposts kunnen worden uitgesloten.
 

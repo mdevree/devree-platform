@@ -1839,6 +1839,7 @@ model SocialPublication {
   confirmed Boolean @default(false)
   everPublished Boolean @default(false)
   removed Boolean @default(false)
+  sourceRemoved Boolean @default(false)
   excluded Boolean @default(false)
   mappingLocked Boolean @default(false)
   firstSeenAt DateTime @default(now())

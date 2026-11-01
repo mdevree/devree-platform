@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {channelNames,kindNames,counted} from '@/lib/social/rules';
-type Post={id:string;channel:string;account:string;kind:string;content:string;source:string;state:string;everPublished:boolean;confirmed:boolean;excluded:boolean;removed:boolean;dateBasis:string;publishedAt:string|null;scheduledAt:string|null;releaseUrl:string|null;mediaUrl:string|null;evidence:{mime:string}|null;links:{projectId:string}[];events:{id:string;createdAt:string;actor:string;detail:unknown}[]};
+type Post={id:string;channel:string;account:string;kind:string;content:string;source:string;state:string;everPublished:boolean;confirmed:boolean;excluded:boolean;removed:boolean;sourceRemoved:boolean;dateBasis:string;publishedAt:string|null;scheduledAt:string|null;releaseUrl:string|null;mediaUrl:string|null;evidence:{mime:string}|null;links:{projectId:string}[];events:{id:string;createdAt:string;actor:string;detail:unknown}[]};
 type Data={project:{id:string;name:string;woningAdres:string|null;woningPlaats:string|null};posts:Post[];unmatched:Post[];projects:{id:string;name:string}[];health:{lastSuccessAt:string;since:string|null}|null};
 const formatDate=(d:string|null)=>d?new Date(d).toLocaleString('nl-NL',{timeZone:'Europe/Amsterdam',dateStyle:'medium',timeStyle:'short'}):'Datum onbekend';
 export default function ProjectSocial({projectId}:{projectId:string}) {
@@ -23,7 +23,7 @@ export default function ProjectSocial({projectId}:{projectId:string}) {
  <img src={p.evidence?`/api/social/${p.id}/evidence`:p.mediaUrl!} alt="Voorbeeld van de plaatsing" className="h-28 w-28 rounded object-cover" loading="lazy" />}
  <div className="min-w-0 flex-1"><div className="font-semibold">{channelNames[p.channel]||p.channel} · {kindNames[p.kind]||p.kind}</div><div className="text-sm text-gray-600">{p.account} · {formatDate(p.publishedAt||p.scheduledAt)}</div>
  <div className="my-2 whitespace-pre-wrap text-sm">{p.content}</div>
- <p className="text-xs text-gray-500">{p.source==='manual'?'Handmatig geregistreerd'+(p.confirmed?' met bewijs':' — onbevestigd'):p.everPublished?'Publicatie gemeld door Postiz':p.state==='QUEUE'?'Gepland':p.state==='DRAFT'?'Concept':p.state==='ERROR'?'Publicatiefout':'Publicatie onbevestigd'}{p.removed?' · Verwijderd':''}{p.excluded?' · Uitgesloten':''}</p>
+ <p className="text-xs text-gray-500">{p.source==='manual'?'Handmatig geregistreerd'+(p.confirmed?' met bewijs':' — onbevestigd'):p.everPublished?'Publicatie gemeld door Postiz':p.state==='QUEUE'?'Gepland':p.state==='DRAFT'?'Concept':p.state==='ERROR'?'Publicatiefout':'Publicatie onbevestigd'}{p.removed?' · Verwijderd van het sociale kanaal':''}{p.sourceRemoved?' · Bronrecord verwijderd uit Postiz; online status onbekend':''}{p.excluded?' · Uitgesloten':''}</p>
  <p className="text-xs text-gray-500">{p.dateBasis}{p.kind==='story'?' · Verhalen zijn tijdelijk zichtbaar; de registratie blijft bewaard.':''}</p>
  {p.releaseUrl&&<a className="mt-2 inline-block text-sm text-emerald-800 underline break-all" href={p.releaseUrl} target="_blank" rel="noreferrer">Oorspronkelijke plaatsing<span className="hidden print:inline">: {p.releaseUrl}</span></a>}
  {!p.releaseUrl&&<span className="text-xs text-gray-500">Geen openbare link beschikbaar.</span>}
