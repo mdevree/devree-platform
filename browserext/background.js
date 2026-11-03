@@ -1095,3 +1095,7 @@ async function writeRealworksWoningField(task) {
     throw new Error(`Sessie verlopen — redirect naar login (${finalUrl})`);
   }
 }
+
+// Independent of contact sync and generic discovery captures.
+importScripts('lijst-van-zaken.js');
+importScripts('vragenlijst.js');

@@ -213,3 +213,36 @@ De optiespagina toont lokaal de extensieversie en laatste syncstatus.
 | `injected.js` | Draait in de paginacontext; onderschept XHR, fetch en form-submits |
 | `content.js` | Brug tussen pagina en background worker; stuurt webhooks/captures aan |
 | `background.js` | Service worker; cachet formulierdata, verwerkt schrijftaken en verstuurt backup-captures |
+
+## Lijst van zaken (1.15)
+
+De background worker onderschept alleen POSTs naar `broker.lijstvanzaken/save`.
+Na een HTTP 2xx-response gaan de antwoorden, `__MASK`-betekenissen, vrije
+omschrijvingen en object-/lijst-ID naar `POST /api/realworks-lijst-van-zaken`.
+Er wordt nooit een save naar Realworks herhaald. HTTP 2xx is geen zelfstandig
+bewijs van de definitieve documentstatus. Cookies, tokens en verkoperidentiteiten
+worden niet meegenomen. Tijdelijke fouten blijven per ontvangst-ID in de lokale
+wachtrij; elke minuut wordt opnieuw geprobeerd. De API verwerkt herhalingen
+idempotent. De laatste ontvangst is lokaal te vinden onder
+`realworksLijstVanZakenStatus`.
+
+Het platform bewaart de volledige toegestane antwoorden in de bestaande
+capture-opslag, gekoppeld aan de objectcode. Woningtab en nieuw gegenereerde
+bezichtigings-PDFs tonen dezelfde bijzonderheden. Een aangeleverd formulier kan afzonderlijk als `provided_form`
+worden ingelezen en wordt zichtbaar van een echte extensie-ontvangst onderscheiden.
+
+Na bijwerken: herlaad de extensie in chrome://extensions, controleer versie 1.15
+en sla de lijst opnieuw op. Er vindt geen automatische historische import plaats.
+
+### Vragenlijst woonhuis
+
+Ook `broker.nvmvragenlijst/saveQuestionlist` wordt in 1.15 op dezelfde manier
+opgevangen, via `/api/realworks-vragenlijst`. Alleen `answer_<nummer>` (deel B),
+keuzebetekenissen en documentmetadata worden bewaard; deel A en verkoperidentiteit
+worden uitgesloten. De vraagteksten voor woonhuisversie 2023 zijn op 3 november
+2026 uit het geopende Realworks-formulier gecontroleerd en per veld-ID vastgelegd
+in `src/lib/realworks/vragenlijst-woonhuis-2023.json`. Andere versies blijven
+leesbaar als antwoorden zonder automatisch bedachte vraagteksten. Er is geen AI
+nodig om antwoorden te reconstrueren. De compacte selectie markeert onder meer
+positieve of onbekende antwoorden op risicovragen en relevante toelichtingen;
+alle deel-B-antwoorden blijven bij het project raadpleegbaar.

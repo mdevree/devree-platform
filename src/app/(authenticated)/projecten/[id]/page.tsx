@@ -1,4 +1,6 @@
 "use client";
+
+import { LijstVanZaken } from "@/components/projecten/LijstVanZaken";
 import ProjectSocial from "@/components/social/ProjectSocial";
 import ProjectPromotion from "@/components/promotie/ProjectPromotion";
 import { readPromotion, type Promotion } from "@/lib/promotion";
@@ -3474,6 +3476,7 @@ export default function ProjectDetailPage() {
       {/* ===== WONING TAB ===== */}
       {activeTab === "woning" && (
         <div>
+          <LijstVanZaken projectId={project.id} />
           {/* Geen Realworks ID ingesteld */}
           {!project.realworksId ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">

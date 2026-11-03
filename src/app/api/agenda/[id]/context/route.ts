@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
+import { getVragenlijst } from "@/lib/vragenlijstStore";
+import { getLijstVanZaken } from "@/lib/lijstVanZakenStore";
 import { getContactFull } from "@/lib/mautic";
 import { fetchWoningVanWordPress } from "@/lib/wordpress";
 
@@ -157,6 +159,7 @@ export async function GET(
       : Promise.resolve([]),
   ]);
 
+  const [lijstVanZaken, vragenlijst] = await Promise.all([getLijstVanZaken(afspraak.agobjcode), getVragenlijst(afspraak.agobjcode)]);
   const beginLokaal = formatAmsterdamDate(afspraak.agbegin);
   const eindLokaal = formatAmsterdamDate(afspraak.agend);
   const aiProfiel = parseMaybeJson(mauticContact?.aiProfile ?? null);
@@ -295,6 +298,8 @@ export async function GET(
         }
       : null,
     // Eerdere afspraken met deze kijker – beschrijvingen bruikbaar als FAQ-basis
+    lijstVanZaken,
+    vragenlijst,
     contactHistorie: historie.map((h: typeof historie[number]) => ({
       datum: h.agbegin,
       type: h.agtype,

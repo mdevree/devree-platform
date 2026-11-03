@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
+import { getVragenlijst } from "@/lib/vragenlijstStore";
+import { renderQuestionsBriefing } from "@/lib/vragenlijst";
+import { getLijstVanZaken } from "@/lib/lijstVanZakenStore";
+import { renderZakenBriefing } from "@/lib/lijstVanZaken";
 
 const AMSTERDAM_TIME_ZONE = "Europe/Amsterdam";
 const DEFAULT_GOTENBERG_URL = "http://127.0.0.1:3050";
@@ -236,7 +240,11 @@ export async function POST(
       throw new Error("n8n gaf geen HTML terug voor de cheatsheet");
     }
 
-    const pdf = await renderPdf(html);
+    const [zaken, questions] = await Promise.all([getLijstVanZaken(afspraak.agobjcode), getVragenlijst(afspraak.agobjcode)]);
+    const received = zaken ? new Intl.DateTimeFormat("nl-NL", { timeZone: AMSTERDAM_TIME_ZONE, dateStyle: "short", timeStyle: "short" }).format(new Date(zaken.receivedAt)) : undefined;
+    const briefing = renderZakenBriefing(zaken, received) + (questions ? renderQuestionsBriefing(questions) : "");
+    const pdfHtml = briefing ? (/<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${briefing}</body>`) : html + briefing) : html;
+    const pdf = await renderPdf(pdfHtml);
     const datePart = afspraak.agbegin
       ? new Intl.DateTimeFormat("en-CA", {
           timeZone: AMSTERDAM_TIME_ZONE,

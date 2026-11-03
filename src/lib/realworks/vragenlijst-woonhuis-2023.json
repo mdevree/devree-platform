@@ -1,0 +1,1664 @@
+{
+  "answer_101": {
+    "number": "1A.",
+    "section": "Bijzonderheden",
+    "question": "Zijn er nadat u het perceel in eigendom hebt gekregen nog andere, eventuele aanvullende notariële of onderhandse akten opgesteld met betrekking tot het perceel?",
+    "label": "Zijn er nadat u het perceel in eigendom hebt gekregen nog andere, eventuele aanvullende notariële of onderhandse akten opgesteld met betrekking tot het perceel?"
+  },
+  "answer_141": {
+    "number": "1A.",
+    "section": "Bijzonderheden",
+    "question": "Zijn er nadat u het perceel in eigendom hebt gekregen nog andere, eventuele aanvullende notariële of onderhandse akten opgesteld met betrekking tot het perceel?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_102": {
+    "number": "1B.",
+    "section": "Bijzonderheden",
+    "question": "Zijn er mondelinge of schriftelijke afspraken gemaakt over aangrenzende percelen? (Denk hierbij aan regelingen voor het gebruik van een poort, schuur, garage, tuin, overeenkomsten met meerdere buren, toezeggingen, erfafscheidingen.)",
+    "label": "Zijn er mondelinge of schriftelijke afspraken gemaakt over aangrenzende percelen? (Denk hierbij aan regelingen voor het gebruik van een poort, schuur, garage, tuin, overeenkomsten met meerdere buren, toezeggingen, erfafscheidingen.)"
+  },
+  "answer_103": {
+    "number": "1B.",
+    "section": "Bijzonderheden",
+    "question": "Zijn er mondelinge of schriftelijke afspraken gemaakt over aangrenzende percelen? (Denk hierbij aan regelingen voor het gebruik van een poort, schuur, garage, tuin, overeenkomsten met meerdere buren, toezeggingen, erfafscheidingen.)",
+    "label": "Zo ja, welke zijn dat?"
+  },
+  "answer_104": {
+    "number": "1C.",
+    "section": "Bijzonderheden",
+    "question": "Wijken de huidige terreinafscheidingen af van de kadastrale eigendomsgrenzen? (Denk hierbij ook aan strookjes grond van de gemeente die u in gebruik heeft, of grond van u die gebruikt wordt door de buren.)",
+    "label": "Wijken de huidige terreinafscheidingen af van de kadastrale eigendomsgrenzen? (Denk hierbij ook aan strookjes grond van de gemeente die u in gebruik heeft, of grond van u die gebruikt wordt door de buren.)"
+  },
+  "answer_105": {
+    "number": "1C.",
+    "section": "Bijzonderheden",
+    "question": "Wijken de huidige terreinafscheidingen af van de kadastrale eigendomsgrenzen? (Denk hierbij ook aan strookjes grond van de gemeente die u in gebruik heeft, of grond van u die gebruikt wordt door de buren.)",
+    "label": "Zo ja, waaruit bestaat die afwijking?"
+  },
+  "answer_106": {
+    "number": "1D.",
+    "section": "Bijzonderheden",
+    "question": "Is een gedeelte van de woning, schuur, garage of schutting gebouwd op grond van de buren of andersom?",
+    "label": "Is een gedeelte van de woning, schuur, garage of schutting gebouwd op grond van de buren of andersom?"
+  },
+  "answer_107": {
+    "number": "1D.",
+    "section": "Bijzonderheden",
+    "question": "Is een gedeelte van de woning, schuur, garage of schutting gebouwd op grond van de buren of andersom?",
+    "label": "Zo ja, graag nader toelichten:"
+  },
+  "answer_108": {
+    "number": "1E.",
+    "section": "Bijzonderheden",
+    "question": "Heeft u grond van derden in gebruik?",
+    "label": "Heeft u grond van derden in gebruik?"
+  },
+  "answer_109": {
+    "number": "1E.",
+    "section": "Bijzonderheden",
+    "question": "Heeft u grond van derden in gebruik?",
+    "label": "Zo ja, welke grond?"
+  },
+  "answer_110": {
+    "number": "1F.",
+    "section": "Bijzonderheden",
+    "question": "Rusten er 'bijzondere lasten en beperkingen' op de woning en/of het perceel? (Bijzondere lasten en beperkingen kunnen privaatrechtelijke beperkingen zijn zoals (lijdende) erfdienstbaarheden (bijvoorbeeld een recht van overpad), kwalitatieve verplichtingen, kettingbedingen, vruchtgebruik, voorkeursrecht (bijvoorbeeld een eerste recht van koop), opstalrecht, erfpacht, huurkoop. Het kan ook gaan om publiekrechtelijke beperkingen zoals een aanschrijving van de gemeente in het kader van een illegale verbouwing)",
+    "label": "Rusten er 'bijzondere lasten en beperkingen' op de woning en/of het perceel? (Bijzondere lasten en beperkingen kunnen privaatrechtelijke beperkingen zijn zoals (lijdende) erfdienstbaarheden (bijvoorbeeld een recht van overpad), kwalitatieve verplichtingen, kettingbedingen, vruchtgebruik, voorkeursrecht (bijvoorbeeld een eerste recht van koop), opstalrecht, erfpacht, huurkoop. Het kan ook gaan om publiekrechtelijke beperkingen zoals een aanschrijving van de gemeente in het kader van een illegale verbouwing)"
+  },
+  "answer_111": {
+    "number": "1F.",
+    "section": "Bijzonderheden",
+    "question": "Rusten er 'bijzondere lasten en beperkingen' op de woning en/of het perceel? (Bijzondere lasten en beperkingen kunnen privaatrechtelijke beperkingen zijn zoals (lijdende) erfdienstbaarheden (bijvoorbeeld een recht van overpad), kwalitatieve verplichtingen, kettingbedingen, vruchtgebruik, voorkeursrecht (bijvoorbeeld een eerste recht van koop), opstalrecht, erfpacht, huurkoop. Het kan ook gaan om publiekrechtelijke beperkingen zoals een aanschrijving van de gemeente in het kader van een illegale verbouwing)",
+    "label": "Zo ja, welke?"
+  },
+  "answer_112": {
+    "number": "1G.",
+    "section": "Bijzonderheden",
+    "question": "Is de Wet voorkeursrecht gemeenten van toepassing?",
+    "label": "Is de Wet voorkeursrecht gemeenten van toepassing?"
+  },
+  "answer_113": {
+    "number": "1H.",
+    "section": "Bijzonderheden",
+    "question": "Is er een anti-speculatiebeding en/of zelfbewoningsplicht van toepassing op de woning?",
+    "label": "Is er een anti-speculatiebeding en/of zelfbewoningsplicht van toepassing op de woning?"
+  },
+  "answer_114": {
+    "number": "1H.",
+    "section": "Bijzonderheden",
+    "question": "Is er een anti-speculatiebeding en/of zelfbewoningsplicht van toepassing op de woning?",
+    "label": "Zo ja, hoe lang nog?"
+  },
+  "answer_115": {
+    "number": "1I.",
+    "section": "Bijzonderheden",
+    "question": "Is er sprake van een beschermd stads- of dorpsgezicht of loopt er een procedure tot aanwijzing daartoe?",
+    "label": "Is er sprake van een beschermd stads- of dorpsgezicht of loopt er een procedure tot aanwijzing daartoe?"
+  },
+  "answer_116": {
+    "number": "1I.",
+    "section": "Bijzonderheden",
+    "question": "Is er sprake van een beschermd stads- of dorpsgezicht of loopt er een procedure tot aanwijzing daartoe?",
+    "label": "Is er sprake van een gemeentelijk-, provinciaal-of rijksmonument of loopt er een procedure tot aanwijzing daartoe?"
+  },
+  "answer_117": {
+    "number": "1I.",
+    "section": "Bijzonderheden",
+    "question": "Is er sprake van een beschermd stads- of dorpsgezicht of loopt er een procedure tot aanwijzing daartoe?",
+    "label": "Is er volgens het bestemmingsplan sprake van een beeldbepalend of karakteristiek object?"
+  },
+  "answer_118": {
+    "number": "1J.",
+    "section": "Bijzonderheden",
+    "question": "Is er sprake (geweest) van ruilverkaveling?",
+    "label": "Is er sprake (geweest) van ruilverkaveling?"
+  },
+  "answer_140": {
+    "number": "1J.",
+    "section": "Bijzonderheden",
+    "question": "Is er sprake (geweest) van ruilverkaveling?",
+    "label": "Zo ja, moet u hiervoor ruilverkavelingsrente betalen?"
+  },
+  "answer_142": {
+    "number": "1J.",
+    "section": "Bijzonderheden",
+    "question": "Is er sprake (geweest) van ruilverkaveling?",
+    "label": "Zo ja, hoeveel en voor hoe lang? Bedrag:"
+  },
+  "answer_143": {
+    "number": "1J.",
+    "section": "Bijzonderheden",
+    "question": "Is er sprake (geweest) van ruilverkaveling?",
+    "label": "Duur:"
+  },
+  "answer_119": {
+    "number": "1K.",
+    "section": "Bijzonderheden",
+    "question": "Is er sprake van onteigening?",
+    "label": "Is er sprake van onteigening?"
+  },
+  "answer_120": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?"
+  },
+  "answer_121": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Zo ja: Is er een huurcontract/ gebruiksovereenkomst?"
+  },
+  "answer_151": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Indien er geen contract of overeenkomst is, beschrijf hieronder wat (mondeling) met de huurder/ gebruiker is afgesproken:"
+  },
+  "answer_122": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Welk gedeelte is verhuurd/ in gebruik gegeven?"
+  },
+  "answer_123": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Welke delen vallen onder gezamenlijk gebruik?"
+  },
+  "answer_124": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Welke zaken zijn van de huurder en mag hij verwijderen bij ontruiming? (Bijvoorbeeld geiser, keuken, lampen.)"
+  },
+  "answer_125": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Heeft de huurder een waarborgsom gestort?"
+  },
+  "answer_126": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Zo ja, hoeveel?"
+  },
+  "answer_127": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Heeft u nog andere afspraken met de huurders gemaakt?"
+  },
+  "answer_128": {
+    "number": "1L.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning of de grond geheel of gedeeltelijk verhuurd of bij anderen in gebruik?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_129": {
+    "number": "1M.",
+    "section": "Bijzonderheden",
+    "question": "Is er over de woning een geschil/procedures gaande, al dan niet bij de rechter, huurcommissie of een andere instantie? (bijvoorbeeld onteigening/kwesties met buren, zoals erfdienstbaarheden, recht van overpad, erfafscheidingen e.d.)",
+    "label": "Is er over de woning een geschil/procedures gaande, al dan niet bij de rechter, huurcommissie of een andere instantie? (bijvoorbeeld onteigening/kwesties met buren, zoals erfdienstbaarheden, recht van overpad, erfafscheidingen e.d.)"
+  },
+  "answer_130": {
+    "number": "1M.",
+    "section": "Bijzonderheden",
+    "question": "Is er over de woning een geschil/procedures gaande, al dan niet bij de rechter, huurcommissie of een andere instantie? (bijvoorbeeld onteigening/kwesties met buren, zoals erfdienstbaarheden, recht van overpad, erfafscheidingen e.d.)",
+    "label": "Zo ja, welke is/zijn dat?"
+  },
+  "answer_131": {
+    "number": "1N.",
+    "section": "Bijzonderheden",
+    "question": "Is er bezwaar gemaakt tegen de waardebeschikking WOZ?",
+    "label": "Is er bezwaar gemaakt tegen de waardebeschikking WOZ?"
+  },
+  "answer_132": {
+    "number": "1N.",
+    "section": "Bijzonderheden",
+    "question": "Is er bezwaar gemaakt tegen de waardebeschikking WOZ?",
+    "label": "Zo ja, toelichting:"
+  },
+  "answer_133": {
+    "number": "1O.",
+    "section": "Bijzonderheden",
+    "question": "Zijn er door de overheid of nutsbedrijven verbeteringen of herstellingen voorgeschreven of aangekondigd die nog niet naar behoren zijn uitgevoerd?",
+    "label": "Zijn er door de overheid of nutsbedrijven verbeteringen of herstellingen voorgeschreven of aangekondigd die nog niet naar behoren zijn uitgevoerd?"
+  },
+  "answer_144": {
+    "number": "1O.",
+    "section": "Bijzonderheden",
+    "question": "Zijn er door de overheid of nutsbedrijven verbeteringen of herstellingen voorgeschreven of aangekondigd die nog niet naar behoren zijn uitgevoerd?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_134": {
+    "number": "1P.",
+    "section": "Bijzonderheden",
+    "question": "Zijn er in het verleden subsidies of premies verstrekt die bij verkoop van de woning voor een deel kunnen worden teruggevorderd?",
+    "label": "Zijn er in het verleden subsidies of premies verstrekt die bij verkoop van de woning voor een deel kunnen worden teruggevorderd?"
+  },
+  "answer_145": {
+    "number": "1P.",
+    "section": "Bijzonderheden",
+    "question": "Zijn er in het verleden subsidies of premies verstrekt die bij verkoop van de woning voor een deel kunnen worden teruggevorderd?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_135": {
+    "number": "1Q.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning onbewoonbaar verklaard of in het verleden ooit onbewoonbaar verklaard geweest?",
+    "label": "Is de woning onbewoonbaar verklaard of in het verleden ooit onbewoonbaar verklaard geweest?"
+  },
+  "answer_146": {
+    "number": "1Q.",
+    "section": "Bijzonderheden",
+    "question": "Is de woning onbewoonbaar verklaard of in het verleden ooit onbewoonbaar verklaard geweest?",
+    "label": "Zo ja, waarom?"
+  },
+  "answer_136": {
+    "number": "1R.",
+    "section": "Bijzonderheden",
+    "question": "Is er bij verkoop sprake van een omzetbelastingheffing? (Bijvoorbeeld omdat het een voormalig bedrijfsonroerendgoed is, of een woning met praktijkgedeelte, of omdat u pas ingrijpend verbouwd hebt.)",
+    "label": "Is er bij verkoop sprake van een omzetbelastingheffing? (Bijvoorbeeld omdat het een voormalig bedrijfsonroerendgoed is, of een woning met praktijkgedeelte, of omdat u pas ingrijpend verbouwd hebt.)"
+  },
+  "answer_147": {
+    "number": "1R.",
+    "section": "Bijzonderheden",
+    "question": "Is er bij verkoop sprake van een omzetbelastingheffing? (Bijvoorbeeld omdat het een voormalig bedrijfsonroerendgoed is, of een woning met praktijkgedeelte, of omdat u pas ingrijpend verbouwd hebt.)",
+    "label": "Zo ja, waarom?"
+  },
+  "answer_137": {
+    "number": "1S.",
+    "section": "Bijzonderheden",
+    "question": "Hoe gebruikt u de woning nu? (Bijvoorbeeld woning, praktijk, winkel, opslag)",
+    "label": "Hoe gebruikt u de woning nu? (Bijvoorbeeld woning, praktijk, winkel, opslag)"
+  },
+  "answer_139": {
+    "number": "1S.",
+    "section": "Bijzonderheden",
+    "question": "Hoe gebruikt u de woning nu? (Bijvoorbeeld woning, praktijk, winkel, opslag)",
+    "label": "Is dat gebruik volgens de gemeente toegestaan?"
+  },
+  "answer_149": {
+    "number": "1S.",
+    "section": "Bijzonderheden",
+    "question": "Hoe gebruikt u de woning nu? (Bijvoorbeeld woning, praktijk, winkel, opslag)",
+    "label": "Zo nee, heeft de gemeente dit strijdige gebruik wel eens bij u aangekaart?"
+  },
+  "answer_148": {
+    "number": "1S.",
+    "section": "Bijzonderheden",
+    "question": "Hoe gebruikt u de woning nu? (Bijvoorbeeld woning, praktijk, winkel, opslag)",
+    "label": "Hoe heeft de gemeente dit strijdige gebruik bij u aangekaart?"
+  },
+  "answer_201": {
+    "number": "2A.",
+    "section": "Gevels",
+    "question": "Is er sprake (geweest) van vochtdoorslag of aanhoudend vochtige plekken op de gevels?",
+    "label": "Is er sprake (geweest) van vochtdoorslag of aanhoudend vochtige plekken op de gevels?"
+  },
+  "answer_202": {
+    "number": "2A.",
+    "section": "Gevels",
+    "question": "Is er sprake (geweest) van vochtdoorslag of aanhoudend vochtige plekken op de gevels?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_203": {
+    "number": "2B.",
+    "section": "Gevels",
+    "question": "Zijn er (gerepareerde) scheuren/beschadigingen in/aan de gevels aanwezig?",
+    "label": "Zijn er (gerepareerde) scheuren/beschadigingen in/aan de gevels aanwezig?"
+  },
+  "answer_204": {
+    "number": "2B.",
+    "section": "Gevels",
+    "question": "Zijn er (gerepareerde) scheuren/beschadigingen in/aan de gevels aanwezig?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_205": {
+    "number": "2C.",
+    "section": "Gevels",
+    "question": "Zijn de gevels tijdens de bouw geïsoleerd?",
+    "label": "Zijn de gevels tijdens de bouw geïsoleerd?"
+  },
+  "answer_206": {
+    "number": "2C.",
+    "section": "Gevels",
+    "question": "Zijn de gevels tijdens de bouw geïsoleerd?",
+    "label": "Zo nee, zijn de gevels daarna (deels) geïsoleerd?"
+  },
+  "answer_211": {
+    "number": "2C.",
+    "section": "Gevels",
+    "question": "Zijn de gevels tijdens de bouw geïsoleerd?",
+    "label": "Zo ja, wanneer heeft de isolatie van de gevels plaatsgevonden en met welk isolatiemateriaal?"
+  },
+  "answer_212": {
+    "number": "2C.",
+    "section": "Gevels",
+    "question": "Zijn de gevels tijdens de bouw geïsoleerd?",
+    "label": "Heeft u een certificaat of bewijs van het na-isoleren?"
+  },
+  "answer_209": {
+    "number": "2C.",
+    "section": "Gevels",
+    "question": "Zijn de gevels tijdens de bouw geïsoleerd?",
+    "label": "Is er sprake van volledige isolatie?"
+  },
+  "answer_210": {
+    "number": "2C.",
+    "section": "Gevels",
+    "question": "Zijn de gevels tijdens de bouw geïsoleerd?",
+    "label": "Zo nee, welke delen van de gevels zijn er niet geïsoleerd?"
+  },
+  "answer_207": {
+    "number": "2D.",
+    "section": "Gevels",
+    "question": "Zijn de gevels ooit gereinigd?",
+    "label": "Zijn de gevels ooit gereinigd?"
+  },
+  "answer_208": {
+    "number": "2D.",
+    "section": "Gevels",
+    "question": "Zijn de gevels ooit gereinigd?",
+    "label": "Zo ja, volgens welke methode en wanneer?"
+  },
+  "answer_301": {
+    "number": "3A.",
+    "section": "Dak(en)",
+    "question": "Hoe oud zijn de daken ongeveer? Platte daken:",
+    "label": "Hoe oud zijn de daken ongeveer? Platte daken:"
+  },
+  "answer_302": {
+    "number": "3A.",
+    "section": "Dak(en)",
+    "question": "Hoe oud zijn de daken ongeveer? Platte daken:",
+    "label": "Overige daken:"
+  },
+  "answer_303": {
+    "number": "3B.",
+    "section": "Dak(en)",
+    "question": "Heeft u last van daklekkages (gehad)?",
+    "label": "Heeft u last van daklekkages (gehad)?"
+  },
+  "answer_304": {
+    "number": "3B.",
+    "section": "Dak(en)",
+    "question": "Heeft u last van daklekkages (gehad)?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_305": {
+    "number": "3C.",
+    "section": "Dak(en)",
+    "question": "Zijn er in het verleden gebreken geconstateerd aan de dakconstructie zoals scheve, doorbuigende, krakende, beschadigde en/of aangetaste dakdelen?",
+    "label": "Zijn er in het verleden gebreken geconstateerd aan de dakconstructie zoals scheve, doorbuigende, krakende, beschadigde en/of aangetaste dakdelen?"
+  },
+  "answer_306": {
+    "number": "3C.",
+    "section": "Dak(en)",
+    "question": "Zijn er in het verleden gebreken geconstateerd aan de dakconstructie zoals scheve, doorbuigende, krakende, beschadigde en/of aangetaste dakdelen?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_307": {
+    "number": "3D.",
+    "section": "Dak(en)",
+    "question": "Heeft u het dak al eens (gedeeltelijk) laten vernieuwen c.q. laten repareren?",
+    "label": "Heeft u het dak al eens (gedeeltelijk) laten vernieuwen c.q. laten repareren?"
+  },
+  "answer_314": {
+    "number": "3D.",
+    "section": "Dak(en)",
+    "question": "Heeft u het dak al eens (gedeeltelijk) laten vernieuwen c.q. laten repareren?",
+    "label": "Zo ja, welk (gedeelte van het) dak en waarom?"
+  },
+  "answer_308": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Is het dak tijdens de bouw geïsoleerd? Platte daken:"
+  },
+  "answer_318": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Overige daken:"
+  },
+  "answer_309": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Zo nee, is het dak daarna geïsoleerd? Platte daken:"
+  },
+  "answer_319": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Overige daken:"
+  },
+  "answer_320": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Zo ja, wanneer heeft de isolatie plaatsgevonden en met welk isolatiemateriaal?"
+  },
+  "answer_321": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Heeft u een certificaat of bewijs van het na-isoleren?"
+  },
+  "answer_315": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Is er sprake van volledige isolatie? Platte daken:"
+  },
+  "answer_322": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Overige daken:"
+  },
+  "answer_316": {
+    "number": "3E.",
+    "section": "Dak(en)",
+    "question": "Is het dak tijdens de bouw geïsoleerd? Platte daken:",
+    "label": "Zo nee, welke delen zijn er niet geïsoleerd?"
+  },
+  "answer_310": {
+    "number": "3F.",
+    "section": "Dak(en)",
+    "question": "Zijn de regenwaterafvoeren lek of verstopt?",
+    "label": "Zijn de regenwaterafvoeren lek of verstopt?"
+  },
+  "answer_311": {
+    "number": "3F.",
+    "section": "Dak(en)",
+    "question": "Zijn de regenwaterafvoeren lek of verstopt?",
+    "label": "Zo ja, toelichting:"
+  },
+  "answer_312": {
+    "number": "3G.",
+    "section": "Dak(en)",
+    "question": "Zijn de dakgoten lek of verstopt?",
+    "label": "Zijn de dakgoten lek of verstopt?"
+  },
+  "answer_313": {
+    "number": "3G.",
+    "section": "Dak(en)",
+    "question": "Zijn de dakgoten lek of verstopt?",
+    "label": "Zo ja, toelichting:"
+  },
+  "answer_413": {
+    "number": "4A.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Van welk materiaal zijn de buitenkozijnen gemaakt? (bijvoorbeeld hout, kunststof of aluminium of een andersoortig materiaal)",
+    "label": "Van welk materiaal zijn de buitenkozijnen gemaakt? (bijvoorbeeld hout, kunststof of aluminium of een andersoortig materiaal)"
+  },
+  "answer_401": {
+    "number": "4B.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Wanneer zijn de buitenkozijnen, ramen en deuren voor het laatst geschilderd?",
+    "label": "Wanneer zijn de buitenkozijnen, ramen en deuren voor het laatst geschilderd?"
+  },
+  "answer_402": {
+    "number": "4B.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Wanneer zijn de buitenkozijnen, ramen en deuren voor het laatst geschilderd?",
+    "label": "Is dit gebeurd door een erkend schildersbedrijf?"
+  },
+  "answer_409": {
+    "number": "4B.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Wanneer zijn de buitenkozijnen, ramen en deuren voor het laatst geschilderd?",
+    "label": "Zo ja, door wie?"
+  },
+  "answer_403": {
+    "number": "4C.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Functioneren alle scharnieren en sloten?",
+    "label": "Functioneren alle scharnieren en sloten?"
+  },
+  "answer_404": {
+    "number": "4C.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Functioneren alle scharnieren en sloten?",
+    "label": "Zo nee, toelichting:"
+  },
+  "answer_405": {
+    "number": "4D.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Zijn voor alle afsluitbare deuren, ramen etc. sleutels aanwezig?",
+    "label": "Zijn voor alle afsluitbare deuren, ramen etc. sleutels aanwezig?"
+  },
+  "answer_410": {
+    "number": "4D.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Zijn voor alle afsluitbare deuren, ramen etc. sleutels aanwezig?",
+    "label": "Zo nee, voor welke deuren, ramen etc. niet?"
+  },
+  "answer_406": {
+    "number": "4E.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Is er sprake van isolerende beglazing?",
+    "label": "Is er sprake van isolerende beglazing?"
+  },
+  "answer_414": {
+    "number": "4E.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Is er sprake van isolerende beglazing?",
+    "label": "Zo ja, welk type glas? (bijvoorbeeld HR, HR+, HR++ of HR+++, zie de glassponning waarin doorgaans staat vermeld welke type glas er is geplaatst)"
+  },
+  "answer_411": {
+    "number": "4E.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Is er sprake van isolerende beglazing?",
+    "label": "Is er sprake van isolerende beglazing in de gehele woning?"
+  },
+  "answer_412": {
+    "number": "4E.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Is er sprake van isolerende beglazing?",
+    "label": "Zo nee, welke ramen zijn niet geïsoleerd?"
+  },
+  "answer_407": {
+    "number": "4F.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Is er bij de isolerende beglazing sprake van condensvorming tussen het glas? (Denk aan lekkende ruiten.)",
+    "label": "Is er bij de isolerende beglazing sprake van condensvorming tussen het glas? (Denk aan lekkende ruiten.)"
+  },
+  "answer_408": {
+    "number": "4F.",
+    "section": "Kozijnen, ramen en deuren",
+    "question": "Is er bij de isolerende beglazing sprake van condensvorming tussen het glas? (Denk aan lekkende ruiten.)",
+    "label": "Zo ja, waar?"
+  },
+  "answer_501": {
+    "number": "5A.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake (geweest) van vochtdoorslag of optrekkend vocht op de vloeren, plafonds en/of wanden?",
+    "label": "Is er sprake (geweest) van vochtdoorslag of optrekkend vocht op de vloeren, plafonds en/of wanden?"
+  },
+  "answer_502": {
+    "number": "5A.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake (geweest) van vochtdoorslag of optrekkend vocht op de vloeren, plafonds en/of wanden?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_503": {
+    "number": "5B.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake (geweest) van schimmelvorming op de vloeren, plafonds en/of wanden?",
+    "label": "Is er sprake (geweest) van schimmelvorming op de vloeren, plafonds en/of wanden?"
+  },
+  "answer_504": {
+    "number": "5B.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake (geweest) van schimmelvorming op de vloeren, plafonds en/of wanden?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_505": {
+    "number": "5C.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Zijn er (gerepareerde) of (verborgen) scheuren en/of beschadigingen in/aan vloeren, plafonds en/of wanden aanwezig?",
+    "label": "Zijn er (gerepareerde) of (verborgen) scheuren en/of beschadigingen in/aan vloeren, plafonds en/of wanden aanwezig?"
+  },
+  "answer_506": {
+    "number": "5C.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Zijn er (gerepareerde) of (verborgen) scheuren en/of beschadigingen in/aan vloeren, plafonds en/of wanden aanwezig?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_507": {
+    "number": "5D.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Hebben zich in het verleden problemen voorgedaan met de afwerkingen? (Bijvoorbeeld loszittend tegelwerk, loslatend behang of spuitwerk, holklinkend of loszittend stucwerk, etc.)",
+    "label": "Hebben zich in het verleden problemen voorgedaan met de afwerkingen? (Bijvoorbeeld loszittend tegelwerk, loslatend behang of spuitwerk, holklinkend of loszittend stucwerk, etc.)"
+  },
+  "answer_508": {
+    "number": "5D.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Hebben zich in het verleden problemen voorgedaan met de afwerkingen? (Bijvoorbeeld loszittend tegelwerk, loslatend behang of spuitwerk, holklinkend of loszittend stucwerk, etc.)",
+    "label": "Zo ja, waar?"
+  },
+  "answer_509": {
+    "number": "5E.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake (geweest) van gebreken aan de vloerconstructie, zoals scheve, doorbuigende, krakende, beschadigde en/of aangetaste vloerdelen?",
+    "label": "Is er sprake (geweest) van gebreken aan de vloerconstructie, zoals scheve, doorbuigende, krakende, beschadigde en/of aangetaste vloerdelen?"
+  },
+  "answer_510": {
+    "number": "5E.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake (geweest) van gebreken aan de vloerconstructie, zoals scheve, doorbuigende, krakende, beschadigde en/of aangetaste vloerdelen?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_511": {
+    "number": "5F.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake van vloerisolatie?",
+    "label": "Is er sprake van vloerisolatie?"
+  },
+  "answer_514": {
+    "number": "5F.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake van vloerisolatie?",
+    "label": "Zo ja, wanneer heeft de isolatie van de vloer plaatsgevonden en met welk isolatiemateriaal?"
+  },
+  "answer_515": {
+    "number": "5F.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake van vloerisolatie?",
+    "label": "Heeft u een certificaat of bewijs van het na-isoleren?"
+  },
+  "answer_512": {
+    "number": "5F.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake van vloerisolatie?",
+    "label": "Is er sprake van volledige isolatie?"
+  },
+  "answer_513": {
+    "number": "5F.",
+    "section": "Vloeren, plafonds en wanden",
+    "question": "Is er sprake van vloerisolatie?",
+    "label": "Zo nee, welke delen zijn er niet geïsoleerd?"
+  },
+  "answer_601": {
+    "number": "6A.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is er sprake (geweest) van gebreken aan de fundering?",
+    "label": "Is er sprake (geweest) van gebreken aan de fundering?"
+  },
+  "answer_602": {
+    "number": "6A.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is er sprake (geweest) van gebreken aan de fundering?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_603": {
+    "number": "6B.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is de kruipruimte toegankelijk?",
+    "label": "Is de kruipruimte toegankelijk?"
+  },
+  "answer_604": {
+    "number": "6B.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is de kruipruimte toegankelijk?",
+    "label": "Is de kruipruimte droog?"
+  },
+  "answer_608": {
+    "number": "6B.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is de kruipruimte toegankelijk?",
+    "label": "Zo nee of meestal, toelichting:"
+  },
+  "answer_605": {
+    "number": "6C.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is er sprake van vochtdoorslag door de kelderwand?",
+    "label": "Is er sprake van vochtdoorslag door de kelderwand?"
+  },
+  "answer_609": {
+    "number": "6C.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is er sprake van vochtdoorslag door de kelderwand?",
+    "label": "Zo ja of soms, toelichting:"
+  },
+  "answer_606": {
+    "number": "6D.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is de grondwaterstand in de afgelopen jaren waarneembaar gewijzigd of is er sprake van wateroverlast geweest?",
+    "label": "Is de grondwaterstand in de afgelopen jaren waarneembaar gewijzigd of is er sprake van wateroverlast geweest?"
+  },
+  "answer_607": {
+    "number": "6D.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is de grondwaterstand in de afgelopen jaren waarneembaar gewijzigd of is er sprake van wateroverlast geweest?",
+    "label": "Zo ja, heeft dit tot problemen geleid in de vorm van water in de kruipruimte c.q. kelder?"
+  },
+  "answer_610": {
+    "number": "6D.",
+    "section": "Fundering, kruipruimte en kelder",
+    "question": "Is de grondwaterstand in de afgelopen jaren waarneembaar gewijzigd of is er sprake van wateroverlast geweest?",
+    "label": "Zo nee, tot wat voor andere problemen heeft dit geleid?"
+  },
+  "answer_745": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)"
+  },
+  "answer_746": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Is/zijn de installatie(s) eigendom?"
+  },
+  "answer_747": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Zo nee, toelichting: (bijvoorbeeld de installatie(s) is/ zijn gehuurd of geleased. Tevens huur-/leaseprijs vermelden)"
+  },
+  "answer_702": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Merk van de installatie(s):"
+  },
+  "answer_748": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Type(nummer) van de installatie(s):"
+  },
+  "answer_724": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Installatiedatum van de installatie(s):"
+  },
+  "answer_703": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Op welke datum is/zijn deze installatie(s) voor het laatst onderhouden?"
+  },
+  "answer_726": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Is het onderhoud uitgevoerd door een erkend bedrijf?"
+  },
+  "answer_727": {
+    "number": "7A.",
+    "section": "Installaties",
+    "question": "Wat voor warmte-installatie(s) is/zijn er aanwezig in de woning? (bijvoorbeeld cv-installatie, WTW-systeem, WKO-systeem, (hybride) warmtepomp, airconditioning, zonneboiler, elektrische boiler, pelletkachel dan wel een andere installatie)",
+    "label": "Zo ja, door wie?"
+  },
+  "answer_704": {
+    "number": "7B.",
+    "section": "Installaties",
+    "question": "Zijn er de afgelopen tijd zaken opgevallen ten aanzien van de installatie(s)? (bijvoorbeeld de cv-installatie moet meer dan 1 keer per jaar bijgevuld worden of de installatie functioneert niet goed)",
+    "label": "Zijn er de afgelopen tijd zaken opgevallen ten aanzien van de installatie(s)? (bijvoorbeeld de cv-installatie moet meer dan 1 keer per jaar bijgevuld worden of de installatie functioneert niet goed)"
+  },
+  "answer_705": {
+    "number": "7B.",
+    "section": "Installaties",
+    "question": "Zijn er de afgelopen tijd zaken opgevallen ten aanzien van de installatie(s)? (bijvoorbeeld de cv-installatie moet meer dan 1 keer per jaar bijgevuld worden of de installatie functioneert niet goed)",
+    "label": "Zo ja, wat is u opgevallen?"
+  },
+  "answer_706": {
+    "number": "7C.",
+    "section": "Installaties",
+    "question": "Zijn er radiatoren die niet warm worden?",
+    "label": "Zijn er radiatoren die niet warm worden?"
+  },
+  "answer_707": {
+    "number": "7C.",
+    "section": "Installaties",
+    "question": "Zijn er radiatoren die niet warm worden?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_708": {
+    "number": "7D.",
+    "section": "Installaties",
+    "question": "Zijn er radiatoren of (water)leidingen die lekken?",
+    "label": "Zijn er radiatoren of (water)leidingen die lekken?"
+  },
+  "answer_709": {
+    "number": "7D.",
+    "section": "Installaties",
+    "question": "Zijn er radiatoren of (water)leidingen die lekken?",
+    "label": "Zo ja, waar en welke?"
+  },
+  "answer_710": {
+    "number": "7E.",
+    "section": "Installaties",
+    "question": "Zijn er radiatoren of (water)leidingen die ooit zijn bevroren?",
+    "label": "Zijn er radiatoren of (water)leidingen die ooit zijn bevroren?"
+  },
+  "answer_711": {
+    "number": "7E.",
+    "section": "Installaties",
+    "question": "Zijn er radiatoren of (water)leidingen die ooit zijn bevroren?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_728": {
+    "number": "7F.",
+    "section": "Installaties",
+    "question": "Heeft u vloerverwarming in de woning?",
+    "label": "Heeft u vloerverwarming in de woning?"
+  },
+  "answer_749": {
+    "number": "7F.",
+    "section": "Installaties",
+    "question": "Heeft u vloerverwarming in de woning?",
+    "label": "Zo ja, betreft dit elektrische vloerverwarming, vloerverwarming met warm water of anders? Elektrisch:"
+  },
+  "answer_750": {
+    "number": "7F.",
+    "section": "Installaties",
+    "question": "Heeft u vloerverwarming in de woning?",
+    "label": "warm water:"
+  },
+  "answer_751": {
+    "number": "7F.",
+    "section": "Installaties",
+    "question": "Heeft u vloerverwarming in de woning?",
+    "label": "overig, namelijk"
+  },
+  "answer_729": {
+    "number": "7F.",
+    "section": "Installaties",
+    "question": "Heeft u vloerverwarming in de woning?",
+    "label": "Waar bevindt zich de elektrische vloerverwarming?"
+  },
+  "answer_752": {
+    "number": "7F.",
+    "section": "Installaties",
+    "question": "Heeft u vloerverwarming in de woning?",
+    "label": "Waar bevindt zich de vloerverwarming met warm water?"
+  },
+  "answer_753": {
+    "number": "7F.",
+    "section": "Installaties",
+    "question": "Heeft u vloerverwarming in de woning?",
+    "label": "Waar bevindt zich de overige vloerverwarming?"
+  },
+  "answer_712": {
+    "number": "7G.",
+    "section": "Installaties",
+    "question": "Zijn er vertrekken die niet (goed) warm worden?",
+    "label": "Zijn er vertrekken die niet (goed) warm worden?"
+  },
+  "answer_713": {
+    "number": "7G.",
+    "section": "Installaties",
+    "question": "Zijn er vertrekken die niet (goed) warm worden?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_730": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Heeft de woning zonnepanelen die uw eigendom zijn?"
+  },
+  "answer_732": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Heeft de woning zonnepanelen die worden gehuurd of geleased?"
+  },
+  "answer_733": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Kan het huurcontract/ leasecontract worden overgenomen door koper? Zo ja, dan overnamecontract opvragen."
+  },
+  "answer_754": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Hoeveel zonnepanelen zijn er aanwezig? Aantal:"
+  },
+  "answer_731": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Zo ja, blijven de zonnepanelen achter?"
+  },
+  "answer_755": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Wat is de capaciteit van één zonnepaneel? (De capaciteit van zonnepanelen wordt uitgedrukt in Wattpiek (Wp). Bijvoorbeeld één zonnepaneel levert 390 Wp."
+  },
+  "answer_756": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Functioneren alle zonnepanelen?"
+  },
+  "answer_757": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Wat is het merk/ type van de zonnepanelen?"
+  },
+  "answer_758": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Maakt u gebruik van een app om de opbrengst van de zonnepanelen te bekijken?"
+  },
+  "answer_759": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_734": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "In welk jaar zijn de zonnepanelen geplaatst en door wie? Jaar:"
+  },
+  "answer_735": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Installateur:"
+  },
+  "answer_736": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Is de btw over het aankoopbedrag teruggevraagd van de belastingdienst?"
+  },
+  "answer_737": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Hoeveel stroom heeft u het afgelopen jaar opgewekt? Jaar:"
+  },
+  "answer_738": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Aantal kWh:"
+  },
+  "answer_739": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Hoe lang zit er nog fabrieksgarantie op de zonnepanelen?"
+  },
+  "answer_740": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Zijn de zonnepanelen aangeschaft met subsidie?"
+  },
+  "answer_742": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Zo ja, moet de subsidie worden terugbetaald?"
+  },
+  "answer_743": {
+    "number": "7H.",
+    "section": "Installaties",
+    "question": "Heeft de woning zonnepanelen die uw eigendom zijn?",
+    "label": "Zo ja, welk bedrag moet worden terugbetaald?"
+  },
+  "answer_714": {
+    "number": "7I.",
+    "section": "Installaties",
+    "question": "In welk jaar zijn voor het laatst de aanwezige schoorsteenkanalen/rookgasafvoeren geveegd/gereinigd?",
+    "label": "In welk jaar zijn voor het laatst de aanwezige schoorsteenkanalen/rookgasafvoeren geveegd/gereinigd?"
+  },
+  "answer_744": {
+    "number": "7J.",
+    "section": "Installaties",
+    "question": "Wanneer heeft u de aanwezige schoorsteenkanalen voor het laatst gebruikt?",
+    "label": "Wanneer heeft u de aanwezige schoorsteenkanalen voor het laatst gebruikt?"
+  },
+  "answer_715": {
+    "number": "7J.",
+    "section": "Installaties",
+    "question": "Wanneer heeft u de aanwezige schoorsteenkanalen voor het laatst gebruikt?",
+    "label": "Is de trek van aanwezige schoorsteenkanalen goed?"
+  },
+  "answer_716": {
+    "number": "7K.",
+    "section": "Installaties",
+    "question": "Zijn er onderdelen van de elektrische installatie vernieuwd? (onder de elektrische installatie wordt verstaan alle elektra leidingen/ schakelaars stopcontacten, meterkast e.d.)",
+    "label": "Zijn er onderdelen van de elektrische installatie vernieuwd? (onder de elektrische installatie wordt verstaan alle elektra leidingen/ schakelaars stopcontacten, meterkast e.d.)"
+  },
+  "answer_717": {
+    "number": "7K.",
+    "section": "Installaties",
+    "question": "Zijn er onderdelen van de elektrische installatie vernieuwd? (onder de elektrische installatie wordt verstaan alle elektra leidingen/ schakelaars stopcontacten, meterkast e.d.)",
+    "label": "Zo ja, wanneer en welke onderdelen?"
+  },
+  "answer_719": {
+    "number": "7K.",
+    "section": "Installaties",
+    "question": "Zijn er onderdelen van de elektrische installatie vernieuwd? (onder de elektrische installatie wordt verstaan alle elektra leidingen/ schakelaars stopcontacten, meterkast e.d.)",
+    "label": "Zijn er gebreken aan de elektrische installatie?"
+  },
+  "answer_720": {
+    "number": "7K.",
+    "section": "Installaties",
+    "question": "Zijn er onderdelen van de elektrische installatie vernieuwd? (onder de elektrische installatie wordt verstaan alle elektra leidingen/ schakelaars stopcontacten, meterkast e.d.)",
+    "label": "Zo ja, welke?"
+  },
+  "answer_760": {
+    "number": "7L.",
+    "section": "Installaties",
+    "question": "Is er een laadpaal aanwezig voor een elektrische auto?",
+    "label": "Is er een laadpaal aanwezig voor een elektrische auto?"
+  },
+  "answer_773": {
+    "number": "7L.",
+    "section": "Installaties",
+    "question": "Is er een laadpaal aanwezig voor een elektrische auto?",
+    "label": "Zo ja, waar bevindt deze zich?"
+  },
+  "answer_761": {
+    "number": "7L.",
+    "section": "Installaties",
+    "question": "Is er een laadpaal aanwezig voor een elektrische auto?",
+    "label": "Blijft deze achter?"
+  },
+  "answer_762": {
+    "number": "7M.",
+    "section": "Installaties",
+    "question": "Is er mechanische ventilatie of een soortgelijk systeem aanwezig?",
+    "label": "Is er mechanische ventilatie of een soortgelijk systeem aanwezig?"
+  },
+  "answer_763": {
+    "number": "7M.",
+    "section": "Installaties",
+    "question": "Is er mechanische ventilatie of een soortgelijk systeem aanwezig?",
+    "label": "Zo ja, functioneert dit systeem naar behoren?"
+  },
+  "answer_764": {
+    "number": "7M.",
+    "section": "Installaties",
+    "question": "Is er mechanische ventilatie of een soortgelijk systeem aanwezig?",
+    "label": "Zo nee, toelichting:"
+  },
+  "answer_765": {
+    "number": "7M.",
+    "section": "Installaties",
+    "question": "Is er mechanische ventilatie of een soortgelijk systeem aanwezig?",
+    "label": "Wanneer is dit systeem voor het laatst onderhouden?"
+  },
+  "answer_766": {
+    "number": "7M.",
+    "section": "Installaties",
+    "question": "Is er mechanische ventilatie of een soortgelijk systeem aanwezig?",
+    "label": "Hoe oud is dit systeem ongeveer?"
+  },
+  "answer_767": {
+    "number": "7N.",
+    "section": "Installaties",
+    "question": "Is er een domoticasysteem of een soortgelijk systeem aanwezig? (Een domoticasysteem bedient de verwarming, verlichting, verwarming, audio, ventilatie e.d. automatisch)",
+    "label": "Is er een domoticasysteem of een soortgelijk systeem aanwezig? (Een domoticasysteem bedient de verwarming, verlichting, verwarming, audio, ventilatie e.d. automatisch)"
+  },
+  "answer_768": {
+    "number": "7N.",
+    "section": "Installaties",
+    "question": "Is er een domoticasysteem of een soortgelijk systeem aanwezig? (Een domoticasysteem bedient de verwarming, verlichting, verwarming, audio, ventilatie e.d. automatisch)",
+    "label": "Zo ja, functioneert dit systeem naar behoren?"
+  },
+  "answer_769": {
+    "number": "7N.",
+    "section": "Installaties",
+    "question": "Is er een domoticasysteem of een soortgelijk systeem aanwezig? (Een domoticasysteem bedient de verwarming, verlichting, verwarming, audio, ventilatie e.d. automatisch)",
+    "label": "Zo nee, toelichting:"
+  },
+  "answer_770": {
+    "number": "7N.",
+    "section": "Installaties",
+    "question": "Is er een domoticasysteem of een soortgelijk systeem aanwezig? (Een domoticasysteem bedient de verwarming, verlichting, verwarming, audio, ventilatie e.d. automatisch)",
+    "label": "Hoe oud is dit systeem ongeveer?"
+  },
+  "answer_771": {
+    "number": "7O.",
+    "section": "Installaties",
+    "question": "Zijn er rookmelders op iedere verdieping aanwezig?",
+    "label": "Zijn er rookmelders op iedere verdieping aanwezig?"
+  },
+  "answer_772": {
+    "number": "7O.",
+    "section": "Installaties",
+    "question": "Zijn er rookmelders op iedere verdieping aanwezig?",
+    "label": "Zo ja, hoe oud zijn de rookmelders ongeveer?"
+  },
+  "answer_801": {
+    "number": "8A.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Zijn er beschadigingen aan wastafels, douche, bad, toiletten, gootstenen en kranen?",
+    "label": "Zijn er beschadigingen aan wastafels, douche, bad, toiletten, gootstenen en kranen?"
+  },
+  "answer_802": {
+    "number": "8A.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Zijn er beschadigingen aan wastafels, douche, bad, toiletten, gootstenen en kranen?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_810": {
+    "number": "8B.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Hoe oud is de badkamer ongeveer?",
+    "label": "Hoe oud is de badkamer ongeveer?"
+  },
+  "answer_803": {
+    "number": "8C.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Lopen de afvoeren van wastafels, douche, bad, toiletten, gootstenen en kranen goed door?",
+    "label": "Lopen de afvoeren van wastafels, douche, bad, toiletten, gootstenen en kranen goed door?"
+  },
+  "answer_804": {
+    "number": "8C.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Lopen de afvoeren van wastafels, douche, bad, toiletten, gootstenen en kranen goed door?",
+    "label": "Zo nee, welke niet?"
+  },
+  "answer_805": {
+    "number": "8D.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Is de woning aangesloten op het gemeentelijke riool?",
+    "label": "Is de woning aangesloten op het gemeentelijke riool?"
+  },
+  "answer_806": {
+    "number": "8E.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Zijn er gebreken (geweest) aan de riolering, zoals breuken, stankoverlast, lekkages, etc.?",
+    "label": "Zijn er gebreken (geweest) aan de riolering, zoals breuken, stankoverlast, lekkages, etc.?"
+  },
+  "answer_807": {
+    "number": "8E.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Zijn er gebreken (geweest) aan de riolering, zoals breuken, stankoverlast, lekkages, etc.?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_808": {
+    "number": "8F.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Is er een andere voorziening, zoals een septictank, beerput of dergelijk aanwezig?",
+    "label": "Is er een andere voorziening, zoals een septictank, beerput of dergelijk aanwezig?"
+  },
+  "answer_809": {
+    "number": "8F.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Is er een andere voorziening, zoals een septictank, beerput of dergelijk aanwezig?",
+    "label": "Zo ja, wat is er aanwezig en hoe dient dit te worden onderhouden?"
+  },
+  "answer_811": {
+    "number": "8G.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Van welk jaar dateert de keukenopstelling ongeveer?",
+    "label": "Van welk jaar dateert de keukenopstelling ongeveer?"
+  },
+  "answer_812": {
+    "number": "8H.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Van welk jaar dateert de inbouwapparatuur ongeveer?",
+    "label": "Van welk jaar dateert de inbouwapparatuur ongeveer?"
+  },
+  "answer_813": {
+    "number": "8H.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Van welk jaar dateert de inbouwapparatuur ongeveer?",
+    "label": "Functioneert alle inbouwapparatuur?"
+  },
+  "answer_814": {
+    "number": "8H.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Van welk jaar dateert de inbouwapparatuur ongeveer?",
+    "label": "Zo nee, welk inbouwapparaat functioneert niet?"
+  },
+  "answer_817": {
+    "number": "8I.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Heeft u een kokend water kraan? (bijvoorbeeld een Quooker kraan of een soortgelijke kraan)",
+    "label": "Heeft u een kokend water kraan? (bijvoorbeeld een Quooker kraan of een soortgelijke kraan)"
+  },
+  "answer_818": {
+    "number": "8I.",
+    "section": "Sanitair, riolering en keuken",
+    "question": "Heeft u een kokend water kraan? (bijvoorbeeld een Quooker kraan of een soortgelijke kraan)",
+    "label": "Zo ja, functioneert deze kraan naar behoren en hoe oud is deze kraan ongeveer?"
+  },
+  "answer_901": {
+    "number": "9A.",
+    "section": "Diversen",
+    "question": "Wat is het bouwjaar van de woning?",
+    "label": "Wat is het bouwjaar van de woning?"
+  },
+  "answer_902": {
+    "number": "9B.",
+    "section": "Diversen",
+    "question": "Zijn er asbesthoudende materialen in/op de woning/ bijgebouw(en) aanwezig? (bijvoorbeeld asbest zeil, een asbestplaat die onder en/of achter de CV ketel is geplaatst, asbesthoudend isolatiemateriaal om de verwarmingsbuis, asbesthoudend koord bij oude cv-ketels/gaskachels, asbestgolfplaten e.d.)",
+    "label": "Zijn er asbesthoudende materialen in/op de woning/ bijgebouw(en) aanwezig? (bijvoorbeeld asbest zeil, een asbestplaat die onder en/of achter de CV ketel is geplaatst, asbesthoudend isolatiemateriaal om de verwarmingsbuis, asbesthoudend koord bij oude cv-ketels/gaskachels, asbestgolfplaten e.d.)"
+  },
+  "answer_903": {
+    "number": "9B.",
+    "section": "Diversen",
+    "question": "Zijn er asbesthoudende materialen in/op de woning/ bijgebouw(en) aanwezig? (bijvoorbeeld asbest zeil, een asbestplaat die onder en/of achter de CV ketel is geplaatst, asbesthoudend isolatiemateriaal om de verwarmingsbuis, asbesthoudend koord bij oude cv-ketels/gaskachels, asbestgolfplaten e.d.)",
+    "label": "Zo ja, welke en waar?"
+  },
+  "answer_904": {
+    "number": "9C.",
+    "section": "Diversen",
+    "question": "Blijft er in de woning zeil achter, al dan niet vastgelijmd, dat is aangeschaft tussen 1955 en 1982?",
+    "label": "Blijft er in de woning zeil achter, al dan niet vastgelijmd, dat is aangeschaft tussen 1955 en 1982?"
+  },
+  "answer_905": {
+    "number": "9D.",
+    "section": "Diversen",
+    "question": "Is er sprake van loden leidingen in de woning?",
+    "label": "Is er sprake van loden leidingen in de woning?"
+  },
+  "answer_906": {
+    "number": "9D.",
+    "section": "Diversen",
+    "question": "Is er sprake van loden leidingen in de woning?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_933": {
+    "number": "9E.",
+    "section": "Diversen",
+    "question": "Is er een Japanse duizendknoop aanwezig in de tuin? (Een Japanse duizendknoop is een exotische plant, welke moeilijk te verwijderen is. De sterke wortelstokken en stengels van de Japanse duizendknoop zijn in staat om schade te veroorzaken aan gebouwen, leidingen en wegen)",
+    "label": "Is er een Japanse duizendknoop aanwezig in de tuin? (Een Japanse duizendknoop is een exotische plant, welke moeilijk te verwijderen is. De sterke wortelstokken en stengels van de Japanse duizendknoop zijn in staat om schade te veroorzaken aan gebouwen, leidingen en wegen)"
+  },
+  "answer_934": {
+    "number": "9F.",
+    "section": "Diversen",
+    "question": "Is er in puin/asbest afval in de grond/tuin aanwezig?",
+    "label": "Is er in puin/asbest afval in de grond/tuin aanwezig?"
+  },
+  "answer_935": {
+    "number": "9G.",
+    "section": "Diversen",
+    "question": "Heeft u elders lekkages gehad? (dus los van het dak/ sanitair/ riolering)",
+    "label": "Heeft u elders lekkages gehad? (dus los van het dak/ sanitair/ riolering)"
+  },
+  "answer_907": {
+    "number": "9H.",
+    "section": "Diversen",
+    "question": "Is de grond verontreinigd?",
+    "label": "Is de grond verontreinigd?"
+  },
+  "answer_908": {
+    "number": "9H.",
+    "section": "Diversen",
+    "question": "Is de grond verontreinigd?",
+    "label": "Zo ja, is er een onderzoeksrapport?"
+  },
+  "answer_909": {
+    "number": "9H.",
+    "section": "Diversen",
+    "question": "Is de grond verontreinigd?",
+    "label": "Zo ja, heeft de gemeente/provincie een onderzoeks- of saneringsbevel opgelegd?"
+  },
+  "answer_910": {
+    "number": "9I.",
+    "section": "Diversen",
+    "question": "Is er een olietank aanwezig of aanwezig geweest?",
+    "label": "Is er een olietank aanwezig of aanwezig geweest?"
+  },
+  "answer_911": {
+    "number": "9I.",
+    "section": "Diversen",
+    "question": "Is er een olietank aanwezig of aanwezig geweest?",
+    "label": "Zo ja, is deze gesaneerd/verwijderd?"
+  },
+  "answer_926": {
+    "number": "9I.",
+    "section": "Diversen",
+    "question": "Is er een olietank aanwezig of aanwezig geweest?",
+    "label": "Als deze is gesaneerd, waar is de olietank op het perceel gesitueerd?"
+  },
+  "answer_912": {
+    "number": "9I.",
+    "section": "Diversen",
+    "question": "Is er een olietank aanwezig of aanwezig geweest?",
+    "label": "Is er een Kiwa-certificaat aanwezig?"
+  },
+  "answer_913": {
+    "number": "9J.",
+    "section": "Diversen",
+    "question": "Is er sprake van overlast door ongedierte in of (rond)om de woning? (Denk aan muizen, ratten, kakkerlakken, etc.)",
+    "label": "Is er sprake van overlast door ongedierte in of (rond)om de woning? (Denk aan muizen, ratten, kakkerlakken, etc.)"
+  },
+  "answer_927": {
+    "number": "9J.",
+    "section": "Diversen",
+    "question": "Is er sprake van overlast door ongedierte in of (rond)om de woning? (Denk aan muizen, ratten, kakkerlakken, etc.)",
+    "label": "Zo ja, waar?"
+  },
+  "answer_914": {
+    "number": "9K.",
+    "section": "Diversen",
+    "question": "Is de woning aangetast door houtworm, boktor, ander ongedierte of zwam?",
+    "label": "Is de woning aangetast door houtworm, boktor, ander ongedierte of zwam?"
+  },
+  "answer_928": {
+    "number": "9K.",
+    "section": "Diversen",
+    "question": "Is de woning aangetast door houtworm, boktor, ander ongedierte of zwam?",
+    "label": "Zo ja, waar?"
+  },
+  "answer_915": {
+    "number": "9K.",
+    "section": "Diversen",
+    "question": "Is de woning aangetast door houtworm, boktor, ander ongedierte of zwam?",
+    "label": "Zo ja, is deze aantasting al eens behandeld?"
+  },
+  "answer_916": {
+    "number": "9K.",
+    "section": "Diversen",
+    "question": "Is de woning aangetast door houtworm, boktor, ander ongedierte of zwam?",
+    "label": "Zo ja, wanneer?"
+  },
+  "answer_917": {
+    "number": "9K.",
+    "section": "Diversen",
+    "question": "Is de woning aangetast door houtworm, boktor, ander ongedierte of zwam?",
+    "label": "Zo ja, door welk bedrijf?"
+  },
+  "answer_918": {
+    "number": "9L.",
+    "section": "Diversen",
+    "question": "Is er sprake van chlorideschade (betonrot)? (Betonrot komt vooral voor in kruipruimtes van woningen gebouwd tussen 1965 en 1981 die voorzien zijn van betonnen vloerelementen van het merk Kwaaitaal of Manta. Ook andere beton- elementen - bijvoorbeeld balkons - kunnen aangetast zijn)",
+    "label": "Is er sprake van chlorideschade (betonrot)? (Betonrot komt vooral voor in kruipruimtes van woningen gebouwd tussen 1965 en 1981 die voorzien zijn van betonnen vloerelementen van het merk Kwaaitaal of Manta. Ook andere beton- elementen - bijvoorbeeld balkons - kunnen aangetast zijn)"
+  },
+  "answer_929": {
+    "number": "9L.",
+    "section": "Diversen",
+    "question": "Is er sprake van chlorideschade (betonrot)? (Betonrot komt vooral voor in kruipruimtes van woningen gebouwd tussen 1965 en 1981 die voorzien zijn van betonnen vloerelementen van het merk Kwaaitaal of Manta. Ook andere beton- elementen - bijvoorbeeld balkons - kunnen aangetast zijn)",
+    "label": "Zo ja, waar?"
+  },
+  "answer_919": {
+    "number": "9M.",
+    "section": "Diversen",
+    "question": "Hebben er verbouwingen en/of bijbouwingen plaatsgevonden in en/of om de woning?",
+    "label": "Hebben er verbouwingen en/of bijbouwingen plaatsgevonden in en/of om de woning?"
+  },
+  "answer_920": {
+    "number": "9M.",
+    "section": "Diversen",
+    "question": "Hebben er verbouwingen en/of bijbouwingen plaatsgevonden in en/of om de woning?",
+    "label": "Zo ja, welke ver-/bijbouwingen?"
+  },
+  "answer_921": {
+    "number": "9M.",
+    "section": "Diversen",
+    "question": "Hebben er verbouwingen en/of bijbouwingen plaatsgevonden in en/of om de woning?",
+    "label": "Zo ja, in welk jaartal?"
+  },
+  "answer_922": {
+    "number": "9M.",
+    "section": "Diversen",
+    "question": "Hebben er verbouwingen en/of bijbouwingen plaatsgevonden in en/of om de woning?",
+    "label": "Zo ja, door welk bedrijf zijn deze uitgevoerd?"
+  },
+  "answer_923": {
+    "number": "9N.",
+    "section": "Diversen",
+    "question": "Zijn er verbouwingen of uitbreidingen uitgevoerd zonder omgevingsvergunning (voorheen bouwvergunning)?",
+    "label": "Zijn er verbouwingen of uitbreidingen uitgevoerd zonder omgevingsvergunning (voorheen bouwvergunning)?"
+  },
+  "answer_930": {
+    "number": "9N.",
+    "section": "Diversen",
+    "question": "Zijn er verbouwingen of uitbreidingen uitgevoerd zonder omgevingsvergunning (voorheen bouwvergunning)?",
+    "label": "Zo ja, welke?"
+  },
+  "answer_936": {
+    "number": "9O.",
+    "section": "Diversen",
+    "question": "Is er sprake van glasvezel internet?",
+    "label": "Is er sprake van glasvezel internet?"
+  },
+  "answer_924": {
+    "number": "9P.",
+    "section": "Diversen",
+    "question": "Bent u in het bezit van een definitief energieprestatiecertificaat/energielabel?",
+    "label": "Bent u in het bezit van een definitief energieprestatiecertificaat/energielabel?"
+  },
+  "answer_925": {
+    "number": "9P.",
+    "section": "Diversen",
+    "question": "Bent u in het bezit van een definitief energieprestatiecertificaat/energielabel?",
+    "label": "Zo ja, welke label?"
+  },
+  "answer_1001": {
+    "number": "10A.",
+    "section": "Vaste lasten",
+    "question": "Hoeveel betaalde u voor de laatste aanslag onroerendezaakbelasting?",
+    "label": "Hoeveel betaalde u voor de laatste aanslag onroerendezaakbelasting?"
+  },
+  "answer_1002": {
+    "number": "10A.",
+    "section": "Vaste lasten",
+    "question": "Hoeveel betaalde u voor de laatste aanslag onroerendezaakbelasting?",
+    "label": "Belastingjaar?"
+  },
+  "answer_1003": {
+    "number": "10B.",
+    "section": "Vaste lasten",
+    "question": "Wat is de WOZ-waarde?",
+    "label": "Wat is de WOZ-waarde?"
+  },
+  "answer_1004": {
+    "number": "10B.",
+    "section": "Vaste lasten",
+    "question": "Wat is de WOZ-waarde?",
+    "label": "Peiljaar?"
+  },
+  "answer_1005": {
+    "number": "10C.",
+    "section": "Vaste lasten",
+    "question": "Hoeveel betaalde u voor de laatste aanslag waterschapslasten?",
+    "label": "Hoeveel betaalde u voor de laatste aanslag waterschapslasten?"
+  },
+  "answer_1006": {
+    "number": "10C.",
+    "section": "Vaste lasten",
+    "question": "Hoeveel betaalde u voor de laatste aanslag waterschapslasten?",
+    "label": "Belastingjaar?"
+  },
+  "answer_1007": {
+    "number": "10D.",
+    "section": "Vaste lasten",
+    "question": "Hoeveel betaalde u voor de laatste aanslag gemeentelijke belastingen? (zoals rioolheffing en afvalstoffenheffing e.d.)",
+    "label": "Hoeveel betaalde u voor de laatste aanslag gemeentelijke belastingen? (zoals rioolheffing en afvalstoffenheffing e.d.)"
+  },
+  "answer_1008": {
+    "number": "10D.",
+    "section": "Vaste lasten",
+    "question": "Hoeveel betaalde u voor de laatste aanslag gemeentelijke belastingen? (zoals rioolheffing en afvalstoffenheffing e.d.)",
+    "label": "Belastingjaar?"
+  },
+  "answer_1009": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:"
+  },
+  "answer_1010": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Elektra:"
+  },
+  "answer_1030": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Water:"
+  },
+  "answer_1011": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Stadsverwarming:"
+  },
+  "answer_1025": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Anders:"
+  },
+  "answer_1026": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Te weten:"
+  },
+  "answer_1031": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Wat is uw jaarverbruik voor gas/ elektriciteit en water? Gas (m³):"
+  },
+  "answer_1032": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Elektriciteit hoog (kWh):"
+  },
+  "answer_1033": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Elektriciteit laag (kWh):"
+  },
+  "answer_1034": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Elektriciteit totaal (kWh):"
+  },
+  "answer_1035": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Water (m3):"
+  },
+  "answer_1036": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Stadsverwarming (GJ):"
+  },
+  "answer_1037": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Anders:"
+  },
+  "answer_1038": {
+    "number": "10E.",
+    "section": "Vaste lasten",
+    "question": "Welke voorschotbedragen betaalt u maandelijks aan de nutsbedrijven? Gas:",
+    "label": "Met hoeveel bewoners bewoonde u de woning? Aantal:"
+  },
+  "answer_1012": {
+    "number": "10F.",
+    "section": "Vaste lasten",
+    "question": "Zijn er lease- en/of huurkoopcontracten? (Bijvoorbeeld keuken, kozijnen, cv-ketel, etc.)",
+    "label": "Zijn er lease- en/of huurkoopcontracten? (Bijvoorbeeld keuken, kozijnen, cv-ketel, etc.)"
+  },
+  "answer_1013": {
+    "number": "10F.",
+    "section": "Vaste lasten",
+    "question": "Zijn er lease- en/of huurkoopcontracten? (Bijvoorbeeld keuken, kozijnen, cv-ketel, etc.)",
+    "label": "Zo ja, welke?"
+  },
+  "answer_1027": {
+    "number": "10F.",
+    "section": "Vaste lasten",
+    "question": "Zijn er lease- en/of huurkoopcontracten? (Bijvoorbeeld keuken, kozijnen, cv-ketel, etc.)",
+    "label": "Zijn deze contracten overdraagbaar op de koper? Let op! Veel lease- en huurkoopcontracten zijn niet langer overdraagbaar op een koper. Neem hiervoor contact op met de betreffende leverancier."
+  },
+  "answer_1028": {
+    "number": "10F.",
+    "section": "Vaste lasten",
+    "question": "Zijn er lease- en/of huurkoopcontracten? (Bijvoorbeeld keuken, kozijnen, cv-ketel, etc.)",
+    "label": "Hoe lang lopen de contracten nog en wat is de eventuele afkoopsom? Afkoopsom:"
+  },
+  "answer_1014": {
+    "number": "10F.",
+    "section": "Vaste lasten",
+    "question": "Zijn er lease- en/of huurkoopcontracten? (Bijvoorbeeld keuken, kozijnen, cv-ketel, etc.)",
+    "label": "Duur:"
+  },
+  "answer_1015": {
+    "number": "10G.",
+    "section": "Vaste lasten",
+    "question": "Als er sprake is van erfpacht of opstalrecht hoe hoog is dan de canon per jaar?",
+    "label": "Als er sprake is van erfpacht of opstalrecht hoe hoog is dan de canon per jaar?"
+  },
+  "answer_1016": {
+    "number": "10G.",
+    "section": "Vaste lasten",
+    "question": "Als er sprake is van erfpacht of opstalrecht hoe hoog is dan de canon per jaar?",
+    "label": "Heeft u alle canons betaald?"
+  },
+  "answer_1017": {
+    "number": "10G.",
+    "section": "Vaste lasten",
+    "question": "Als er sprake is van erfpacht of opstalrecht hoe hoog is dan de canon per jaar?",
+    "label": "Is de canon afgekocht?"
+  },
+  "answer_1018": {
+    "number": "10G.",
+    "section": "Vaste lasten",
+    "question": "Als er sprake is van erfpacht of opstalrecht hoe hoog is dan de canon per jaar?",
+    "label": "Zo ja, tot wanneer?"
+  },
+  "answer_1019": {
+    "number": "10H.",
+    "section": "Vaste lasten",
+    "question": "Heeft u alle gemeentelijke belastingen die u verschuldigd bent al betaald?",
+    "label": "Heeft u alle gemeentelijke belastingen die u verschuldigd bent al betaald?"
+  },
+  "answer_1020": {
+    "number": "10H.",
+    "section": "Vaste lasten",
+    "question": "Heeft u alle gemeentelijke belastingen die u verschuldigd bent al betaald?",
+    "label": "Zijn er variabele bedragen voor gemeenschappelijke poorten, inritten of terreinen?"
+  },
+  "answer_1021": {
+    "number": "10H.",
+    "section": "Vaste lasten",
+    "question": "Heeft u alle gemeentelijke belastingen die u verschuldigd bent al betaald?",
+    "label": "Zo ja, hoe hoog en waarvoor?"
+  },
+  "answer_1023": {
+    "number": "10I.",
+    "section": "Vaste lasten",
+    "question": "Heeft u, om in de straat te parkeren, een parkeervergunning nodig?",
+    "label": "Heeft u, om in de straat te parkeren, een parkeervergunning nodig?"
+  },
+  "answer_1029": {
+    "number": "10I.",
+    "section": "Vaste lasten",
+    "question": "Heeft u, om in de straat te parkeren, een parkeervergunning nodig?",
+    "label": "Hoeveel parkeervergunningen kunnen er maximaal worden aangevraagd?"
+  },
+  "answer_1024": {
+    "number": "10I.",
+    "section": "Vaste lasten",
+    "question": "Heeft u, om in de straat te parkeren, een parkeervergunning nodig?",
+    "label": "Wat zijn de kosten voor deze parkeervergunning(en) per jaar?"
+  },
+  "answer_1101": {
+    "number": "11A.",
+    "section": "Garanties",
+    "question": "Zijn er lopende onderhoudscontracten en/of garantieregelingen overdraagbaar aan de koper? (Zoals dakbedekking, cv-installatie, dubbele beglazing, etc.)",
+    "label": "Zijn er lopende onderhoudscontracten en/of garantieregelingen overdraagbaar aan de koper? (Zoals dakbedekking, cv-installatie, dubbele beglazing, etc.)"
+  },
+  "answer_1102": {
+    "number": "11A.",
+    "section": "Garanties",
+    "question": "Zijn er lopende onderhoudscontracten en/of garantieregelingen overdraagbaar aan de koper? (Zoals dakbedekking, cv-installatie, dubbele beglazing, etc.)",
+    "label": "Zo ja, welke?"
+  },
+  "answer_9901": {
+    "number": "12A.",
+    "section": "Nadere informatie",
+    "question": "Overige zaken (Overige zaken die de koper naar uw mening moet weten)",
+    "label": "Overige zaken (Overige zaken die de koper naar uw mening moet weten)"
+  }
+}
