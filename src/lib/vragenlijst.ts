@@ -2,7 +2,7 @@ import labels2023 from "@/lib/realworks/vragenlijst-woonhuis-2023.json";
 export type QuestionItem = { field: string; number: string; section: string; question: string; label: string; answer: string; value: string; choice: boolean; labelKnown: boolean };
 export type QuestionList = { objectcode: string; systemid: string; version: string; sellerUpdatedAt: string; items: QuestionItem[]; fields: Record<string, string>; highlights: { number: string; question: string; title: string; details: string[]; answers: QuestionItem[] }[]; labelsComplete: boolean };
 const metadata = new Set(["vllisnr", "_systemid", "versienummer", "lijstcode", "vllastupd", "changedbycustomer"]);
-export function normalizeVragenlijst(input: unknown): QuestionList {
+export function extractVragenlijstFields(input: unknown): Record<string, string> {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Formuliervelden ontbreken");
   const fields: Record<string, string> = {};
   for (const [key, value] of Object.entries(input)) {
@@ -11,6 +11,11 @@ export function normalizeVragenlijst(input: unknown): QuestionList {
   }
   const objectcode = (fields.vllisnr || "").trim();
   if (!/^[A-Za-z0-9-]{1,40}$/.test(objectcode) || !/^\d+$/.test(fields._systemid || "")) throw new Error("Geldige objectcode en vragenlijst-ID zijn verplicht");
+  return fields;
+}
+export function normalizeVragenlijst(input: unknown): QuestionList {
+  const fields = extractVragenlijstFields(input);
+  const objectcode = fields.vllisnr.trim();
   const labels: Record<string, { number: string; section: string; question: string; label: string }> = fields.versienummer === "2023" ? labels2023 : {};
   const items: QuestionItem[] = Object.keys(fields).filter(k => /^answer_\d+$/.test(k)).map(field => {
     const value = fields[field];

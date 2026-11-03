@@ -4,7 +4,7 @@ const metadata = new Set(["objectcode", "_systemid", "versienummer", "klanten_in
 
 // Preserve only answers, their source masks and custom item descriptions.
 // Cookies, CSRF tokens, seller identities and form-control fields never enter storage.
-export function normalizeLijstVanZaken(input: unknown): ZakenList {
+export function extractLijstVanZakenFields(input: unknown): Record<string, string> {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Formuliervelden ontbreken");
   const raw = input as Record<string, unknown>;
   const allowed = new Set(metadata);
@@ -21,6 +21,11 @@ export function normalizeLijstVanZaken(input: unknown): ZakenList {
   }
   const objectcode = (fields.objectcode || "").trim();
   if (!/^[A-Za-z0-9-]{1,40}$/.test(objectcode) || !/^\d+$/.test(fields._systemid || "")) throw new Error("Geldige objectcode en lijst-ID zijn verplicht");
+  return fields;
+}
+export function normalizeLijstVanZaken(input: unknown): ZakenList {
+  const fields = extractLijstVanZakenFields(input);
+  const objectcode = fields.objectcode.trim();
   const items: ZakenItem[] = [];
   for (const key of Object.keys(fields).filter(k => k.endsWith("__MASK"))) {
     const field = key.slice(0, -6);

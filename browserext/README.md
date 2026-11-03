@@ -247,3 +247,10 @@ nodig om antwoorden te reconstrueren. De compacte selectie markeert onder meer
 bevestigde bijzonderheden en concrete toelichtingen; onbekende, lege en
 ontkennende antwoorden verdwijnen uit de samenvatting, terwijl
 alle deel-B-antwoorden blijven bij het project raadpleegbaar.
+
+Het platform bewaart het berekende overzicht duurzaam per inhoudsvingerafdruk.
+Ongewijzigde antwoorden (ook als alleen de wijzigingsdatum verandert) gebruiken
+hetzelfde overzicht. Projectweergave en PDF-generatie lezen dat opgeslagen
+resultaat; een wijziging in antwoorden of expliciet aangepaste samenvattingsregels
+leidt tot een nieuw overzicht. Bestaande ontvangsten krijgen dit bij de eerste
+uitlezing eenmalig. Er worden hiervoor geen AI-aanroepen gedaan.
