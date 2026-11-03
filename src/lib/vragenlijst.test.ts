@@ -28,7 +28,7 @@ test("source remarks are escaped in PDF HTML", () => {
 });
 
 test("briefing excludes unknown and negative answers while preserving concrete negative phrasing", () => {
- const d = normalizeVragenlijst({ ...sample, answer_502: "geen ventilatiebox, vocht bij de voordeur", answer_601: "geen idee" });
+ const d = normalizeVragenlijst({ ...sample, answer_502: "geen ventilatiebox, vocht bij de voordeur", answer_304: "geen idee" });
  assert.equal(d.highlights.length, 1);
  assert.deepEqual(d.highlights[0].details, ["geen ventilatiebox, vocht bij de voordeur"]);
  assert.ok(d.items.some(i => i.answer === "geen idee"));

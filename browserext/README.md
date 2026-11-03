@@ -244,5 +244,6 @@ worden uitgesloten. De vraagteksten voor woonhuisversie 2023 zijn op 3 november
 in `src/lib/realworks/vragenlijst-woonhuis-2023.json`. Andere versies blijven
 leesbaar als antwoorden zonder automatisch bedachte vraagteksten. Er is geen AI
 nodig om antwoorden te reconstrueren. De compacte selectie markeert onder meer
-positieve of onbekende antwoorden op risicovragen en relevante toelichtingen;
+bevestigde bijzonderheden en concrete toelichtingen; onbekende, lege en
+ontkennende antwoorden verdwijnen uit de samenvatting, terwijl
 alle deel-B-antwoorden blijven bij het project raadpleegbaar.
