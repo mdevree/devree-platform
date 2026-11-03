@@ -38,7 +38,7 @@ test("briefing excludes unknown and negative answers while preserving concrete n
  assert.ok(html.includes("geen ventilatiebox"));
 });
 test("negative and unknown free-text placeholders do not select a highlight", () => {
- for (const answer of ["nee", "Geen idee.", "Niet bekend", "weet ik niet", "n.v.t.", ""]) {
+ for (const answer of ["nee", "Geen idee.", "Niet bekend", "weet ik niet", "n.v.t.", "", "Geen vocht.", "Nee, geen schade"]) {
   const d = normalizeVragenlijst({ ...sample, answer_501: "0", answer_502: answer });
   assert.equal(d.highlights.length, 0, answer);
  }

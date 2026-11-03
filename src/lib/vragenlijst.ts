@@ -27,7 +27,7 @@ export function normalizeVragenlijst(input: unknown): QuestionList {
   const noteworthy = /vocht|schimmel|schade|geen ventilatiebox|nooit|vervangen|tuinhuis|overkapping/i;
   const improvement = /geschilderd|vernieuwd|verbouwing|bijbouwing/i;
   const positive = (i: QuestionItem) => i.choice && ["Ja", "Soms", "Meestal"].includes(i.answer);
-  const useful = (i: QuestionItem) => i.value.trim() !== "" && !/^(?:nee|neen|niet bekend|onbekend|geen idee|weet (?:ik )?niet|niet van toepassing|n\.?v\.?t\.?|niet beantwoord|niet ingevuld|geen|niet het geval)[.!\s]*$/i.test(i.answer.trim()) && !i.answer.startsWith("Onbekende keuze");
+  const useful = (i: QuestionItem) => i.value.trim() !== "" && !/^(?:nee|neen|niet bekend|onbekend|geen idee|weet (?:ik )?niet|niet van toepassing|n\.?v\.?t\.?|niet beantwoord|niet ingevuld|geen|niet het geval)[.!\s]*$/i.test(i.answer.trim()) && !i.answer.startsWith("Onbekende keuze") && !/^(?:nee[,;:]?\s*)?geen (?:vocht|schimmel|schade|lekkages?|gebreken|problemen|bijzonderheden)(?: bekend| aanwezig)?[.!\s]*$/i.test(i.answer.trim());
   const titles: Record<string, string> = { "4B.": "Schilderwerk", "4E.": "Beglazing", "5A.": "Vocht", "5B.": "Schimmel", "6A.": "Fundering", "7H.": "Zonnepanelen", "7K.": "Elektrische installatie", "7M.": "Ventilatie", "8A.": "Sanitair", "8B.": "Badkamer", "9B.": "Asbest", "9F.": "Asbest in de tuin", "9H.": "Bodem", "9M.": "Verbouwingen en bijgebouwen" };
   const highlights = [...groups.entries()].flatMap(([number, group]) => {
     const answers = group.filter(useful);
