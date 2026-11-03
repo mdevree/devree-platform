@@ -242,7 +242,7 @@ export async function POST(
 
     const [zaken, questions] = await Promise.all([getLijstVanZaken(afspraak.agobjcode), getVragenlijst(afspraak.agobjcode)]);
     const received = zaken ? new Intl.DateTimeFormat("nl-NL", { timeZone: AMSTERDAM_TIME_ZONE, dateStyle: "short", timeStyle: "short" }).format(new Date(zaken.receivedAt)) : undefined;
-    const briefing = renderZakenBriefing(zaken, received) + (questions ? renderQuestionsBriefing(questions) : "");
+    const briefing = renderZakenBriefing(zaken, received) + (questions ? renderQuestionsBriefing(questions, !zaken) : "");
     const pdfHtml = briefing ? (/<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${briefing}</body>`) : html + briefing) : html;
     const pdf = await renderPdf(pdfHtml);
     const datePart = afspraak.agbegin
