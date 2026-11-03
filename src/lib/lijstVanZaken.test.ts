@@ -15,6 +15,7 @@ test("blank, not applicable and unknown answers remain distinct", () => {
   assert.equal(d.items.find(i => i.field === "oven")?.answer, "Niet ingevuld");
   assert.equal(d.items.find(i => i.field === "koelkast")?.answer, "N.v.t.");
   assert.equal(d.items.find(i => i.field === "vriezer")?.answer, "Onbekende keuze (99)");
+  assert.ok(d.items.filter(i => ["oven", "koelkast", "vriezer"].includes(i.field)).every(i => !i.attention));
 });
 test("only answer data is stored; seller and authentication data are discarded", () => {
   const d = normalizeLijstVanZaken({ ...sample, CSRFToken: "secret", cookie: "secret", verkoper_result: "Private", verkoper_select: "P", verkoper_select__MASK: "P;Particulier", _callback: "doAfterSave" });

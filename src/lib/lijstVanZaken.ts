@@ -32,7 +32,7 @@ export function normalizeLijstVanZaken(input: unknown): ZakenList {
     const options = fields[key].split("|").map(s => { const i = s.indexOf(";"); return [s.slice(0, i), s.slice(i + 1)]; });
     const answer = value === "" ? "Niet ingevuld" : options.find(([code]) => code === value)?.[1] || `Onbekende keuze (${value})`;
     const kind = field.startsWith("contract_") ? "contract" : "zaak";
-    const attention = answer === "Niet ingevuld" || answer.startsWith("Onbekende keuze") || (kind === "contract" ? answer !== "Nee" : /gaat mee|overgenomen/i.test(answer) || custom);
+    const attention = (kind === "contract" ? ["Ja", "Gaat mee", "Moet worden overgenomen"].includes(answer) : /gaat mee|overgenomen/i.test(answer) || (custom && answer === "Blijft achter"));
     items.push({ field, label, value, answer, kind, attention });
   }
   if (!items.length) throw new Error("Geen antwoorden met keuzebetekenissen ontvangen");
