@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
+import { parseRwDate } from "@/lib/realworksDate";
 
 interface RealworksItem {
   systemid: number;
@@ -22,15 +23,6 @@ interface RealworksItem {
   agallday?: boolean | number | string | null;
   aginactive?: boolean | number | string | null;
   alastupd?: string;
-}
-
-// Parset "DD-MM-YYYY HH:mm:ss" (Amsterdam tijd) naar Date
-function parseRwDate(s?: string): Date | null {
-  if (!s) return null;
-  const [datePart, timePart] = s.split(" ");
-  if (!datePart || !timePart) return null;
-  const [day, month, year] = datePart.split("-");
-  return new Date(`${year}-${month}-${day}T${timePart}+02:00`);
 }
 
 function boolOrNull(value: boolean | number | string | null | undefined): boolean | null {
