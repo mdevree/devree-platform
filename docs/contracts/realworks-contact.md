@@ -22,22 +22,29 @@ Alle zoekvragen zijn exact en lezen ook de bestaande identifiers terug:
 - `realworks_code` en `systemid` hebben voorrang; een bestaand `field1` wordt
   gecontroleerd tegen die matches en identifiers.
 - Een niet-bestaand `field1` wordt alleen hersteld via een vaste Realworks-match.
-- E-mail is uitsluitend een terugval als er geen vaste match is en aanwezige
-  namen/identifiers elkaar niet tegenspreken. Een e-mailadres op een ander
-  contact veroorzaakt een conflict, geen samenvoeging.
+- E-mail is uitsluitend een terugval als er geen vaste match is en precies één
+  Mautic-contact dit adres heeft. Een naamverschil mag dan worden bijgewerkt
+  vanuit Realworks, mits het Mautic-contact nog geen `realworks_code` of
+  `systemid` heeft. Een al gekoppeld contact blijft een identiteitsconflict.
+- Als een vaste match en een e-mailmatch naar verschillende Mautic-contacten
+  wijzen, blijft de verwerking geblokkeerd; contacten worden niet samengevoegd.
 - Zoekfouten, onvolledige antwoorden en meerdere matches veroorzaken nooit een
   aanmaak. Naam of telefoonnummer worden niet zelfstandig gebruikt om te koppelen.
 
 Bij schrijven worden lege/ontbrekende velden weggelaten. Een lege e-mail wist dus
 geen bestaand e-mailadres. Aanvullen/wijzigen gebruikt PATCH op hetzelfde
 Mautic-ID. Teruglezen controleert ID, Realworks-identifiers, namen en ingevulde
-e-mail. `field1` wordt alleen teruggeschreven als het nog niet overeenkomt.
+e-mail. `field1` wordt alleen teruggeschreven als het nog niet overeenkomt. Bij
+een naamcorrectie via e-mail retourneert de webhook
+`matchStrategy: "email_name_override"` en `nameChange` met de oude en nieuwe naam; de
+n8n-uitvoering bewaart die beslissing voor controle. De extensie registreert
+de strategie in het platform-event.
 
 ## Antwoord en herhaling
 
 Succes: `{"status":"ok","mauticContactId":123,"matchStrategy":"realworks_code",...}`.
 De bestaande status blijft behouden. `matchStrategy` is `realworks_code`,
-`systemid`, `mautic_id`, `email` of `new`.
+`systemid`, `mautic_id`, `email`, `email_name_override` of `new`.
 
 HTTP 422 betekent ongeldige invoer, 409 een identiteitsconflict en 502 een niet
 bevestigde zoek-, schrijf-, teruglees- of terugschrijfactie. Fouten bevatten

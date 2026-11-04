@@ -115,13 +115,39 @@ test('niet-bestaand field1 wordt alleen via een vaste Realworks-match hersteld',
   assert.equal(resolve(data).code, 'stale_mautic_id');
 });
 
-test('emailmatch vereist overeenkomende identiteit en gebruikt nooit alleen naam of telefoon', () => {
+test('unieke emailmatch mag een naam bijwerken maar nooit een bestaande andere Realworks-identiteit', () => {
   const data = mapped({ email: 'sync@example.invalid' });
   const same = contact(55, { firstname: 'Sync', lastname: 'Test', email: data.email });
   assert.equal(resolve(data, { email: [same] }).matchStrategy, 'email');
-  assert.equal(resolve(data, { email: [contact(55, { ...same.fields.all, firstname: 'Ander' })] }).code, 'email_identity_conflict');
+  const renamed = resolve(data, { email: [contact(55, { ...same.fields.all, firstname: 'Ander' })] });
+  assert.equal(renamed.status, 'ready');
+  assert.equal(renamed.method, 'PATCH');
+  assert.equal(renamed.mauticContactId, 55);
+  assert.equal(renamed.matchStrategy, 'email_name_override');
+  assert.deepEqual(plain(renamed.nameChange), {
+    before: { firstname: 'Ander', lastname: 'Test' },
+    after: { firstname: 'Sync', lastname: 'Test' },
+  });
   assert.equal(resolve(data, { email: [contact(55, { ...same.fields.all, realworks_code: 'qa-2' })] }).code, 'email_identity_conflict');
+  assert.equal(resolve(data, { email: [contact(55, { ...same.fields.all, systemid: '456' })] }).code, 'email_identity_conflict');
   assert.deepEqual(plain(matching.lookupRequests(data)).map((q) => q.kind), ['realworks_code', 'systemid', 'email']);
+});
+
+test('Leon koppelt op uniek e-mailadres ondanks familienaam; ander Realworks-contact blijft geblokkeerd', () => {
+  const leon = mapped({ firstname: 'Leon', lastname: 'van Nood', realworks_code: '891918',
+    systemid: '66923221', email: 'leon@example.invalid' });
+  const family = contact(27053, { lastname: 'fam.vannood', email: leon.email });
+  const plan = resolve(leon, { email: [family] });
+  assert.equal(plan.status, 'ready');
+  assert.equal(plan.mauticContactId, 27053);
+  assert.equal(plan.fields?.lastname, 'van Nood');
+  assert.equal(plan.matchStrategy, 'email_name_override');
+  const written = matching.checkWrite({ statusCode: 200, body: { contact: contact(27053, plan.fields!) } }, plan);
+  const verified = matching.verifyContact({ statusCode: 200, body: { contact: contact(27053, plan.fields!) } }, written);
+  assert.equal(verified.status, 'ok');
+  assert.deepEqual(plain(verified.nameChange), plain(plan.nameChange));
+  assert.equal(resolve(leon, { email: [contact(26395, { firstname: 'René', lastname: 'Leer',
+    email: leon.email, realworks_code: '891886', systemid: '66592375' })] }).code, 'email_identity_conflict');
 });
 
 test('e-mailadres van een ander contact wordt niet overgenomen', () => {
