@@ -27,14 +27,14 @@ export async function POST(request:NextRequest){
      if(typeof b.token!=="string" || !ownsSweep(current,b.owner,b.token,now))return {granted:false};
      next={...current,expiresAt:now+SWEEP_LEASE};
      if(b.action==="checkpoint")next.state=b.state;
-     if(b.action==="release")next={state:current.state||null,nextRunAt:current.nextRunAt||0};
+     if(b.action==="release")next={state:current.state||null,knownIds:current.knownIds||[],nextRunAt:current.nextRunAt||0};
      if(b.action==="complete"){
        if(!current.state || current.state.index!==current.state.ids.length)return {granted:false};
-       next={nextRunAt:now+SWEEP_INTERVAL,state:null};
+       next={nextRunAt:now+SWEEP_INTERVAL,state:null,knownIds:current.state.ids};
      }
    }
    await tx.appSetting.update({where:{key:KEY},data:{value:JSON.parse(JSON.stringify(next))}});
-   const knownIds=b.action==="claim" && !next.state ? (await tx.realworksSearcher.findMany({where:{status:{in:["LOPEND","WACHT","ACTIVE","WAITING"]}},select:{searcherId:true}})).map(s=>s.searcherId) : [];
+   const knownIds=b.action==="claim" && !next.state ? (next.knownIds || (await tx.realworksSearcher.findMany({where:{lastSyncedAt:{gte:new Date(now-24*60*60*1000)},status:{in:["LOPEND","WACHT","ACTIVE","WAITING"]}},select:{searcherId:true}})).map(s=>s.searcherId)) : [];
    return {granted:true,...next,knownIds};
  });
  return NextResponse.json(result,{headers});
