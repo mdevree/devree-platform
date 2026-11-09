@@ -1086,3 +1086,25 @@ export async function newsletterMautic<T>(path: string, options: RequestInit = {
   if (!response.ok) throw new Error(`Mautic niet beschikbaar (${response.status})`);
   return response.json() as Promise<T>;
 }
+
+/** Link Realworks searchers only through an exact, unique CRM identity. */
+export async function findUniqueRealworksContact(systemId: string | null, email: string | null): Promise<number | null> {
+  for (const [field, value] of [["systemid", systemId], ["email", email]] as const) {
+    if (!value) continue;
+    const params = new URLSearchParams({
+      "where[0][col]": field, "where[0][expr]": "eq", "where[0][val]": value, limit: "2",
+    });
+    const response = await mauticFetch(`/api/contacts?${params}`);
+    if (!response.ok) throw new Error("Mautic identity lookup failed");
+    const data = await response.json();
+    const contacts = Object.values(data.contacts || {}) as Array<{id: number; fields?: {all?: Record<string, unknown>}}>;
+    if (Number(data.total) > 1 || contacts.length > 1) return null;
+    if (contacts.length === 1) {
+      const fields = contacts[0].fields?.all || {};
+      if (String(fields[field] || "").trim().toLowerCase() !== value.trim().toLowerCase()) return null;
+      if (field === "email" && systemId && fields.systemid && String(fields.systemid) !== systemId) return null;
+      return Number(contacts[0].id);
+    }
+  }
+  return null;
+}
