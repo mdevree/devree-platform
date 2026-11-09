@@ -16,3 +16,8 @@ test('viewed, liked and contact-request signals remain distinct',()=>{
  const r=normalizeResult({searcherId:1,exchangeObjectId:2,dateViewed:'2026-11-09T12:00:00Z',isLiked:false,dateContactFormClicked:null,exchangeObject:{address:{streetName:'Teststraat',houseNumber:'5'},price:{sellingPrice:425000}}});
  assert.equal(r.isLiked,false);assert.equal(r.dateContactFormClicked,null);assert.equal(r.dateViewed?.toISOString(),'2026-11-09T12:00:00.000Z');assert.equal(r.objectAddress,'Teststraat 5');assert.equal(r.objectPrice,425000);
 });
+
+test('rental results use the rent instead of the empty selling price',()=>{
+ const r=normalizeResult({searcherId:1,exchangeObjectId:2,exchangeObject:{price:{priceType:'RENTING',sellingPrice:0,rentingPrice:1500}}});
+ assert.equal(r.objectPrice,1500);
+});

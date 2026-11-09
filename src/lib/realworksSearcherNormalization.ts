@@ -111,7 +111,7 @@ export function normalizeResult(input: unknown) {
       [address.street ?? address.streetName, address.houseNumber, address.houseNumberAddition ?? address.houseNumberExtension].filter(Boolean).join(" ")
     ),
     objectCity: firstString(address.city, exchangeObject.city),
-    objectPrice: asNumber(price.amount ?? price.value ?? price.sellingPrice ?? price.rentingPrice ?? exchangeObject.price),
+    objectPrice: asNumber(price.amount ?? price.value ?? (price.priceType === "RENTING" ? price.rentingPrice : price.sellingPrice || price.rentingPrice) ?? exchangeObject.price),
     objectUrl: firstString(exchangeObject.url, exchangeObject.moveUrl),
     matchedCriteria: result.matchedSearchCriteria ?? null,
     nonMatchedCriteria: result.nonMatchedSearchCriteria ?? null,
