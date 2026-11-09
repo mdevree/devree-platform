@@ -21,3 +21,8 @@ test('rental results use the rent instead of the empty selling price',()=>{
  const r=normalizeResult({searcherId:1,exchangeObjectId:2,exchangeObject:{price:{priceType:'RENTING',sellingPrice:0,rentingPrice:1500}}});
  assert.equal(r.objectPrice,1500);
 });
+
+test('contact identity does not require a Move account',()=>{
+ const s=normalizeSearcher({id:1,clients:[{id:'65619543',name:'Zoeker',moveAccountDetails:null,emailAddresses:[]}]});
+ assert.equal(s.relationSystemId,'65619543');
+});

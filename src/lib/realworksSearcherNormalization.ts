@@ -67,7 +67,7 @@ export function normalizeSearcher(input: unknown) {
     status: firstString(searcher.status),
     reference: firstString(searcher.reference),
     objectKind: firstString(searcher.objectKind),
-    relationSystemId: firstString(moveAccountDetails.relationSystemId, client.relationSystemId),
+    relationSystemId: firstString(moveAccountDetails.relationSystemId, client.relationSystemId, client.id),
     clientName: firstString(client.name, client.fullName, searcher.clientName),
     clientEmail: clientEmail(client),
     clientPhone: clientPhone(client),
