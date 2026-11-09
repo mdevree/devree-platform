@@ -118,7 +118,7 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
       const searcher = await prisma.realworksSearcher.findUnique({
         where: { searcherId: match.searcherId },
       });
-      if (!searcher || searcher.status !== "LOPEND" || searcher.type !== "BUYING") {
+      if (!searcher || searcher.lastSyncedAt < daysAgo(1) || searcher.status !== "LOPEND" || searcher.type !== "BUYING") {
         result.skipped += 1;
         continue;
       }

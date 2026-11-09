@@ -33,7 +33,17 @@ async function syncProfile(contactId: number) {
   let existing: Record<string, unknown> = {};
   try { existing = JSON.parse(contact.zoekerData || "{}"); } catch { existing = {previousText:contact.zoekerData}; }
   if (!existing || typeof existing !== "object" || Array.isArray(existing)) existing = {previousValue:existing};
-  const realworks = {source:"Realworks", searchers: profiles};
+  const summary = profiles.map(s => {
+    const raw = s.sourceDetails as Record<string, unknown> | null;
+    const properties = raw?.properties as Record<string, unknown> | undefined;
+    const locations = s.locations as {edges?: Array<{displayName?: string}>} | null;
+    return [`Zoekopdracht ${s.searcherId}: ${s.status}`, locations?.edges?.map(l=>l.displayName).filter(Boolean).join(", "),
+      `Budget: ${s.budget.min ?? "niet ingevuld"} - ${s.budget.max ?? "niet ingevuld"}`,
+      properties?.numOfBedroomsFrom ? `Vanaf ${properties.numOfBedroomsFrom} slaapkamers` : null,
+      `${s.results.filter(r=>r.dateSent).length} verzonden woningen; ${s.results.filter(r=>r.dateViewed).length} bekeken; ${s.results.filter(r=>r.isLiked===true).length} geliket`,
+      s.notes].filter(Boolean).join("; ");
+  }).join("\n");
+  const realworks = {source:"Realworks", summary, searchers: profiles};
   if (JSON.stringify(existing.realworks) === JSON.stringify(realworks)) return;
   const updated = await updateContact(contactId, {zoeker_data:JSON.stringify({...existing,realworks}),
     contact_type_zoeker:searchers.some(s=>["LOPEND","WACHT","ACTIVE","WAITING"].includes(s.status || "")) ? 1 : 0});

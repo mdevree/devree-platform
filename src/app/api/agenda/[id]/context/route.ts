@@ -167,7 +167,10 @@ export async function GET(
   const zoekerData = parseMaybeJson(mauticContact?.zoekerData ?? null);
   const aiFallback = compactValue(aiProfiel);
   const intakeFallback = compactValue(intakeAntwoord);
-  const zoekerFallback = compactValue(zoekerData);
+  // Keep the PDF/display fallback compact; the full source and result history
+  // remain available in zoekprofiel for analysis.
+  const sourceSearchProfile = zoekerData as { realworks?: { summary?: string } } | null;
+  const zoekerFallback = compactValue(sourceSearchProfile?.realworks?.summary ?? zoekerData);
 
   return NextResponse.json({
     afspraak: {
