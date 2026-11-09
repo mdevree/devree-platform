@@ -59,7 +59,8 @@ export async function ingestSearchers(payload: {searchers?: unknown[]; results?:
     if (!first.searcherId) throw new Error("Missing searcher ID");
     const existing = await prisma.realworksSearcher.findUnique({where:{searcherId:first.searcherId}});
     const s = normalizeSearcher(mergeSearcher(existing?.raw, item));
-    const contactId = await findUniqueRealworksContact(s.relationSystemId, s.clientEmail);
+    const relationCode = Array.isArray(s.raw.clients) && s.raw.clients[0]?.code != null ? String(s.raw.clients[0].code) : null;
+    const contactId = await findUniqueRealworksContact(s.relationSystemId, s.clientEmail, relationCode);
     const data = {...s, searcherId:first.searcherId, mauticContactId:contactId,
       locations:jsonValue(s.locations), criteria:jsonValue(s.raw), raw:jsonValue(s.raw),lastSyncedAt:new Date()};
     await prisma.realworksSearcher.upsert({where:{searcherId:first.searcherId},create:data,update:data});

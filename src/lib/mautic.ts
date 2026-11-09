@@ -1,3 +1,4 @@
+import { acceptsSearcherEmailIdentity } from "./searcherIdentity";
 /**
  * Mautic CRM API wrapper
  * Communiceert met connect.devreemakelaardij.nl via OAuth2
@@ -1088,7 +1089,7 @@ export async function newsletterMautic<T>(path: string, options: RequestInit = {
 }
 
 /** Link Realworks searchers only through an exact, unique CRM identity. */
-export async function findUniqueRealworksContact(systemId: string | null, email: string | null): Promise<number | null> {
+export async function findUniqueRealworksContact(systemId: string | null, email: string | null, relationCode: string | null = null): Promise<number | null> {
   for (const [field, value] of [["systemid", systemId], ["email", email]] as const) {
     if (!value) continue;
     const params = new URLSearchParams({
@@ -1102,7 +1103,7 @@ export async function findUniqueRealworksContact(systemId: string | null, email:
     if (contacts.length === 1) {
       const fields = contacts[0].fields?.all || {};
       if (String(fields[field] || "").trim().toLowerCase() !== value.trim().toLowerCase()) return null;
-      if (field === "email" && systemId && fields.systemid && String(fields.systemid) !== systemId) return null;
+      if (field === "email" && !acceptsSearcherEmailIdentity(systemId, relationCode, fields.systemid, fields.realworks_code)) return null;
       return Number(contacts[0].id);
     }
   }
