@@ -44,3 +44,10 @@ test('same source events produce same active preferences',()=>{
  const e:PreferenceEvent={source:'whatsapp',messageId:'1',receivedAt:'2026-11-10',sourceText:'',preferences:[preference]};
  assert.deepEqual(activePreferences([e,e]),activePreferences([e]));
 });
+
+test('unsupported numeric directions are reviewed instead of reversed',()=>{
+ for(const [key,quote] of [['bedrooms','maximaal 3 slaapkamers'],['living_space','hooguit 100 m2'],['budget_max','vanaf 400000 euro']]){
+  const result=parseExtraction(extraction(quote,{key,value:3,hardRequirement:true}),quote);
+  assert.equal(result.preferences.length,0);assert.equal(result.review.length,1);
+ }
+});

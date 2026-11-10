@@ -13,7 +13,8 @@ export function parseExtraction(raw:string,body:string){
   if(item.operation==='set'&&['bedrooms','budget_max','living_space'].includes(item.key)&& (typeof item.value!=='number'||!Number.isFinite(item.value)||item.value<0))throw Error('Invalid numeric preference');
   const explicitHard=/\b(moet|vereist|vereiste|eis|absoluut|noodzakelijk|uitsluitend|minimaal|maximaal)\b/i.test(item.quote)&& !/\b(neig|voorkeur|liefst|niet per se|geen eis|hoeft niet)\b/i.test(item.quote);
   const p:Preference={...item,hardRequirement:item.hardRequirement&&explicitHard,strength:item.hardRequirement&&explicitHard?'requirement':'preference'};
-  if((typeof p.value==='boolean'&&!p.value&&p.operation!=='remove')||p.scope!=='general'||(p.confidence||0)<0.9||p.key==='other')review.push(p);else accepted.push(p);
+  const unsupportedRange = p.operation !== 'remove' && ((['bedrooms','living_space'].includes(p.key) && /\b(maximaal|hooguit|ten hoogste|niet meer dan|minder dan)\b/i.test(p.quote||'')) || (p.key==='budget_max' && /\b(minimaal|minstens|vanaf|ten minste|meer dan)\b/i.test(p.quote||'')));
+  if(unsupportedRange||(typeof p.value==='boolean'&&!p.value&&p.operation!=='remove')||p.scope!=='general'||(p.confidence||0)<0.9||p.key==='other')review.push(p);else accepted.push(p);
  }
  return {preferences:accepted,review};
 }
