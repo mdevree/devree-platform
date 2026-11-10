@@ -21,5 +21,5 @@ if sys.argv[1]=='gateway':
  nodes[0]['webhookId']=str(uuid.uuid4())
  save('WhatsApp preference extraction',nodes,[('Webhook','Extract'),('Extract','Respond')],True)
 else:
- nodes=[node('Every minute','scheduleTrigger',{'rule':{'interval':[{'field':'minutes','minutesInterval':1}]}},1.2),node('Process saved replies','httpRequest',{'method':'POST','url':'https://kantoor.devreemakelaardij.nl/api/whatsapp/preferences/process','authentication':'genericCredentialType','genericAuthType':'httpHeaderAuth','options':{'timeout':180000}},4.4,header)]
+ nodes=[node('Every minute','scheduleTrigger',{'rule':{'interval':[{'field':'minutes','minutesInterval':1}]}},1.2),node('Process saved replies','httpRequest',{'method':'POST','url':'http://127.0.0.1:3100/api/whatsapp/preferences/process','authentication':'genericCredentialType','genericAuthType':'httpHeaderAuth','options':{'timeout':180000}},4.4,header)]
  save('WhatsApp preferences - central worker',nodes,[('Every minute','Process saved replies')],True)
