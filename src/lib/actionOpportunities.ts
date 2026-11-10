@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { activePreferences, preferenceContext, type PreferenceEvent } from "./whatsappPreferences";
 
-import { activePreferences, evaluatePreferences, type PreferenceEvent } from "./whatsappPreferences";
+const CONTACT_COOLDOWN_DAYS = 7;
 
 type RecalculateResult = {
   created: number;
@@ -52,21 +53,17 @@ function reasonFor(params: {
   return parts.join(". ");
 }
 
-export async function recalculateActionOpportunities(contactIds?: number[]): Promise<RecalculateResult> {
+export async function recalculateActionOpportunities(): Promise<RecalculateResult> {
   const result: RecalculateResult = { created: 0, updated: 0, skipped: 0 };
   const preferenceRows = await prisma.appSetting.findMany({where:{key:{startsWith:'wa_preferences:'}}});
   const preferenceByContact = new Map(preferenceRows.map(row=>[row.key, (row.value as unknown as {events?:PreferenceEvent[]}).events || []]));
-  const scopedSearchers = contactIds ? await prisma.realworksSearcher.findMany({where:{mauticContactId:{in:contactIds}},select:{searcherId:true}}) : null;
-  const scopedObjectIds = scopedSearchers ? await prisma.realworksSearchResult.findMany({where:{searcherId:{in:scopedSearchers.map(s=>s.searcherId)}},select:{exchangeObjectId:true},distinct:['exchangeObjectId']}) : null;
   const recentMutations = await prisma.realworksObjectMutation.findMany({
     where: {
-      ...(scopedObjectIds ? {exchangeObjectId:{in:scopedObjectIds.map(o=>o.exchangeObjectId)}} : {}),
       mutationType: { in: ["new", "price_changed", "removed", "withdrawn"] },
       receivedAt: { gte: daysAgo(45) },
     },
     orderBy: { receivedAt: "desc" },
-    ...(contactIds ? {} : {take:1000}),
-
+    take: 1000,
   });
 
   const closingObjectIds = new Set(
@@ -89,12 +86,8 @@ export async function recalculateActionOpportunities(contactIds?: number[]): Pro
     });
   }
 
-  const seenMutations = new Set<string>();
   for (const mutation of recentMutations) {
     if (!["new", "price_changed"].includes(mutation.mutationType)) continue;
-    const mutationKey = mutation.exchangeObjectId+':'+mutation.mutationType;
-    if (seenMutations.has(mutationKey)) continue;
-    seenMutations.add(mutationKey);
 
     const marketSource = await prisma.marketObjectSource.findUnique({
       where: {
@@ -103,7 +96,7 @@ export async function recalculateActionOpportunities(contactIds?: number[]): Pro
           sourceObjectId: mutation.exchangeObjectId,
         },
       },
-      include: { marketObject: { include: { enrichments: { where: { status: "success" } } } } },
+      include: { marketObject: true },
     });
     const marketObject = marketSource?.marketObject ?? null;
     if (marketObject && marketObject.status !== "active") {
@@ -114,7 +107,6 @@ export async function recalculateActionOpportunities(contactIds?: number[]): Pro
     const matches = await prisma.realworksSearchResult.findMany({
       where: {
         exchangeObjectId: mutation.exchangeObjectId,
-        ...(scopedSearchers ? {searcherId:{in:scopedSearchers.map(s=>s.searcherId)}} : {}),
         OR: [
           { matchingPercentage: { gte: 90 } },
           { dateSent: { not: null } },
@@ -122,7 +114,7 @@ export async function recalculateActionOpportunities(contactIds?: number[]): Pro
           { isLiked: true },
         ],
       },
-
+      take: 100,
     });
 
     for (const match of matches) {
@@ -134,23 +126,19 @@ export async function recalculateActionOpportunities(contactIds?: number[]): Pro
         continue;
       }
 
-      const sourceKey = `realworks:${searcher.searcherId}:${mutation.exchangeObjectId}:${mutation.mutationType}`;
-      const events = preferenceByContact.get('wa_preferences:'+searcher.mauticContactId) || [];
-      const preferences = activePreferences(events);
-      // Keep unrelated dossiers on their established opportunity-selection policy.
-      if (!preferences.length && !contactIds) {
-        const recent = await prisma.actionOpportunity.findFirst({where:{status:{in:['open','picked_up']},realworksSearcherId:searcher.searcherId,createdAt:{gte:daysAgo(7)}}});
-        if (recent && recent.sourceKey !== sourceKey) { result.skipped++; continue; }
-      }
-      const assessment = evaluatePreferences(preferences, {
-        text: marketObject?.enrichments.map(e=>e.listingText||'').join('\n') || '',
-        bedrooms:marketObject?.bedrooms, livingArea:marketObject?.livingArea,
-        price:marketObject?.askingPrice ?? match.objectPrice, city:marketObject?.city ?? match.objectCity,
+      const recentPickedUp = await prisma.actionOpportunity.findFirst({
+        where: {
+          status: { in: ["open", "picked_up"] },
+          realworksSearcherId: searcher.searcherId,
+          createdAt: { gte: daysAgo(CONTACT_COOLDOWN_DAYS) },
+        },
       });
-      const priority = assessment.conflicts.length ? 'low' : preferences.length ?
-        (assessment.matched.length && !assessment.unknown.length ? 'high' : 'normal') : priorityFor(match);
-      const suggestedAction = assessment.hardConflict ? 'Niet voorstellen: strijdig met een expliciete eis. Controleer eerst de bron.' :
-        'Beoordeel de woonvoorkeuren en ontbrekende woningkenmerken. Controleer recent contact, actieve dossiers en afspraken voordat je contact voorstelt.';
+      const sourceKey = `realworks:${searcher.searcherId}:${mutation.exchangeObjectId}:${mutation.mutationType}`;
+      if (recentPickedUp && recentPickedUp.sourceKey !== sourceKey) {
+        result.skipped += 1;
+        continue;
+      }
+
       const objectAddress = match.objectAddress || marketObject?.addressRaw || mutation.addressRaw;
       const objectCity = match.objectCity || marketObject?.city || mutation.city;
       const objectPrice = match.objectPrice || marketObject?.askingPrice || mutation.askingPrice;
@@ -163,18 +151,17 @@ export async function recalculateActionOpportunities(contactIds?: number[]): Pro
         objectAddress,
         objectCity,
         objectPrice,
-      }) + (assessment.reason ? ". WhatsApp-voorkeuren: " + assessment.reason : "");
+      }) + preferenceContext(activePreferences(preferenceByContact.get('wa_preferences:'+searcher.mauticContactId) || []));
       const title = `${searcher.clientName || "Zoeker"} - ${objectAddress || "passend object"}`;
 
       const existing = await prisma.actionOpportunity.findUnique({ where: { sourceKey } });
-      if (assessment.hardConflict && !existing) { result.skipped++; continue; }
       await prisma.actionOpportunity.upsert({
         where: { sourceKey },
         update: {
-          priority,
+          priority: priorityFor(match),
           title,
           reason,
-          suggestedAction,
+          suggestedAction: "Controleer de woonwensen, recent contact, actieve dossiers en afspraken voordat je contact voorstelt.",
           contactName: searcher.clientName,
           contactEmail: searcher.clientEmail,
           contactPhone: searcher.clientPhone,
@@ -188,10 +175,10 @@ export async function recalculateActionOpportunities(contactIds?: number[]): Pro
         create: {
           sourceType: "realworks_object_match",
           sourceKey,
-          priority,
+          priority: priorityFor(match),
           title,
           reason,
-          suggestedAction,
+          suggestedAction: "Controleer de woonwensen, recent contact, actieve dossiers en afspraken voordat je contact voorstelt.",
           contactName: searcher.clientName,
           contactEmail: searcher.clientEmail,
           contactPhone: searcher.clientPhone,
@@ -209,4 +196,20 @@ export async function recalculateActionOpportunities(contactIds?: number[]): Pro
   }
 
   return result;
+}
+
+/** Refresh context only: Realworks remains responsible for candidate selection and match scores. */
+export async function refreshWhatsAppPreferenceContext(contactIds:number[]) {
+  let updated=0;
+  for(const id of contactIds) {
+    const row=await prisma.appSetting.findUnique({where:{key:'wa_preferences:'+id}});
+    const events=(row?.value as unknown as {events?:PreferenceEvent[]})?.events || [];
+    const suffix=preferenceContext(activePreferences(events));
+    const opportunities=await prisma.actionOpportunity.findMany({where:{mauticContactId:id,status:{in:['open','picked_up']}},select:{id:true,reason:true}});
+    for(const o of opportunities){
+      const reason=(o.reason||'').split('. Woonwensen uit WhatsApp: ')[0]+suffix;
+      if(reason!==o.reason){await prisma.actionOpportunity.update({where:{id:o.id},data:{reason}});updated++;}
+    }
+  }
+  return updated;
 }

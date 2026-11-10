@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activePreferences, evaluatePreferences, parseExtraction, type Preference, type PreferenceEvent } from './whatsappPreferences';
+import { activePreferences, preferenceContext, parseExtraction, type Preference, type PreferenceEvent } from './whatsappPreferences';
 const preference:Preference={key:'private_parking',label:'Eigen parkeergelegenheid',hardRequirement:false,strength:'preference',value:true,operation:'set',polarity:'want'};
 function extraction(quote:string,changes:Record<string,unknown>={}){return JSON.stringify({preferences:[{...preference,scope:'general',confidence:.99,quote,...changes}]});}
 test('soft wording cannot become a hard requirement',()=>{
@@ -21,25 +21,6 @@ test('chronological corrections remove requirements without implying avoidance',
  assert.equal(activePreferences([event('2','2026-11-11',{...preference,operation:'remove'}),event('1','2026-11-10',preference)]).length,0);
  assert.equal(activePreferences([event('1','2026-11-10',preference),event('2','2026-11-11',{...preference,polarity:'avoid'})])[0].polarity,'avoid');
 });
-test('missing features never prove a match or violate a hard requirement',()=>{
- const assessed=evaluatePreferences([{...preference,hardRequirement:true}],{text:'Ruime woning'});
- assert.deepEqual(assessed.unknown,['Eigen parkeergelegenheid']);assert.equal(assessed.hardConflict,false);
-});
-test('explicit absence, avoidance and conflicting descriptions stay distinct',()=>{
- assert.equal(evaluatePreferences([{...preference,hardRequirement:true}],{text:'Geen eigen parkeerplaats.'}).hardConflict,true);
- assert.equal(evaluatePreferences([{...preference,polarity:'avoid'}],{text:'Geen eigen parkeerplaats.'}).matched.length,1);
- assert.equal(evaluatePreferences([preference],{text:'Geen eigen parkeerplaats voor. Eigen oprit achter.'}).unknown.length,1);
-});
-test('parking can match while charging and adequate tool storage remain unknown',()=>{
- const p=(key:string):Preference=>({...preference,key,label:key});
- const result=evaluatePreferences([preference,p('ev_charging'),p('tool_storage')],{text:'Mogelijkheid tot parkeren op eigen terrein. Stenen berging. Slaapkamer ook geschikt als hobbyruimte.'});
- assert.equal(result.matched.length,1);assert.equal(result.unknown.length,2);
-});
-test('numeric requirements use known values only',()=>{
- const p={...preference,key:'budget_max',value:400000,hardRequirement:true};
- assert.equal(evaluatePreferences([p],{text:'',price:425000}).hardConflict,true);
- assert.equal(evaluatePreferences([p],{text:''}).hardConflict,false);
-});
 test('same source events produce same active preferences',()=>{
  const e:PreferenceEvent={source:'whatsapp',messageId:'1',receivedAt:'2026-11-10',sourceText:'',preferences:[preference]};
  assert.deepEqual(activePreferences([e,e]),activePreferences([e]));
@@ -50,4 +31,12 @@ test('unsupported numeric directions are reviewed instead of reversed',()=>{
   const result=parseExtraction(extraction(quote,{key,value:3,hardRequirement:true}),quote);
   assert.equal(result.preferences.length,0);assert.equal(result.review.length,1);
  }
+});
+
+test('preference context contains wishes without scores or property verdicts',()=>{
+ assert.equal(preferenceContext([]),'');
+ const text=preferenceContext([preference]);
+ assert.match(text,/Eigen parkeergelegenheid \(voorkeur\)/);
+ assert.match(text,/Ter context bij de Realworks-match/);
+ assert.doesNotMatch(text,/100%|Onderbouwd passend|Past niet/);
 });

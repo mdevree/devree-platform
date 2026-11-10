@@ -25,33 +25,8 @@ export function activePreferences(events:PreferenceEvent[]){
  }
  return [...result.values()];
 }
-export type PropertyEvidence={text:string;bedrooms?:number|null;price?:number|null;livingArea?:number|null;city?:string|null};
-function boolEvidence(text:string,key:string):boolean|null{
- const patterns:Record<string,[RegExp,RegExp]>={
- private_parking:[/\b(parkeren op eigen terrein|eigen (oprit|parkeerplaats|parkeergelegenheid)|priv[eé]parkeerplaats)\b/i,/\b(geen|zonder) (eigen )?(oprit|parkeerplaats|parkeergelegenheid)\b/i],
- ev_charging:[/\b(laadpaal|laadpunt|oplaadmogelijkheid)\b/i,/\b(geen|zonder) (eigen )?(laadpaal|laadpunt|oplaadmogelijkheid)\b/i],
- tool_storage:[/\b(werkplaats|klusruimte)\b/i,/\b(geen|zonder) (berging|schuur|garage|klusruimte|werkplaats)\b/i],
- garage:[/\bgarage\b/i,/\b(geen|zonder) (eigen )?garage\b/i],
- garden:[/\b(achtertuin|voortuin|zijtuin|eigen tuin)\b/i,/\b(geen|zonder) (eigen )?tuin\b/i],
- };
- const pair=patterns[key];if(!pair)return null;
- // Both positive and negative mentions may concern different features; never force a conclusion.
- const negative=pair[1].test(text);const stripped=text.replace(new RegExp(pair[1].source,'gi'),'');
- if(negative)return pair[0].test(stripped)?null:false;
- return pair[0].test(text)?true:null;
-}
-export function evaluatePreferences(preferences:Preference[],property:PropertyEvidence){
- const matched:string[]=[],conflicts:string[]=[],unknown:string[]=[];let hardConflict=false;
- for(const p of preferences){let value:boolean|null=null;
-  if(p.key==='bedrooms'&&typeof p.value==='number'&&property.bedrooms!=null)value=property.bedrooms>=p.value;
-  else if(p.key==='budget_max'&&typeof p.value==='number'&&property.price!=null)value=property.price<=p.value;
-  else if(p.key==='living_space'&&typeof p.value==='number'&&property.livingArea!=null)value=property.livingArea>=p.value;
-  else if(p.key==='location'&&typeof p.value==='string'&&property.city)value=property.city.toLowerCase()===p.value.toLowerCase()?true:null;
-  else value=boolEvidence(property.text,p.key);
-  if(value!==null&&p.polarity==='avoid')value=!value;
-  if(value===null)unknown.push(p.label);
-  else if(value)matched.push(p.label);
-  else {conflicts.push(p.label);if(p.hardRequirement)hardConflict=true;}
- }
- return {matched,conflicts,unknown,hardConflict,reason:[matched.length?'Onderbouwd passend: '+matched.join(', '):'',conflicts.length?'Past niet bij opgegeven voorkeur: '+conflicts.join(', '):'',unknown.length?'Nog controleren: '+unknown.join(', '):''].filter(Boolean).join('. ')};
+/** Supplemental context, never an alternative match score or property filter. */
+export function preferenceContext(preferences:Preference[]) {
+ if(!preferences.length)return '';
+ return '. Woonwensen uit WhatsApp: '+preferences.map(p=>(p.polarity==='avoid'?'Niet gewenst: ':'')+p.label+(p.hardRequirement?' (expliciete eis)':' (voorkeur)')).join('; ')+'. Ter context bij de Realworks-match; geen afzonderlijke woningbeoordeling.';
 }
