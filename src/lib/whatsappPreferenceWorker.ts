@@ -74,10 +74,10 @@ export async function runPreferenceWorker(){
    }catch{job.attempts++;job.error='Processing failed; durable retry scheduled';job.retryAt=Date.now()+Math.min(3600000,60000*2**Math.min(job.attempts,6));await prisma.appSetting.update({where:{key:row.key},data:{value:json(job)}});count.failed++;}
   }
   // Recalculation also retries after failures and after new object enrichment.
-  const hasPreferences=await prisma.appSetting.findFirst({where:{key:{startsWith:'wa_preferences:'}},select:{id:true}});
+  const preferenceContacts=await prisma.appSetting.findMany({where:{key:{startsWith:'wa_preferences:'}},select:{key:true}});
   const last=await prisma.appSetting.findUnique({where:{key:'wa_preferences_match_at'}});
-  if(hasPreferences&&(count.processed>0||count.review>0||Date.now()-Number(last?.value||0)>900000)){
-   await recalculateActionOpportunities();await prisma.appSetting.upsert({where:{key:'wa_preferences_match_at'},create:{key:'wa_preferences_match_at',value:Date.now()},update:{value:Date.now()}});
+  if(preferenceContacts.length&&(count.processed>0||count.review>0||Date.now()-Number(last?.value||0)>900000)){
+   await recalculateActionOpportunities(preferenceContacts.map(r=>Number(r.key.split(':')[1])).filter(Number.isFinite));await prisma.appSetting.upsert({where:{key:'wa_preferences_match_at'},create:{key:'wa_preferences_match_at',value:Date.now()},update:{value:Date.now()}});
   }
   return count;
  });

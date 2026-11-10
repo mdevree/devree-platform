@@ -52,14 +52,20 @@ function reasonFor(params: {
   return parts.join(". ");
 }
 
-export async function recalculateActionOpportunities(): Promise<RecalculateResult> {
+export async function recalculateActionOpportunities(contactIds?: number[]): Promise<RecalculateResult> {
   const result: RecalculateResult = { created: 0, updated: 0, skipped: 0 };
+  const preferenceRows = await prisma.appSetting.findMany({where:{key:{startsWith:'wa_preferences:'}}});
+  const preferenceByContact = new Map(preferenceRows.map(row=>[row.key, (row.value as unknown as {events?:PreferenceEvent[]}).events || []]));
+  const scopedSearchers = contactIds ? await prisma.realworksSearcher.findMany({where:{mauticContactId:{in:contactIds}},select:{searcherId:true}}) : null;
+  const scopedObjectIds = scopedSearchers ? await prisma.realworksSearchResult.findMany({where:{searcherId:{in:scopedSearchers.map(s=>s.searcherId)}},select:{exchangeObjectId:true},distinct:['exchangeObjectId']}) : null;
   const recentMutations = await prisma.realworksObjectMutation.findMany({
     where: {
+      ...(scopedObjectIds ? {exchangeObjectId:{in:scopedObjectIds.map(o=>o.exchangeObjectId)}} : {}),
       mutationType: { in: ["new", "price_changed", "removed", "withdrawn"] },
       receivedAt: { gte: daysAgo(45) },
     },
     orderBy: { receivedAt: "desc" },
+    ...(contactIds ? {} : {take:1000}),
 
   });
 
@@ -83,8 +89,12 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
     });
   }
 
+  const seenMutations = new Set<string>();
   for (const mutation of recentMutations) {
     if (!["new", "price_changed"].includes(mutation.mutationType)) continue;
+    const mutationKey = mutation.exchangeObjectId+':'+mutation.mutationType;
+    if (seenMutations.has(mutationKey)) continue;
+    seenMutations.add(mutationKey);
 
     const marketSource = await prisma.marketObjectSource.findUnique({
       where: {
@@ -104,6 +114,7 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
     const matches = await prisma.realworksSearchResult.findMany({
       where: {
         exchangeObjectId: mutation.exchangeObjectId,
+        ...(scopedSearchers ? {searcherId:{in:scopedSearchers.map(s=>s.searcherId)}} : {}),
         OR: [
           { matchingPercentage: { gte: 90 } },
           { dateSent: { not: null } },
@@ -124,9 +135,13 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
       }
 
       const sourceKey = `realworks:${searcher.searcherId}:${mutation.exchangeObjectId}:${mutation.mutationType}`;
-      const preferenceRow = searcher.mauticContactId ? await prisma.appSetting.findUnique({where:{key:'wa_preferences:'+searcher.mauticContactId}}) : null;
-      const events = (preferenceRow?.value as unknown as {events?:PreferenceEvent[]})?.events || [];
+      const events = preferenceByContact.get('wa_preferences:'+searcher.mauticContactId) || [];
       const preferences = activePreferences(events);
+      // Keep unrelated dossiers on their established opportunity-selection policy.
+      if (!preferences.length && !contactIds) {
+        const recent = await prisma.actionOpportunity.findFirst({where:{status:{in:['open','picked_up']},realworksSearcherId:searcher.searcherId,createdAt:{gte:daysAgo(7)}}});
+        if (recent && recent.sourceKey !== sourceKey) { result.skipped++; continue; }
+      }
       const assessment = evaluatePreferences(preferences, {
         text: marketObject?.enrichments.map(e=>e.listingText||'').join('\n') || '',
         bedrooms:marketObject?.bedrooms, livingArea:marketObject?.livingArea,
