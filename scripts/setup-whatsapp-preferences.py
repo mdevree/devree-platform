@@ -13,7 +13,7 @@ def save(name,nodes,links,active):
  existing=[w for w in api('GET','?limit=250')['data'] if w['name']==name]
  if existing:
   print(json.dumps({'name':name,'id':existing[0]['id'],'active':existing[0]['active']}));return
- w=api('POST','',{'name':name,'nodes':nodes,'connections':{a:{'main':[[{'node':b,'type':'main','index':0}]]} for a,b in links},'settings':{'executionOrder':'v1','saveDataSuccessExecution':'none','saveDataErrorExecution':'none'}})
+ w=api('POST','',{'name':name,'nodes':nodes,'connections':{a:{'main':[[{'node':b,'type':'main','index':0}]]} for a,b in links},'settings':{'executionOrder':'v1','saveDataSuccessExecution':'all' if 'central worker' in name else 'none','saveDataErrorExecution':'all' if 'central worker' in name else 'none'}})
  if active:api('POST','/'+w['id']+'/activate',{'versionId':w['versionId']})
  print(json.dumps({'name':name,'id':w['id'],'active':active}))
 if sys.argv[1]=='gateway':
