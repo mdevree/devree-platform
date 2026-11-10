@@ -27,7 +27,7 @@ export async function POST(req:NextRequest){
   if(!state.mauticNoteId){
    const savedState=state;
    try{
-    const id=await deliverMobileNote({find:()=>findMobileMauticNote(v.contactId,mobileNoteMarker(v.requestId)),create:()=>createMobileMauticNote(v.contactId,mobileNoteText(v,author),v.startedAt),verify:id=>verifyMobileMauticNote(id,v.contactId,mobileNoteMarker(v.requestId)),beforeCreate:async()=>{savedState.attemptedAt=Date.now();await prisma.appSetting.update({where:{key},data:{value:JSON.parse(JSON.stringify({...row!.value as object,...savedState}))}});}},state.attemptedAt);
+    const id=await deliverMobileNote({find:()=>findMobileMauticNote(v.contactId,mobileNoteMarker(v.requestId)),create:()=>createMobileMauticNote(v.contactId,mobileNoteText(v,author),v.startedAt),verify:id=>verifyMobileMauticNote(id,v.contactId,mobileNoteMarker(v.requestId),mobileNoteText(v,author)),beforeCreate:async()=>{savedState.attemptedAt=Date.now();await prisma.appSetting.update({where:{key},data:{value:JSON.parse(JSON.stringify({...row!.value as object,...savedState}))}});}},state.attemptedAt);
     state.mauticNoteId=id;await prisma.appSetting.update({where:{key},data:{value:JSON.parse(JSON.stringify({...row!.value as object,...state}))}});
    }catch{return NextResponse.json({platformStored:true,mauticStored:false,callId:state.callId,message:'Opgeslagen in het platform. Mautic is nog niet bevestigd. Probeer over een minuut opnieuw.'},{status:202});}
   }

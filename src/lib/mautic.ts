@@ -1138,7 +1138,7 @@ export async function createMobileMauticNote(contactId:number,text:string,dateTi
  if(!r.ok)throw Error('Mautic note save failed');
  const d=await r.json();const id=Number(d.note?.id);if(!Number.isSafeInteger(id)||id<=0)throw Error('Missing note receipt');return id;
 }
-export async function verifyMobileMauticNote(id:number,contactId:number,marker:string) {
+export async function verifyMobileMauticNote(id:number,contactId:number,marker:string,expectedText:string) {
  const r=await mauticFetch(`/api/notes/${id}`,{signal:AbortSignal.timeout(15000)});if(!r.ok)return false;
- const d=await r.json();return Number(d.note?.lead?.id??d.note?.lead)===contactId&&typeof d.note?.text==='string'&&d.note.text.includes(marker);
+ const d=await r.json();return Number(d.note?.lead?.id??d.note?.lead)===contactId&&typeof d.note?.text==='string'&&d.note.text.includes(marker)&&d.note.text.replace(/<br\s*\/?>/gi,'\n')===expectedText.replace(/<br\s*\/?>/gi,'\n');
 }

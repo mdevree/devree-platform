@@ -29,6 +29,7 @@ function CardView(){
   // Freeze the original payload so retries cannot accidentally create another note.
   let payload;const key=draftKey+':submission';try{payload=JSON.parse(localStorage.getItem(key)||'null');}catch{/* first attempt */}
   if(!payload){payload={requestId,contactId:id,direction,connected:observedId?params.get('connected')==='true':confirmed,contactConfirmed:confirmed,startedAt:!manual?params.get('startedAt'):new Date(date).toISOString(),endedAt:!manual?params.get('endedAt'):new Date(date).toISOString(),note};localStorage.setItem(key,JSON.stringify(payload));}
+  setPending(true);
   const r=await fetch('/api/mobile/calls',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();
   if(!r.ok){if(r.status===400){localStorage.removeItem(key);setPending(false);}throw Error(d.error||'Opslaan mislukt');}
   if(!d.mauticStored){setPending(true);setMessage(d.message);return;}
