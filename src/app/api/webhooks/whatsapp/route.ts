@@ -1,3 +1,4 @@
+import { enqueuePreferenceMessage } from "@/lib/whatsappPreferenceWorker";
 import { NextRequest, NextResponse } from "next/server";
 import { applyReceipt, receiveReceipt } from "@/lib/pbx/receipts";
 import { reconcilePbxOutgoing } from "@/lib/pbx/outbox";
@@ -253,7 +254,7 @@ export async function POST(req: NextRequest) {
   if (!existing) {
     const direction = msg.fromMe ? "OUTBOUND" : "INBOUND";
 
-    await prisma.waMessage.create({
+    const storedMessage = await prisma.waMessage.create({
       data: {
         conversationId: conversation.id,
         direction,
@@ -262,6 +263,11 @@ export async function POST(req: NextRequest) {
         evolutionMsgId: providerMsgId,
       },
     });
+
+    if (!msg.fromMe) {
+      try { await enqueuePreferenceMessage(storedMessage.id); }
+      catch { console.error("WhatsApp preference queue unavailable; polling will recover"); }
+    }
 
     await prisma.waConversation.update({
       where: { id: conversation.id },

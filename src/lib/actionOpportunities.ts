@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-const CONTACT_COOLDOWN_DAYS = 7;
+import { activePreferences, evaluatePreferences, type PreferenceEvent } from "./whatsappPreferences";
 
 type RecalculateResult = {
   created: number;
@@ -60,7 +60,7 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
       receivedAt: { gte: daysAgo(45) },
     },
     orderBy: { receivedAt: "desc" },
-    take: 1000,
+
   });
 
   const closingObjectIds = new Set(
@@ -93,7 +93,7 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
           sourceObjectId: mutation.exchangeObjectId,
         },
       },
-      include: { marketObject: true },
+      include: { marketObject: { include: { enrichments: { where: { status: "success" } } } } },
     });
     const marketObject = marketSource?.marketObject ?? null;
     if (marketObject && marketObject.status !== "active") {
@@ -111,7 +111,7 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
           { isLiked: true },
         ],
       },
-      take: 100,
+
     });
 
     for (const match of matches) {
@@ -123,19 +123,19 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
         continue;
       }
 
-      const recentPickedUp = await prisma.actionOpportunity.findFirst({
-        where: {
-          status: { in: ["open", "picked_up"] },
-          realworksSearcherId: searcher.searcherId,
-          createdAt: { gte: daysAgo(CONTACT_COOLDOWN_DAYS) },
-        },
-      });
       const sourceKey = `realworks:${searcher.searcherId}:${mutation.exchangeObjectId}:${mutation.mutationType}`;
-      if (recentPickedUp && recentPickedUp.sourceKey !== sourceKey) {
-        result.skipped += 1;
-        continue;
-      }
-
+      const preferenceRow = searcher.mauticContactId ? await prisma.appSetting.findUnique({where:{key:'wa_preferences:'+searcher.mauticContactId}}) : null;
+      const events = (preferenceRow?.value as unknown as {events?:PreferenceEvent[]})?.events || [];
+      const preferences = activePreferences(events);
+      const assessment = evaluatePreferences(preferences, {
+        text: marketObject?.enrichments.map(e=>e.listingText||'').join('\n') || '',
+        bedrooms:marketObject?.bedrooms, livingArea:marketObject?.livingArea,
+        price:marketObject?.askingPrice ?? match.objectPrice, city:marketObject?.city ?? match.objectCity,
+      });
+      const priority = assessment.conflicts.length ? 'low' : preferences.length ?
+        (assessment.matched.length && !assessment.unknown.length ? 'high' : 'normal') : priorityFor(match);
+      const suggestedAction = assessment.hardConflict ? 'Niet voorstellen: strijdig met een expliciete eis. Controleer eerst de bron.' :
+        'Beoordeel de woonvoorkeuren en ontbrekende woningkenmerken. Controleer recent contact, actieve dossiers en afspraken voordat je contact voorstelt.';
       const objectAddress = match.objectAddress || marketObject?.addressRaw || mutation.addressRaw;
       const objectCity = match.objectCity || marketObject?.city || mutation.city;
       const objectPrice = match.objectPrice || marketObject?.askingPrice || mutation.askingPrice;
@@ -148,17 +148,18 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
         objectAddress,
         objectCity,
         objectPrice,
-      });
+      }) + (assessment.reason ? ". WhatsApp-voorkeuren: " + assessment.reason : "");
       const title = `${searcher.clientName || "Zoeker"} - ${objectAddress || "passend object"}`;
 
       const existing = await prisma.actionOpportunity.findUnique({ where: { sourceKey } });
+      if (assessment.hardConflict && !existing) { result.skipped++; continue; }
       await prisma.actionOpportunity.upsert({
         where: { sourceKey },
         update: {
-          priority: priorityFor(match),
+          priority,
           title,
           reason,
-          suggestedAction: "Neem persoonlijk contact op over dit object.",
+          suggestedAction,
           contactName: searcher.clientName,
           contactEmail: searcher.clientEmail,
           contactPhone: searcher.clientPhone,
@@ -172,10 +173,10 @@ export async function recalculateActionOpportunities(): Promise<RecalculateResul
         create: {
           sourceType: "realworks_object_match",
           sourceKey,
-          priority: priorityFor(match),
+          priority,
           title,
           reason,
-          suggestedAction: "Neem persoonlijk contact op over dit object.",
+          suggestedAction,
           contactName: searcher.clientName,
           contactEmail: searcher.clientEmail,
           contactPhone: searcher.clientPhone,

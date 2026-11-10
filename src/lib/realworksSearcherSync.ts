@@ -1,3 +1,4 @@
+import { withProfileLock } from "./contactProfileLock";
 import { prisma } from "./prisma";
 import { findUniqueRealworksContact, getContactFull, updateContact } from "./mautic";
 import { normalizeSearcher, normalizeResult, jsonValue } from "./realworksSearcherNormalization";
@@ -17,7 +18,7 @@ export function mergeSearcher(previous: unknown, incoming: unknown): Record<stri
 }
 
 async function syncProfile(contactId: number) {
-  const contact = await getContactFull(contactId);
+  const contact = await getContactFull(contactId, AbortSignal.timeout(20000));
   if (!contact) throw new Error("Mautic profile unavailable");
   const searchers = await prisma.realworksSearcher.findMany({where: {mauticContactId: contactId}, orderBy: {searcherId: "asc"}});
   const profiles = [];
@@ -46,7 +47,7 @@ async function syncProfile(contactId: number) {
   const realworks = {source:"Realworks", summary, searchers: profiles};
   if (JSON.stringify(existing.realworks) === JSON.stringify(realworks)) return;
   const updated = await updateContact(contactId, {zoeker_data:JSON.stringify({...existing,realworks}),
-    contact_type_zoeker:searchers.some(s=>["LOPEND","WACHT","ACTIVE","WAITING"].includes(s.status || "")) ? 1 : 0});
+    contact_type_zoeker:searchers.some(s=>["LOPEND","WACHT","ACTIVE","WAITING"].includes(s.status || "")) ? 1 : 0}, AbortSignal.timeout(20000));
   if (!updated) throw new Error("Mautic search profile update failed");
 }
 
@@ -79,7 +80,7 @@ export async function ingestSearchers(payload: {searchers?: unknown[]; results?:
     const linked = await prisma.realworksSearcher.findMany({where:{searcherId:{in:[...resultSearcherIds]}},select:{mauticContactId:true}});
     linked.forEach(s=>{if(s.mauticContactId)contactIds.add(s.mauticContactId);});
   }
-  for(const contactId of contactIds) await syncProfile(contactId);
+  for(const contactId of contactIds) await withProfileLock(String(contactId),()=>syncProfile(contactId));
   return {searchers,results,profiles:contactIds.size};
 }
 

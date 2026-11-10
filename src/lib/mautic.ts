@@ -344,8 +344,8 @@ export async function getContact(contactId: number): Promise<MauticContact | nul
 /**
  * Haal volledige contact details op inclusief adres, tags en AI profiel
  */
-export async function getContactFull(contactId: number): Promise<MauticContactFull | null> {
-  const response = await mauticFetch(`/api/contacts/${contactId}`);
+export async function getContactFull(contactId: number, signal?: AbortSignal): Promise<MauticContactFull | null> {
+  const response = await mauticFetch(`/api/contacts/${contactId}`, {signal});
 
   if (!response.ok) {
     return null;
@@ -1052,10 +1052,11 @@ export async function upsertBuurtdataLead(data: {
  */
 export async function updateContact(
   contactId: number,
-  data: Record<string, string | number | null>
+  data: Record<string, string | number | null>,
+  signal?: AbortSignal
 ): Promise<MauticContact | null> {
   const response = await mauticFetch(`/api/contacts/${contactId}/edit`, {
-    method: "PATCH",
+    method: "PATCH", signal,
     body: JSON.stringify(data),
   });
 
