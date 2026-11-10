@@ -1110,3 +1110,35 @@ export async function findUniqueRealworksContact(systemId: string | null, email:
   }
   return null;
 }
+
+/** Read a real page; callers must preserve nextStart when displaying history. */
+export async function getMauticNotesPage(contactId:number,start=0,search?:string) {
+ const query=new URLSearchParams({start:String(start),limit:'50',...(search?{search}:{})});
+ const response=await mauticFetch(`/api/contacts/${contactId}/notes?${query}`,{signal:AbortSignal.timeout(15000)});
+ if(!response.ok)throw Error('Mautic notes unavailable');
+ const data=await response.json();
+ const notes=Object.values(data.notes||{}) as {id:number;text:string;dateTime:string;lead?:{id:number}|number}[];
+ const total=Number(data.total);
+ if(!Number.isFinite(total))throw Error('Missing Mautic note pagination');
+ return {notes,nextStart:start+notes.length<total?start+notes.length:null};
+}
+export async function findMobileMauticNote(contactId:number,marker:string) {
+ let start=0;const deadline=Date.now()+45000;
+ for(let page=0;page<200;page++){
+  if(Date.now()>deadline)throw Error('Mautic note lookup incomplete');
+  const result=await getMauticNotesPage(contactId,start);
+  const found=result.notes.find(n=>n.text.includes(marker));if(found)return Number(found.id);
+  if(result.nextStart===null)return null;
+  if(result.nextStart<=start)throw Error('Mautic pagination stalled');start=result.nextStart;
+ }
+ throw Error('Mautic note lookup incomplete');
+}
+export async function createMobileMauticNote(contactId:number,text:string,dateTime:string) {
+ const r=await mauticFetch('/api/notes/new',{method:'POST',signal:AbortSignal.timeout(15000),body:JSON.stringify({lead:contactId,text,type:'call',dateTime})});
+ if(!r.ok)throw Error('Mautic note save failed');
+ const d=await r.json();const id=Number(d.note?.id);if(!Number.isSafeInteger(id)||id<=0)throw Error('Missing note receipt');return id;
+}
+export async function verifyMobileMauticNote(id:number,contactId:number,marker:string) {
+ const r=await mauticFetch(`/api/notes/${id}`,{signal:AbortSignal.timeout(15000)});if(!r.ok)return false;
+ const d=await r.json();return Number(d.note?.lead?.id??d.note?.lead)===contactId&&typeof d.note?.text==='string'&&d.note.text.includes(marker);
+}
