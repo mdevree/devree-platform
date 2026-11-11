@@ -34,3 +34,11 @@ test('ambiguous timeout has a cooldown and does not immediately duplicate',async
 test('Mautic lookup outage must never cause a blind create',async()=>{
  let created=false;await assert.rejects(()=>deliverMobileNote({find:async()=>{throw Error('offline');},verify:async()=>true,create:async()=>{created=true;return 42;},beforeCreate:async()=>{}},undefined));assert.equal(created,false);
 });
+test('project selection survives validation and cannot change during a retry',()=>{
+ const original=validateMobileCall(input,now);
+ assert.equal(Object.hasOwn(original,'projectId'),false);
+ const linked=validateMobileCall({...input,projectId:'taxatie-1'},now);
+ assert.equal(linked.projectId,'taxatie-1');
+ assert.notEqual(mobileCallHash(original),mobileCallHash(linked));
+ assert.throws(()=>validateMobileCall({...input,projectId:42},now));
+});

@@ -15,11 +15,12 @@ export async function POST(req:NextRequest){
   let state=row?.value as DeliveryState|undefined;
   if(state&&(state.hash!==hash||state.userId!==session.user.id))return NextResponse.json({error:'Dit gesprek is al opgeslagen met andere gegevens. Bekijk de bestaande notitie in het platform.'},{status:409});
   if(!state){
+   if(v.projectId && !await prisma.project.findUnique({where:{id:v.projectId},select:{id:true}}))return NextResponse.json({error:'Dit project bestaat niet meer. Kies een ander project.'},{status:400});
    const contact=await getContactFull(v.contactId,AbortSignal.timeout(15000));if(!contact)return NextResponse.json({error:'Contact kon niet worden gecontroleerd; probeer opnieuw'},{status:503});
    const name=[contact.firstname,contact.lastname].filter(Boolean).join(' ');
    // One atomic platform record, note and delivery receipt. Never use the general note webhook here.
    row=await prisma.$transaction(async tx=>{
-    const call=await tx.call.create({data:{callId:'mobile:'+v.requestId,timestamp:new Date(v.startedAt),status:'ended',reason:'completed',direction:v.direction,callerNumber:'',destinationNumber:'',destinationUser:author,mauticContactId:v.contactId,contactName:name,notes:{create:{note:v.note,createdBy:author}}},include:{notes:true}});
+    const call=await tx.call.create({data:{callId:'mobile:'+v.requestId,timestamp:new Date(v.startedAt),status:'ended',reason:'completed',direction:v.direction,callerNumber:'',destinationNumber:'',destinationUser:author,mauticContactId:v.contactId,projectId:v.projectId,contactName:name,notes:{create:{note:v.note,createdBy:author}}},include:{notes:true}});
     return tx.appSetting.create({data:{key,value:{hash,userId:session.user.id,callId:call.id,noteId:call.notes[0].id,input:v,author}}});
    });state=row.value as unknown as DeliveryState;
   }
