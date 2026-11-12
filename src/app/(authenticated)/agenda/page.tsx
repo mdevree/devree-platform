@@ -230,6 +230,21 @@ export default function AgendaPage() {
     }
   }
 
+  async function openBezichtiging(id: string) {
+    const afspraak = afspraken.find(item => item.id === id);
+    if (!afspraak?.mauticContactId && afspraak?.agrcode && !enrichingIds.has(id)) {
+      try {
+        await enrichAfspraak(id);
+      } catch {
+        // The appointment and draft form remain available if enrichment is offline.
+      } finally {
+        setDetailId(id);
+      }
+    } else {
+      setDetailId(id);
+    }
+  }
+
   function vorigeWeek() {
     setWeekStart((d) => {
       const n = new Date(d);
@@ -441,7 +456,7 @@ export default function AgendaPage() {
           isVandaag={isVandaag}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
-          onOpenDetail={setDetailId}
+          onOpenDetail={openBezichtiging}
           woningFotos={woningFotos}
         />
       ) : view === "week" ? (
@@ -451,7 +466,7 @@ export default function AgendaPage() {
           isVandaag={isVandaag}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
-          onOpenDetail={setDetailId}
+          onOpenDetail={openBezichtiging}
           woningFotos={woningFotos}
         />
       ) : view === "bezichtigingen" ? (
@@ -459,7 +474,7 @@ export default function AgendaPage() {
           afspraken={afspraken}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
-          onOpenDetail={setDetailId}
+          onOpenDetail={openBezichtiging}
           woningFotos={woningFotos}
         />
       ) : (
@@ -467,7 +482,7 @@ export default function AgendaPage() {
           afspraken={afspraken}
           enrichingIds={enrichingIds}
           onEnrich={enrichAfspraak}
-          onOpenDetail={setDetailId}
+          onOpenDetail={openBezichtiging}
           woningFotos={woningFotos}
         />
       )}
