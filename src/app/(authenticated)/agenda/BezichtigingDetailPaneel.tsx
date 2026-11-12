@@ -1,5 +1,6 @@
 "use client";
 
+import Bezichtigingsverslag from "./Bezichtigingsverslag";
 import { useEffect, useState, useCallback } from "react";
 import {
   XMarkIcon,
@@ -19,6 +20,8 @@ import {
 // ── Types (deelverzameling van /api/agenda/[id]/context) ─────────────────────
 
 interface ContextResponse {
+  lijstVanZaken: {items:{field:string;label:string;answer:string;attention:boolean}[]} | null;
+  vragenlijst: {highlights:{number:string;title:string;details:string[]}[]} | null;
   afspraak: {
     id: string;
     begin: string | null;
@@ -447,6 +450,14 @@ export default function BezichtigingDetailPaneel({
           <div className="p-6 text-sm text-red-600">{fout}</div>
         ) : (
           <div className="flex flex-col gap-6 px-6 py-5">
+            <section className="rounded-xl border p-4">
+              <h3 className="font-semibold">Bijzonderheden bij deze woning</h3>
+              <h4 className="mt-3 text-sm font-medium">Lijst van zaken</h4>
+              {ctx?.lijstVanZaken?.items.some(item=>item.attention) ? <ul className="list-disc pl-5">{ctx.lijstVanZaken.items.filter(item=>item.attention).map(item=><li key={item.field}>{item.label} · {item.answer}</li>)}</ul> : <p className="text-sm text-gray-600">{ctx?.lijstVanZaken ? "Geen bijzonderheden gevonden." : "Nog niet beschikbaar."}</p>}
+              <h4 className="mt-3 text-sm font-medium">Vragenlijst</h4>
+              {ctx?.vragenlijst?.highlights.length ? <ul className="list-disc pl-5">{ctx.vragenlijst.highlights.map(item=><li key={item.number}>{item.title}{item.details.length ? " · " + item.details.join(" · ") : ""}</li>)}</ul> : <p className="text-sm text-gray-600">{ctx?.vragenlijst ? "Geen bijzonderheden gevonden." : "Nog niet beschikbaar."}</p>}
+            </section>
+            {a && <Bezichtigingsverslag key={afspraakId} id={afspraakId} contactId={a.mauticContactId} naam={k?.naam || a.contactNaam}/>}
             {/* Acties */}
             <div className="flex flex-wrap gap-2">
               <button

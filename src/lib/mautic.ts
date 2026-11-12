@@ -1133,8 +1133,8 @@ export async function findMobileMauticNote(contactId:number,marker:string) {
  }
  throw Error('Mautic note lookup incomplete');
 }
-export async function createMobileMauticNote(contactId:number,text:string,dateTime:string) {
- const r=await mauticFetch('/api/notes/new',{method:'POST',signal:AbortSignal.timeout(15000),body:JSON.stringify({lead:contactId,text,type:'call',dateTime})});
+export async function createMobileMauticNote(contactId:number,text:string,dateTime:string,type: "call" | "general" = "call") {
+ const r=await mauticFetch('/api/notes/new',{method:'POST',signal:AbortSignal.timeout(15000),body:JSON.stringify({lead:contactId,text,type,dateTime})});
  if(!r.ok)throw Error('Mautic note save failed');
  const d=await r.json();const id=Number(d.note?.id);if(!Number.isSafeInteger(id)||id<=0)throw Error('Missing note receipt');return id;
 }

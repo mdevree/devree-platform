@@ -312,9 +312,9 @@ export default function AgendaPage() {
   };
 
   return (
-    <div className="flex flex-col gap-0 p-6">
+    <div className="flex flex-col gap-0 p-2 sm:p-6">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
 
         <div className="flex items-center gap-2">
@@ -726,7 +726,7 @@ function BezichtigingenWeergave({
               const enriching = enrichingIds.has(a.id);
               const heeftContact = Boolean(a.contactNaam || a.contactEmail);
               return (
-                <div key={a.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                <div key={a.id} className="flex flex-wrap items-center gap-2 px-3 py-3 hover:bg-gray-50">
                   <div className="min-w-[120px] text-sm text-gray-600">
                     {formatDatum(a.agbegin)}
                     <div className="text-xs text-gray-400">{formatTijd(a.agbegin)}</div>
@@ -746,7 +746,7 @@ function BezichtigingenWeergave({
                   {/* Cheatsheet-status */}
                   {a.cheatsheetStatus && (
                     <span className="rounded bg-purple-50 px-2 py-0.5 text-xs text-purple-600">
-                      PDF: {a.cheatsheetStatus}
+                      {a.cheatsheetStatus === "verwerkt" ? "Verslag verwerkt" : "PDF: " + a.cheatsheetStatus}
                     </span>
                   )}
                   {!heeftContact && a.agrcode && (
@@ -762,7 +762,7 @@ function BezichtigingenWeergave({
                     onClick={() => onOpenDetail(a.id)}
                     className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
                   >
-                    Detail
+                    Open bezichtiging
                   </button>
                 </div>
               );
