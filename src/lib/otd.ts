@@ -248,12 +248,14 @@ export function normalizeRealworksBrokerObjectForOtd(
 
 // Realworks levert de transportdatum zonder tijd. De transportdag zelf telt
 // daarom pas na middernacht in Nederland als verstreken.
-export function soldPropertyImport(
+export function realworksPropertyImport(
   otd: Pick<OtdProjectData, "statusCode" | "statusLabel">,
   transportDate: unknown,
   now = new Date(),
-): "regular" | "sold" | "completed" {
-  if (otd.statusCode !== "6" && otd.statusLabel?.trim().toLowerCase() !== "verkocht") return "regular";
+): "regular" | "sold" | "completed" | "cancelled" {
+  const label = otd.statusLabel?.trim().toLowerCase();
+  if (otd.statusCode === "11" || label === "geannuleerd") return "cancelled";
+  if (otd.statusCode !== "6" && label !== "verkocht") return "regular";
 
   const raw = stringValue(transportDate);
   const match = raw?.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);

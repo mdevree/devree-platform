@@ -8,7 +8,7 @@ import {
   normalizeRealworksBrokerObjectForOtd,
   otdCompletenessIssues,
   projectUpdateDataFromOtd,
-  soldPropertyImport,
+  realworksPropertyImport,
   stringValue,
 } from "@/lib/otd";
 
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const sale = soldPropertyImport(otd, fields.lissttrans);
+  const disposition = realworksPropertyImport(otd, fields.lissttrans);
   const objectKeys: Prisma.ProjectWhereInput[] = [
     ...(realworksSystemId ? [{ realworksSystemId }, { realworksId: realworksSystemId }] : []),
     ...(objectCode ? [{ realworksId: objectCode }] : []),
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       where: { type: "VERKOOP", OR: objectKeys }, orderBy: { updatedAt: "desc" },
     }) : null;
 
-    if (!existing && sale === "regular") {
+    if (!existing && disposition === "regular") {
       existing = await tx.project.findFirst({
         where: {
           type: "VERKOOP",
@@ -65,9 +65,13 @@ export async function POST(request: NextRequest) {
         orderBy: { updatedAt: "desc" },
       });
     }
-    if (!existing && (sale === "sold" || (sale === "completed" && !objectKeys.length))) return null;
+    if (!existing) {
+      if (disposition === "cancelled") return { ignoredReason: "Object geannuleerd in Realworks" };
+      if (disposition === "sold") return { ignoredReason: "Verkocht zonder verstreken transportdatum" };
+      if (disposition === "completed" && !objectKeys.length) return { ignoredReason: "Verkocht object zonder Realworks-objectsleutel" };
+    }
 
-    const completed = sale === "completed" && existing?.projectStatus !== "GEANNULEERD" && existing?.status !== "geannuleerd" && !existing?.cancelledAt;
+    const completed = disposition === "completed" && existing?.projectStatus !== "GEANNULEERD" && existing?.status !== "geannuleerd" && !existing?.cancelledAt;
     const statusFields = completed ? { projectStatus: "AFGEROND" as const, status: "afgerond" } : {};
     if (existing) {
       const project = await tx.project.update({
@@ -87,10 +91,10 @@ export async function POST(request: NextRequest) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return persist();
     throw error;
   });
-  if (!result) {
+  if (result.ignoredReason !== undefined) {
     return NextResponse.json({
       success: true, created: false, ignored: true, project: null,
-      ignoredReason: !objectKeys.length ? "Verkocht object zonder Realworks-objectsleutel" : "Verkocht zonder verstreken transportdatum",
+      ignoredReason: result.ignoredReason,
     });
   }
   const { project, created } = result;

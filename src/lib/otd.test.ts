@@ -12,7 +12,7 @@ import {
   otdProjectName,
   projectUpdateDataFromOtd,
   signatureBlocksForOtd,
-  soldPropertyImport,
+  realworksPropertyImport,
 } from "./otd";
 
 const HOEK_REALWORKS_FIELDS = {
@@ -198,18 +198,30 @@ test("kiest eerste complete kadasterregel", () => {
 test("Realworks verkochte woning wordt alleen afgerond na de transportdag in Nederland", () => {
   const sold = { statusCode: "6" };
   const beforeMidnight = new Date("2026-11-17T22:59:59Z");
-  assert.equal(soldPropertyImport(sold, "25-09-2020", beforeMidnight), "completed");
+  assert.equal(realworksPropertyImport(sold, "25-09-2020", beforeMidnight), "completed");
   for (const transport of [null, "", "in overleg", "31-02-2026", "17-11-2026", "18-11-2026"]) {
-    assert.equal(soldPropertyImport(sold, transport, beforeMidnight), "sold");
+    assert.equal(realworksPropertyImport(sold, transport, beforeMidnight), "sold");
   }
-  assert.equal(soldPropertyImport(sold, "17-11-2026", new Date("2026-11-17T23:00:00Z")), "completed");
+  assert.equal(realworksPropertyImport(sold, "17-11-2026", new Date("2026-11-17T23:00:00Z")), "completed");
 });
 
 test("gebruikt de definitieve verkoopstatus en uitsluitend de transportdatum", () => {
   const now = new Date("2026-11-17T12:00:00Z");
   const fields = { lisstate_label: "Verkocht", lisdatefre: "01-01-2020", lissttrdate: "01-01-2020" };
-  assert.equal(soldPropertyImport(normalizeRealworksBrokerObjectForOtd(fields), undefined, now), "sold");
+  assert.equal(realworksPropertyImport(normalizeRealworksBrokerObjectForOtd(fields), undefined, now), "sold");
   for (const label of ["Verkocht onder voorbehoud", "Beschikbaar", "In aanmelding"]) {
-    assert.equal(soldPropertyImport({ statusLabel: label }, "01-01-2020", now), "regular");
+    assert.equal(realworksPropertyImport({ statusLabel: label }, "01-01-2020", now), "regular");
+  }
+});
+
+test("geannuleerde objecten herkennen met Realworks-code, label en keuzelijst", () => {
+  for (const fields of [
+    { lisstate: 11 },
+    { lisstate_label: " Geannuleerd " },
+    { lisstate: "x", lisstate__MASK: "x;Geannuleerd" },
+  ]) {
+    const otd = normalizeRealworksBrokerObjectForOtd(fields);
+    assert.equal(realworksPropertyImport(otd, undefined), "cancelled");
+    assert.equal(realworksPropertyImport(otd, "25-09-2020"), "cancelled");
   }
 });
