@@ -189,6 +189,9 @@ export async function PATCH(request: NextRequest) {
   if (data.description !== undefined) updateData.description = data.description;
   // Nieuw type-systeem
   if (data.type !== undefined) updateData.type = data.type;
+  if (data.projectStatus === "GEANNULEERD" || data.status === "geannuleerd") {
+    return NextResponse.json({ error: "Gebruik Project annuleren om de reden vast te leggen." }, { status: 400 });
+  }
   if (data.projectStatus !== undefined) updateData.projectStatus = data.projectStatus;
   // Legacy status
   if (data.status !== undefined) updateData.status = data.status;
@@ -246,7 +249,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const project = await prisma.project.update({
-    where: { id: data.id },
+    where: { id: data.id, ...((data.projectStatus !== undefined || data.status !== undefined) ? { cancelledAt: null } : {}) },
     data: updateData,
     include: {
       _count: { select: { tasks: true, calls: true } },

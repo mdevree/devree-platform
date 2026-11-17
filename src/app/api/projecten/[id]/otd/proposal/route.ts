@@ -25,13 +25,14 @@ export async function POST(
     return NextResponse.json({ error: "Ongeldige verkoopstart" }, { status: 400 });
   }
 
-  const existing = await prisma.project.findUnique({ where: { id }, select: { type: true } });
+  const existing = await prisma.project.findUnique({ where: { id }, select: { type: true, projectStatus: true } });
+  if (existing?.projectStatus === "GEANNULEERD") return NextResponse.json({ error: "Dit project is geannuleerd." }, { status: 409 });
   if (existing?.type === "AANKOOP") {
     return NextResponse.json({ error: "Niet beschikbaar voor aankoopprojecten" }, { status: 400 });
   }
 
   const project = await prisma.project.update({
-    where: { id },
+    where: { id, cancelledAt: null },
     data: {
       projectStatus: "OFFERTE_VERSTUURD",
       verkoopstart,

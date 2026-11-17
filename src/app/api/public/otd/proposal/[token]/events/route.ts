@@ -47,7 +47,7 @@ export async function POST(
     include: { project: true },
   });
 
-  if (!proposal) {
+  if (!proposal || proposal.project.projectStatus === "GEANNULEERD") {
     return NextResponse.json({ error: "Voorstel niet gevonden" }, { status: 404 });
   }
 

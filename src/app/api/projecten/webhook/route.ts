@@ -93,8 +93,14 @@ export async function POST(request: NextRequest) {
 
     if (data.notionPageId) {
       // Upsert op basis van notionPageId (bestaande Notion sync flow)
+      const existing = await prisma.project.findUnique({
+        where: { notionPageId: data.notionPageId }, select: { id: true, projectStatus: true },
+      });
+      if (existing?.projectStatus === "GEANNULEERD") {
+        return NextResponse.json({ success: true, project: existing, skipped: "Project geannuleerd" });
+      }
       project = await prisma.project.upsert({
-        where: { notionPageId: data.notionPageId },
+        where: { notionPageId: data.notionPageId, cancelledAt: null },
         update: projectData,
         create: {
           ...projectData,

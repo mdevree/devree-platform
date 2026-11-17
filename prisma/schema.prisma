@@ -117,6 +117,9 @@ model Project {
   projectStatus ProjectStatus? // tijdelijk nullable voor migratie; wordt na data-migratie gevuld
   status        String         @default("lead") // legacy — blijft staan totdat migratie compleet is
 
+  cancelledAt        DateTime?
+  cancellationReason String?
+
   // Verkoopstart (alleen relevant bij type=VERKOOP)
   verkoopstart Verkoopstart?
   startdatum   DateTime?
@@ -204,7 +207,7 @@ model ProjectProposal {
   events                     ProjectProposalEvent[]
   tokenHash                  String                 @unique
   publicUrl                  String?                @db.Text
-  status                     String                 @default("OPEN") // OPEN, ACCEPTED, REVOKED, ERROR
+  status                     String                 @default("OPEN") // OPEN, ACCEPTING, ACCEPTED, REVOKED, ERROR
   selectedVerkoopstart       Verkoopstart?
   selectedStartdatum         DateTime?
   selectedStartReden         String?

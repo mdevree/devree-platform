@@ -308,7 +308,7 @@ export async function POST(
     },
   });
 
-  if (!proposal || proposal.status !== "OPEN") {
+  if (!proposal || proposal.status !== "OPEN" || proposal.project.projectStatus === "GEANNULEERD") {
     return NextResponse.json({ error: "Voorstel is niet beschikbaar" }, { status: 404 });
   }
 
@@ -366,79 +366,86 @@ export async function POST(
   const opdrachtgeverCorrecties = cleanOpdrachtgeverCorrecties(body.opdrachtgeverCorrecties)
     .filter((correctie) => correctie.mauticContactId && allowedContactIds.has(correctie.mauticContactId));
 
-  if (!isAankoop) {
-    await prisma.$transaction([prisma.project.update({
-      where: { id: proposal.projectId },
-      data: {
-        ...(promotion ? { promotion } : { promotion: Prisma.DbNull, kostenPubliciteit: proposal.legacyPubliciteit ?? proposal.project.kostenPubliciteit }),
-        projectStatus: "OFFERTE_VERSTUURD",
-        verkoopstart,
-        startdatum,
-        startReden,
-        kostenEnergielabel: energielabelKosten,
-        kostenBouwkundig: quickscanKosten,
-      },
-    }), ...(promotion ? [prisma.projectProposal.update({ where: { id: proposal.id }, data: { promotion } })] : [])]);
-  }
-
-  for (const extra of extraOpdrachtgevers) {
-    const contact = await createContact({
-      firstname: extra.voornamen?.split(/\s+/)[0] || extra.initialen || extra.aanhef || "",
-      lastname: extra.achternaam || "",
-      email: extra.email || undefined,
-      mobile: extra.telefoon || undefined,
-      address1: proposal.project.woningAdres || proposal.project.address || undefined,
-      zipcode: proposal.project.woningPostcode || undefined,
-      city: proposal.project.woningPlaats || undefined,
-      otd_aanhef: extra.aanhef || undefined,
-      otd_initialen: extra.initialen || undefined,
-      otd_voornamen: extra.voornamen || undefined,
-      otd_geboorteplaats: extra.geboorteplaats || undefined,
-      otd_burgerlijke_staat: extra.burgerlijkeStaat || undefined,
-      geboortedatum: extra.geboortedatum || undefined,
-    });
-
-    if (contact?.id) {
-      await prisma.projectContact.upsert({
-        where: {
-          projectId_mauticContactId: {
-            projectId: proposal.projectId,
-            mauticContactId: contact.id,
-          },
-        },
-        update: {
-          role: "opdrachtgever",
-          label: [extra.voornamen, extra.achternaam].filter(Boolean).join(" ") || extra.achternaam,
-        },
-        create: {
-          projectId: proposal.projectId,
-          mauticContactId: contact.id,
-          role: "opdrachtgever",
-          label: [extra.voornamen, extra.achternaam].filter(Boolean).join(" ") || extra.achternaam,
-          addedBy: "voorstel",
-        },
-      });
-    }
-  }
-
-  for (const correctie of opdrachtgeverCorrecties) {
-    if (!correctie.mauticContactId) continue;
-    const split = splitName(correctie.naam);
-    await updateContact(correctie.mauticContactId, {
-      firstname: correctie.voornamen?.split(/\s+/)[0] || split.firstname || null,
-      lastname: correctie.achternaam || split.lastname || correctie.naam || null,
-      email: correctie.email,
-      mobile: correctie.telefoon,
-      otd_aanhef: correctie.aanhef,
-      otd_initialen: correctie.initialen,
-      otd_voornamen: correctie.voornamen,
-      geboortedatum: correctie.geboortedatum,
-      otd_geboorteplaats: correctie.geboorteplaats,
-      otd_burgerlijke_staat: correctie.burgerlijkeStaat,
-    });
-  }
+  // A simultaneous cancellation either revokes OPEN first, or sees this claim
+  // and rolls back until the document and acceptance have been recorded.
+  const claim = await prisma.projectProposal.updateMany({
+    where: { id: proposal.id, status: "OPEN" }, data: { status: "ACCEPTING" },
+  });
+  if (!claim.count) return NextResponse.json({ error: "Voorstel is niet meer beschikbaar" }, { status: 409 });
 
   try {
+    if (!isAankoop) {
+      await prisma.$transaction([prisma.project.update({
+        where: { id: proposal.projectId },
+        data: {
+          ...(promotion ? { promotion } : { promotion: Prisma.DbNull, kostenPubliciteit: proposal.legacyPubliciteit ?? proposal.project.kostenPubliciteit }),
+          projectStatus: "OFFERTE_VERSTUURD",
+          verkoopstart,
+          startdatum,
+          startReden,
+          kostenEnergielabel: energielabelKosten,
+          kostenBouwkundig: quickscanKosten,
+        },
+      }), ...(promotion ? [prisma.projectProposal.update({ where: { id: proposal.id }, data: { promotion } })] : [])]);
+    }
+
+    for (const extra of extraOpdrachtgevers) {
+      const contact = await createContact({
+        firstname: extra.voornamen?.split(/\s+/)[0] || extra.initialen || extra.aanhef || "",
+        lastname: extra.achternaam || "",
+        email: extra.email || undefined,
+        mobile: extra.telefoon || undefined,
+        address1: proposal.project.woningAdres || proposal.project.address || undefined,
+        zipcode: proposal.project.woningPostcode || undefined,
+        city: proposal.project.woningPlaats || undefined,
+        otd_aanhef: extra.aanhef || undefined,
+        otd_initialen: extra.initialen || undefined,
+        otd_voornamen: extra.voornamen || undefined,
+        otd_geboorteplaats: extra.geboorteplaats || undefined,
+        otd_burgerlijke_staat: extra.burgerlijkeStaat || undefined,
+        geboortedatum: extra.geboortedatum || undefined,
+      });
+
+      if (contact?.id) {
+        await prisma.projectContact.upsert({
+          where: {
+            projectId_mauticContactId: {
+              projectId: proposal.projectId,
+              mauticContactId: contact.id,
+            },
+          },
+          update: {
+            role: "opdrachtgever",
+            label: [extra.voornamen, extra.achternaam].filter(Boolean).join(" ") || extra.achternaam,
+          },
+          create: {
+            projectId: proposal.projectId,
+            mauticContactId: contact.id,
+            role: "opdrachtgever",
+            label: [extra.voornamen, extra.achternaam].filter(Boolean).join(" ") || extra.achternaam,
+            addedBy: "voorstel",
+          },
+        });
+      }
+    }
+
+    for (const correctie of opdrachtgeverCorrecties) {
+      if (!correctie.mauticContactId) continue;
+      const split = splitName(correctie.naam);
+      await updateContact(correctie.mauticContactId, {
+        firstname: correctie.voornamen?.split(/\s+/)[0] || split.firstname || null,
+        lastname: correctie.achternaam || split.lastname || correctie.naam || null,
+        email: correctie.email,
+        mobile: correctie.telefoon,
+        otd_aanhef: correctie.aanhef,
+        otd_initialen: correctie.initialen,
+        otd_voornamen: correctie.voornamen,
+        geboortedatum: correctie.geboortedatum,
+        otd_geboorteplaats: correctie.geboorteplaats,
+        otd_burgerlijke_staat: correctie.burgerlijkeStaat,
+      });
+    }
+
     const baseUrl = process.env.PLATFORM_INTERNAL_URL || request.nextUrl.origin;
     const conceptRes = await fetch(`${baseUrl}/api/projecten/${proposal.projectId}/otd/documenso`, {
       method: "POST",
@@ -452,7 +459,10 @@ export async function POST(
       throw new Error(conceptData.error || "Documenso concept kon niet worden gemaakt");
     }
 
-    await prisma.projectProposal.update({
+    await prisma.$transaction([prisma.project.update({
+      where: { id: proposal.projectId, cancelledAt: null },
+      data: { projectStatus: "OTD_VERSTUURD" },
+    }), prisma.projectProposal.update({
       where: { id: proposal.id },
       data: isAankoop
         ? {
@@ -479,12 +489,7 @@ export async function POST(
             documensoEnvelopeId: conceptData.concept.envelopeId,
             documensoSigningUrl: null,
           },
-    });
-
-    await prisma.project.update({
-      where: { id: proposal.projectId },
-      data: { projectStatus: "OTD_VERSTUURD" },
-    });
+    })]);
 
     if (isAankoop) {
       await notifyOfficeAankoopProposalAccepted({

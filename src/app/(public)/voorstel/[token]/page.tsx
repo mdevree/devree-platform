@@ -94,6 +94,9 @@ export default async function ProposalPage(
   if (!proposal) notFound();
 
   const project = proposal.project;
+  if (project.projectStatus === "GEANNULEERD") {
+    return <main className="mx-auto max-w-lg px-6 py-16"><h1 className="text-2xl font-semibold">Dit voorstel is gesloten</h1><p className="mt-3">U kunt niet meer reageren op dit voorstel.</p></main>;
+  }
   const promotion = readPromotion(proposal.promotion);
   const expired = proposal.expiresAt ? proposal.expiresAt < new Date() : false;
   const unavailable = proposal.status !== "OPEN" || expired;

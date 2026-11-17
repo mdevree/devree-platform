@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 const SIGNED_EVENTS = new Set(["DOCUMENT_SIGNED", "DOCUMENT_COMPLETED"]);
 const TERMINAL_OR_LATER_STATUSES = new Set<ProjectStatus>([
+  "GEANNULEERD",
   "ACTIEF",
   "LIVE_FUNDA",
   "ONDER_BOD",
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const updatedProject = shouldMarkSigned(project.projectStatus)
     ? await prisma.project.update({
-      where: { id: project.id },
+      where: { id: project.id, cancelledAt: null },
       data: { projectStatus: "OTD_ONDERTEKEND" },
       select: { id: true, projectStatus: true },
     })

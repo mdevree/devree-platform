@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
   const tasks = [];
   let projectUpdated = null;
 
-  if (archiveStatus === "archived" && archive.projectId) {
+  if (archiveStatus === "archived" && archive.projectId && archive.project?.projectStatus !== "GEANNULEERD") {
     const signals = (Array.isArray(archive.checklistSignals) ? archive.checklistSignals : []) as unknown as TaxatieChecklistSignal[];
     for (const signal of signals) {
       if (signal.confidence === "hoog") {
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     if (archive.suggestedStatus && archive.project && projectStatusRank(archive.suggestedStatus) > projectStatusRank(archive.project.projectStatus)) {
       projectUpdated = await prisma.project.update({
-        where: { id: archive.projectId },
+        where: { id: archive.projectId, cancelledAt: null },
         data: {
           projectStatus: archive.suggestedStatus as ProjectStatus,
           status: archive.suggestedStatus === "ACTIEF" ? "actief" : archive.project.status,

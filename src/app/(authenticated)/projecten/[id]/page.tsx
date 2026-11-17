@@ -2,6 +2,7 @@
 
 import { LijstVanZaken } from "@/components/projecten/LijstVanZaken";
 import ProjectSocial from "@/components/social/ProjectSocial";
+import CancelProject from "@/components/projects/CancelProject";
 import ProjectPromotion from "@/components/promotie/ProjectPromotion";
 import { readPromotion, type Promotion } from "@/lib/promotion";
 
@@ -314,6 +315,8 @@ interface Project {
   type: string;
   status: string; // legacy
   projectStatus: string | null; // nieuw
+  cancelledAt: string | null;
+  cancellationReason: string | null;
   verkoopstart: string | null;
   startdatum: string | null;
   startReden: string | null;
@@ -1184,7 +1187,7 @@ export default function ProjectDetailPage() {
       startdatum: project.startdatum ? project.startdatum.split("T")[0] : "",
       startReden: project.startReden || "",
     });
-    setProposalLink(latestProposal?.publicUrl || "");
+    setProposalLink(project.projectStatus !== "GEANNULEERD" && latestProposal?.status === "OPEN" ? latestProposal.publicUrl || "" : "");
     setProposalLinkCopied(false);
   }, [project]);
 
@@ -1565,6 +1568,8 @@ export default function ProjectDetailPage() {
         body: JSON.stringify({
           id: projectId,
           ...editData,
+          status: editData.status === project?.status ? undefined : editData.status,
+          projectStatus: editData.projectStatus === project?.projectStatus ? undefined : editData.projectStatus,
           realworksId: editData.realworksId || null,
           verkoopstart: editData.verkoopstart || null,
           startdatum: editData.startdatum || null,
@@ -2432,12 +2437,14 @@ export default function ProjectDetailPage() {
         { label: "Aanvullende afspraken", ok: true },
       ];
   const otdMissing = otdChecks.filter((check) => !check.ok);
+  const cancelled = project.projectStatus === "GEANNULEERD";
   const latestProposal = project.proposals?.[0] || null;
   const latestProposalExpired = latestProposal?.expiresAt ? new Date(latestProposal.expiresAt) < new Date() : false;
   const latestProposalStatusLabel =
     !latestProposal ? "Nog niet gemaakt" :
     latestProposal.status === "OPEN" && latestProposalExpired ? "Verlopen" :
     latestProposal.status === "OPEN" ? "Open" :
+    latestProposal.status === "ACCEPTING" ? "Akkoord wordt verwerkt" :
     latestProposal.status === "ACCEPTED" ? "Akkoord" :
     latestProposal.status === "ERROR" ? "Fout" :
     latestProposal.status === "REVOKED" ? "Ingetrokken" :
@@ -2528,6 +2535,18 @@ export default function ProjectDetailPage() {
             </button>
           </div>
         </div>
+
+        {cancelled ? (
+          <p className="mt-3 text-sm text-red-800">
+            Geannuleerd{project.cancelledAt && ` op ${formatDateFull(project.cancelledAt)}`}
+            {project.cancellationReason && `: ${project.cancellationReason}`}
+          </p>
+        ) : project.projectStatus !== "AFGEROND" && (
+          <CancelProject key={project.id} id={project.id} updatedAt={project.updatedAt} onCancelled={async () => {
+            setProposalLink("");
+            await fetchProject();
+          }} />
+        )}
 
         {/* Contacten sectie */}
         <div className="mt-4 border-t border-gray-100 pt-4">
@@ -3992,7 +4011,7 @@ export default function ProjectDetailPage() {
                     </div>
                   )}
                 </div>
-                {project.type !== "AANKOOP" && (
+                {!cancelled && project.type !== "AANKOOP" && (
                   <>
                     <div className="mt-3 grid gap-2 sm:grid-cols-3">
                       {OTD_PROPOSAL_OPTIONS.map((option) => (
@@ -4056,7 +4075,7 @@ export default function ProjectDetailPage() {
                   <button
                     type="button"
                     onClick={handleCreateProposalLink}
-                    disabled={proposalLinkSaving}
+                    disabled={cancelled || proposalLinkSaving}
                     className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {proposalLinkSaving ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <LinkSlashIcon className="h-4 w-4 rotate-45" />}
@@ -4116,7 +4135,7 @@ export default function ProjectDetailPage() {
                 <button
                   type="button"
                   onClick={handleDocumensoConcept}
-                  disabled={documensoSaving}
+                  disabled={cancelled || documensoSaving}
                   className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {documensoSaving ? (
@@ -4750,8 +4769,9 @@ export default function ProjectDetailPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
-                    <select value={editData.projectStatus} onChange={(e) => setEditData((d) => ({ ...d, projectStatus: e.target.value }))}
+                    <select disabled={cancelled} value={editData.projectStatus} onChange={(e) => setEditData((d) => ({ ...d, projectStatus: e.target.value }))}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
+                      {cancelled && <option value="GEANNULEERD">Geannuleerd</option>}
                       {(STATUS_FLOW[editData.type] || STATUS_FLOW.VERKOOP).map((s) => (
                         <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
                       ))}

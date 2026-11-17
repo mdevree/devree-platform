@@ -98,7 +98,7 @@ export async function POST(
     include: { project: true },
   });
 
-  if (!proposal || proposal.status !== "OPEN") {
+  if (!proposal || proposal.status !== "OPEN" || proposal.project.projectStatus === "GEANNULEERD") {
     return NextResponse.json({ error: "Voorstel is niet beschikbaar" }, { status: 404 });
   }
 
@@ -177,7 +177,7 @@ export async function POST(
   });
 
   await prisma.project.update({
-    where: { id: proposal.projectId },
+    where: { id: proposal.projectId, cancelledAt: null },
     data: { projectStatus: "OFFERTE_VERSTUURD" },
   });
 

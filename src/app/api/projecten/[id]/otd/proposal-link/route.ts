@@ -20,12 +20,14 @@ export async function POST(
   const { id } = await params;
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, type: true, promotion: true },
+    select: { id: true, type: true, promotion: true, projectStatus: true },
   });
 
   if (!project) {
     return NextResponse.json({ error: "Project niet gevonden" }, { status: 404 });
   }
+
+  if (project.projectStatus === "GEANNULEERD") return NextResponse.json({ error: "Dit project is geannuleerd." }, { status: 409 });
 
   const token = createProposalToken();
   const expiresAt = proposalExpiresAt();
@@ -33,7 +35,7 @@ export async function POST(
 
   await prisma.$transaction([
     prisma.project.update({
-      where: { id },
+      where: { id, cancelledAt: null },
       // Aankoop kent geen offertefase; de statusflow gaat direct naar OTD_VERSTUURD.
       data: { projectStatus: project.type === "AANKOOP" ? "OTD_VERSTUURD" : "OFFERTE_VERSTUURD" },
     }),

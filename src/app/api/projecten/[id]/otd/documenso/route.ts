@@ -55,6 +55,8 @@ export async function POST(
     return NextResponse.json({ error: "Project niet gevonden" }, { status: 404 });
   }
 
+  if (project.projectStatus === "GEANNULEERD") return NextResponse.json({ error: "Dit project is geannuleerd." }, { status: 409 });
+
   let pdfRes: Response;
   try {
     pdfRes = await fetch(`${internalPlatformBaseUrl(request)}/api/projecten/${project.id}/otd/pdf`, {
