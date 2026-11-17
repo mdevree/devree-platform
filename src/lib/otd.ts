@@ -246,6 +246,27 @@ export function normalizeRealworksBrokerObjectForOtd(
   };
 }
 
+// Realworks levert de transportdatum zonder tijd. De transportdag zelf telt
+// daarom pas na middernacht in Nederland als verstreken.
+export function soldPropertyImport(
+  otd: Pick<OtdProjectData, "statusCode" | "statusLabel">,
+  transportDate: unknown,
+  now = new Date(),
+): "regular" | "sold" | "completed" {
+  if (otd.statusCode !== "6" && otd.statusLabel?.trim().toLowerCase() !== "verkocht") return "regular";
+
+  const raw = stringValue(transportDate);
+  const match = raw?.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (!match) return "sold";
+  const [, day, month, year] = match;
+  const iso = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== iso) return "sold";
+
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(now);
+  return iso < today ? "completed" : "sold";
+}
+
 export function isOtdTriggerFromRealworks(fields: Record<string, unknown>): boolean {
   const statusCode = stringValue(fields.lisstate);
   const statusLabel = stringValue(fields.lisstate_label)

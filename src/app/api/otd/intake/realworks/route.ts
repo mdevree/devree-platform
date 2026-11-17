@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
 import { searchContactByRealworksCode } from "@/lib/mautic";
@@ -7,6 +8,7 @@ import {
   normalizeRealworksBrokerObjectForOtd,
   otdCompletenessIssues,
   projectUpdateDataFromOtd,
+  soldPropertyImport,
   stringValue,
 } from "@/lib/otd";
 
@@ -33,35 +35,65 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const existingProject = await prisma.project.findFirst({
-    where: {
-      OR: [
-        ...(realworksSystemId ? [{ realworksSystemId }, { realworksId: realworksSystemId }] : []),
-        ...(realworksProjectSystemId ? [{ realworksProjectSystemId }] : []),
-        ...(objectCode ? [{ realworksId: objectCode }] : []),
-        ...(address ? [{ woningAdres: address }] : []),
-      ],
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-
+  const sale = soldPropertyImport(otd, fields.lissttrans);
+  const objectKeys: Prisma.ProjectWhereInput[] = [
+    ...(realworksSystemId ? [{ realworksSystemId }, { realworksId: realworksSystemId }] : []),
+    ...(objectCode ? [{ realworksId: objectCode }] : []),
+  ];
   const cleanedUpdateData = Object.fromEntries(
     Object.entries(updateData).filter(([, value]) => value !== null && value !== undefined && value !== ""),
   );
 
-  const project = existingProject
-    ? await prisma.project.update({
-        where: { id: existingProject.id },
-        data: {
-          ...cleanedUpdateData,
-          // Bestaande workflowstatus niet ongemerkt terugzetten vanuit een Realworks-save.
-          projectStatus: undefined,
-          status: undefined,
+  async function saveProject(tx: Prisma.TransactionClient) {
+    // Eén adres kan meerdere verkoopopdrachten hebben. Rond alleen het
+    // dossier met dezelfde Realworks-objectidentiteit af.
+    let existing = objectKeys.length ? await tx.project.findFirst({
+      where: { type: "VERKOOP", OR: objectKeys }, orderBy: { updatedAt: "desc" },
+    }) : null;
+
+    if (!existing && sale === "regular") {
+      existing = await tx.project.findFirst({
+        where: {
+          type: "VERKOOP",
+          OR: [
+            ...(realworksProjectSystemId ? [{ realworksProjectSystemId }] : []),
+            ...(address ? [{ woningAdres: address }] : []),
+          ],
+          // Een volgende opdracht op hetzelfde adres krijgt een eigen dossier.
+          AND: [{ OR: [{ projectStatus: null }, { projectStatus: { notIn: ["AFGEROND", "GEANNULEERD"] } }] }],
         },
-      })
-    : await prisma.project.create({
-        data: updateData,
+        orderBy: { updatedAt: "desc" },
       });
+    }
+    if (!existing && (sale === "sold" || (sale === "completed" && !objectKeys.length))) return null;
+
+    const completed = sale === "completed" && existing?.projectStatus !== "GEANNULEERD" && existing?.status !== "geannuleerd" && !existing?.cancelledAt;
+    const statusFields = completed ? { projectStatus: "AFGEROND" as const, status: "afgerond" } : {};
+    if (existing) {
+      const project = await tx.project.update({
+        where: { id: existing.id },
+        data: { ...cleanedUpdateData, projectStatus: undefined, status: undefined, ...statusFields },
+      });
+      return { project, created: false };
+    }
+    const project = await tx.project.create({ data: { ...updateData, ...statusFields } });
+    return { project, created: true };
+  }
+
+  // Gelijktijdige saves van hetzelfde Realworks-object mogen niet beide een
+  // nieuw dossier maken. Herlees na een deadlock binnen een nieuwe transactie.
+  const persist = () => prisma.$transaction(saveProject, { isolationLevel: "Serializable" });
+  const result = await persist().catch((error: unknown) => {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return persist();
+    throw error;
+  });
+  if (!result) {
+    return NextResponse.json({
+      success: true, created: false, ignored: true, project: null,
+      ignoredReason: !objectKeys.length ? "Verkocht object zonder Realworks-objectsleutel" : "Verkocht zonder verstreken transportdatum",
+    });
+  }
+  const { project, created } = result;
 
   let linkedMauticContact = null;
   if (otd.realworksRelationCode) {
@@ -91,11 +123,11 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    created: !existingProject,
+    created,
     otdReadyTrigger,
     project,
     linkedMauticContact,
     otd,
     issues: otdCompletenessIssues(otd),
-  }, { status: existingProject ? 200 : 201 });
+  }, { status: created ? 201 : 200 });
 }
