@@ -1,0 +1,27 @@
+// n8n Code node, shared by the office mailbox and the central mail filter.
+function notification(source) {
+  const meta = source.metadata || source.headers || {};
+  const addr = v => String(v?.value?.[0]?.address || v || "").toLowerCase().trim().replace(/^.*<([^<>]+)>$/, "$1");
+  const from = addr(source.from);
+  if (addr(source.to) !== "melvin@devreemakelaardij.nl") return null;
+  let subject = String(source.subject || "").trim();
+  const officeTest = from === "melvin@devreemakelaardij.nl" && subject.startsWith("[Kantoortest woningmelding] ");
+  if (officeTest) subject = subject.slice("[Kantoortest woningmelding] ".length);
+  else if (from !== "no-reply@realworks.nl") return null;
+  if (!/^Notificatie voor uitwisseling object:/i.test(subject)) return null;
+  const html = String(source.textHtml || source.html || "");
+  const decode = s => s.replace(/&nbsp;|&#160;/gi," ").replace(/&euro;|&#8364;/gi,"€").replace(/&amp;/gi,"&").replace(/&#39;|&apos;/gi,"'").replace(/&quot;/gi,'"');
+  const text = decode(String(source.textPlain || source.text || "").trim() || html.replace(/<[^>]+>/g," ")).replace(/\s+/g," ").trim();
+  const messageId = String(meta["message-id"] || source.messageId || "").trim();
+  const date = new Date(source.date || meta.date || meta["delivery-date"]);
+  if (!messageId || !Number.isFinite(date.valueOf())) throw new Error("Realworks-notificatie mist mail-ID of datum");
+  const objectUrl = /href=["'](https:\/\/crm\.realworks\.nl\/servlets\/objects\/uitwisseling\.exchangeobject\/view\?[^"']+)/i.exec(html)?.[1];
+  const objectCode = objectUrl?.match(/[?&]_systemid=(\d+)(?:&|$)/)?.[1];
+  const report = String(meta["x-spam-report"] || "");
+  const verified = officeTest || (report.includes('system "server2.devreewebdevelopment.nl"') && /\bDKIM_VALID_AU\b/.test(report));
+  return { messageId, receivedAt:date.toISOString(), from, subject, text, verified, officeTest, objectCode };
+}
+return $input.all().flatMap(item => {
+  const mail = notification(item.json);
+  return mail ? [{json:mail}] : [];
+});

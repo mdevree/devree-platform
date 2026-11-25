@@ -220,9 +220,10 @@ export default function AiBelassistentDashboard() {
 
   const loadAll = useCallback(async () => {
     setError(null);
+    const focusDraft = new URLSearchParams(window.location.search).get("draft");
     const [loadedJobs, loadedDrafts, loadedLinks, loadedCallerStatus, loadedProfile, loadedTasks, loadedPrepareLastRun] = await Promise.all([
       jsonFetch<AiCallJob[]>("/api/ai/call-jobs"),
-      jsonFetch<FollowUpDraft[]>(`/api/ai/follow-up-drafts?status=${draftStatusFilter}`),
+      jsonFetch<FollowUpDraft[]>(`/api/ai/follow-up-drafts?status=${draftStatusFilter}${focusDraft ? "&id="+encodeURIComponent(focusDraft) : ""}`),
       jsonFetch<LinkItem[]>("/api/ai/link-catalog"),
       jsonFetch<CallerStatus>("/api/ai/caller-status"),
       jsonFetch<AgentProfile>("/api/ai/agent-profile"),
@@ -668,7 +669,7 @@ export default function AiBelassistentDashboard() {
             <p className="p-4 text-sm text-gray-500">Nog geen concepten.</p>
           ) : (
             drafts.map((draft) => (
-              <div key={draft.id} className="space-y-3 p-4">
+              <div key={draft.id} id={"concept-"+draft.id} className="space-y-3 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{draft.recipientName || draft.recipientPhone || draft.recipientEmail || "Ontvanger onbekend"}</p>

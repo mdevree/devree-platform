@@ -271,6 +271,48 @@
           "timeout": 20000
         }
       }
+    },
+    {
+      "id": "woningmelding-normaliseren",
+      "name": "Herken Realworks-woningmelding",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        420
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code node, shared by the office mailbox and the central mail filter.\nfunction notification(source) {\n  const meta = source.metadata || source.headers || {};\n  const addr = v => String(v?.value?.[0]?.address || v || \"\").toLowerCase().trim().replace(/^.*<([^<>]+)>$/, \"$1\");\n  const from = addr(source.from);\n  if (addr(source.to) !== \"melvin@devreemakelaardij.nl\") return null;\n  let subject = String(source.subject || \"\").trim();\n  const officeTest = from === \"melvin@devreemakelaardij.nl\" && subject.startsWith(\"[Kantoortest woningmelding] \");\n  if (officeTest) subject = subject.slice(\"[Kantoortest woningmelding] \".length);\n  else if (from !== \"no-reply@realworks.nl\") return null;\n  if (!/^Notificatie voor uitwisseling object:/i.test(subject)) return null;\n  const html = String(source.textHtml || source.html || \"\");\n  const decode = s => s.replace(/&nbsp;|&#160;/gi,\" \").replace(/&euro;|&#8364;/gi,\"€\").replace(/&amp;/gi,\"&\").replace(/&#39;|&apos;/gi,\"'\").replace(/&quot;/gi,'\"');\n  const text = decode(String(source.textPlain || source.text || \"\").trim() || html.replace(/<[^>]+>/g,\" \")).replace(/\\s+/g,\" \").trim();\n  const messageId = String(meta[\"message-id\"] || source.messageId || \"\").trim();\n  const date = new Date(source.date || meta.date || meta[\"delivery-date\"]);\n  if (!messageId || !Number.isFinite(date.valueOf())) throw new Error(\"Realworks-notificatie mist mail-ID of datum\");\n  const objectUrl = /href=[\"'](https:\\/\\/crm\\.realworks\\.nl\\/servlets\\/objects\\/uitwisseling\\.exchangeobject\\/view\\?[^\"']+)/i.exec(html)?.[1];\n  const objectCode = objectUrl?.match(/[?&]_systemid=(\\d+)(?:&|$)/)?.[1];\n  const report = String(meta[\"x-spam-report\"] || \"\");\n  const verified = officeTest || (report.includes('system \"server2.devreewebdevelopment.nl\"') && /\\bDKIM_VALID_AU\\b/.test(report));\n  return { messageId, receivedAt:date.toISOString(), from, subject, text, verified, officeTest, objectCode };\n}\nreturn $input.all().flatMap(item => {\n  const mail = notification(item.json);\n  return mail ? [{json:mail}] : [];\n});\n"
+      }
+    },
+    {
+      "id": "woningmelding-verwerken",
+      "name": "Verwerk woningmelding in kantoorplatform",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        420
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PlatformWebhookSecret01",
+          "name": "Platform Webhook Secret"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://kantoor.devreemakelaardij.nl/api/woningmeldingen/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -302,6 +344,11 @@
             "node": "Registreer hypotheekdoorverwijzing",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Herken Realworks-woningmelding",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -322,6 +369,17 @@
         [
           {
             "node": "📦 Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Herken Realworks-woningmelding": {
+      "main": [
+        [
+          {
+            "node": "Verwerk woningmelding in kantoorplatform",
             "type": "main",
             "index": 0
           }

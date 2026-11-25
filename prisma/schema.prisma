@@ -474,6 +474,7 @@ model AiCallResult {
 }
 
 model FollowUpDraft {
+  housingDelivery HousingAlertDelivery?
   id               String    @id @default(cuid())
   channel          String // whatsapp | email
   purpose          String // woning_link | afspraak_link | verkoop | aankoop | taxatie | faq | terugbelverzoek | bezichtiging_followup
@@ -1879,4 +1880,66 @@ model SocialEvidence {
   mime String
   data Bytes @db.LongBlob
   @@map("social_evidence")
+}
+
+model HousingAlertRule {
+  id             String   @id @default(cuid())
+  contactId      Int
+  firstName      String
+  recipientName  String
+  phone          String?
+  address        String
+  city           String
+  addressKey     String
+  marketObjectId String?
+  kind           String
+  mode           String   @default("draft")
+  state          String   @default("active")
+  template       String   @db.Text
+  note           String?  @db.Text
+  initialPrice   Int?
+  activeFrom     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  deliveries     HousingAlertDelivery[]
+
+  @@unique([contactId, addressKey, kind])
+  @@index([addressKey, state])
+  @@map("housing_alert_rules")
+}
+
+model HousingAlertEvent {
+  id               String   @id @default(cuid())
+  mailKey          String   @unique
+  sourceCode       String?
+  addressKey       String
+  address          String
+  city             String
+  status           String?
+  askingPrice      Int?
+  transactionPrice Int?
+  receivedAt       DateTime
+  createdAt        DateTime @default(now())
+  review           String?  @db.Text
+  deliveries       HousingAlertDelivery[]
+
+  @@index([addressKey, receivedAt])
+  @@index([createdAt])
+  @@map("housing_alert_events")
+}
+
+model HousingAlertDelivery {
+  attemptedAt DateTime?
+  id        String   @id @default(cuid())
+  eventId   String
+  ruleId    String
+  state     String
+  body      String   @db.Text
+  draftId   String?  @unique
+  event     HousingAlertEvent @relation(fields: [eventId], references: [id])
+  rule      HousingAlertRule @relation(fields: [ruleId], references: [id])
+  draft     FollowUpDraft? @relation(fields: [draftId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, ruleId])
+  @@map("housing_alert_deliveries")
 }

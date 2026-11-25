@@ -1,6 +1,7 @@
 "use client";
 
 import { ReferralButton } from "@/components/hypotheek/ReferralForm";
+import HousingAlerts from "@/components/woningmeldingen/HousingAlerts";
 import ContactHistory from "@/components/contacts/ContactHistory";
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
@@ -1039,6 +1040,7 @@ export default function ContactenPage() {
                 </div>
 
                 {/* Email activiteit */}
+                <HousingAlerts key={panelContact.id} contact={panelContact} />
                 <EmailActivitySection contactId={panelContact.id} />
 
                 <button

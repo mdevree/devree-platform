@@ -24,7 +24,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const conversationIds = confirmations.flatMap(c => c.waConversationId ? [c.waConversationId] : []);
   const messageIds = [...drafts.flatMap(d => d.waMessageId ? [d.waMessageId] : []), ...confirmations.flatMap(c => c.waMessageId ? [c.waMessageId] : [])];
   const messages = await prisma.waMessage.findMany({ where: { OR: [{ conversation: { mauticContactId: contactId } }, { conversation: { id: { in: conversationIds }, mauticContactId: null } }, { id: { in: messageIds }, conversation: { OR: [{ mauticContactId: contactId }, { mauticContactId: null }] } }] }, select: { id: true, body: true, direction: true, createdAt: true, deliveryStatus: true } });
-  const items: HistoryItem[] = [];
+  const alerts = await prisma.housingAlertDelivery.findMany({where:{rule:{contactId}},include:{rule:{select:{address:true}},draft:{select:{body:true}}}});
+  const items: HistoryItem[] = alerts.map(row=>({id:"woningmelding:"+row.id, at:row.createdAt.toISOString(),category:"activity",title:"Woningmelding · "+row.rule.address+" · "+({preview:"Meekijkstand",ready:"Concept",sent:"Verzonden",sending:"Wordt verzonden",uncertain:"Te controleren",handled:"Zelf doorgegeven",review:"Te controleren"}[row.state] || row.state),detail:row.draft?.body || row.body,source:"Woningmeldingen"}));
   for (const a of appointments) if (a.agbegin) items.push({ id: `appointment:${a.id}`, at: a.agbegin.toISOString(), category: "appointments", title: `${a.agtype || "Afspraak"} · ${a.agdescr || ""}`, detail: a.agstatus || undefined, source: "Agenda", appointmentId: a.id });
   const sentMessageIds = new Set(messages.map(m => m.id));
   for (const m of messages) items.push({ id: `whatsapp:${m.id}`, at: m.createdAt.toISOString(), category: "whatsapp", title: `WhatsApp ${m.direction === "OUTBOUND" ? "uitgaand" : "inkomend"}${m.deliveryStatus ? ` · ${m.deliveryStatus}` : ""}`, detail: m.body, source: "WhatsApp" });

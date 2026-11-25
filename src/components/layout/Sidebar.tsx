@@ -37,6 +37,7 @@ const navigation = [
   { name: "Kennisbank", href: "/kennisbank", icon: BookOpenIcon },
   { name: "Projecten", href: "/projecten", icon: FolderIcon },
   { name: "Debiteurencontrole", href: "/debiteurencontrole", icon: BanknotesIcon },
+  { name: "Woningmeldingen", href: "/woningmeldingen", icon: HomeIcon },
   { name: "Contacten", href: "/contacten", icon: UsersIcon },
   { name: "Nieuwsbrief", href: "/nieuwsbrief", icon: NewspaperIcon },
   { name: "Pipeline", href: "/pipeline", icon: ChartBarIcon },

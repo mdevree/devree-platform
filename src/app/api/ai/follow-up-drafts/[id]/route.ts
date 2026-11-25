@@ -12,9 +12,16 @@ export async function DELETE(
 
   const { id } = await params;
   // Retain the appointment link so automatic preparation cannot recreate it.
-  const result = await prisma.followUpDraft.updateMany({
+  const result = await prisma.$transaction(async tx => {
+    const row=await tx.housingAlertDelivery.findUnique({where:{draftId:id}});
+    if(row){
+      const cancelled=await tx.housingAlertDelivery.updateMany({where:{id:row.id,state:"ready"},data:{state:"rejected"}});
+      if(!cancelled.count) return {count:0};
+    }
+    return tx.followUpDraft.updateMany({
     where: { id, channel: "whatsapp", status: { in: ["draft", "approved", "failed"] }, sentAt: null },
     data: { status: "rejected", reviewedBy: "platform", reviewedAt: new Date() },
+  });
   });
   if (!result.count) {
     return NextResponse.json({ error: "Dit concept kan niet meer worden verwijderd. Vernieuw de lijst." }, { status: 409 });
@@ -32,8 +39,12 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
+  const match = await prisma.housingAlertDelivery.findUnique({where:{draftId:id}});
+  if(match && (match.state!=="ready" || Object.keys(body).some(k=>!["body","status","reviewedBy"].includes(k)) || (body.status && body.status!=="approved"))) {
+    return NextResponse.json({error:"Deze woningmelding kan niet zo worden gewijzigd"},{status:409});
+  }
   const draft = await prisma.followUpDraft.update({
-    where: { id, status: { notIn: ["sent", "rejected"] }, sentAt: null },
+    where: { id, ...(match ? { housingDelivery: { state:"ready" } } : {}), status: { notIn: ["sent", "rejected"] }, sentAt: null },
     data: {
       ...(typeof body.status === "string" ? { status: body.status } : {}),
       ...(typeof body.body === "string" ? { body: body.body } : {}),

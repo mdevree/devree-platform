@@ -13,6 +13,6 @@ export async function POST(
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const draft = await sendFollowUpDraft(id, body.reviewedBy || null);
-  const status = draft.status === "failed" ? 502 : 200;
+  const status = ["failed","uncertain"].includes(draft.status) ? 502 : 200;
   return NextResponse.json(draft, { status });
 }

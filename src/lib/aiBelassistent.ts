@@ -1,3 +1,4 @@
+import { claimHousingDraft } from "./housingAlertClaim";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -659,8 +660,10 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) 
   if (draft.channel !== "whatsapp") throw new Error("Alleen WhatsApp verzenden is nu ondersteund");
   if (!draft.recipientPhone) throw new Error("Geen telefoonnummer op concept");
 
-  const conversation = await openWhatsAppConversationForDraft(draft);
+  const housing = draft.purpose === "woningmelding";
+  if (housing) await claimHousingDraft(draft.id, draft.recipientPhone);
   try {
+    const conversation = await openWhatsAppConversationForDraft(draft);
     const evolutionMsgId = await sendWhatsAppMessage(conversation.waPhone, draft.body);
     const existing = evolutionMsgId
       ? await prisma.waMessage.findUnique({ where: { evolutionMsgId } })
@@ -693,6 +696,14 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) 
         deliveryError: null,
       },
     });
+    if (housing) {
+      const [updated] = await prisma.$transaction([
+        updateDraft,
+        prisma.housingAlertDelivery.update({where:{draftId:id},data:{state:"sent",body:draft.body}}),
+        prisma.housingAlertRule.updateMany({where:{kind:"sold",deliveries:{some:{draftId:id}}},data:{state:"completed"}}),
+      ]);
+      return updated;
+    }
     if (draft.purpose === "afspraak_link" && draft.agendaAfspraakId) {
       const [updatedDraft] = await prisma.$transaction([
         updateDraft,
@@ -718,6 +729,13 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) 
         : error instanceof Error
           ? error.message
           : String(error);
+    if (housing) {
+      const [updated] = await prisma.$transaction([
+        prisma.followUpDraft.update({where:{id},data:{status:"uncertain",deliveryError:detail}}),
+        prisma.housingAlertDelivery.update({where:{draftId:id},data:{state:"uncertain"}}),
+      ]);
+      return updated;
+    }
     return prisma.followUpDraft.update({
       where: { id },
       data: { status: "failed", deliveryError: detail },

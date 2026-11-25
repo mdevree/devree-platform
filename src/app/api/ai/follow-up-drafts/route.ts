@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status") || "active";
   const limit = Math.min(parseInt(searchParams.get("limit") || "100", 10), 200);
   const drafts = await prisma.followUpDraft.findMany({
-    where:
+    where: searchParams.get("id") ? { id: searchParams.get("id")! } :
       status === "alle"
         ? {}
         : status === "active"
