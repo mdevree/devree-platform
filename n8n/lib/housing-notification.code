@@ -10,7 +10,7 @@ function notification(source) {
   else if (from !== "no-reply@realworks.nl") return null;
   if (!/^Notificatie voor uitwisseling object:/i.test(subject)) return null;
   const html = String(source.textHtml || source.html || "");
-  const decode = s => s.replace(/&nbsp;|&#160;/gi," ").replace(/&euro;|&#8364;/gi,"€").replace(/&amp;/gi,"&").replace(/&#39;|&apos;/gi,"'").replace(/&quot;/gi,'"');
+  const decode = s => s.replace(/\u00e2(?:\u0082|\u201a)\u00ac/g,"€").replace(/&nbsp;|&#160;/gi," ").replace(/&euro;|&#8364;/gi,"€").replace(/&amp;/gi,"&").replace(/&#39;|&apos;/gi,"'").replace(/&quot;/gi,'"');
   const text = decode(String(source.textPlain || source.text || "").trim() || html.replace(/<[^>]+>/g," ")).replace(/\s+/g," ").trim();
   const messageId = String(meta["message-id"] || source.messageId || "").trim();
   const date = new Date(source.date || meta.date || meta["delivery-date"]);

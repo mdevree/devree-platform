@@ -99,6 +99,9 @@ test("n8n herkent de twee invoerroutes, bewaart mail-ID en selecteert alleen de 
   assert.equal(mail.verified, true);
   assert.equal(mail.messageId, "<fixture>");
   assert.equal(mail.text, "Test € 377.500");
+  for (const euro of ["\u00e2\u0082\u00ac", "\u00e2\u201a\u00ac"]) {
+    assert.equal(apply({...record, textHtml:"Test "+euro+" 377.500"})[0].json.text, "Test € 377.500");
+  }
   assert.equal(
     apply({
       ...record,
