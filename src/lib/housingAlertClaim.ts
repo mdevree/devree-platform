@@ -8,7 +8,7 @@ export function eligiblePilot(phone: string | null) {
   return !!pilot && !!phone && toWhatsAppJid(pilot) === toWhatsAppJid(phone);
 }
 // Both the operator's send button and automatic delivery acquire this same claim.
-export async function claimHousingDraft(draftId: string, phone: string, search = false) {
+export async function claimHousingDraft(draftId: string, phone: string, search = false, expectedUpdatedAt?: Date) {
   const match = await prisma.housingAlertDelivery.findUniqueOrThrow({
     where: { draftId },
     include: { rule: true },
@@ -33,7 +33,7 @@ export async function claimHousingDraft(draftId: string, phone: string, search =
       id: match.id,
       state: "ready",
       rule: { state: "active", ...(search ? {kind: "listing", mode: "draft", activeFrom: {lte: match.createdAt}} : {}) },
-      draft: { status: { in: search ? ["approved"] : ["draft", "approved"] }, sentAt: null },
+      draft: { status: { in: search ? ["approved"] : ["draft", "approved"] }, sentAt: null, updatedAt: expectedUpdatedAt },
     },
     data: { state: "sending", attemptedAt: new Date() },
   });

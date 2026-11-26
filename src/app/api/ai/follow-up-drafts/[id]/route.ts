@@ -44,7 +44,7 @@ export async function PATCH(
     return NextResponse.json({error:"Deze woningmelding kan niet zo worden gewijzigd"},{status:409});
   }
   const draft = await prisma.followUpDraft.update({
-    where: { id, ...(match ? { housingDelivery: { state:"ready" } } : {}), status: { notIn: ["sent", "rejected"] }, sentAt: null },
+    where: { id, ...(match ? { housingDelivery: { state:"ready" } } : {}), status: { in: ["draft", "approved", "failed"] }, sentAt: null },
     data: {
       ...(typeof body.status === "string" ? { status: body.status } : {}),
       ...(typeof body.body === "string" ? { body: body.body } : {}),

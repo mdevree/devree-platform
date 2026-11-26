@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -47,6 +48,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = (user as { role: string }).role;
+        token.pushSessionId = randomUUID();
       }
       return token;
     },
@@ -55,7 +57,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role as string;
       }
+      session.pushSessionId = typeof token.pushSessionId === "string" ? token.pushSessionId : undefined;
       return session;
+    },
+  },
+  events: {
+    async signOut(message) {
+      if ("token" in message && typeof message.token?.id === "string" && typeof message.token.pushSessionId === "string") {
+        await prisma.waDraftPushDevice.deleteMany({
+          where: { userId: message.token.id, sessionId: message.token.pushSessionId },
+        });
+      }
     },
   },
   pages: {

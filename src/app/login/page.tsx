@@ -1,6 +1,7 @@
 "use client";
 
 import { draftReviewPath, validDraftId } from "@/lib/listingSearch";
+import { whatsappDraftPath } from "@/lib/whatsappDraftLinks";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -27,8 +28,13 @@ export default function LoginPage() {
       setError("Onjuiste e-mail of wachtwoord");
       setLoading(false);
     } else {
-      const draft = new URLSearchParams(window.location.search).get("concept");
-      router.push(validDraftId(draft) ? draftReviewPath(draft) : "/");
+      const params = new URLSearchParams(window.location.search);
+      const draft = params.get("concept");
+      const whatsappDraft = params.get("whatsappConcept") ?? undefined;
+      const destination = params.get("whatsappConcepten") === "1"
+        ? whatsappDraftPath(whatsappDraft)
+        : validDraftId(draft) ? draftReviewPath(draft) : "/";
+      router.push(destination);
       router.refresh();
     }
   }

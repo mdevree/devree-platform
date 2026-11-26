@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { searchContactByPhone, createContact, addContactPoints } from "@/lib/mautic";
 import { normalizePhoneNumber } from "@/lib/phone";
 import { normalizeWhatsAppMessageId } from "@/lib/whatsapp-message-id";
+import { processWahaReplyEvent } from "@/lib/whatsappReplies";
+import { getWahaReplyEvent, isWhatsAppReplyEnabled } from "@/lib/whatsappReplyEvents";
 
 // Zet WHATSAPP_WEBHOOK_DEBUG=1 om binnenkomende events gestructureerd te loggen
 // (event-type, afzender, secret-match) tijdens het diagnosticeren van de inbox.
@@ -287,6 +289,17 @@ export async function POST(req: NextRequest) {
   if (msg.fromMe && providerMsgId) {
     await applyReceipt(providerMsgId);
     await reconcilePbxOutgoing(waPhone, bodyText, providerMsgId, conversation.id);
+  }
+  if (isWhatsAppReplyEnabled("office") && expectedSecret && process.env.WHATSAPP_PROVIDER === "waha") {
+    const replyEvent = getWahaReplyEvent(body);
+    if (replyEvent?.session === (process.env.WAHA_SESSION || "default")) {
+      try {
+        await processWahaReplyEvent("office", replyEvent, conversation);
+      } catch {
+        console.error("Kantoor-WhatsApp-concept tijdelijk niet verwerkt");
+        return NextResponse.json({ error: "Concept tijdelijk niet verwerkt" }, { status: 503 });
+      }
+    }
   }
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthorized } from "@/lib/apiAuth";
 import { sendWhatsAppMessage, WhatsAppError } from "@/lib/whatsapp";
+import { closeOfficeWhatsAppReplyDraft } from "@/lib/whatsappReplies";
+import { auth } from "@/lib/auth";
+import { isWhatsAppReplyEnabled } from "@/lib/whatsappReplyEvents";
 
 export async function POST(
   req: NextRequest,
@@ -23,7 +26,9 @@ export async function POST(
     return NextResponse.json({ error: "Gesprek niet gevonden" }, { status: 404 });
   }
 
+  const manualReply = isWhatsAppReplyEnabled("office") && !!await auth();
   let evolutionMsgId: string | null = null;
+  const coveredThrough = new Date();
   try {
     evolutionMsgId = await sendWhatsAppMessage(conversation.waPhone, message);
   } catch (err) {
@@ -81,5 +86,10 @@ export async function POST(
     data: { lastMessageAt: new Date() },
   });
 
+  if (evolutionMsgId && manualReply) {
+    await closeOfficeWhatsAppReplyDraft(conversation.waPhone, coveredThrough).catch(() => {
+      console.error("Kantoor-WhatsApp-concept kon niet direct worden afgehandeld");
+    });
+  }
   return NextResponse.json(saved);
 }

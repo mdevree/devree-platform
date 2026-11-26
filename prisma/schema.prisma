@@ -1404,6 +1404,65 @@ model WaMessage {
   @@map("wa_messages")
 }
 
+model WaReplyThread {
+  id                 String   @id @db.VarChar(64)
+  account            String   @db.VarChar(12)
+  chatId             String   @db.VarChar(40)
+  lid                String?  @db.VarChar(40)
+  activeDraftId      String?
+  lastReplyAt        DateTime?
+  createdAt          DateTime @default(now())
+  events             WaReplyEvent[]
+  drafts             WaReplyDraft[]
+
+  @@unique([account, lid])
+  @@map("wa_reply_threads")
+}
+
+model WaReplyEvent {
+  id                String        @id @default(cuid())
+  threadId          String        @db.VarChar(64)
+  thread            WaReplyThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  providerMessageId String        @db.VarChar(191)
+  receivedAt        DateTime
+  body              String?       @db.Text
+
+  @@unique([threadId, providerMessageId])
+  @@index([threadId, receivedAt])
+  @@index([receivedAt])
+  @@map("wa_reply_events")
+}
+
+model WaReplyDraft {
+  id                String        @id @default(cuid())
+  threadId          String        @db.VarChar(64)
+  thread            WaReplyThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  account           String        @db.VarChar(12)
+  ownerUserId       String?
+  conversationId    String?
+  mauticContactId   Int?
+  recipientName     String?
+  sourceAt          DateTime
+  status            String        @default("pending") @db.VarChar(12)
+  revision          Int           @default(1)
+  readyAt           DateTime?
+  nextAttempt       DateTime?
+  claim             String?       @db.VarChar(36)
+  attempts          Int           @default(0)
+  body              String?       @db.Text
+  summary           String?       @db.Text
+  edited            Boolean       @default(false)
+  sentAt            DateTime?
+  providerMessageId String?       @db.VarChar(191)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([account, status, readyAt])
+  @@index([ownerUserId, status])
+  @@index([status, nextAttempt])
+  @@map("wa_reply_drafts")
+}
+
 model RealworksTask {
   id                  String    @id @default(cuid())
   taskType            String // "write_field"
@@ -1979,4 +2038,37 @@ model ListingSearchJob {
   @@unique([ruleId, exchangeObjectId])
   @@index([stage, nextAttempt])
   @@map("listing_search_jobs")
+}
+
+model WaDraftPushDevice {
+  id             String   @id @db.VarChar(36)
+  userId         String
+  sessionId      String   @db.VarChar(36)
+  token          String   @db.VarChar(256)
+  environment    String   @db.VarChar(11)
+  publicKey      String   @db.VarChar(44)
+  officeSince    DateTime?
+  personalSince  DateTime?
+  updatedAt      DateTime @updatedAt
+  deliveries     WaDraftPushDelivery[]
+
+  @@unique([environment, token])
+  @@index([userId, sessionId])
+  @@map("wa_draft_push_devices")
+}
+
+model WaDraftPushDelivery {
+  id          String   @id @default(cuid())
+  deviceId    String   @db.VarChar(36)
+  device      WaDraftPushDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  draftRef    String   @db.VarChar(130)
+  state       String   @default("pending") @db.VarChar(10)
+  attempts    Int      @default(0)
+  nextTry     DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([deviceId, draftRef])
+  @@index([state, nextTry])
+  @@index([createdAt])
+  @@map("wa_draft_push_deliveries")
 }

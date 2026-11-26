@@ -1,7 +1,7 @@
 import { normalizeWhatsAppMessageId } from "./whatsapp-message-id";
 
 export class WhatsAppError extends Error {
-  constructor(message: string, readonly detail?: string) {
+  constructor(message: string, readonly detail?: string, readonly status?: number) {
     super(message);
     this.name = "WhatsAppError";
   }
@@ -95,15 +95,17 @@ async function sendViaEvolution(
 
 async function sendViaWaha(
   waPhone: string,
-  message: string
+  message: string,
+  personal = false,
 ): Promise<string | null> {
-  const apiUrl = process.env.WAHA_API_URL;
-  const apiKey = process.env.WAHA_API_KEY;
-  const session = process.env.WAHA_SESSION || "default";
+  const apiUrl = personal ? process.env.WAHA_PERSONAL_API_URL : process.env.WAHA_API_URL;
+  const apiKey = personal ? process.env.WAHA_PERSONAL_API_KEY : process.env.WAHA_API_KEY;
+  const session = personal ? process.env.WAHA_PERSONAL_SESSION : process.env.WAHA_SESSION || "default";
 
   const missing = [
     !apiUrl && "WAHA_API_URL",
     !apiKey && "WAHA_API_KEY",
+    !session && "WAHA_PERSONAL_SESSION",
   ].filter(Boolean);
   if (missing.length > 0) {
     throw new WhatsAppError(
@@ -111,6 +113,9 @@ async function sendViaWaha(
     );
   }
   const baseUrl = apiUrl!.replace(/\/$/, "");
+  if (personal && baseUrl === process.env.WAHA_API_URL?.replace(/\/$/, "")) {
+    throw new WhatsAppError("Persoonlijke WhatsApp heeft een eigen WAHA-server nodig.", undefined, 400);
+  }
 
   const timeout = withTimeout();
   let res: Response;
@@ -144,7 +149,8 @@ async function sendViaWaha(
     const detail = await res.text().catch(() => "");
     throw new WhatsAppError(
       `WAHA API fout: ${res.status} ${res.statusText}`,
-      detail
+      personal ? undefined : detail,
+      res.status,
     );
   }
 
@@ -160,4 +166,8 @@ export async function sendWhatsAppMessage(
   return getProvider() === "waha"
     ? sendViaWaha(waPhone, message)
     : sendViaEvolution(waPhone, message);
+}
+
+export function sendPersonalWhatsAppMessage(waPhone: string, message: string) {
+  return sendViaWaha(waPhone, message, true);
 }

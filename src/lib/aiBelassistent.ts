@@ -653,11 +653,20 @@ export async function createDraftsFromCallResult(resultId: string) {
   return drafts;
 }
 
-export async function sendFollowUpDraft(id: string, reviewedBy?: string | null, approvedBySession?: string | null) {
+export class FollowUpDraftConflict extends Error {}
+
+export async function sendFollowUpDraft(
+  id: string,
+  reviewedBy?: string | null,
+  approvedBySession?: string | null,
+  expectedUpdatedAt?: Date,
+) {
   const draft = await prisma.followUpDraft.findUnique({ where: { id } });
   if (!draft) throw new Error("Concept niet gevonden");
-  if (draft.status === "rejected") throw new Error("Dit concept is verwijderd");
-  if (draft.status === "sent" || draft.sentAt) throw new Error("Dit concept is al verzonden");
+  if (!["draft", "approved", "failed"].includes(draft.status) || draft.sentAt ||
+      (expectedUpdatedAt && draft.updatedAt.getTime() !== expectedUpdatedAt.getTime())) {
+    throw new FollowUpDraftConflict("Dit concept is inmiddels gewijzigd of verwerkt.");
+  }
   if (draft.channel !== "whatsapp") throw new Error("Alleen WhatsApp verzenden is nu ondersteund");
   if (!draft.recipientPhone) throw new Error("Geen telefoonnummer op concept");
 
@@ -665,9 +674,19 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null, 
   if (search && (approvedBySession?.toLowerCase() !== reviewEmail || draft.status !== "approved"))
     throw new Error("Melvin moet het concept eerst goedkeuren");
   const housing = search || draft.purpose === "woningmelding";
-  if (housing) await claimHousingDraft(draft.id, draft.recipientPhone, search);
+  if (housing) {
+    await claimHousingDraft(draft.id, draft.recipientPhone, search, draft.updatedAt);
+  } else {
+    const claim = await prisma.followUpDraft.updateMany({
+      where: { id, status: draft.status, updatedAt: draft.updatedAt, sentAt: null },
+      data: { status: "sending" },
+    });
+    if (!claim.count) throw new FollowUpDraftConflict("Dit concept wordt al verwerkt of is gewijzigd.");
+  }
+  let sendAttempted = false;
   try {
     const conversation = await openWhatsAppConversationForDraft(draft);
+    sendAttempted = true;
     const evolutionMsgId = await sendWhatsAppMessage(conversation.waPhone, draft.body);
     const existing = evolutionMsgId
       ? await prisma.waMessage.findUnique({ where: { evolutionMsgId } })
@@ -742,7 +761,7 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null, 
     }
     return prisma.followUpDraft.update({
       where: { id },
-      data: { status: "failed", deliveryError: detail },
+      data: { status: sendAttempted ? "uncertain" : "failed", deliveryError: detail },
     });
   }
 }

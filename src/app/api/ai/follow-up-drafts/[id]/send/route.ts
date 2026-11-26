@@ -3,7 +3,7 @@ import { reviewEmail } from "@/lib/listingSearch";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAuthorized } from "@/lib/apiAuth";
-import { sendFollowUpDraft } from "@/lib/aiBelassistent";
+import { FollowUpDraftConflict, sendFollowUpDraft } from "@/lib/aiBelassistent";
 
 export async function POST(
   req: NextRequest,
@@ -24,7 +24,14 @@ export async function POST(
     if (record.status !== "approved")
       return NextResponse.json({error: "Keur eerst de berichttekst goed"}, {status: 409});
   }
-  const draft = await sendFollowUpDraft(id, body.reviewedBy || null, approver);
-  const status = ["failed","uncertain"].includes(draft.status) ? 502 : 200;
-  return NextResponse.json(draft, { status });
+  try {
+    const draft = await sendFollowUpDraft(id, body.reviewedBy || null, approver);
+    const status = ["failed", "uncertain"].includes(draft.status) ? 502 : 200;
+    return NextResponse.json(draft, { status });
+  } catch (error) {
+    if (error instanceof FollowUpDraftConflict) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
 }

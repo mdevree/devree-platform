@@ -1,0 +1,23 @@
+services:
+  waha-personal:
+    image: ${WAHA_PERSONAL_IMAGE:-devlikeapro/waha:noweb}
+    ports:
+      - "127.0.0.1:3103:3000"
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WAHA_API_KEY: ${WAHA_PERSONAL_API_KEY:?Set the separate personal WAHA API key}
+      WAHA_EVENTS_DOWNLOAD_MEDIA: "false"
+      WAHA_API_DOWNLOAD_MEDIA: "false"
+      WAHA_SESSION_CONFIG_IGNORE_STATUS: "true"
+      WAHA_SESSION_CONFIG_IGNORE_GROUPS: "true"
+      WAHA_SESSION_CONFIG_IGNORE_CHANNELS: "true"
+      WAHA_SESSION_CONFIG_IGNORE_BROADCAST: "true"
+      WAHA_DASHBOARD_ENABLED: "false"
+      WHATSAPP_SWAGGER_ENABLED: "false"
+      WAHA_LOG_LEVEL: "warn"
+    volumes:
+      - waha-personal-sessions:/app/.sessions
+    restart: unless-stopped
+
+volumes:
+  waha-personal-sessions:
