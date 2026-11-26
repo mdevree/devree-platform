@@ -126,7 +126,7 @@ test(
     assert.match(draft.body, /Beverveen 25 in Spijkenisse/);
     assert.equal(mail.length, 1);
     assert.equal(mail[0].to, reviewEmail);
-    assert.ok(String(mail[0].text).includes("draft=" + draft.id));
+    assert.ok(String(mail[0].text).includes("/zoekmelding/" + draft.id));
     await assert.rejects(
       sendFollowUpDraft(draft.id, null, reviewEmail),
       /goedkeuren/,

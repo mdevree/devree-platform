@@ -35,3 +35,11 @@ export function withinRadius(
 ) {
   return Math.hypot(center.x - point.x, center.y - point.y) <= meters;
 }
+
+export function validDraftId(value: string | null): value is string {
+  return !!value && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
+}
+
+export function draftReviewPath(id: string) {
+  return "/digitale-medewerker?tab=concepten&draft=" + encodeURIComponent(id) + "#concept-" + encodeURIComponent(id);
+}

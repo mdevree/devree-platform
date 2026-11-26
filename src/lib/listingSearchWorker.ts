@@ -155,12 +155,9 @@ async function notify(job: Job, sendMail: SendOfficeMail) {
   });
   if (!delivery?.draft) return;
   const url = new URL(
-    "/digitale-medewerker",
+    "/zoekmelding/" + encodeURIComponent(job.draftId),
     process.env.PLATFORM_BASE_URL || "https://kantoor.devreemakelaardij.nl",
   );
-  url.searchParams.set("tab", "concepten");
-  url.searchParams.set("draft", job.draftId);
-  url.hash = "concept-" + job.draftId;
   await sendMail({
     from: "De Vree Makelaardij <info@devreemakelaardij.nl>",
     to: reviewEmail,

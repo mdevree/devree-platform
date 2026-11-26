@@ -1,5 +1,6 @@
 "use client";
 
+import { draftReviewPath, validDraftId } from "@/lib/listingSearch";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -26,7 +27,8 @@ export default function LoginPage() {
       setError("Onjuiste e-mail of wachtwoord");
       setLoading(false);
     } else {
-      router.push("/");
+      const draft = new URLSearchParams(window.location.search).get("concept");
+      router.push(validDraftId(draft) ? draftReviewPath(draft) : "/");
       router.refresh();
     }
   }
