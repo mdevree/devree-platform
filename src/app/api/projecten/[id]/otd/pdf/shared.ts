@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const DEFAULT_GOTENBERG_URL = "http://127.0.0.1:3050";
+export { renderPdf } from "@/lib/renderPdf";
 let cachedLogoDataUri: string | null = null;
 
 export function escapeHtml(value: unknown): string {
@@ -33,24 +33,6 @@ export function slugPart(value: string | null | undefined): string {
 export function euro(value: number | null | undefined): string {
   if (value === null || value === undefined) return "________";
   return `€ ${value.toLocaleString("nl-NL")},-`;
-}
-
-export async function renderPdf(html: string): Promise<Buffer> {
-  const gotenbergUrl = (process.env.GOTENBERG_URL || DEFAULT_GOTENBERG_URL).replace(/\/$/, "");
-  const form = new FormData();
-  form.append("files", new Blob([html], { type: "text/html" }), "index.html");
-  form.append("preferCssPageSize", "true");
-
-  const res = await fetch(`${gotenbergUrl}/forms/chromium/convert/html`, {
-    method: "POST",
-    body: form,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Gotenberg PDF-generatie mislukt (${res.status}): ${await res.text()}`);
-  }
-
-  return Buffer.from(await res.arrayBuffer());
 }
 
 export type Opdrachtgever = {

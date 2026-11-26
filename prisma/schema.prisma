@@ -170,6 +170,7 @@ model Project {
   aankoopWerkgebied           String? @db.Text
 
   // Relaties
+  etalage             ProjectEtalage?
   contacts            ProjectContact[]
   proposals           ProjectProposal[]
   debiteurenLink      ProjectDebiteurenLink?
@@ -196,6 +197,15 @@ model Project {
   @@index([realworksProjectSystemId])
   @@index([hypotheekAdviseurId])
   @@map("projects")
+}
+
+model ProjectEtalage {
+  projectId String  @id
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revision  Int     @default(1)
+  document  Json
+
+  @@map("project_etalages")
 }
 
 model ProjectProposal {

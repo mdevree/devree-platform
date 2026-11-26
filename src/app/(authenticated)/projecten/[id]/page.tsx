@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { LijstVanZaken } from "@/components/projecten/LijstVanZaken";
 import ProjectSocial from "@/components/social/ProjectSocial";
 import CancelProject from "@/components/projects/CancelProject";
@@ -3495,6 +3496,13 @@ export default function ProjectDetailPage() {
       {/* ===== WONING TAB ===== */}
       {activeTab === "woning" && (
         <div>
+          {project.type === "VERKOOP" && (
+            <div className="mb-4">
+              <Link href={`/projecten/${project.id}/etalage`} className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">
+                Etalageblad maken
+              </Link>
+            </div>
+          )}
           <LijstVanZaken projectId={project.id} />
           {/* Geen Realworks ID ingesteld */}
           {!project.realworksId ? (
