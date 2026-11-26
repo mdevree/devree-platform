@@ -151,7 +151,11 @@ export function parseRealworksMutationEmailHtml(html: string): ParsedRealworksMu
     const mutationLabel =
       rawText.match(/(Aangemeld per \d{2}-\d{2}-\d{4}|Verkocht \/ Verhuurd per \d{2}-\d{2}-\d{4}|Ingetrokken per \d{2}-\d{2}-\d{4}|Prijswijziging)/)?.[1] ??
       section;
-    const typeMatch = block.match(/<td[^>]*>\s*<b>([^<]+)<\/b>\s*(?:\(([^)]+)\))?/i);
+    // The first bold cell contains the mutation date. The type is in the last
+    // populated cell of the same header row, including for garages without a number.
+    const header = block.match(/<tr\b[^>]*>([\s\S]*?)<\/tr>/i)?.[1] || "";
+    const cells = Array.from(header.matchAll(/<b>([^<]+)<\/b>\s*(?:\(([^)<]+)\))?/gi));
+    const typeMatch = cells.length > 1 ? cells.at(-1) : null;
     const brokerEmail = htmlToText(block.match(/mailto:([^"'>\s]+)/i)?.[1] ?? "") || null;
     const brokerLine = htmlToText(block.match(/<div style="font-size:10px;"[^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "");
     const imageUrl = decodeHtml(block.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ?? "") || null;

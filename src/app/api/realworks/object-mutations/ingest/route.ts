@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { reconcileEnergyLabels } from "@/lib/energyLabels";
 import { parseRealworksMutationEmailHtml } from "@/lib/realworksMutations";
 import { recalculateActionOpportunities } from "@/lib/actionOpportunities";
+import { queueListingMatches } from "@/lib/listingSearchQueue";
 import { upsertMarketObjectFromRealworksMutation } from "@/lib/marketObjects";
 
 function jsonValue(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     });
 
     await prisma.$transaction(async (tx) => {
-      await tx.realworksObjectMutation.upsert({
+      const row = await tx.realworksObjectMutation.upsert({
         where: {
           sourceMessageId_exchangeObjectId_mutationType: {
             sourceMessageId,
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      await queueListingMatches(tx, row);
       await upsertMarketObjectFromRealworksMutation(tx, mutation, {
         sourceMessageId,
         sourceSubject,

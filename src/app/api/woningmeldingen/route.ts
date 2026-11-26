@@ -4,6 +4,8 @@ import { isAuthorized } from "@/lib/apiAuth";
 import { prisma } from "@/lib/prisma";
 import { toWhatsAppJid } from "@/lib/phone";
 import { getContact } from "@/lib/mautic";
+import { listingTypes } from "@/lib/listingSearch";
+import { areaCenter } from "@/lib/listingGeography";
 import { liveAlerts } from "@/lib/housingAlertClaim";
 import {
   addressKey,
@@ -115,19 +117,77 @@ export async function POST(req: NextRequest) {
     return error("Controleer de regel en berichttekst");
   const contact = await getContact(b.contactId);
   if (!contact) return error("Contact niet gevonden", 404);
-  const object = b.marketObjectId
-    ? await prisma.marketObject.findUnique({
-        where: { id: String(b.marketObjectId) },
-        select: objectFields,
-      })
-    : null;
-  if (b.marketObjectId && !object) return error("Woning niet gevonden");
-  const address = (
-    object ? formatAddress(object) : String(b.address || "")
-  ).trim();
+  const search = b.kind === "listing";
+  let criteria;
+  if (search) {
+    if (
+      b.mode !== "draft" ||
+      typeof b.searchType !== "string" ||
+      !Object.hasOwn(listingTypes, b.searchType) ||
+      typeof b.area !== "string" ||
+      !b.area.trim() ||
+      b.area.length > 80 ||
+      typeof b.city !== "string" ||
+      !b.city.trim() ||
+      b.city.length > 80 ||
+      !Number.isInteger(b.radiusMeters) ||
+      b.radiusMeters < 100 ||
+      b.radiusMeters > 20000
+    )
+      return error(
+        "Kies een objectsoort, plaats, wijk en straal van 0,1 tot 20 km",
+      );
+    if (!toWhatsAppJid(contact.mobile || contact.phone || ""))
+      return error("Voeg eerst een geldig WhatsApp-nummer toe aan dit contact");
+    if (/\{(?:vorigevraagprijs|transactieprijs)\}/.test(b.template))
+      return error(
+        "Een nieuwe aanmelding bevat geen vorige vraagprijs of transactieprijs",
+      );
+    const area = b.area.trim();
+    let center;
+    try {
+      center = await areaCenter(area, b.city.trim());
+    } catch {
+      return error("PDOK is tijdelijk onbereikbaar. Probeer het opnieuw.", 503);
+    }
+    if (!center)
+      return error("Wijk of buurt niet eenduidig gevonden bij deze plaats");
+    criteria = {
+      searchType: b.searchType as keyof typeof listingTypes,
+      area,
+      radiusMeters: b.radiusMeters as number,
+      centerX: center.x,
+      centerY: center.y,
+    };
+  }
+  const object =
+    !search && b.marketObjectId
+      ? await prisma.marketObject.findUnique({
+          where: { id: String(b.marketObjectId) },
+          select: objectFields,
+        })
+      : null;
+  if (!search && b.marketObjectId && !object)
+    return error("Woning niet gevonden");
+  const address = criteria
+    ? listingTypes[criteria.searchType] +
+      " · " +
+      criteria.area +
+      " · " +
+      (criteria.radiusMeters / 1000).toLocaleString("nl-NL") +
+      " km"
+    : (object ? formatAddress(object) : String(b.address || "")).trim();
   const city = (object ? object.city || "" : String(b.city || "")).trim();
-  const key = addressKey(address, city);
-  if (!usableAddress(address, city) || key.length > 191)
+  const key = criteria
+    ? [
+        "zoek",
+        city.toLowerCase(),
+        criteria.searchType,
+        criteria.area.toLowerCase(),
+        criteria.radiusMeters,
+      ].join("|")
+    : addressKey(address, city);
+  if ((!search && !usableAddress(address, city)) || key.length > 191)
     return error("Vul straat, huisnummer, eventuele toevoeging en plaats in");
   const firstName = contact.firstname || "";
   try {
@@ -138,6 +198,7 @@ export async function POST(req: NextRequest) {
   try {
     const rule = await prisma.housingAlertRule.create({
       data: {
+        ...criteria,
         contactId: contact.id,
         firstName,
         recipientName: [firstName, contact.lastname].filter(Boolean).join(" "),

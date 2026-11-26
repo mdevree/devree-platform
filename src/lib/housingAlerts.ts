@@ -1,4 +1,5 @@
 export const alertLabels = {
+  listing: "Nieuw passend aanbod",
   sold: "Verkocht",
   conditional: "Verkocht onder voorbehoud",
   bid: "Onder bod",
@@ -7,6 +8,7 @@ export const alertLabels = {
 };
 export type AlertKind = keyof typeof alertLabels;
 export const templates: Record<AlertKind, string> = {
+  listing: "Hoi {voornaam}, ik zag nieuw aanbod aan {adres} in {plaats} dat bij je zoekwens past. Zal ik de gegevens voor je opvragen? Groet, Melvin",
   sold: "Hoi {voornaam}, zoals afgesproken laat ik je weten dat {adres} is verkocht voor {transactieprijs}. Groet, Melvin",
   conditional:
     "Hoi {voornaam}, {adres} is inmiddels verkocht onder voorbehoud. Groet, Melvin",

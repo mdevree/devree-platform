@@ -732,7 +732,7 @@ export default function AiBelassistentDashboard() {
                       className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60"
                     >
                       <PaperAirplaneIcon className="h-4 w-4" />
-                      Verzenden
+                      {draft.purpose === "zoekmelding" ? "Goedkeuren en verzenden" : "Verzenden"}
                     </button>
                   </div>
                 )}

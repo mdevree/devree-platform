@@ -795,6 +795,8 @@ model RealworksObjectMutation {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  listingSearchJobs ListingSearchJob[]
+
   @@unique([sourceMessageId, exchangeObjectId, mutationType], map: "rw_mutation_message_object_type_key")
   @@index([exchangeObjectId], map: "rw_mutation_object_idx")
   @@index([mutationType], map: "rw_mutation_type_idx")
@@ -1911,6 +1913,12 @@ model HousingAlertRule {
   activeFrom     DateTime @default(now())
   createdAt      DateTime @default(now())
   deliveries     HousingAlertDelivery[]
+  searchType     String?
+  area           String?
+  radiusMeters   Int?
+  centerX        Float?
+  centerY        Float?
+  searchJobs     ListingSearchJob[]
 
   @@unique([contactId, addressKey, kind])
   @@index([addressKey, state])
@@ -1952,4 +1960,23 @@ model HousingAlertDelivery {
 
   @@unique([eventId, ruleId])
   @@map("housing_alert_deliveries")
+}
+
+// Durably ties each new listing to the agreement that was active on arrival.
+model ListingSearchJob {
+  id               String   @id @default(cuid())
+  ruleId           String
+  mutationId       String
+  exchangeObjectId String
+  stage            String   @default("match")
+  nextAttempt      DateTime @default(now())
+  claim            String?
+  error            String?
+  draftId          String?
+  rule             HousingAlertRule @relation(fields: [ruleId], references: [id])
+  mutation         RealworksObjectMutation @relation(fields: [mutationId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, exchangeObjectId])
+  @@index([stage, nextAttempt])
+  @@map("listing_search_jobs")
 }

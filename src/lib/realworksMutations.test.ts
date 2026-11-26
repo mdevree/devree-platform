@@ -38,6 +38,8 @@ test("parseert Realworks mutatiemail objectregels", () => {
   assert.equal(mutation.mutationType, "new");
   assert.equal(mutation.addressRaw, "Rozenburg, De Plataan 11 , 3181 AB");
   assert.equal(mutation.askingPrice, 429500);
+  assert.equal(mutation.objectKind, "Woonhuis");
+  assert.equal(mutation.objectSubType, "Eengezinswoning");
   assert.equal(mutation.livingArea, 131);
   assert.equal(mutation.bedrooms, 4);
 });

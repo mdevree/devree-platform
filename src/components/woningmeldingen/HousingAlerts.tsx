@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { listingTypes } from "@/lib/listingSearch";
 import Link from "next/link";
 import {
   alertLabels,
@@ -90,12 +91,16 @@ function RuleForm({ contact, saved }: { contact: Contact; saved: () => void }) {
     [mode, setMode] = useState("draft"),
     [template, setTemplate] = useState(templates.sold),
     [note, setNote] = useState("");
+  const [searchType, setSearchType] = useState("garage");
+  const [area, setArea] = useState("");
+  const [km, setKm] = useState("1");
+  const search = kind === "listing";
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
-      if (address.trim().length < 2 || chosen) {
+      if (search || address.trim().length < 2 || chosen) {
         setHouses([]);
         return;
       }
@@ -111,13 +116,13 @@ function RuleForm({ contact, saved }: { contact: Contact; saved: () => void }) {
       active = false;
       clearTimeout(timer);
     };
-  }, [address, chosen]);
+  }, [address, chosen, search]);
   let example = "";
   try {
     example = previewAlert(
       template,
       contact.firstname || "",
-      address || "Voorbeeldstraat 10",
+      (!search && address) || "Voorbeeldstraat 10",
       city || "Spijkenisse",
     );
   } catch (e) {
@@ -137,7 +142,10 @@ function RuleForm({ contact, saved }: { contact: Contact; saved: () => void }) {
             address,
             city,
             kind,
-            mode,
+            mode: search ? "draft" : mode,
+            searchType,
+            area,
+            radiusMeters: Math.round(Number(km) * 1000),
             template,
             note,
           });
@@ -149,47 +157,6 @@ function RuleForm({ contact, saved }: { contact: Contact; saved: () => void }) {
         }
       }}
     >
-      <label className="block">
-        Straat en huisnummer met toevoeging
-        <input
-          required
-          className={field}
-          value={address}
-          onChange={(e) => {
-            setAddress(e.target.value);
-            setChosen("");
-          }}
-        />
-      </label>
-      {houses.length > 0 && (
-        <ul className="max-h-40 overflow-y-auto border">
-          {houses.map((h) => (
-            <li key={h.id}>
-              <button
-                type="button"
-                className="w-full p-2 text-left hover:bg-gray-100"
-                onClick={() => {
-                  setAddress(h.address);
-                  setCity(h.city);
-                  setChosen(h.id);
-                }}
-              >
-                {h.address}, {h.city}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <label className="block">
-        Plaats
-        <input
-          required
-          className={field}
-          value={city}
-          readOnly={!!chosen}
-          onChange={(e) => setCity(e.target.value)}
-        />
-      </label>
       <label className="block">
         Wanneer
         <select
@@ -208,17 +175,114 @@ function RuleForm({ contact, saved }: { contact: Contact; saved: () => void }) {
           ))}
         </select>
       </label>
+      {search ? (
+        <>
+          <label className="block">
+            Objectsoort
+            <select
+              className={field}
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value)}
+            >
+              {Object.entries(listingTypes).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            Wijk of buurt
+            <input
+              className={field}
+              required
+              maxLength={80}
+              placeholder="Bijvoorbeeld Waterland"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+            />
+          </label>
+          <label className="block">
+            Straal vanaf het wijkcentrum (km)
+            <input
+              className={field}
+              type="number"
+              min="0.1"
+              max="20"
+              step="0.1"
+              required
+              value={km}
+              onChange={(e) => setKm(e.target.value)}
+            />
+          </label>
+          <p>
+            De afstand wordt bepaald aan de hand van de postcode van het aanbod
+            binnen de gekozen plaats.
+          </p>
+        </>
+      ) : (
+        <>
+          <label className="block">
+            Straat en huisnummer met toevoeging
+            <input
+              required
+              className={field}
+              value={address}
+              onChange={(e) => {
+                setAddress(e.target.value);
+                setChosen("");
+              }}
+            />
+          </label>
+          {houses.length > 0 && (
+            <ul className="max-h-40 overflow-y-auto border">
+              {houses.map((h) => (
+                <li key={h.id}>
+                  <button
+                    type="button"
+                    className="w-full p-2 text-left hover:bg-gray-100"
+                    onClick={() => {
+                      setAddress(h.address);
+                      setCity(h.city);
+                      setChosen(h.id);
+                    }}
+                  >
+                    {h.address}, {h.city}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
       <label className="block">
-        Actie
-        <select
+        Plaats
+        <input
+          required
           className={field}
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-        >
-          <option value="draft">WhatsApp-concept klaarzetten</option>
-          <option value="auto">Automatisch versturen</option>
-        </select>
+          value={city}
+          readOnly={!search && !!chosen}
+          onChange={(e) => setCity(e.target.value)}
+        />
       </label>
+      {search ? (
+        <p>
+          Melvin krijgt een e-mail om het WhatsApp-concept te beoordelen en te
+          versturen.
+        </p>
+      ) : (
+        <label className="block">
+          Actie
+          <select
+            className={field}
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+          >
+            <option value="draft">WhatsApp-concept klaarzetten</option>
+            <option value="auto">Automatisch versturen</option>
+          </select>
+        </label>
+      )}
       <label className="block">
         Bericht
         <textarea
@@ -244,7 +308,7 @@ function RuleForm({ contact, saved }: { contact: Contact; saved: () => void }) {
           onChange={(e) => setNote(e.target.value)}
         />
       </label>
-      <p>Zet het volgen van deze woning ook aan in Realworks.</p>
+      {!search && <p>Zet het volgen van deze woning ook aan in Realworks.</p>}
       {error && (
         <p role="alert" className="text-red-700">
           {error}

@@ -1,3 +1,4 @@
+import { reviewEmail } from "./listingSearch";
 import { claimHousingDraft } from "./housingAlertClaim";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -652,7 +653,7 @@ export async function createDraftsFromCallResult(resultId: string) {
   return drafts;
 }
 
-export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) {
+export async function sendFollowUpDraft(id: string, reviewedBy?: string | null, approvedBySession?: string | null) {
   const draft = await prisma.followUpDraft.findUnique({ where: { id } });
   if (!draft) throw new Error("Concept niet gevonden");
   if (draft.status === "rejected") throw new Error("Dit concept is verwijderd");
@@ -660,8 +661,11 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) 
   if (draft.channel !== "whatsapp") throw new Error("Alleen WhatsApp verzenden is nu ondersteund");
   if (!draft.recipientPhone) throw new Error("Geen telefoonnummer op concept");
 
-  const housing = draft.purpose === "woningmelding";
-  if (housing) await claimHousingDraft(draft.id, draft.recipientPhone);
+  const search = draft.purpose === "zoekmelding";
+  if (search && (approvedBySession?.toLowerCase() !== reviewEmail || draft.status !== "approved"))
+    throw new Error("Melvin moet het concept eerst goedkeuren");
+  const housing = search || draft.purpose === "woningmelding";
+  if (housing) await claimHousingDraft(draft.id, draft.recipientPhone, search);
   try {
     const conversation = await openWhatsAppConversationForDraft(draft);
     const evolutionMsgId = await sendWhatsAppMessage(conversation.waPhone, draft.body);
@@ -688,7 +692,7 @@ export async function sendFollowUpDraft(id: string, reviewedBy?: string | null) 
       where: { id },
       data: {
         status: "sent",
-        reviewedBy: reviewedBy || draft.reviewedBy,
+        reviewedBy: approvedBySession || reviewedBy || draft.reviewedBy,
         reviewedAt: draft.reviewedAt || sentAt,
         sentAt,
         waConversationId: conversation.id,
