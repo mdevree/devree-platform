@@ -4,6 +4,9 @@ import { enrichAgendaAfspraak, isBezichtigingType } from "@/lib/agendaEnrich";
 import { normalizePhoneNumber, toWhatsAppJid } from "@/lib/phone";
 import { fetchWoningVanWordPress } from "@/lib/wordpress";
 
+import { getContact, verifyViewingRelation } from "./mautic";
+import { appointmentFollowUp, isOriginalViewingConfirmation, latestContactEmail, readNextAppointment } from "./viewingFollowUpContext";
+
 export const BEZICHTIGING_FOLLOWUP_PURPOSE = "bezichtiging_followup";
 export const BEZICHTIGING_FOLLOWUP_CREATED_BY = "auto_bezichtiging";
 const SETTINGS_KEY = "bezichtiging_followup";
@@ -59,6 +62,7 @@ export type SkipReason =
   | "recent_whatsapp_contact"
   | "recent_telefonisch_contact"
   | "recent_email_contact"
+  | "contacthistorie_beoordelen"
   | "recent_concept_zelfde_contact"
   | "ai_belafspraak_actief"
   | "geen_contact_koppeling"
@@ -78,6 +82,7 @@ export interface FollowUpKandidaat {
 export interface ContactSignals {
   bestaandDraftVoorAfspraak: boolean;
   laatsteWaInboundAt: Date | null;
+  laatsteWaTekst?: string;
   laatsteWaOutboundAt: Date | null;
   laatsteAnsweredCallAt: Date | null;
   laatsteEmailSendAt: Date | null;
@@ -175,6 +180,10 @@ export interface PrepareRunResult {
   errors: { afspraakId: string; message: string }[];
 }
 
+function mostRecent(...dates: (Date | undefined | null)[]) {
+  return dates.reduce<Date | null>((latest, date) => date && (!latest || date > latest) ? date : latest, null);
+}
+
 async function verzamelSignals(afspraak: {
   id: string;
   mauticContactId: number | null;
@@ -185,24 +194,28 @@ async function verzamelSignals(afspraak: {
     ? Object.values(normalizePhoneNumber(afspraak.contactTelefoon)).filter(Boolean)
     : [];
 
-  const [bestaandDraft, laatsteInbound, laatsteOutbound, laatsteCall, laatsteEmailSend, anderDraft, actieveJob] =
+  const conversation = { OR: [
+    ...(afspraak.mauticContactId ? [{ mauticContactId: afspraak.mauticContactId }] : []),
+    ...(jid ? [{ waPhone: jid, mauticContactId: null }] : []),
+  ] };
+  const [bestaandDraft, laatsteInbound, laatsteOutbound, laatsteCall, laatsteEmailSend, anderDraft, actieveJob, personalThread] =
     await Promise.all([
       prisma.followUpDraft.findFirst({
         where: { agendaAfspraakId: afspraak.id, purpose: BEZICHTIGING_FOLLOWUP_PURPOSE },
         select: { id: true },
       }),
-      jid
+      conversation.OR.length
         ? prisma.waMessage.findFirst({
-            where: { direction: "INBOUND", conversation: { waPhone: jid } },
+            where: { direction: "INBOUND", conversation },
             orderBy: { createdAt: "desc" },
-            select: { createdAt: true },
+            select: { createdAt: true, body: true },
           })
         : null,
-      jid
+      conversation.OR.length
         ? prisma.waMessage.findFirst({
-            where: { direction: "OUTBOUND", conversation: { waPhone: jid } },
+            where: { direction: "OUTBOUND", conversation },
             orderBy: { createdAt: "desc" },
-            select: { createdAt: true },
+            select: { createdAt: true, body: true },
           })
         : null,
       afspraak.mauticContactId || phoneFormats.length
@@ -245,12 +258,18 @@ async function verzamelSignals(afspraak: {
         where: { agendaAfspraakId: afspraak.id, status: { notIn: ["cancelled", "failed"] } },
         select: { id: true },
       }),
+      jid && afspraak.mauticContactId ? prisma.waReplyThread.findFirst({
+        where: { account: "personal", chatId: jid.replace("@s.whatsapp.net", "@c.us") },
+        select: { lastReplyAt: true, events: { orderBy: { receivedAt: "desc" }, take: 1, select: { receivedAt: true } } },
+      }) : null,
     ]);
 
   return {
     bestaandDraftVoorAfspraak: Boolean(bestaandDraft),
-    laatsteWaInboundAt: laatsteInbound?.createdAt ?? null,
-    laatsteWaOutboundAt: laatsteOutbound?.createdAt ?? null,
+    laatsteWaTekst: !laatsteOutbound || (laatsteInbound && laatsteInbound.createdAt >= laatsteOutbound.createdAt)
+      ? laatsteInbound?.body : laatsteOutbound.body,
+    laatsteWaInboundAt: mostRecent(laatsteInbound?.createdAt, personalThread?.events[0]?.receivedAt),
+    laatsteWaOutboundAt: mostRecent(laatsteOutbound?.createdAt, personalThread?.lastReplyAt),
     laatsteAnsweredCallAt: laatsteCall?.timestamp ?? null,
     laatsteEmailSendAt: laatsteEmailSend?.occurredAt ?? null,
     anderDraftVoorContactAt: anderDraft?.createdAt ?? null,
@@ -286,7 +305,7 @@ export async function prepareBezichtigingFollowUpDrafts(options?: {
   const afspraken = await prisma.agendaAfspraak.findMany({
     where: {
       agbegin: { gte: venster.from, lte: venster.to },
-      NOT: { aginactive: true },
+      OR: [{ aginactive: false }, { aginactive: null }],
     },
     include: {
       project: { select: { id: true, name: true, realworksId: true, woningAdres: true } },
@@ -302,10 +321,20 @@ export async function prepareBezichtigingFollowUpDrafts(options?: {
     let afspraak = bezichtigingen[index];
 
     // Verrijk alleen wat nog geen contactkoppeling heeft (gecapt: Mautic/Realworks-calls).
-    if ((!afspraak.mauticContactId || !afspraak.contactTelefoon) && enriched < settings.maxEnrichPerRun && !dryRun) {
+    if ((!afspraak.mauticContactId || !afspraak.contactTelefoon) && enriched < settings.maxEnrichPerRun) {
       enriched += 1;
       try {
-        const updated = await enrichAgendaAfspraak(afspraak.id);
+        const owner = await verifyViewingRelation(afspraak.agrcode, afspraak.relationRelationid, afspraak.mauticContactId);
+        const known = owner ? await getContact(owner) : null;
+        if (owner && !known) throw Error("Contact kon niet worden gelezen");
+        const updated = known ? {
+          mauticContactId: known.id, contactNaam: [known.firstname, known.lastname].filter(Boolean).join(" ") || afspraak.contactNaam,
+          contactTelefoon: known.mobile || known.phone || afspraak.contactTelefoon,
+          contactEmail: known.email || afspraak.contactEmail,
+          projectId: afspraak.projectId || (afspraak.agobjcode ? (await prisma.project.findFirst({
+            where: { realworksId: afspraak.agobjcode }, select: { id: true },
+          }))?.id : null) || null,
+        } : dryRun ? null : await enrichAgendaAfspraak(afspraak.id);
         if (updated) {
           const project = afspraak.project
             ?? (updated.projectId
@@ -321,6 +350,7 @@ export async function prepareBezichtigingFollowUpDrafts(options?: {
           afspraakId: afspraak.id,
           message: `Verrijken mislukt: ${err instanceof Error ? err.message : String(err)}`,
         });
+        continue;
       }
     }
 
@@ -335,6 +365,7 @@ export async function prepareBezichtigingFollowUpDrafts(options?: {
     };
 
     let beslissing: FollowUpBeslissing;
+    let nextAppointment: Awaited<ReturnType<typeof readNextAppointment>> = null;
     try {
       const signals = await verzamelSignals({
         id: afspraak.id,
@@ -342,6 +373,26 @@ export async function prepareBezichtigingFollowUpDrafts(options?: {
         contactTelefoon: telefoon,
       });
       beslissing = beslisFollowUp(kandidaat, signals, now, settings);
+      if (beslissing.maakConcept && afspraak.mauticContactId && afspraak.agbegin) {
+        const [appointment, mail] = await Promise.all([
+          readNextAppointment(afspraak, now), latestContactEmail(afspraak.mauticContactId),
+        ]);
+        nextAppointment = appointment;
+        const lastWa = mostRecent(signals.laatsteWaInboundAt, signals.laatsteWaOutboundAt);
+        // A recent exchange may already settle the question in the standard template.
+        const recentSince = new Date(afspraak.agbegin.getTime() - 14 * 86_400_000);
+        const address = (afspraak.project?.woningAdres || afspraak.agdescr?.split(",")[0])?.trim();
+        const originalConfirmation = mail && isOriginalViewingConfirmation(mail.text, address);
+        const nextConfirmation = mail && isOriginalViewingConfirmation(mail.text, appointment?.address);
+        const afspraakGenoemd = /\b(afgesproken|afgezegd|annuleren|verplaat(?:st|sen)|geen interesse|huis gekocht|gestopt met zoeken)\b/i;
+        const openAfspraak = afspraakGenoemd.test(signals.laatsteWaTekst || "") ||
+          (mail && !originalConfirmation && !nextConfirmation && afspraakGenoemd.test(mail.text));
+        if (mail && !nextConfirmation && mail.at > afspraak.agbegin) {
+          beslissing = { maakConcept: false, reason: "recent_email_contact" };
+        } else if (openAfspraak || (lastWa && lastWa >= recentSince) || (mail && mail.at >= recentSince && !originalConfirmation && !nextConfirmation)) {
+          beslissing = { maakConcept: false, reason: "contacthistorie_beoordelen" };
+        }
+      }
     } catch (err) {
       result.errors.push({
         afspraakId: afspraak.id,
@@ -377,12 +428,14 @@ export async function prepareBezichtigingFollowUpDrafts(options?: {
         || "de woning";
       const naam = afspraak.contactNaam || afspraak.lead?.naam || "";
       const trackedUrl = metRcode(woningUrl, afspraak.agrcode, settings.rcodeTracking);
-      const body = renderFollowUpTemplate(settings.templateBody, {
-        naam: naam || "mevrouw/meneer",
-        woningTitel,
-        woningUrl: trackedUrl,
-        dagLabel: afspraak.agbegin ? dagLabelVoor(afspraak.agbegin, now) : "onlangs",
-      });
+      const body = nextAppointment
+        ? appointmentFollowUp(naam || "mevrouw/meneer", woningTitel, nextAppointment, trackedUrl)
+        : renderFollowUpTemplate(settings.templateBody, {
+          naam: naam || "mevrouw/meneer",
+          woningTitel,
+          woningUrl: trackedUrl,
+          dagLabel: afspraak.agbegin ? dagLabelVoor(afspraak.agbegin, now) : "onlangs",
+        });
 
       if (dryRun) {
         result.created.push({ draftId: null, afspraakId: afspraak.id, recipientName: naam || null });

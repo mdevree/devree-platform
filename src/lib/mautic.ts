@@ -127,6 +127,8 @@ function mapBasicContact(contact: Record<string, unknown>, fallbackId?: number):
 }
 
 export interface MauticContactFull extends MauticContact {
+  realworksCode: string | null;
+  realworksSystemId: string | null;
   address1: string | null;
   address2: string | null;
   city: string | null;
@@ -375,6 +377,8 @@ export function mapMauticContactFull(contact: Record<string, unknown>, fallbackI
 
   return {
     id,
+    realworksCode: stringField(fields.realworks_code),
+    realworksSystemId: stringField(fields.systemid),
     firstname,
     lastname,
     email: stringField(fields.email),
@@ -692,6 +696,29 @@ export async function searchContactsWithPipeline(options: {
   });
 
   return { contacts, total };
+}
+
+/** Refuse ambiguous Realworks identifiers before using an unlinked appointment. */
+export async function verifyViewingRelation(code: string | null, systemId: string | null, expectedId: number | null) {
+  let owner = expectedId;
+  for (const [field, value] of [["realworks_code", code], ["systemid", systemId]] as const) {
+    if (!value) continue;
+    const query = new URLSearchParams({
+      "where[0][col]": field, "where[0][expr]": "eq", "where[0][val]": value, limit: "2",
+    });
+    const response = await mauticFetch(`/api/contacts?${query}`, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw Error("Realworks-relatie kon niet worden gecontroleerd");
+    const data = await response.json();
+    const rows = Object.values(data.contacts || {}) as { id: number; fields?: { all?: Record<string, unknown> } }[];
+    if (rows.length > 1 || Number(data.total) > 1) throw Error("Realworks-relatie hoort bij meerdere contacten");
+    if (!rows.length) continue;
+    const id = Number(rows[0].id);
+    if (!Number.isSafeInteger(id) || id <= 0 || (owner && id !== owner) || String(rows[0].fields?.all?.[field]) !== value) {
+      throw Error("Conflicterende Realworks-relatie");
+    }
+    owner = id;
+  }
+  return owner;
 }
 
 /**
