@@ -17,7 +17,7 @@ def save(name,nodes,links,active):
  if active:api('POST','/'+w['id']+'/activate',{'versionId':w['versionId']})
  print(json.dumps({'name':name,'id':w['id'],'active':active}))
 if sys.argv[1]=='gateway':
- nodes=[node('Webhook','webhook',{'httpMethod':'POST','path':'whatsapp-preference-extract','responseMode':'responseNode','authentication':'headerAuth'},2,header),node('Extract','httpRequest',{'method':'POST','url':'https://api.openai.com/v1/responses','authentication':'predefinedCredentialType','nodeCredentialType':'openAiApi','sendBody':True,'specifyBody':'json','jsonBody':"={{ JSON.stringify({ model: 'gpt-5-mini', store: false, input: $json.body.input }) }}",'options':{'timeout':120000}},4.4,{'openAiApi':{'id':'UdiNlc10HwLGX8Uz','name':'OpenAi account'}}),node('Respond','respondToWebhook',{'respondWith':'json','responseBody':'={{ JSON.stringify($json) }}'},1.4)]
+ nodes=[node('Webhook','webhook',{'httpMethod':'POST','path':'whatsapp-preference-extract','responseMode':'responseNode','authentication':'headerAuth'},2,header),node('Extract','httpRequest',{'method':'POST','url':'https://api.openai.com/v1/responses','authentication':'predefinedCredentialType','nodeCredentialType':'openAiApi','sendBody':True,'specifyBody':'json','jsonBody':"={{ JSON.stringify({ model: 'gpt-6.1-terra', store: false, input: $json.body.input }) }}",'options':{'timeout':120000}},4.4,{'openAiApi':{'id':'UdiNlc10HwLGX8Uz','name':'OpenAi account'}}),node('Respond','respondToWebhook',{'respondWith':'json','responseBody':'={{ JSON.stringify($json) }}'},1.4)]
  nodes[0]['webhookId']=str(uuid.uuid4())
  save('WhatsApp preference extraction',nodes,[('Webhook','Extract'),('Extract','Respond')],True)
 else:

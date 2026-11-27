@@ -46,7 +46,7 @@ export function selectWhatsAppReplyGenerator(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): Generator | null {
   const key = env.WHATSAPP_REPLY_OPENAI_API_KEY?.trim();
-  if (key) return { kind: "openai", key, model: env.WHATSAPP_REPLY_OPENAI_MODEL || "gpt-5-mini", account };
+  if (key) return { kind: "openai", key, model: env.WHATSAPP_REPLY_OPENAI_MODEL || "gpt-6.1-terra", account };
   if (account !== "office" || env.WHATSAPP_REPLY_N8N_GATEWAY !== "1" ||
       !env.N8N_URL || !env.N8N_WEBHOOK_SECRET?.trim()) return null;
   try {
