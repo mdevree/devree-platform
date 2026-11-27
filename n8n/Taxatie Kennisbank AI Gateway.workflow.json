@@ -18,7 +18,7 @@
       "credentials": { "openAiApi": { "id": "UdiNlc10HwLGX8Uz", "name": "OpenAi account" } }
     },
     {
-      "parameters": { "method": "POST", "url": "https://api.openai.com/v1/responses", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ model: $json.body.model || 'gpt-5-mini', store: false, input: $json.body.input }) }}", "options": { "timeout": 120000 } },
+      "parameters": { "method": "POST", "url": "https://api.openai.com/v1/responses", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ model: $json.body.model || 'gpt-6-luna', store: false, input: $json.body.input }) }}", "options": { "timeout": 120000 } },
       "id": "openai-generate", "name": "OpenAI antwoord", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4, "position": [500, 400],
       "credentials": { "openAiApi": { "id": "UdiNlc10HwLGX8Uz", "name": "OpenAi account" } }
     },

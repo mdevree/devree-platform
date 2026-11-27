@@ -25,7 +25,7 @@ export async function embedTexts(input: string[]): Promise<number[][]> {
 export async function generateAnswer(system: string, user: string): Promise<string> {
   const data = await callGateway({
     operation: "generate",
-    model: process.env.RAG_CHAT_MODEL || "gpt-5-mini",
+    model: process.env.RAG_CHAT_MODEL || "gpt-6-luna",
     store: false,
     input: [
       { role: "system", content: [{ type: "input_text", text: system }] },

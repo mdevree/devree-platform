@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (!results.length) return NextResponse.json({ answer: "Ik vind hiervoor nog geen bruikbare bron in de kennisbank.", queryType: classifyQuery(query), sources: [] });
     const context = results.map((r, i) => `[${i + 1}] ${r.title} | ${r.sourceType} | ${r.section || ""} | adres: ${r.reportAddress || "n.v.t."} | validatie: ${r.validationStatus || "n.v.t."}\n${sanitizeForExternal(r.excerpt)}`).join("\n\n");
     const answer = await generateAnswer(SYSTEM, `Vraag: ${sanitizeForExternal(query)}\n\nBronnen:\n${context}`);
-    await prisma.knowledgeAuditEvent.create({ data: { userId: user.id, action: "CHAT", queryType: classifyQuery(query), queryHash: createHash("sha256").update(query).digest("hex"), sourceIds: results.map((r) => r.sourceId), model: process.env.RAG_CHAT_MODEL || "gpt-5-mini", durationMs: Date.now() - started } });
+    await prisma.knowledgeAuditEvent.create({ data: { userId: user.id, action: "CHAT", queryType: classifyQuery(query), queryHash: createHash("sha256").update(query).digest("hex"), sourceIds: results.map((r) => r.sourceId), model: process.env.RAG_CHAT_MODEL || "gpt-6-luna", durationMs: Date.now() - started } });
     return NextResponse.json({ answer, queryType: classifyQuery(query), sources: results });
   } catch (error) {
     await prisma.knowledgeAuditEvent.create({ data: { userId: user.id, action: "CHAT", queryHash: query ? createHash("sha256").update(query).digest("hex") : null, success: false, error: error instanceof Error ? error.message : "Chat mislukt", durationMs: Date.now() - started } }).catch(() => null);
