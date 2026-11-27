@@ -5,8 +5,10 @@
 ## Kantoorpilot
 
 1. Pas de Prisma-migraties toe via de normale platformdeploy. Laat persoonlijk uitgeschakeld. Zet pas in een testomgeving `WHATSAPP_REPLY_OFFICE_ENABLED=1` en stel `WHATSAPP_REPLY_OPENAI_API_KEY` in. De huidige WAHA-webhook levert al `message.any`; behoud de afleverstatus- en PBX-events.
-2. Gebruik een ondertekende iOS-build met APNs-capability en de notification service extension. Stel `WHATSAPP_APNS_TEAM_ID`, `WHATSAPP_APNS_KEY_ID`, `WHATSAPP_APNS_KEY_BASE64` en `WHATSAPP_APNS_TOPIC` in op de server. De topic moet precies overeenkomen met de bundle identifier van de ondertekende app. Zet `WHATSAPP_DRAFT_PUSH_WORKER=1`. Meld opnieuw aan in een al eerder ingelogde app om het toestel aan de huidige inlogsessie te koppelen. Zet meldingen aan in **WhatsApp-concepten** en stel op iOS **Toon voorvertoning → Indien ontgrendeld** in.
+2. Genereer een vaste VAPID-sleutelset met `npx web-push generate-vapid-keys --json`. Sla die direct op in de serverconfiguratie als `WHATSAPP_WEB_PUSH_VAPID_PUBLIC_KEY` en `WHATSAPP_WEB_PUSH_VAPID_PRIVATE_KEY` en zet `WHATSAPP_DRAFT_PUSH_WORKER=1`. Laat de web-push-service het openbare kantoordomein als VAPID-subject gebruiken. Open `/mobile/whatsapp-concepten` in Safari op de iPhone en log in. Kies **Zet op beginscherm** met **Open als webapp** en open daarna het nieuwe pictogram. Zet **Kantoorconcepten** aan, tik op **Stuur testmelding** en controleer bezorgen en openen. Stel op iOS **Toon voorvertoning → Indien ontgrendeld** in.
 3. Test met een gecontroleerde afzender drie korte appjes, één concept in ongeveer 20 seconden plus verwerkingstijd, één push en direct bewerken. Test ook twee medewerkers, een handmatig WhatsApp-antwoord en een automatische opvolging naar dezelfde ontvanger. Kijk na een afgebroken of onzekere verzending eerst in WhatsApp het resultaat na. Zet pas daarna de kantoorfunctie aan voor regulier gebruik.
+
+Voor de optionele native iPhone-build zijn een APNs-capability, een notification service extension en de vier `WHATSAPP_APNS_*`-instellingen nodig. Web Push werkt vanuit de beginschermwebapp met de VAPID-sleutels.
 
 ## Persoonlijke pilot
 

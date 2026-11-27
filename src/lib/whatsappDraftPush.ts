@@ -1,17 +1,58 @@
 import { createPrivateKey, sign } from "node:crypto";
 import { connect } from "node:http2";
-import type { WaDraftPushDevice } from "@prisma/client";
+import type { WaDraftPushDevice, WaWebPushDevice } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canAccessOfficeFollowup, canEditOfficeFollowup, officeFollowupInclude, officeFollowupOpenWhere, officeFollowupSummary } from "@/lib/whatsappOfficeFollowup";
 import { whatsappPushPayload } from "@/lib/whatsappPushPayload";
+import { sendWhatsAppWebPush, type WhatsAppPushResult } from "@/lib/whatsappWebPush";
+import { webPushConfig } from "@/lib/whatsappWebPushConfig";
 
 const day = 24 * 60 * 60 * 1000;
 const maxAttempts = 4;
 const providerTimeout = 8_000;
 const pollingInterval = 5_000;
 
-type Candidate = { id: string; at: Date; account: string; ownerUserId: string | null; recipient: string | null; summary: string };
-type ActiveDevice = WaDraftPushDevice & { email: string };
+type Candidate = {
+  id: string;
+  at: Date;
+  account: string;
+  ownerUserId: string | null;
+  recipient: string | null;
+  summary: string;
+  officePurpose?: string;
+};
+type Device = Pick<WaDraftPushDevice, "id" | "userId" | "officeSince" | "personalSince">;
+type ActiveDevice = Device & { email: string };
+type TicketLease = { id: string; state: string; nextTry: Date };
+type NewTicket = { deviceId: string; draftRef: string };
+type Ticket = TicketLease & NewTicket & { attempts: number };
+type TicketUpdate = { state?: string; nextTry?: Date; attempts?: { increment: number } | { decrement: number } };
+
+type DeliveryQueue = {
+  createMany(args: { data: NewTicket[]; skipDuplicates: true }): PromiseLike<unknown>;
+  deleteMany(args: { where: { createdAt: { lt: Date } } }): PromiseLike<unknown>;
+  findMany(args: {
+    where: { state: { in: string[] }; nextTry: { lte: Date }; createdAt: { gte: Date } };
+    orderBy: { nextTry: "asc" };
+    take: number;
+  }): PromiseLike<Ticket[]>;
+  updateMany(args: { where: TicketLease; data: TicketUpdate }): PromiseLike<{ count: number }>;
+};
+
+type Transport<D extends Device> = {
+  name: string;
+  queue: DeliveryQueue;
+  optedInDevices(): PromiseLike<D[]>;
+  device(id: string): PromiseLike<D | null>;
+  invalidate(device: D): PromiseLike<unknown>;
+  send(device: D, candidate: Candidate): Promise<WhatsAppPushResult>;
+};
+
+const deviceOptedIn = { OR: [{ officeSince: { not: null } }, { personalSince: { not: null } }] };
+
+function candidatePreview(draft: Candidate) {
+  return [draft.recipient?.trim(), draft.summary.trim()].filter(Boolean).join(" · ");
+}
 
 function apnsConfig() {
   const team = process.env.WHATSAPP_APNS_TEAM_ID;
@@ -36,12 +77,12 @@ function apnsAuth(config: NonNullable<ReturnType<typeof apnsConfig>>) {
   return cachedAuth.jwt;
 }
 
-function sendToApns(config: NonNullable<ReturnType<typeof apnsConfig>>, device: ActiveDevice, draft: Candidate) {
+function sendToApns(config: NonNullable<ReturnType<typeof apnsConfig>>, device: WaDraftPushDevice, draft: Candidate) {
   const auth = apnsAuth(config);
-  const copy = [draft.recipient?.trim(), draft.summary.trim()].filter(Boolean).join(" · ");
-  const payload = whatsappPushPayload(draft.id, Array.from(copy).slice(0, 145).join(""), device.publicKey);
+  const copy = Array.from(candidatePreview(draft)).slice(0, 145).join("");
+  const payload = whatsappPushPayload(draft.id, copy, device.publicKey);
   const host = device.environment === "development" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
-  return new Promise<{ status: number; reason?: string }>((resolve, reject) => {
+  return new Promise<WhatsAppPushResult>((resolve, reject) => {
     const session = connect(`https://${host}`);
     const timeout = setTimeout(() => session.destroy(new Error("APNs time-out")), providerTimeout);
     const finish = () => { clearTimeout(timeout); session.close(); };
@@ -65,11 +106,33 @@ function sendToApns(config: NonNullable<ReturnType<typeof apnsConfig>>, device: 
       finish();
       let reason;
       try { reason = JSON.parse(body).reason; } catch { /* APNs success has no body. */ }
-      resolve({ status, reason });
+      resolve({ status, invalid: status === 410 || reason === "BadDeviceToken" || reason === "DeviceTokenNotForTopic" });
     });
     request.once("error", (error) => { finish(); reject(error); });
     request.end(payload);
   });
+}
+
+function apnsTransport(config: NonNullable<ReturnType<typeof apnsConfig>>): Transport<WaDraftPushDevice> {
+  return {
+    name: "APNs",
+    queue: prisma.waDraftPushDelivery,
+    optedInDevices: () => prisma.waDraftPushDevice.findMany({ where: deviceOptedIn }),
+    device: (id) => prisma.waDraftPushDevice.findUnique({ where: { id } }),
+    invalidate: ({ id, token, updatedAt }) => prisma.waDraftPushDevice.deleteMany({ where: { id, token, updatedAt } }),
+    send: (device, draft) => sendToApns(config, device, draft),
+  };
+}
+
+function browserTransport(config: NonNullable<ReturnType<typeof webPushConfig>>): Transport<WaWebPushDevice> {
+  return {
+    name: "Web Push",
+    queue: prisma.waWebPushDelivery,
+    optedInDevices: () => prisma.waWebPushDevice.findMany({ where: deviceOptedIn }),
+    device: (id) => prisma.waWebPushDevice.findUnique({ where: { id } }),
+    invalidate: ({ id, endpointHash, updatedAt }) => prisma.waWebPushDevice.deleteMany({ where: { id, endpointHash, updatedAt } }),
+    send: (device, draft) => sendWhatsAppWebPush(config, device, { draft: draft.id, body: candidatePreview(draft) }),
+  };
 }
 
 function replyCandidate(row: {
@@ -90,21 +153,19 @@ function replyCandidate(row: {
 function followupCandidate(row: Parameters<typeof officeFollowupSummary>[0]): Candidate {
   return {
     id: `followup-${row.id}`, at: row.createdAt, account: "office", ownerUserId: null,
-    recipient: row.recipientName, summary: officeFollowupSummary(row),
+    recipient: row.recipientName, summary: officeFollowupSummary(row), officePurpose: row.purpose,
   };
 }
 
 function enabledFor(device: ActiveDevice, candidate: Candidate) {
-  const since = candidate.account === "office" ? device.officeSince : device.personalSince;
-  return !!since && candidate.at > since &&
-    (candidate.account === "office" || userOwnsPersonalDraft(device, candidate));
+  if (candidate.account === "personal") {
+    return device.userId === candidate.ownerUserId && !!device.personalSince && candidate.at > device.personalSince;
+  }
+  return candidate.account === "office" && !!device.officeSince && candidate.at > device.officeSince &&
+    (!candidate.officePurpose || canAccessOfficeFollowup(candidate.officePurpose, device.email));
 }
 
-function userOwnsPersonalDraft(device: ActiveDevice, candidate: Candidate) {
-  return candidate.account === "personal" && device.userId === candidate.ownerUserId;
-}
-
-async function materialize(devices: ActiveDevice[], since: Date) {
+async function loadCandidates(since: Date) {
   const [replies, followups] = await Promise.all([
     prisma.waReplyDraft.findMany({ where: { status: "ready", readyAt: { gte: since } } }),
     prisma.followUpDraft.findMany({
@@ -112,21 +173,18 @@ async function materialize(devices: ActiveDevice[], since: Date) {
       include: officeFollowupInclude,
     }),
   ]);
-  const tickets = replies.flatMap((row) => {
-    const candidate = replyCandidate(row);
-    return candidate ? devices.filter((device) => enabledFor(device, candidate))
-      .map((device) => ({ deviceId: device.id, draftRef: candidate.id })) : [];
-  });
+  const candidates = replies.map(replyCandidate).filter((candidate): candidate is Candidate => candidate !== null);
   for (const row of followups) {
-    if (!canEditOfficeFollowup(row) || !row.recipientPhone) continue;
-    const candidate = followupCandidate(row);
-    for (const device of devices) {
-      if (enabledFor(device, candidate) && canAccessOfficeFollowup(row.purpose, device.email)) {
-        tickets.push({ deviceId: device.id, draftRef: candidate.id });
-      }
-    }
+    if (canEditOfficeFollowup(row) && row.recipientPhone) candidates.push(followupCandidate(row));
   }
-  if (tickets.length) await prisma.waDraftPushDelivery.createMany({ data: tickets, skipDuplicates: true });
+  return candidates;
+}
+
+async function materialize(queue: DeliveryQueue, devices: ActiveDevice[], candidates: Candidate[]) {
+  const tickets = candidates.flatMap((draft) =>
+    devices.filter((device) => enabledFor(device, draft)).map((device) => ({ deviceId: device.id, draftRef: draft.id })),
+  );
+  if (tickets.length) await queue.createMany({ data: tickets, skipDuplicates: true });
 }
 
 async function latestCandidate(device: ActiveDevice, ref: string) {
@@ -137,30 +195,32 @@ async function latestCandidate(device: ActiveDevice, ref: string) {
     if (draft?.status === "pending") return "pending" as const;
     return draft?.status === "ready" ? candidate : null;
   }
+  if (!ref.startsWith("followup-")) return null;
   const draft = await prisma.followUpDraft.findFirst({
     where: { id: ref.slice(9), channel: "whatsapp", status: { in: ["draft", "approved"] } },
     include: officeFollowupInclude,
   });
-  return draft && canAccessOfficeFollowup(draft.purpose, device.email) && canEditOfficeFollowup(draft) && draft.recipientPhone
-    ? followupCandidate(draft) : null;
+  const candidate = draft && canEditOfficeFollowup(draft) && draft.recipientPhone ? followupCandidate(draft) : null;
+  return candidate && enabledFor(device, candidate) ? candidate : null;
 }
 
-async function deliver(config: NonNullable<ReturnType<typeof apnsConfig>>, cutoff: Date) {
+async function deliver<D extends Device>(transport: Transport<D>, cutoff: Date) {
   const now = new Date();
-  const pending = await prisma.waDraftPushDelivery.findMany({
+  const { queue } = transport;
+  const pending = await queue.findMany({
     where: { state: { in: ["pending", "sending"] }, nextTry: { lte: now }, createdAt: { gte: cutoff } },
     orderBy: { nextTry: "asc" }, take: 20,
   });
   for (const ticket of pending) {
     const nextTry = new Date(Date.now() + 60_000);
-    const claim = await prisma.waDraftPushDelivery.updateMany({
+    const claim = await queue.updateMany({
       where: { id: ticket.id, state: ticket.state, nextTry: ticket.nextTry },
       data: { state: "sending", nextTry, attempts: { increment: 1 } },
     });
     if (!claim.count) continue;
 
-    // Resolve the recipient and status again immediately before sending to Apple.
-    const device = await prisma.waDraftPushDevice.findUnique({ where: { id: ticket.deviceId } });
+    // Resolve the recipient and status again immediately before sending.
+    const device = await transport.device(ticket.deviceId);
     const user = device ? await prisma.user.findUnique({
       where: { id: device.userId }, select: { email: true, active: true },
     }) : null;
@@ -168,53 +228,73 @@ async function deliver(config: NonNullable<ReturnType<typeof apnsConfig>>, cutof
     const candidate = active && await latestCandidate(active, ticket.draftRef);
     const ticketWhere = { id: ticket.id, state: "sending", nextTry };
     if (candidate === "pending") {
-      await prisma.waDraftPushDelivery.updateMany({
+      await queue.updateMany({
         where: ticketWhere, data: { state: "pending", nextTry: new Date(Date.now() + pollingInterval), attempts: { decrement: 1 } },
       });
       continue;
     }
     if (!active || !candidate || !enabledFor(active, candidate)) {
-      await prisma.waDraftPushDelivery.updateMany({ where: ticketWhere, data: { state: "cancelled" } });
+      await queue.updateMany({ where: ticketWhere, data: { state: "cancelled" } });
       continue;
     }
-    const sent = await sendToApns(config, active, candidate).catch(() => ({ status: 0, reason: undefined }));
-    if (sent.status === 410 || sent.reason === "BadDeviceToken" || sent.reason === "DeviceTokenNotForTopic") {
-      await prisma.waDraftPushDevice.deleteMany({
-        where: { id: active.id, token: active.token, updatedAt: active.updatedAt },
-      });
-    } else if (sent.status === 200) {
-      await prisma.waDraftPushDelivery.updateMany({ where: ticketWhere, data: { state: "sent" } });
+    const sent = await transport.send(active, candidate).catch(() => ({ status: 0, invalid: false }));
+    if (sent.invalid) {
+      await transport.invalidate(active);
+      // A registration can change while the old credential is in flight. The
+      // deletion cascades normally; if it lost that race, leave a retryable row.
+      await queue.updateMany({ where: ticketWhere, data: { state: "pending" } });
+    } else if (sent.status >= 200 && sent.status < 300) {
+      await queue.updateMany({ where: ticketWhere, data: { state: "sent" } });
     } else if (([0, 429].includes(sent.status) || sent.status >= 500) && ticket.attempts + 1 < maxAttempts) {
-      await prisma.waDraftPushDelivery.updateMany({
+      await queue.updateMany({
         where: ticketWhere, data: { state: "pending", nextTry: new Date(Date.now() + 20_000 * (2 ** ticket.attempts)) },
       });
     } else {
-      await prisma.waDraftPushDelivery.updateMany({ where: ticketWhere, data: { state: "failed" } });
-      console.warn("[whatsapp-draft-push] APNs delivery failed", sent.status);
+      await queue.updateMany({ where: ticketWhere, data: { state: "failed" } });
+      console.warn("[whatsapp-draft-push] Delivery failed", transport.name, sent.status);
     }
   }
 }
 
-let lastCleanup = 0;
+const lastCleanup = new Map<string, number>();
 
-export async function runWhatsAppDraftPushWorker() {
-  const config = apnsConfig();
-  if (!config) return;
-  const cutoff = new Date(Date.now() - day);
-  if (Date.now() - lastCleanup > day) {
-    await prisma.waDraftPushDelivery.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 7 * day) } } });
-    lastCleanup = Date.now();
+async function runTransport<D extends Device>(
+  transport: Transport<D>,
+  candidates: () => Promise<Candidate[]>,
+  cutoff: Date,
+) {
+  const now = Date.now();
+  if (now - (lastCleanup.get(transport.name) ?? 0) > day) {
+    await transport.queue.deleteMany({ where: { createdAt: { lt: new Date(now - 7 * day) } } });
+    lastCleanup.set(transport.name, now);
   }
-  const devices = await prisma.waDraftPushDevice.findMany({ where: { OR: [{ officeSince: { not: null } }, { personalSince: { not: null } }] } });
+  const devices = await transport.optedInDevices();
   if (devices.length) {
-    const users = await prisma.user.findMany({ where: { id: { in: devices.map(({ userId }) => userId) }, active: true }, select: { id: true, email: true } });
+    const users = await prisma.user.findMany({
+      where: { id: { in: [...new Set(devices.map(({ userId }) => userId))] }, active: true },
+      select: { id: true, email: true },
+    });
     const emails = new Map(users.map(({ id, email }) => [id, email]));
-    await materialize(devices.flatMap((device) => {
+    const active = devices.flatMap((device) => {
       const email = emails.get(device.userId);
       return email ? [{ ...device, email }] : [];
-    }), cutoff);
+    });
+    if (active.length) await materialize(transport.queue, active, await candidates());
   }
-  await deliver(config, cutoff);
+  await deliver(transport, cutoff);
+}
+
+export async function runWhatsAppDraftPushWorker() {
+  const native = apnsConfig();
+  const browser = webPushConfig();
+  const cutoff = new Date(Date.now() - day);
+  let loaded: Promise<Candidate[]> | undefined;
+  const candidates = () => loaded ??= loadCandidates(cutoff);
+  const runs = [];
+  if (native) runs.push(runTransport(apnsTransport(native), candidates, cutoff));
+  if (browser) runs.push(runTransport(browserTransport(browser), candidates, cutoff));
+  const results = await Promise.allSettled(runs);
+  if (results.some(({ status }) => status === "rejected")) throw new Error("WhatsApp push transport failed");
 }
 
 let running = false;
@@ -222,8 +302,8 @@ let running = false;
 export function startWhatsAppDraftPushWorker() {
   if (running) return;
   running = true;
-  if (!apnsConfig()) {
-    console.warn("[whatsapp-draft-push] APNs configuration is missing");
+  if (!apnsConfig() && !webPushConfig()) {
+    console.warn("[whatsapp-draft-push] No push transport configured");
     return;
   }
   async function tick() {

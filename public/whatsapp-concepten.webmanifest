@@ -1,0 +1,14 @@
+{
+  "id": "/mobile/whatsapp-concepten",
+  "name": "De Vree WhatsApp-concepten",
+  "short_name": "De Vree Concepten",
+  "lang": "nl",
+  "start_url": "/mobile/whatsapp-concepten",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#03543d",
+  "icons": [
+    { "src": "/whatsapp-app-icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

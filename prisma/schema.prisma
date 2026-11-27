@@ -2072,3 +2072,37 @@ model WaDraftPushDelivery {
   @@index([createdAt])
   @@map("wa_draft_push_deliveries")
 }
+
+model WaWebPushDevice {
+  id             String   @id @db.VarChar(36)
+  userId         String
+  sessionId      String   @db.VarChar(36)
+  endpoint       String   @db.Text
+  endpointHash   String   @unique @db.Char(64)
+  p256dh         String   @db.VarChar(87)
+  authKey        String   @db.VarChar(22)
+  officeSince    DateTime?
+  personalSince  DateTime?
+  lastTestAt     DateTime?
+  updatedAt      DateTime @updatedAt
+  deliveries     WaWebPushDelivery[]
+
+  @@index([userId, sessionId])
+  @@map("wa_web_push_devices")
+}
+
+model WaWebPushDelivery {
+  id        String   @id @default(cuid())
+  deviceId  String   @db.VarChar(36)
+  device    WaWebPushDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  draftRef  String   @db.VarChar(130)
+  state     String   @default("pending") @db.VarChar(10)
+  attempts  Int      @default(0)
+  nextTry   DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([deviceId, draftRef])
+  @@index([state, nextTry])
+  @@index([createdAt])
+  @@map("wa_web_push_deliveries")
+}

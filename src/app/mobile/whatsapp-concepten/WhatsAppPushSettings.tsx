@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { BellIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { signOut } from "next-auth/react";
-import { whatsappDraftLoginPath } from "@/lib/whatsappDraftLinks";
+import { DRAFTS_PATH, isWhatsAppDraftId, whatsappDraftLoginPath } from "@/lib/whatsappDraftLinks";
+import WhatsAppWebPushSettings from "./WhatsAppWebPushSettings";
 
 type BridgeRequest =
   | { action: "status" | "enable" }
@@ -35,11 +36,30 @@ function bridge() {
 }
 
 export function clearDraftNotifications(inactiveIds: string[]) {
-  if (inactiveIds.length) bridge()?.postMessage({ action: "clear", inactiveIds });
+  if (!inactiveIds.length) return;
+  bridge()?.postMessage({ action: "clear", inactiveIds });
+  const inactive = new Set(inactiveIds);
+  void closeWebNotifications((draft) => inactive.has(draft));
 }
 
 export function syncDraftNotifications(activeDraftIds: string[], readStartedAt: number) {
   bridge()?.postMessage({ action: "sync", activeDraftIds, readStartedAt });
+  const open = new Set(activeDraftIds);
+  void closeWebNotifications((draft, timestamp) => timestamp > 0 && timestamp <= readStartedAt && !open.has(draft));
+}
+
+async function closeWebNotifications(shouldClose: (draft: string, timestamp: number) => boolean) {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration(DRAFTS_PATH);
+    if (!registration?.getNotifications || registration.scope !== new URL(DRAFTS_PATH, location.origin).href) return;
+    for (const notification of await registration.getNotifications()) {
+      const { draft, shownAt } = notification.data ?? {};
+      if (isWhatsAppDraftId(draft) && shouldClose(draft, typeof shownAt === "number" ? shownAt : 0)) notification.close();
+    }
+  } catch {
+    // The current concept list remains authoritative if the browser cannot close notifications.
+  }
 }
 
 async function readPreferences(id: string): Promise<Preferences> {
@@ -67,7 +87,20 @@ async function savePreferences(device: PushDevice, preferences: Preferences): Pr
   return result;
 }
 
+function pushSettingsMode() {
+  return bridge() ? "native" : "web";
+}
+
+const noModeUpdates = () => () => {};
+
 export default function WhatsAppPushSettings({ personalAvailable }: { personalAvailable: boolean }) {
+  const mode = useSyncExternalStore(noModeUpdates, pushSettingsMode, () => "loading");
+  if (mode === "native") return <NativeWhatsAppPushSettings personalAvailable={personalAvailable} />;
+  if (mode === "web") return <WhatsAppWebPushSettings personalAvailable={personalAvailable} />;
+  return null;
+}
+
+function NativeWhatsAppPushSettings({ personalAvailable }: { personalAvailable: boolean }) {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [device, setDevice] = useState<PushDevice | null>(null);
   const [saved, setSaved] = useState<Preferences | null>(null);

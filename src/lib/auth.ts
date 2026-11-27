@@ -64,9 +64,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   events: {
     async signOut(message) {
       if ("token" in message && typeof message.token?.id === "string" && typeof message.token.pushSessionId === "string") {
-        await prisma.waDraftPushDevice.deleteMany({
-          where: { userId: message.token.id, sessionId: message.token.pushSessionId },
-        });
+        const where = { userId: message.token.id, sessionId: message.token.pushSessionId };
+        await Promise.all([
+          prisma.waDraftPushDevice.deleteMany({ where }),
+          prisma.waWebPushDevice.deleteMany({ where }),
+        ]);
       }
     },
   },

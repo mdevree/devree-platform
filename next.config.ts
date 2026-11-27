@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/mobile/whatsapp-concepten-sw.js",
+        headers: [
+          { key: "Service-Worker-Allowed", value: "/mobile/whatsapp-concepten" },
+          { key: "Cache-Control", value: "no-cache" },
+        ],
+      },
+      {
         // Sta iframe embedding toe voor de publieke buurtdata rapport pagina
         source: "/buurtdata-rapport",
         headers: [
