@@ -3,6 +3,7 @@ import { connect } from "node:http2";
 import type { WaDraftPushDevice, WaWebPushDevice } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canAccessOfficeFollowup, canEditOfficeFollowup, officeFollowupInclude, officeFollowupOpenWhere, officeFollowupSummary } from "@/lib/whatsappOfficeFollowup";
+import { safeWhatsAppReplySummary } from "@/lib/whatsappReplyGenerator";
 import { whatsappPushPayload } from "@/lib/whatsappPushPayload";
 import { sendWhatsAppWebPush, type WhatsAppPushResult } from "@/lib/whatsappWebPush";
 import { webPushConfig } from "@/lib/whatsappWebPushConfig";
@@ -146,7 +147,7 @@ function replyCandidate(row: {
   if (row.account === "office" && process.env.WHATSAPP_REPLY_OFFICE_ENABLED !== "1") return null;
   return {
     id: `reply-${row.id}`, at: row.readyAt, account: row.account, ownerUserId: row.ownerUserId,
-    recipient: row.recipientName, summary: row.summary || "Vraagt om een antwoord op WhatsApp",
+    recipient: row.recipientName, summary: safeWhatsAppReplySummary(row.summary),
   };
 }
 

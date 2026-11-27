@@ -7,7 +7,7 @@ import { searchContactByPhone, createContact, addContactPoints } from "@/lib/mau
 import { normalizePhoneNumber } from "@/lib/phone";
 import { normalizeWhatsAppMessageId } from "@/lib/whatsapp-message-id";
 import { processWahaReplyEvent } from "@/lib/whatsappReplies";
-import { getWahaReplyEvent, isWhatsAppReplyEnabled } from "@/lib/whatsappReplyEvents";
+import { getWahaOfficeChatId, getWahaReplyEvent, isWhatsAppReplyEnabled } from "@/lib/whatsappReplyEvents";
 
 // Zet WHATSAPP_WEBHOOK_DEBUG=1 om binnenkomende events gestructureerd te loggen
 // (event-type, afzender, secret-match) tijdens het diagnosticeren van de inbox.
@@ -97,15 +97,8 @@ function getWahaMessage(body: unknown): NormalizedWhatsAppMessage | null {
   if (!payload || typeof payload !== "object") return null;
 
   const fromMe = payload.fromMe === true;
-  const from = getStringValue(payload, "from") ?? "";
-  const to = getStringValue(payload, "to") ?? "";
   const data = payload._data as Record<string, unknown> | undefined;
-  const key = data?.key as Record<string, unknown> | undefined;
-  const remoteJidAlt = key ? getStringValue(key, "remoteJidAlt") : null;
-  const chatId =
-    remoteJidAlt ??
-    getStringValue(payload, "chatId") ??
-    (fromMe ? to : from);
+  const chatId = getWahaOfficeChatId(payload);
 
   if (!chatId) return null;
 

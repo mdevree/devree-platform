@@ -28,6 +28,18 @@ export function normalizeReplyChatId(value: string): string | undefined {
   return match ? `${match[1]}@c.us` : undefined;
 }
 
+export function getWahaOfficeChatId(payload: Record<string, unknown>): string | undefined {
+  const key = object(object(payload._data)?.key);
+  const fromMe = payload.fromMe === true;
+  const chat = string(key?.remoteJidAlt) ?? string(payload.chatId) ?? string(fromMe ? payload.to : payload.from);
+  if (chat || !fromMe) return chat;
+
+  // NOWEB direct sends may omit "to" and "chatId". Use only a verified
+  // phone JID here, keeping the alternate JID and explicit chat precedence.
+  const remote = string(key?.remoteJid);
+  return remote && normalizeReplyChatId(remote) ? remote : undefined;
+}
+
 function normalizeReplyId(value: unknown): string | undefined {
   const id = string(value);
   if (!id) return undefined;

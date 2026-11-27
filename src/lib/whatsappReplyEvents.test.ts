@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  getWahaOfficeChatId,
   getWahaReplyEvent,
   manualReplyCutoff,
   validPersonalWahaSignature,
@@ -59,6 +60,30 @@ test("recognizes manual app replies separately from API sends or unclear sources
   assert.equal(getWahaReplyEvent(event({ ...outgoing, source: "api" }), now)?.type, "api");
   assert.equal(getWahaReplyEvent(event({ ...outgoing, source: undefined }), now), null);
   assert.equal(getWahaReplyEvent(event({ ...outgoing, hasMedia: true, body: "" }), now)?.type, "manual");
+});
+
+test("NOWEB office outbound without to or chatId uses the direct remote phone before draft cleanup", () => {
+  const remotePhone = "31612345678@s.whatsapp.net";
+  const outgoing = event({
+    fromMe: true,
+    from: phone,
+    to: undefined,
+    chatId: undefined,
+    _data: { key: { remoteJid: remotePhone } },
+  });
+  assert.equal(getWahaOfficeChatId(outgoing.payload), remotePhone);
+  assert.equal(getWahaReplyEvent(outgoing, now)?.type, "manual");
+  assert.equal(getWahaReplyEvent({ ...outgoing, payload: { ...outgoing.payload, source: "api" } }, now)?.type, "api");
+
+  const alternatePhone = event({ ...outgoing.payload, _data: { key: { remoteJid: lid, remoteJidAlt: remotePhone } } });
+  assert.equal(getWahaOfficeChatId(alternatePhone.payload), remotePhone);
+  assert.equal(getWahaOfficeChatId({ ...outgoing.payload, chatId: phone }), phone);
+  assert.equal(getWahaOfficeChatId({ ...outgoing.payload, to: phone }), phone);
+
+  for (const remoteJid of ["123456@g.us", "status@broadcast", "987654@newsletter", lid]) {
+    assert.equal(getWahaOfficeChatId({ ...outgoing.payload, _data: { key: { remoteJid } } }), undefined);
+  }
+  assert.equal(getWahaOfficeChatId(event({ chatId: undefined, _data: { key: { remoteJid: remotePhone } } }).payload), phone);
 });
 
 test("rejects group, non-text, protocol, contradictory and historical messages", () => {
