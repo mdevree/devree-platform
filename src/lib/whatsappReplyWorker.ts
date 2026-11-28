@@ -13,7 +13,7 @@ import { generateWhatsAppReplySuggestion, selectWhatsAppReplyGenerator } from ".
 import { replyResources } from "./whatsappRecommendationContext";
 
 const POLL_MS = 3000;
-const CLAIM_MS = 90_000;
+const CLAIM_MS = 180_000; // Includes the optional market lookup and a second generation.
 const MAX_ATTEMPTS = 3;
 const DRAFT_AGE_MS = 24 * 60 * 60 * 1000;
 const META_RETENTION_MS = 30 * DRAFT_AGE_MS;

@@ -20,3 +20,12 @@ export function pageHash(url: string) {
 export function sentPageHashes(text: string) {
   return [...new Set(linksIn(text).map(officePage).filter((url): url is string => !!url).map(pageHash))];
 }
+
+export function normal(value: string) {
+  return value.normalize("NFKD").toLowerCase().replace(/[\u0300-\u036f.]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\b([a-z]) (?=[a-z]\b)/g, "$1").trim();
+}
+
+export function mentionsAddress(history: string, address: string) {
+  const key = normal(address);
+  return !!key && history.includes(` ${key} `);
+}

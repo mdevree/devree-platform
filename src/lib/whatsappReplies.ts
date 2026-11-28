@@ -1,3 +1,4 @@
+import { sentMarketHashes } from "./whatsappMarketHomes";
 import { sentPageHashes } from "./whatsappResourceLinks";
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma, WaReplyDraft, WaReplyThread } from "@prisma/client";
@@ -480,7 +481,8 @@ export async function sendWhatsAppReplyDraft(
     const current = await lockThread(tx, thread.id);
     const saved = await tx.waReplyDraft.findUniqueOrThrow({ where: { id } });
     if (draft.mauticContactId) {
-      const data = sentPageHashes(text).map(pageHash => ({ contactId: draft.mauticContactId!, pageHash }));
+      const hashes = [...sentPageHashes(text), ...await sentMarketHashes(tx, text)];
+      const data = hashes.map(pageHash => ({ contactId: draft.mauticContactId!, pageHash }));
       if (data.length) await tx.waSharedPage.createMany({ data, skipDuplicates: true });
     }
     if (current.activeDraftId === id && saved.claim === claim) {

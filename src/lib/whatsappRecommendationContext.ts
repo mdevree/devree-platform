@@ -2,27 +2,20 @@ import type { WaReplyDraft } from "@prisma/client";
 import { prisma } from "./prisma";
 import { getContactFull, getMauticNotesPage, verifyViewingRelation, visitedContactPages } from "./mautic";
 import { WP_BASE_URL, type WoningPost } from "./wordpressWoning";
-import { officePage, pageHash } from "./whatsappResourceLinks";
+import { marketHomes, type MarketSearch } from "./whatsappMarketHomes";
+import { officePage, pageHash, normal, mentionsAddress } from "./whatsappResourceLinks";
 
 type Page = { title: string; url: string; information?: string };
-type Home = Page & { city: string; price: number; description: string };
+export type Home = Page & { city: string; price: number; description: string; broker?: string };
 export type ReplyResources = {
-  pages: Page[]; homes: Home[]; reference?: { title: string; price: number };
-  preferences?: string[]; budgets?: { priceMin: number | null; priceMax: number | null }[];
+  findMarket?: (query: MarketSearch) => Promise<Home[]>;
+  pages: Page[]; homes: Home[]; reference?: { title: string; price: number; city: string };
+  locations?: string[]; preferences?: string[]; budgets?: { priceMin: number | null; priceMax: number | null }[];
 };
 type Draft = Pick<WaReplyDraft, "mauticContactId" | "conversationId">;
 
 function clean(value: unknown) {
   return String(value ?? "").replace(/<[^>]+>/g, " ").replace(/&#8211;/g, "–").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
-}
-
-export function normal(value: string) {
-  return value.normalize("NFKD").toLowerCase().replace(/[\u0300-\u036f.]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\b([a-z]) (?=[a-z]\b)/g, "$1").trim();
-}
-
-export function mentionsAddress(history: string, address: string) {
-  const key = normal(address);
-  return !!key && history.includes(` ${key} `);
 }
 
 async function wpCollection<T>(type: string, fields: string) {
@@ -98,12 +91,12 @@ async function knownResources(draft: Draft) {
     prisma.mauticEvent.findMany({ where: { mauticContactId: id }, select: { clickedUrl: true, emailName: true } }),
     prisma.realworksSearcher.findMany({ where: { OR: [{ mauticContactId: id },
       ...(systemId ? [{ mauticContactId: null, relationSystemId: systemId }] : [])] },
-      select: { searcherId: true, status: true, priceMin: true, priceMax: true } }),
+      select: { searcherId: true, status: true, priceMin: true, priceMax: true, locations: true } }),
     notesFor(id), prisma.waSharedPage.findMany({ where: { contactId: id }, select: { pageHash: true } }), visitedContactPages(id),
   ]);
   const results = await prisma.realworksSearchResult.findMany({ where: { searcherId: { in: searchers.map(s => s.searcherId) },
-    OR: [{ dateSent: { not: null } }, { dateViewed: { not: null } }, { dateContactFormClicked: { not: null } }, { isLiked: true }] },
-    select: { objectAddress: true, objectUrl: true } });
+    OR: [{ searchResultStatus: { in: ["SENT", "DELETED"] } }, { dateSent: { not: null } }, { dateViewed: { not: null } }, { dateContactFormClicked: { not: null } }, { isLiked: true }] },
+    select: { exchangeObjectId: true, objectAddress: true, objectUrl: true } });
   const history = [...visits, ...notes, ...messages.map(m => m.body), ...agenda.flatMap(a => [a.agdescr, a.aglocation]),
     ...followups.flatMap(d => [d.body, JSON.stringify(d.links)]), ...events.flatMap(e => [e.clickedUrl, e.emailName]),
     ...results.flatMap(r => [r.objectAddress, r.objectUrl])].filter(Boolean).join("\n");
@@ -111,7 +104,11 @@ async function knownResources(draft: Draft) {
   const preferences = Array.isArray(profile?.activePersonalPreferences)
     ? profile.activePersonalPreferences.flatMap((p: {label?:string; polarity?:string}) =>
         typeof p?.label === "string" ? [(p.polarity === "avoid" ? "Vermijden: " : "") + p.label.slice(0,150)] : []).slice(0,15) : [];
-  return { history, preferences, hashes: new Set(receipts.map(r => r.pageHash)),
+  const locations = searchers.filter(s => s.status === "LOPEND").flatMap(s => {
+    const edges = (s.locations as { edges?: {displayName?: string}[] } | null)?.edges;
+    return Array.isArray(edges) ? edges.flatMap(e => e.displayName?.split(",")[0] || []) : [];
+  });
+  return { history, preferences, locations, knownIds: new Set(results.map(r => r.exchangeObjectId)), hashes: new Set(receipts.map(r => r.pageHash)),
     budgets: searchers.filter(s => s.status === "LOPEND" && (s.priceMin || s.priceMax)).map(s => ({ priceMin:s.priceMin, priceMax:s.priceMax })) };
 }
 
@@ -153,5 +150,15 @@ export async function replyResources(draft: Draft, messages: string[], previous?
       const facts = description.split(/(?<=[.!?])\s+|\s+-\s+/).filter(s => /slaapkamer|keuken|parkeren|parkeerplaats|oprit|moderniser|renover|instapklaar/i.test(s));
       return { title,city,price,url,description: facts.join(" ").slice(0,1400) };
     });
-  return { pages, homes, budgets:known.budgets, preferences:known.preferences, ...(reference ? { reference:{title:reference.title,price:reference.price} } : {}) };
+  const ownAddresses = new Set(catalog.homes.filter(h => active.has(h.code)).map(h => normal(h.title + " " + h.city)));
+  const searchArea = " " + normal([inbound, previous, reference?.city, ...known.locations, ...known.preferences].filter(Boolean).join(" ")) + " ";
+  const findMarket = (query: MarketSearch) => {
+    const cities = query.cities.filter(city => mentionsAddress(searchArea, city));
+    if (!cities.length) return Promise.resolve([]);
+    return marketHomes({ ...query, cities }, { words, history, ownAddresses, hashes: known.hashes,
+      knownIds: known.knownIds, referencePrice: reference?.price, budgets: known.budgets });
+  };
+  return { pages, homes, findMarket, locations: known.locations, budgets:known.budgets, preferences:known.preferences, ...(reference ? { reference:{title:reference.title,price:reference.price,city:reference.city} } : {}) };
 }
+
+export { normal, mentionsAddress } from "./whatsappResourceLinks";
