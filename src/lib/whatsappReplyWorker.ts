@@ -10,6 +10,8 @@ import {
 import { isWhatsAppReplyEnabled } from "./whatsappReplyEvents";
 import { generateWhatsAppReplySuggestion, selectWhatsAppReplyGenerator } from "./whatsappReplyGenerator";
 
+import { replyResources } from "./whatsappRecommendationContext";
+
 const POLL_MS = 3000;
 const CLAIM_MS = 90_000;
 const MAX_ATTEMPTS = 3;
@@ -62,10 +64,15 @@ async function generate(draft: WaReplyDraft, generator: NonNullable<ReturnType<t
       return;
     }
     const previous = await previousOfficeMessage(draft, messages[0].receivedAt);
+    const inbound = messages.map(message => message.body);
+    const resources = await replyResources(draft, inbound, previous).catch(() => {
+      console.warn("Bronnen voor WhatsApp-aanbevelingen tijdelijk onvolledig");
+      return { homes: [], pages: [] };
+    });
     const current = await prisma.waReplyDraft.findFirst({ where: owned, select: { id: true } });
     if (!current) return;
     const suggestion = await generateWhatsAppReplySuggestion(generator, {
-      inbound: messages.map((message) => message.body),
+      inbound, resources,
       previousOfficeMessage: previous,
     });
     const body = draft.edited && draft.body ? draft.body : suggestion.body;

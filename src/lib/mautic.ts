@@ -1138,6 +1138,23 @@ export async function findUniqueRealworksContact(systemId: string | null, email:
   return null;
 }
 
+/** Public pages this contact has already visited, including visits predating the webhook mirror. */
+export async function visitedContactPages(id: number): Promise<string[]> {
+  const urls: string[] = [];
+  for (let page = 1; page <= 40; page++) {
+    const query = new URLSearchParams({ "filters[includeEvents][]": "page.hit", limit: "100", page: String(page) });
+    const response = await mauticFetch(`/api/contacts/${id}/activity?${query}`, { signal: AbortSignal.timeout(6000) });
+    if (!response.ok) throw Error("Mautic-paginabezoeken niet beschikbaar");
+    const data = await response.json();
+    if (!data.events || !Number.isFinite(Number(data.total))) throw Error("Onvolledige paginabezoeken");
+    for (const e of Object.values(data.events) as { extra?: { hit?: { url?: string } }; eventLabel?: { href?: string; label?: string } }[]) {
+      for (const v of [e.extra?.hit?.url, e.eventLabel?.href, e.eventLabel?.label]) if (typeof v === "string") urls.push(v);
+    }
+    if (page >= Number(data.maxPages) || page * 100 >= Number(data.total)) return urls;
+  }
+  throw Error("Paginahistorie onvolledig");
+}
+
 /** Read a real page; callers must preserve nextStart when displaying history. */
 export async function getMauticNotesPage(contactId:number,start=0,search?:string) {
  const query=new URLSearchParams({start:String(start),limit:'50',...(search?{search}:{})});

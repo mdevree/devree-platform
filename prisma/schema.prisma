@@ -1419,6 +1419,14 @@ model WaReplyThread {
   @@map("wa_reply_threads")
 }
 
+model WaSharedPage {
+  contactId Int
+  pageHash  String @db.Char(64)
+
+  @@id([contactId, pageHash])
+  @@map("wa_shared_pages")
+}
+
 model WaReplyEvent {
   id                String        @id @default(cuid())
   threadId          String        @db.VarChar(64)
